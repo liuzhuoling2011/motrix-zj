@@ -140,8 +140,13 @@ export const usePreferenceStore = defineStore('preference', () => {
   async function resetToDefaults(): Promise<boolean> {
     const currentLocale = config.value.locale
     try {
+      const { generateSecret } = await import('@/composables/useAdvancedPreference')
       const store = await getStore()
-      const defaults = { ...DEFAULT_APP_CONFIG, locale: currentLocale } as AppConfig
+      const defaults = {
+        ...DEFAULT_APP_CONFIG,
+        locale: currentLocale,
+        rpcSecret: generateSecret(),
+      } as AppConfig
       await store.set(STORE_KEY, defaults)
       await store.save()
       config.value = defaults

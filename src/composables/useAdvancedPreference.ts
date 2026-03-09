@@ -4,7 +4,7 @@
  * Contains configuration transforms, secret generation, and port randomization
  * logic that was previously inline in the component's script setup.
  */
-import { ENGINE_RPC_PORT, PROXY_SCOPES, PROXY_SCOPE_OPTIONS } from '@shared/constants'
+import { ENGINE_RPC_PORT, PROXY_SCOPES, PROXY_SCOPE_OPTIONS, DEFAULT_APP_CONFIG as D } from '@shared/constants'
 import { convertCommaToLine, convertLineToComma, generateRandomInt } from '@shared/utils'
 import type { AppConfig } from '@shared/types'
 
@@ -45,10 +45,11 @@ export function generateSecret(): string {
 
 /**
  * Builds the advanced form state from the preference store config.
+ * All fallback values reference DEFAULT_APP_CONFIG (single source of truth).
  * If no RPC secret exists, generates one.
  */
 export function buildAdvancedForm(config: AppConfig): { form: AdvancedForm; generatedSecret: string | null } {
-  const proxy = config.proxy || { enable: false, server: '', bypass: '', scope: [] }
+  const proxy = config.proxy ?? D.proxy
   const savedSecret = config.rpcSecret || ''
   const rpcSecret = savedSecret || generateSecret()
   const generatedSecret = savedSecret ? null : rpcSecret
@@ -56,22 +57,22 @@ export function buildAdvancedForm(config: AppConfig): { form: AdvancedForm; gene
   return {
     form: {
       proxy: {
-        enable: !!proxy.enable,
-        server: proxy.server || '',
-        bypass: proxy.bypass || '',
-        scope: proxy.scope || [...PROXY_SCOPE_OPTIONS],
+        enable: proxy.enable ?? D.proxy.enable,
+        server: proxy.server ?? D.proxy.server,
+        bypass: proxy.bypass ?? D.proxy.bypass,
+        scope: proxy.scope ?? [...PROXY_SCOPE_OPTIONS],
       },
-      trackerSource: config.trackerSource || [],
-      btTracker: convertCommaToLine(config.btTracker || ''),
-      autoSyncTracker: !!config.autoSyncTracker,
-      lastSyncTrackerTime: config.lastSyncTrackerTime || 0,
-      rpcListenPort: config.rpcListenPort || ENGINE_RPC_PORT,
+      trackerSource: config.trackerSource ?? [...D.trackerSource],
+      btTracker: convertCommaToLine(config.btTracker ?? D.btTracker),
+      autoSyncTracker: config.autoSyncTracker ?? D.autoSyncTracker,
+      lastSyncTrackerTime: config.lastSyncTrackerTime ?? D.lastSyncTrackerTime,
+      rpcListenPort: config.rpcListenPort ?? D.rpcListenPort,
       rpcSecret,
-      enableUpnp: config.enableUpnp !== false,
-      listenPort: Number(config.listenPort) || 21301,
-      dhtListenPort: Number(config.dhtListenPort) || 26701,
-      userAgent: config.userAgent || '',
-      logLevel: config.logLevel || 'warn',
+      enableUpnp: config.enableUpnp ?? D.enableUpnp,
+      listenPort: Number(config.listenPort) || Number(D.listenPort),
+      dhtListenPort: Number(config.dhtListenPort) || Number(D.dhtListenPort),
+      userAgent: config.userAgent ?? D.userAgent,
+      logLevel: config.logLevel ?? D.logLevel,
     },
     generatedSecret,
   }

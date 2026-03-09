@@ -162,6 +162,14 @@ export interface AppConfig {
   listenPort: string
   dhtListenPort: string
   btTracker: string
+  btSaveMetadata: boolean
+  btForceEncryption: boolean
+  followTorrent: boolean
+  followMetalink: boolean
+  pauseMetadata: boolean
+  continue: boolean
+  autoCheckUpdateInterval: number
+  enableUpnp: boolean
   [key: string]: unknown
 }
 

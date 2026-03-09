@@ -54,7 +54,7 @@ describe('buildAdvancedForm', () => {
     expect(form.listenPort).toBe(21301)
     expect(form.dhtListenPort).toBe(26701)
     expect(form.logLevel).toBe('warn')
-    expect(form.enableUpnp).toBe(true)
+    expect(form.enableUpnp).toBe(false)
   })
 
   it('generates a secret and flags it when none exists', () => {

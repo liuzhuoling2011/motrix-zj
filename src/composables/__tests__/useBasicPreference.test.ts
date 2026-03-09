@@ -23,7 +23,7 @@ describe('buildBasicForm', () => {
     expect(form.theme).toBe('auto')
     expect(form.maxConcurrentDownloads).toBe(5)
     expect(form.maxConnectionPerServer).toBe(16)
-    expect(form.keepSeeding).toBe(true)
+    expect(form.keepSeeding).toBe(false)
     expect(form.seedRatio).toBe(1)
     expect(form.seedTime).toBe(60)
     expect(form.continue).toBe(true)

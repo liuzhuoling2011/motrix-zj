@@ -57,58 +57,91 @@ export const UPDATE_CHANNELS = ['stable', 'beta'] as const
 
 /**
  * Factory default values for every AppConfig field.
- * Used by preference store initialization and the "Restore Defaults" action.
+ * **This is the single source of truth** for both first-launch initialization
+ * and the "Restore Defaults" action. All fallbacks in buildBasicForm() and
+ * buildAdvancedForm() must reference these values via `?? D.field`.
  *
- * - `locale: ''` → falls back to OS locale detection at startup
- * - `dir: ''`    → falls back to system Downloads directory at runtime
+ * Each value is justified by industry research:
+ * - aria2 official defaults (concurrent=5, split=5, conn/server=1)
+ * - BT client conventions (qBittorrent, Transmission, Deluge)
+ * - Download manager standards (IDM, FDM, Motrix)
+ * - Security best practices (UPnP off, rpcSecret generated at runtime)
+ *
+ * Dynamic values handled at runtime:
+ * - `locale: ''`    → OS locale detection in main.ts
+ * - `dir: ''`       → system Downloads directory via Tauri API
+ * - `rpcSecret: ''` → random 16-char secret generated in main.ts / resetToDefaults()
  */
 export const DEFAULT_APP_CONFIG = {
+  // ── Appearance ──────────────────────────────────────────────────
   theme: 'auto' as const,
   locale: '',
+
+  // ── Download Core (aria2 defaults: concurrent=5, split=5, conn/server=1) ──
   dir: '',
-  split: 16,
-  maxConcurrentDownloads: ENGINE_MAX_CONCURRENT_DOWNLOADS,
-  maxConnectionPerServer: ENGINE_MAX_CONNECTION_PER_SERVER,
-  maxOverallDownloadLimit: '',
-  maxOverallUploadLimit: '',
+  split: 16, // aria2 default=5; 16 segments balances modern bandwidth
+  maxConcurrentDownloads: 5, // aria2 default; IDM=4, FDM=3~12
+  maxConnectionPerServer: 16, // aria2 default=1 (too conservative); IDM=8; 16 is community sweet spot
+  maxOverallDownloadLimit: '0',
+  maxOverallUploadLimit: '0',
   maxDownloadLimit: '',
   maxUploadLimit: '',
-  seedTime: 0,
-  seedRatio: 0,
-  openAtLogin: false,
-  autoCheckUpdate: true,
+
+  // ── BitTorrent (qBT/Transmission/Deluge conventions) ──────────
+  seedRatio: 1, // Deluge=1, Transmission=2; 1:1 is BT community minimum etiquette
+  seedTime: 60, // Deluge=180min; 60min is beginner-friendly
+  keepSeeding: false, // qBT stops at ratio; safer default for new users
+  btSaveMetadata: false, // most clients don't save metadata by default
+  btForceEncryption: false, // qBT default "Allow", not "Force"; forcing reduces peers
+  followTorrent: true, // aria2 default=true
+  followMetalink: true, // aria2 default=true
+  pauseMetadata: false, // don't pause metadata download
+  continue: true, // aria2 default=true; resume incomplete downloads
+
+  // ── Interface & Behavior ──────────────────────────────────────
+  openAtLogin: false, // never auto-start on first install
+  keepWindowState: false, // first launch has no saved state
   autoHideWindow: false,
-  minimizeToTrayOnClose: false,
-  autoSyncTracker: true,
-  keepSeeding: false,
-  keepWindowState: true,
-  newTaskShowDownloading: true,
-  noConfirmBeforeDeleteTask: false,
-  resumeAllWhenAppLaunched: false,
-  taskNotification: true,
+  minimizeToTrayOnClose: false, // close=quit is default UX
   showProgressBar: true,
-  traySpeedometer: true,
-  dockBadgeSpeed: false,
+  traySpeedometer: true, // Motrix signature feature
+  dockBadgeSpeed: false, // macOS Dock badge off by default
+  taskNotification: true, // users expect download-complete notifications
+  newTaskShowDownloading: true, // auto-navigate to downloads after adding task
+  noConfirmBeforeDeleteTask: false, // require confirmation to prevent accidental deletion
+  resumeAllWhenAppLaunched: false, // don't flood bandwidth on launch
   hideAppMenu: false,
-  logLevel: 'warn',
-  engineBinPath: '',
-  engineMaxConnectionPerServer: ENGINE_MAX_CONNECTION_PER_SERVER,
-  cookie: '',
-  proxy: { enable: false, server: '', bypass: '', scope: [] },
-  protocols: { magnet: false, thunder: false },
-  trackerSource: [],
-  historyDirectories: [],
-  favoriteDirectories: [],
-  lastCheckUpdateTime: 0,
-  lastSyncTrackerTime: 0,
+
+  // ── Auto Update ───────────────────────────────────────────────
+  autoCheckUpdate: true, // qBT checks every launch; security best practice
+  autoCheckUpdateInterval: 24, // 24h (daily) is standard check frequency
   updateChannel: 'stable' as const,
-  runMode: '',
-  userAgent: '',
+  lastCheckUpdateTime: 0,
+
+  // ── Network & Security ────────────────────────────────────────
+  enableUpnp: false, // security consensus: UPnP has zero-auth design, default OFF
   rpcListenPort: ENGINE_RPC_PORT,
-  rpcSecret: '',
+  rpcSecret: '', // generated dynamically at runtime (main.ts / resetToDefaults)
   listenPort: '21301',
   dhtListenPort: '26701',
+  proxy: { enable: false, server: '', bypass: '', scope: [] as string[] },
+  protocols: { magnet: false, thunder: false },
+  userAgent: '',
+  logLevel: 'warn', // production-standard log level
+  cookie: '',
+  runMode: '',
+  engineBinPath: '',
+  engineMaxConnectionPerServer: 16, // mirrors maxConnectionPerServer
+
+  // ── Tracker ───────────────────────────────────────────────────
+  autoSyncTracker: true,
+  trackerSource: [] as string[], // populated from DEFAULT_TRACKER_SOURCE below at runtime
   btTracker: '',
+  lastSyncTrackerTime: 0,
+
+  // ── Directories ───────────────────────────────────────────────
+  historyDirectories: [] as string[],
+  favoriteDirectories: [] as string[],
 }
 
 export const MAX_BT_TRACKER_LENGTH = 6144
@@ -145,6 +178,12 @@ export const XIU2_TRACKERS_BLACK_URL = 'https://cdn.jsdelivr.net/gh/XIU2/Tracker
 
 /** Sensible default tracker sources for first install (CDN endpoints). */
 export const DEFAULT_TRACKER_SOURCE = [NGOSANG_TRACKERS_BEST_URL_CDN, NGOSANG_TRACKERS_BEST_IP_URL_CDN]
+
+// Backfill DEFAULT_APP_CONFIG.trackerSource now that the URLs are defined.
+// This preserves the single-source-of-truth invariant: DEFAULT_APP_CONFIG
+// is the authoritative set of defaults, and trackerSource is populated
+// once JS finishes evaluating all module-level constants.
+;(DEFAULT_APP_CONFIG as Record<string, unknown>).trackerSource = [...DEFAULT_TRACKER_SOURCE]
 
 export const TRACKER_SOURCE_OPTIONS = [
   {
