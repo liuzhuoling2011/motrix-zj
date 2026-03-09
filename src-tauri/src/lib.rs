@@ -1,6 +1,7 @@
 mod commands;
 mod engine;
 mod error;
+#[cfg(target_os = "macos")]
 mod menu;
 mod tray;
 mod upnp;

@@ -49,10 +49,14 @@ jobs:
         with:
           workspaces: src-tauri
 
+      # Suppress Ubuntu 24.04 needrestart daemon (auto-restarts services on
+      # package install, can kill the runner agent and cause "operation canceled").
       - name: Install system dependencies
         run: |
+          export NEEDRESTART_SUSPEND=1
+          export DEBIAN_FRONTEND=noninteractive
           sudo apt-get update
-          sudo apt-get install -y \
+          sudo -E apt-get install -y \
             libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf
 
