@@ -15,8 +15,18 @@ import {
   ArrowUpCircleOutline,
   ArrowDownCircleOutline,
 } from '@vicons/ionicons5'
-import { isDowngrade } from '@shared/utils/semver'
 import { usePreferenceStore } from '@/stores/preference'
+import {
+  isActionDisabled,
+  getActionLabel,
+  getActionType,
+  getActionTarget,
+  isUpdateRollback,
+  calcProgressPercent,
+  bytesToMB,
+  getUpdateProxy as resolveProxy,
+  formatUpdateError,
+} from '@/composables/useUpdateFlow'
 
 interface UpdateMetadata {
   version: string
@@ -57,49 +67,28 @@ const downloadCancelled = ref(false)
 const activeChannel = ref('stable')
 let progressUnlisten: UnlistenFn | null = null
 
-const progressPercent = computed(() => {
-  if (downloadTotal.value <= 0) return 0
-  return Math.round((downloadReceived.value / downloadTotal.value) * 100)
-})
+const progressPercent = computed(() => calcProgressPercent(downloadReceived.value, downloadTotal.value))
 
 // ── Version direction detection ──────────────────────────────────────
-const isRollback = computed(() => {
-  if (!currentVersion.value || !version.value) return false
-  return isDowngrade(currentVersion.value, version.value)
-})
+const isRollback = computed(() => isUpdateRollback(currentVersion.value, version.value))
 
 // ── Action button state machine ──────────────────────────────────────
-const actionDisabled = computed(() => ['checking', 'up-to-date'].includes(phase.value))
-const actionLabel = computed(() => {
-  if (phase.value === 'error') return t('app.retry')
-  if (phase.value === 'downloading') return t('app.cancel')
-  if (phase.value === 'ready') return t('preferences.restart-now')
-  if (isRollback.value) return t('preferences.download-and-switch')
-  return t('preferences.update-and-install')
-})
-const actionType = computed(() => {
-  if (phase.value === 'downloading') return 'default' as const
-  if (phase.value === 'error') return 'info' as const
-  if (actionDisabled.value) return 'default' as const
-  return 'primary' as const
-})
+const actionDisabled = computed(() => isActionDisabled(phase.value))
+const actionLabel = computed(() => getActionLabel(phase.value, isRollback.value))
+const actionType = computed(() => getActionType(phase.value))
 function handleActionClick() {
-  if (phase.value === 'available') startDownload()
-  else if (phase.value === 'downloading') cancelDownload()
-  else if (phase.value === 'ready') handleRelaunch()
-  else if (phase.value === 'error') open()
+  const target = getActionTarget(phase.value)
+  if (target === 'download') startDownload()
+  else if (target === 'cancel') cancelDownload()
+  else if (target === 'relaunch') handleRelaunch()
+  else if (target === 'retry') open()
 }
-/** Returns the proxy server URL if proxy is enabled for app updates. */
 function getUpdateProxy(): string | null {
-  const proxy = preferenceStore.config.proxy
-  if (!proxy?.enable || !proxy.server) return null
-  const scope = proxy.scope || []
-  if (!scope.includes('update-app')) return null
-  return proxy.server
+  return resolveProxy(preferenceStore.config.proxy)
 }
 
-const downloadedMB = computed(() => (downloadReceived.value / 1048576).toFixed(1))
-const totalMB = computed(() => (downloadTotal.value / 1048576).toFixed(1))
+const downloadedMB = computed(() => bytesToMB(downloadReceived.value))
+const totalMB = computed(() => bytesToMB(downloadTotal.value))
 
 async function open(channel?: string) {
   const ch = channel || preferenceStore.config.updateChannel || 'stable'
@@ -128,7 +117,7 @@ async function open(channel?: string) {
       phase.value = 'up-to-date'
     }
   } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : typeof e === 'string' ? e : JSON.stringify(e)
+    errorMsg.value = formatUpdateError(e)
     phase.value = 'error'
   }
 }
@@ -160,7 +149,7 @@ async function startDownload() {
     }
   } catch (e) {
     if (!downloadCancelled.value) {
-      errorMsg.value = e instanceof Error ? e.message : typeof e === 'string' ? e : JSON.stringify(e)
+      errorMsg.value = formatUpdateError(e)
       phase.value = 'error'
     }
   } finally {

@@ -8,9 +8,18 @@ import { usePreferenceForm } from '@/composables/usePreferenceForm'
 import { useTaskStore } from '@/stores/task'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { appDataDir, resolveResource } from '@tauri-apps/api/path'
-import { ENGINE_RPC_PORT, LOG_LEVELS, PROXY_SCOPES, PROXY_SCOPE_OPTIONS } from '@shared/constants'
-import { convertCommaToLine, convertLineToComma, generateRandomInt } from '@shared/utils'
+import { LOG_LEVELS, PROXY_SCOPE_OPTIONS } from '@shared/constants'
 import { convertTrackerDataToLine } from '@shared/utils/tracker'
+import {
+  generateSecret,
+  buildAdvancedForm,
+  buildAdvancedSystemConfig,
+  transformAdvancedForStore,
+  validateAdvancedForm,
+  randomRpcPort,
+  randomBtPort,
+  randomDhtPort,
+} from '@/composables/useAdvancedPreference'
 import userAgentMap from '@shared/ua'
 import {
   NForm,
@@ -146,40 +155,14 @@ const aria2ConfPath = ref('')
 const sessionPath = ref('')
 const logPath = ref('')
 
-function generateSecret(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-  const values = crypto.getRandomValues(new Uint8Array(16))
-  return Array.from(values, (v) => chars[v % chars.length]).join('')
-}
-
 const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceForm({
   buildForm,
-  buildSystemConfig: (f) => {
-    const proxyForDownloads =
-      f.proxy.enable && Array.isArray(f.proxy.scope) && f.proxy.scope.includes(PROXY_SCOPES.DOWNLOAD)
-    return {
-      'rpc-listen-port': String(f.rpcListenPort),
-      'rpc-secret': f.rpcSecret,
-      'enable-dht': 'true',
-      'enable-peer-exchange': 'true',
-      'listen-port': String(f.listenPort),
-      'dht-listen-port': String(f.dhtListenPort),
-      'user-agent': f.userAgent || '',
-      'log-level': f.logLevel || 'warn',
-      'bt-tracker': convertLineToComma(f.btTracker),
-      'all-proxy': proxyForDownloads ? f.proxy.server : '',
-      'no-proxy': proxyForDownloads ? f.proxy.bypass || '' : '',
-    }
-  },
-  transformForStore: (f) => ({
-    ...f,
-    btTracker: convertLineToComma(f.btTracker),
-    listenPort: String(f.listenPort),
-    dhtListenPort: String(f.dhtListenPort),
-  }),
+  buildSystemConfig: buildAdvancedSystemConfig,
+  transformForStore: transformAdvancedForStore,
   beforeSave: (f) => {
-    if (!f.rpcSecret) {
-      message.error(t('preferences.rpc-secret-empty-warning'))
+    const error = validateAdvancedForm(f)
+    if (error) {
+      message.error(t(error))
       return false
     }
     return true
@@ -194,32 +177,16 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
 
 function buildForm() {
   const c = preferenceStore.config
-  const proxy = c.proxy || { enable: false, server: '', bypass: '', scope: [] }
-  const savedSecret = c.rpcSecret || ''
-  const rpcSecret = savedSecret || generateSecret()
-  if (!savedSecret) {
-    preferenceStore.updateAndSave({ rpcSecret })
+  const { form: formData, generatedSecret } = buildAdvancedForm(c)
+  // Side effect: persist auto-generated secret
+  if (generatedSecret) {
+    preferenceStore.updateAndSave({ rpcSecret: generatedSecret })
   }
-  return {
-    proxy: {
-      enable: !!proxy.enable,
-      server: proxy.server || '',
-      bypass: proxy.bypass || '',
-      scope: proxy.scope || [...PROXY_SCOPE_OPTIONS],
-    },
-    trackerSource: c.trackerSource || [...DEFAULT_TRACKER_SOURCE],
-    btTracker: convertCommaToLine(c.btTracker || ''),
-    autoSyncTracker: !!c.autoSyncTracker,
-    lastSyncTrackerTime: c.lastSyncTrackerTime || 0,
-    rpcListenPort: c.rpcListenPort || ENGINE_RPC_PORT,
-    rpcSecret,
-    enableUpnp: c.enableUpnp !== false,
-    listenPort: Number(c.listenPort) || 21301,
-    dhtListenPort: Number(c.dhtListenPort) || 26701,
-
-    userAgent: c.userAgent || '',
-    logLevel: c.logLevel || 'warn',
+  // Restore trackerSource default that buildAdvancedForm doesn't know about
+  if (!c.trackerSource) {
+    formData.trackerSource = [...DEFAULT_TRACKER_SOURCE]
   }
+  return formData
 }
 
 function loadForm() {
@@ -267,7 +234,7 @@ async function handleSyncTracker() {
 }
 
 function onRpcPortDice() {
-  form.value.rpcListenPort = generateRandomInt(ENGINE_RPC_PORT, 20000)
+  form.value.rpcListenPort = randomRpcPort()
 }
 
 function onRpcSecretDice() {
@@ -275,11 +242,11 @@ function onRpcSecretDice() {
 }
 
 function onBtPortDice() {
-  form.value.listenPort = generateRandomInt(20000, 24999)
+  form.value.listenPort = randomBtPort()
 }
 
 function onDhtPortDice() {
-  form.value.dhtListenPort = generateRandomInt(25000, 29999)
+  form.value.dhtListenPort = randomDhtPort()
 }
 
 // ─── UPnP Save-time Sync ─────────────────────────────────────────────

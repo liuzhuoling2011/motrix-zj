@@ -7,10 +7,14 @@ import { useAppStore } from '@/stores/app'
 import { useTaskStore } from '@/stores/task'
 import { usePreferenceStore } from '@/stores/preference'
 import { ADD_TASK_TYPE } from '@shared/constants'
-import { isEngineReady } from '@/api/aria2'
 import { detectResource, bytesToSize } from '@shared/utils'
-import { buildOuts } from '@shared/utils/rename'
-import { normalizeUriLines, mergeUriLines } from '@shared/utils/batchHelpers'
+import { mergeUriLines } from '@shared/utils/batchHelpers'
+import {
+  buildEngineOptions,
+  classifySubmitError,
+  submitBatchItems,
+  submitManualUris,
+} from '@/composables/useAddTaskSubmit'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { downloadDir } from '@tauri-apps/api/path'
 import { readFile } from '@tauri-apps/plugin-fs'
@@ -39,7 +43,7 @@ import {
 } from 'naive-ui'
 import { useAppMessage } from '@/composables/useAppMessage'
 import type { DataTableColumns } from 'naive-ui'
-import type { Aria2EngineOptions, BatchItem } from '@shared/types'
+import type { BatchItem } from '@shared/types'
 import { FolderOpenOutline } from '@vicons/ionicons5'
 import TorrentUpload from './addtask/TorrentUpload.vue'
 import AdvancedOptions from './addtask/AdvancedOptions.vue'
@@ -368,26 +372,13 @@ async function handleSubmit() {
   submitting.value = true
 
   try {
-    const options: Aria2EngineOptions = {
-      dir: form.value.dir,
-      split: String(form.value.split),
-    }
-    if (form.value.out) options.out = form.value.out
-    if (form.value.userAgent) options['user-agent'] = form.value.userAgent
-    if (form.value.referer) options.referer = form.value.referer
-    const headers: string[] = []
-    if (form.value.cookie) headers.push(`Cookie: ${form.value.cookie}`)
-    if (form.value.authorization) headers.push(`Authorization: ${form.value.authorization}`)
-    if (headers.length > 0) options.header = headers
-    if (form.value.allProxy) options['all-proxy'] = form.value.allProxy
+    const options = buildEngineOptions(form.value)
 
-    // Submit file-based batch items (torrent/metalink only)
     if (hasBatch.value) {
-      await submitBatch(options)
+      await submitBatchItems(batch.value, options, taskStore)
     }
-    // URI always goes through the editable textarea — single source of truth
     if (form.value.uris.trim()) {
-      await submitManualUris(options)
+      await submitManualUris(form.value, options, taskStore)
     }
 
     const failed = batch.value.filter((i) => i.status === 'failed')
@@ -401,65 +392,18 @@ async function handleSubmit() {
       }
     }
   } catch (e: unknown) {
+    const category = classifySubmitError(e)
     const errMsg = e instanceof Error ? e.message : String(e)
     logger.error('AddTask.submit', e)
-    if (errMsg.includes('not initialized') || !isEngineReady()) {
+    if (category === 'engine-not-ready') {
       message.error(t('app.engine-not-ready'), { duration: 5000, closable: true })
-    } else if (/duplicate|already/i.test(errMsg)) {
+    } else if (category === 'duplicate') {
       message.warning(errMsg, { duration: 5000, closable: true })
     } else {
       message.error(errMsg, { duration: 5000, closable: true })
     }
   } finally {
     submitting.value = false
-  }
-}
-
-async function submitBatch(options: Aria2EngineOptions) {
-  for (const item of batch.value) {
-    if (item.kind === 'uri') continue // URI handled exclusively by submitManualUris
-    if (item.status !== 'pending' && item.status !== 'failed') continue
-    try {
-      if (item.kind === 'torrent') {
-        const opts: Aria2EngineOptions = { ...options }
-        delete opts.out
-        if (
-          item.selectedFileIndices &&
-          item.torrentMeta &&
-          item.selectedFileIndices.length > 0 &&
-          item.selectedFileIndices.length < item.torrentMeta.files.length
-        ) {
-          opts['select-file'] = item.selectedFileIndices.join(',')
-        }
-        await taskStore.addTorrent({ torrent: item.payload, options: opts })
-      } else if (item.kind === 'metalink') {
-        const opts: Aria2EngineOptions = { ...options }
-        delete opts.out
-        await taskStore.addMetalink({ metalink: item.payload, options: opts })
-      }
-      item.status = 'submitted'
-    } catch (e) {
-      item.status = 'failed'
-      item.error = e instanceof Error ? e.message : String(e)
-    }
-  }
-}
-
-async function submitManualUris(options: Aria2EngineOptions) {
-  if (!form.value.uris.trim()) return
-  const uris = normalizeUriLines(form.value.uris)
-  if (uris.length > 1 && form.value.out) {
-    delete options.out
-    let outs = buildOuts(uris, form.value.out)
-    if (outs.length === 0) {
-      const dotIdx = form.value.out.lastIndexOf('.')
-      const base = dotIdx > 0 ? form.value.out.substring(0, dotIdx) : form.value.out
-      const ext = dotIdx > 0 ? form.value.out.substring(dotIdx) : ''
-      outs = uris.map((_, i) => `${base}_${i + 1}${ext}`)
-    }
-    await taskStore.addUri({ uris, outs, options })
-  } else {
-    await taskStore.addUri({ uris, outs: [], options })
   }
 }
 

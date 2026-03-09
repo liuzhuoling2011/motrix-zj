@@ -10,7 +10,7 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { downloadDir } from '@tauri-apps/api/path'
 import { extractSpeedUnit } from '@shared/utils'
 import { logger } from '@shared/logger'
-import type { AppConfig } from '@shared/types'
+import { buildBasicForm, buildBasicSystemConfig, transformBasicForStore } from '@/composables/useBasicPreference'
 import {
   NForm,
   NFormItem,
@@ -57,76 +57,13 @@ const checkIntervalOptions = [
 ]
 
 function buildForm() {
-  const config = preferenceStore.config
-  const followTorrent = config.followTorrent !== false
-  const followMetalink = config.followMetalink !== false
-  const pauseMetadata = !!config.pauseMetadata
-  const btAutoDownloadContent = followTorrent && followMetalink && !pauseMetadata
-  return {
-    autoCheckUpdate: config.autoCheckUpdate !== false,
-    autoCheckUpdateInterval: Number(config.autoCheckUpdateInterval) || 24,
-    lastCheckUpdateTime: config.lastCheckUpdateTime || 0,
-    updateChannel: config.updateChannel || 'stable',
-    dir: config.dir || defaultDownloadDir.value,
-    locale: config.locale || 'en-US',
-    theme: config.theme ?? 'auto',
-    openAtLogin: !!config.openAtLogin,
-    keepWindowState: !!config.keepWindowState,
-    resumeAllWhenAppLaunched: !!config.resumeAllWhenAppLaunched,
-    autoHideWindow: !!config.autoHideWindow,
-    minimizeToTrayOnClose: !!config.minimizeToTrayOnClose,
-    showProgressBar: !!config.showProgressBar,
-    traySpeedometer: !!config.traySpeedometer,
-    dockBadgeSpeed: config.dockBadgeSpeed !== false,
-    taskNotification: config.taskNotification !== false,
-    newTaskShowDownloading: config.newTaskShowDownloading !== false,
-    noConfirmBeforeDeleteTask: !!config.noConfirmBeforeDeleteTask,
-    maxConcurrentDownloads: config.maxConcurrentDownloads || 5,
-    maxConnectionPerServer: config.maxConnectionPerServer || 16,
-    maxOverallDownloadLimit: String(config.maxOverallDownloadLimit || '0'),
-    maxOverallUploadLimit: String(config.maxOverallUploadLimit || '0'),
-    btSaveMetadata: !!config.btSaveMetadata,
-    btAutoDownloadContent,
-    btForceEncryption: !!config.btForceEncryption,
-    keepSeeding: config.keepSeeding !== false,
-    seedRatio: config.seedRatio || 1,
-    seedTime: config.seedTime || 60,
-    continue: config.continue !== false,
-  }
+  return buildBasicForm(preferenceStore.config, defaultDownloadDir.value)
 }
 
 const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } = usePreferenceForm({
   buildForm,
-  buildSystemConfig: (f) => ({
-    dir: f.dir,
-    'max-concurrent-downloads': String(f.maxConcurrentDownloads),
-    'max-connection-per-server': String(f.maxConnectionPerServer),
-    'max-overall-download-limit': f.maxOverallDownloadLimit,
-    'max-overall-upload-limit': f.maxOverallUploadLimit,
-    'bt-save-metadata': String(!!f.btSaveMetadata),
-    'bt-force-encryption': String(!!f.btForceEncryption),
-    'seed-ratio': String(f.seedRatio),
-    'seed-time': String(f.seedTime),
-    'keep-seeding': String(!!f.keepSeeding),
-    'follow-torrent': String(!(f as Record<string, unknown>).btAutoDownloadContent ? false : true),
-    'follow-metalink': String(!(f as Record<string, unknown>).btAutoDownloadContent ? false : true),
-    'pause-metadata': String(!(f as Record<string, unknown>).btAutoDownloadContent ? true : false),
-    continue: String(f.continue !== false),
-  }),
-  transformForStore: (f) => {
-    const data: Partial<AppConfig> = { ...f }
-    if (f.btAutoDownloadContent) {
-      data.followTorrent = true
-      data.followMetalink = true
-      data.pauseMetadata = false
-    } else {
-      data.followTorrent = false
-      data.followMetalink = false
-      data.pauseMetadata = true
-    }
-    delete (data as Record<string, unknown>).btAutoDownloadContent
-    return data
-  },
+  buildSystemConfig: buildBasicSystemConfig,
+  transformForStore: transformBasicForStore,
   afterSave: async (f, prevConfig) => {
     // Locale change → restart prompt
     const prevLocale = prevConfig.locale || 'en-US'
