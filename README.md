@@ -97,7 +97,7 @@ Download the latest release from [GitHub Releases](https://github.com/AnInsomnia
 > If macOS says the app is **"damaged and can't be opened"**, open Terminal and run:
 >
 > ```bash
-> xattr -cr /Applications/Motrix\ Next.app
+> xattr -cr /Applications/MotrixNext.app
 > ```
 >
 > This removes the quarantine flag that macOS Gatekeeper applies to unsigned apps.
