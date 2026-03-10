@@ -218,3 +218,112 @@ pub fn update_dock_badge(app: AppHandle, label: String) -> Result<(), AppError> 
     let _ = label;
     Ok(())
 }
+
+/// Toggles the macOS Dock icon visibility at runtime.
+/// `Accessory` hides the icon (menu-bar-only mode); `Regular` restores it.
+/// No-op on non-macOS platforms.
+#[tauri::command]
+pub fn set_dock_visible(app: AppHandle, visible: bool) -> Result<(), AppError> {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::ActivationPolicy;
+        let _ = app.set_activation_policy(if visible {
+            ActivationPolicy::Regular
+        } else {
+            ActivationPolicy::Accessory
+        });
+    }
+    let _ = (app, visible);
+    Ok(())
+}
+
+/// Probes a list of tracker URLs for reachability via HTTP HEAD requests.
+/// UDP and WSS trackers cannot be probed from HTTP and are marked `"unknown"`.
+/// Returns a JSON map of `{ url: "online" | "offline" | "unknown" }`.
+#[tauri::command]
+pub async fn probe_trackers(urls: Vec<String>) -> Result<Value, AppError> {
+    use std::collections::HashMap;
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .danger_accept_invalid_certs(true)
+        .redirect(reqwest::redirect::Policy::limited(3))
+        .build()
+        .map_err(|e| AppError::Io(e.to_string()))?;
+
+    let mut results: HashMap<String, String> = HashMap::new();
+
+    for url in &urls {
+        if url.starts_with("udp://") || url.starts_with("wss://") {
+            results.insert(url.clone(), "unknown".to_string());
+            continue;
+        }
+        let status = match client.head(url).send().await {
+            Ok(_) => "online",
+            Err(_) => "offline",
+        };
+        results.insert(url.clone(), status.to_string());
+    }
+
+    serde_json::to_value(results).map_err(|e| AppError::Io(e.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_probe_classifies_udp_as_unknown() {
+        let urls = vec!["udp://tracker.example.com:6969".to_string()];
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(probe_trackers(urls)).unwrap();
+        let map = result.as_object().unwrap();
+        assert_eq!(
+            map.get("udp://tracker.example.com:6969")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "unknown"
+        );
+    }
+
+    #[test]
+    fn test_probe_classifies_wss_as_unknown() {
+        let urls = vec!["wss://tracker.example.com/announce".to_string()];
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(probe_trackers(urls)).unwrap();
+        let map = result.as_object().unwrap();
+        assert_eq!(
+            map.get("wss://tracker.example.com/announce")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "unknown"
+        );
+    }
+
+    #[test]
+    fn test_probe_empty_list_returns_empty() {
+        let urls: Vec<String> = vec![];
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(probe_trackers(urls)).unwrap();
+        let map = result.as_object().unwrap();
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn test_probe_unreachable_http_returns_offline() {
+        // Use an invalid host that will fail to connect within the timeout
+        let urls = vec!["http://192.0.2.1:1/announce".to_string()];
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(probe_trackers(urls)).unwrap();
+        let map = result.as_object().unwrap();
+        assert_eq!(
+            map.get("http://192.0.2.1:1/announce")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "offline"
+        );
+    }
+}

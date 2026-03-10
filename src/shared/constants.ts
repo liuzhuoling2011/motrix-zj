@@ -103,6 +103,7 @@ export const DEFAULT_APP_CONFIG = {
   keepWindowState: false, // first launch has no saved state
   autoHideWindow: false,
   minimizeToTrayOnClose: false, // close=quit is default UX
+  hideDockOnMinimize: false, // macOS: hide Dock icon when minimized to tray
   showProgressBar: true,
   traySpeedometer: true, // Motrix signature feature
   dockBadgeSpeed: true, // macOS Dock badge on by default
@@ -110,7 +111,6 @@ export const DEFAULT_APP_CONFIG = {
   newTaskShowDownloading: true, // auto-navigate to downloads after adding task
   noConfirmBeforeDeleteTask: false, // require confirmation to prevent accidental deletion
   resumeAllWhenAppLaunched: false, // don't flood bandwidth on launch
-  hideAppMenu: false,
 
   // ── Auto Update ───────────────────────────────────────────────
   autoCheckUpdate: true, // qBT checks every launch; security best practice

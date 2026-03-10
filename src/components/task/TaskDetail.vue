@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** @fileoverview Detailed task view with file list, peers, and BT info. */
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { TASK_STATUS } from '@shared/constants'
 import {
@@ -27,7 +27,7 @@ import {
   NIcon,
   NProgress,
   NTag,
-  NInput,
+  NButton,
 } from 'naive-ui'
 import {
   InformationCircleOutline,
@@ -37,6 +37,7 @@ import {
   ServerOutline,
 } from '@vicons/ionicons5'
 import TaskGraphic from './TaskGraphic.vue'
+import { useTrackerProbe, buildTrackerRows, type TrackerRow } from '@/composables/useTrackerProbe'
 import type { Aria2Task, Aria2File, Aria2Peer } from '@shared/types'
 
 const props = defineProps<{
@@ -187,23 +188,87 @@ const peers = computed(() => {
     percent: peer.bitfield ? bitfieldToPercent(peer.bitfield) + '%' : '-',
     uploadSpeed: bytesToSize(peer.uploadSpeed) + '/s',
     downloadSpeed: bytesToSize(peer.downloadSpeed) + '/s',
+    amChoking: peer.amChoking === 'true',
+    peerChoking: peer.peerChoking === 'true',
+    seeder: peer.seeder === 'true',
   }))
 })
 
-const peerColumns = [
-  { title: t('task.task-peer-host') || 'Host', key: 'host', minWidth: 140 },
-  { title: t('task.task-peer-client') || 'Client', key: 'client', minWidth: 120 },
-  { title: '%', key: 'percent', width: 60, align: 'right' as const },
-  { title: '↑', key: 'uploadSpeed', width: 100, align: 'right' as const },
-  { title: '↓', key: 'downloadSpeed', width: 100, align: 'right' as const },
-]
+interface PeerRow {
+  host: string
+  client: string
+  percent: string
+  uploadSpeed: string
+  downloadSpeed: string
+  amChoking: boolean
+  peerChoking: boolean
+  seeder: boolean
+}
 
-const announceList = computed(() => {
-  if (!isBT.value || !btInfo.value) return ''
-  const list = btInfo.value.announceList
-  if (!list) return ''
-  return list.join('\n')
+const peerColumns = computed(() => [
+  { title: t('task.task-peer-host') || 'Host', key: 'host', minWidth: 140 },
+  { title: t('task.task-peer-client') || 'Client', key: 'client', minWidth: 100, ellipsis: { tooltip: true } },
+  { title: '%', key: 'percent', width: 55, align: 'right' as const },
+  { title: '↓', key: 'downloadSpeed', width: 90, align: 'right' as const },
+  { title: '↑', key: 'uploadSpeed', width: 90, align: 'right' as const },
+  {
+    title: t('task.task-peer-flags') || 'Flags',
+    key: 'flags',
+    width: 60,
+    align: 'center' as const,
+    render: (row: PeerRow) => {
+      const flags: string[] = []
+      if (!row.amChoking) flags.push('D')
+      if (!row.peerChoking) flags.push('U')
+      return flags.join('') || '—'
+    },
+  },
+  {
+    title: 'S',
+    key: 'seeder',
+    width: 30,
+    align: 'center' as const,
+    render: (row: PeerRow) => (row.seeder ? '✓' : ''),
+  },
+])
+
+const { statuses: trackerStatuses, probing: trackerProbing, probeAll: probeTrackers } = useTrackerProbe()
+
+const trackerRows = computed((): TrackerRow[] => {
+  if (!isBT.value || !btInfo.value) return []
+  const rows = buildTrackerRows(btInfo.value.announceList)
+  return rows.map((row) => ({
+    ...row,
+    status: trackerStatuses.value[row.url] ?? row.status,
+  }))
 })
+
+const trackerColumns = computed(() => [
+  { title: '#', key: 'tier', width: 40, align: 'center' as const },
+  { title: 'URL', key: 'url', ellipsis: { tooltip: true } },
+  { title: t('task.task-tracker-protocol') || 'Protocol', key: 'protocol', width: 75, align: 'center' as const },
+  {
+    title: t('task.task-tracker-status') || 'Status',
+    key: 'status',
+    width: 80,
+    align: 'center' as const,
+    render: (row: TrackerRow) =>
+      h(
+        NTag,
+        {
+          type: row.status === 'online' ? 'success' : row.status === 'offline' ? 'error' : 'default',
+          size: 'small',
+          round: true,
+        },
+        () => row.status,
+      ),
+  },
+])
+
+function handleProbeTrackers() {
+  const urls = trackerRows.value.map((r) => r.url)
+  probeTrackers(urls)
+}
 
 function handleClose() {
   emit('close')
@@ -350,12 +415,19 @@ function handleClose() {
           </div>
 
           <div v-else-if="activeTab === 'trackers'" key="trackers" class="tab-content">
-            <NInput
-              type="textarea"
-              :value="announceList"
-              readonly
-              :autosize="{ minRows: 5, maxRows: 20 }"
-              placeholder="No trackers"
+            <div style="margin-bottom: 12px">
+              <NButton size="small" :loading="trackerProbing" @click="handleProbeTrackers">
+                {{ t('task.task-tracker-probe') || 'Probe' }}
+              </NButton>
+            </div>
+            <NDataTable
+              :columns="trackerColumns"
+              :data="trackerRows"
+              :row-key="(row: TrackerRow) => row.url"
+              size="small"
+              :bordered="true"
+              :max-height="400"
+              striped
             />
           </div>
         </Transition>

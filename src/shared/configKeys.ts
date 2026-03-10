@@ -8,7 +8,7 @@ const userKeys = [
   'engine-bin-path',
   'engine-max-connection-per-server',
   'favorite-directories',
-  'hide-app-menu',
+  'hide-dock-on-minimize',
   'history-directories',
   'keep-seeding',
   'keep-window-state',
@@ -156,6 +156,6 @@ const systemKeys = [
   'user-agent',
 ]
 
-const needRestartKeys = ['dht-listen-port', 'hide-app-menu', 'listen-port', 'rpc-listen-port', 'rpc-secret']
+const needRestartKeys = ['dht-listen-port', 'listen-port', 'rpc-listen-port', 'rpc-secret']
 
 export { userKeys, systemKeys, needRestartKeys }

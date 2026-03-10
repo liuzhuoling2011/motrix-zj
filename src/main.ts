@@ -190,7 +190,9 @@ preferenceStore.loadPreference().then(async () => {
     logger.warn('DeepLink', 'setup failed: ' + (e as Error).message)
   }
 
-  // Show the window unless user has autoHideWindow enabled
+  // Show the window unless user has autoHideWindow enabled.
+  // When autoHideWindow + hideDockOnMinimize are both enabled, the Rust
+  // setup() handler has already set ActivationPolicy::Accessory.
   if (!config.autoHideWindow) {
     const mainWindow = getCurrentWindow()
     await mainWindow.show()

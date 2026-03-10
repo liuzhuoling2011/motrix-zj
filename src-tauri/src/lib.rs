@@ -71,6 +71,8 @@ pub fn run() {
             commands::start_upnp_mapping,
             commands::stop_upnp_mapping,
             commands::get_upnp_status,
+            commands::set_dock_visible,
+            commands::probe_trackers,
         ])
         .setup(|app| {
             let handle = app.handle();
@@ -107,6 +109,38 @@ pub fn run() {
                 let urls: Vec<String> = event.urls().iter().map(|u| u.to_string()).collect();
                 let _ = app_handle.emit("deep-link-open", &urls);
             });
+
+            // Hide Dock icon on startup when both autoHideWindow and
+            // hideDockOnMinimize are enabled.  Setting the activation policy
+            // in setup() — before any window is shown — is the most widely
+            // adopted pattern in the Tauri ecosystem.
+            //
+            // NOTE: This only takes effect in production builds (.app bundle).
+            // In `cargo tauri dev` the process is a cargo child, so macOS
+            // Launch Services does not honour activation policy changes.
+            #[cfg(target_os = "macos")]
+            {
+                let hide_dock = app
+                    .store("config.json")
+                    .ok()
+                    .and_then(|s| s.get("preferences"))
+                    .map(|prefs| {
+                        let auto_hide = prefs
+                            .get("autoHideWindow")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false);
+                        let dock_hide = prefs
+                            .get("hideDockOnMinimize")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false);
+                        auto_hide && dock_hide
+                    })
+                    .unwrap_or(false);
+                if hide_dock {
+                    use tauri::ActivationPolicy;
+                    let _ = app.set_activation_policy(ActivationPolicy::Accessory);
+                }
+            }
 
             Ok(())
         })
@@ -148,10 +182,33 @@ pub fn run() {
                     if let Some(window) = app.get_webview_window(&label) {
                         let _ = window.hide();
                     }
+
+                    // Hide Dock icon when the user has opted in.
+                    #[cfg(target_os = "macos")]
+                    {
+                        let hide_dock = app
+                            .store("config.json")
+                            .ok()
+                            .and_then(|s| s.get("preferences"))
+                            .map(|prefs| {
+                                prefs
+                                    .get("hideDockOnMinimize")
+                                    .and_then(|v| v.as_bool())
+                                    .unwrap_or(false)
+                            })
+                            .unwrap_or(false);
+                        if hide_dock {
+                            use tauri::ActivationPolicy;
+                            let _ = app.set_activation_policy(ActivationPolicy::Accessory);
+                        }
+                    }
                 }
             }
             #[cfg(target_os = "macos")]
             tauri::RunEvent::Reopen { .. } => {
+                // Restore Dock icon before showing the window.
+                use tauri::ActivationPolicy;
+                let _ = app.set_activation_policy(ActivationPolicy::Regular);
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();

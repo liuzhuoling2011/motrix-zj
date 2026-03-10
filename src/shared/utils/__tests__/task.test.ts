@@ -229,7 +229,7 @@ describe('buildMagnetLink', () => {
       infoHash: 'abc123',
       bittorrent: {
         info: { name: 'test' },
-        announceList: ['http://tracker1.com', 'http://tracker2.com'],
+        announceList: [['http://tracker1.com', 'http://tracker2.com']],
       },
     })
     const result = buildMagnetLink(task, true)
@@ -242,7 +242,7 @@ describe('buildMagnetLink', () => {
       infoHash: 'abc123',
       bittorrent: {
         info: { name: 'test' },
-        announceList: ['http://tracker1.com', 'http://tracker2.com'],
+        announceList: [['http://tracker1.com', 'http://tracker2.com']],
       },
     })
     const result = buildMagnetLink(task, true, ['http://tracker1.com'])
@@ -255,7 +255,7 @@ describe('buildMagnetLink', () => {
       infoHash: 'abc123',
       bittorrent: {
         info: { name: 'test' },
-        announceList: ['http://tracker1.com'],
+        announceList: [['http://tracker1.com']],
       },
     })
     const result = buildMagnetLink(task, false)

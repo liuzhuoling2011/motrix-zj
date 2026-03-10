@@ -261,7 +261,7 @@ onMounted(async () => {
 
 <template>
   <div class="preference-form-wrapper">
-    <NForm label-placement="left" label-align="left" label-width="240px" size="small" class="form-preference">
+    <NForm label-placement="left" label-align="left" label-width="300px" size="small" class="form-preference">
       <NDivider title-placement="left">Language</NDivider>
       <NFormItem label="Select Language">
         <NSelect v-model:value="form.locale" :options="localeOptions" style="width: 200px" />
@@ -325,11 +325,14 @@ onMounted(async () => {
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.window-and-tray') }}</NDivider>
+      <NFormItem :label="t('preferences.minimize-to-tray-on-close')">
+        <NSwitch v-model:value="form.minimizeToTrayOnClose" />
+      </NFormItem>
       <NFormItem :label="t('preferences.auto-hide-window')">
         <NSwitch v-model:value="form.autoHideWindow" />
       </NFormItem>
-      <NFormItem :label="t('preferences.minimize-to-tray-on-close')">
-        <NSwitch v-model:value="form.minimizeToTrayOnClose" />
+      <NFormItem v-if="isMac" :label="t('preferences.hide-dock-on-minimize')">
+        <NSwitch v-model:value="form.hideDockOnMinimize" />
       </NFormItem>
       <NFormItem v-if="isMac" :label="t('preferences.tray-speedometer')">
         <NSwitch v-model:value="form.traySpeedometer" />
@@ -460,9 +463,6 @@ onMounted(async () => {
   padding: 16px 24px 64px 24px;
 }
 .form-preference :deep(.n-form-item) {
-  padding-left: 50px;
-}
-.form-preference :deep(.n-form-item .n-form-item-blank > .n-space) {
   padding-left: 50px;
 }
 .form-actions {

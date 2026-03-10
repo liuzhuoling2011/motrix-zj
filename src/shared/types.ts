@@ -23,7 +23,7 @@ export interface Aria2File {
 /** BitTorrent metadata attached to a task when the download is a torrent. */
 export interface Aria2BtInfo {
   info?: { name: string }
-  announceList?: string[]
+  announceList?: string[][]
   creationDate?: number
   comment?: string
   mode?: string
@@ -132,6 +132,7 @@ export interface AppConfig {
   autoCheckUpdate: boolean
   autoHideWindow: boolean
   minimizeToTrayOnClose: boolean
+  hideDockOnMinimize: boolean
   autoSyncTracker: boolean
   keepSeeding: boolean
   keepWindowState: boolean
@@ -142,7 +143,6 @@ export interface AppConfig {
   showProgressBar: boolean
   traySpeedometer: boolean
   dockBadgeSpeed: boolean
-  hideAppMenu: boolean
   logLevel: string
   engineBinPath: string
   engineMaxConnectionPerServer: number

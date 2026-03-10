@@ -83,7 +83,8 @@ export const buildMagnetLink = (task: Aria2Task, withTracker = false, btTracker:
   }
 
   if (withTracker && bittorrent?.announceList) {
-    const trackers = difference(bittorrent.announceList, btTracker)
+    const flatList = bittorrent.announceList.flat()
+    const trackers = difference(flatList, btTracker)
     trackers.forEach((tracker) => {
       params.push(`tr=${encodeURIComponent(tracker)}`)
     })
