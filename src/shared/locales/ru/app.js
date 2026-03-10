@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': 'Подтвердите выход',
   'confirm-exit-message': 'Вы уверены, что хотите выйти? Активные загрузки будут приостановлены.',
   'engine-not-ready': 'Движок запускается, подождите...',
+  'engine-ready': 'Движок успешно запущен',
+  'engine-failed': 'Не удалось запустить движок',
   'new-version-available': 'Доступно обновление',
   'older-version-available': 'Доступна более старая версия',
   'tray-new-task': 'Новая задача',

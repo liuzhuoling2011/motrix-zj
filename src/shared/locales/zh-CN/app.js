@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': '确认退出',
   'confirm-exit-message': '确定要退出吗？正在进行的下载将被暂停。',
   'engine-not-ready': '引擎正在启动，请稍候...',
+  'engine-ready': '引擎已就绪',
+  'engine-failed': '引擎启动失败',
   'new-version-available': '版本更新可用',
   'older-version-available': '可切换到旧版本',
   'tray-new-task': '新建任务',

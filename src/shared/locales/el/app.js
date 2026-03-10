@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': 'Επιβεβαίωση εξόδου',
   'confirm-exit-message': 'Σίγουρα θέλετε να βγείτε; Οι ενεργές λήψεις θα τεθούν σε παύση.',
   'engine-not-ready': 'Η μηχανή εκκινεί, παρακαλώ περιμένετε...',
+  'engine-ready': 'Ο κινητήρας εκκινήθηκε επιτυχώς',
+  'engine-failed': 'Αποτυχία εκκίνησης κινητήρα',
   'new-version-available': 'Διαθέσιμη ενημέρωση',
   'older-version-available': 'Διαθέσιμη παλαιότερη έκδοση',
   'tray-new-task': 'Νέα εργασία',

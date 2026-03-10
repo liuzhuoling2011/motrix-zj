@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': 'Konfirmasi keluar',
   'confirm-exit-message': 'Yakin ingin keluar? Unduhan aktif akan dijeda.',
   'engine-not-ready': 'Mesin sedang dimulai, harap tunggu...',
+  'engine-ready': 'Mesin berhasil dimulai',
+  'engine-failed': 'Gagal memulai mesin',
   'new-version-available': 'Pembaruan tersedia',
   'older-version-available': 'Versi lama tersedia',
   'tray-new-task': 'Tugas baru',

@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': '종료 확인',
   'confirm-exit-message': '종료하시겠습니까? 진행 중인 다운로드가 일시 중지됩니다.',
   'engine-not-ready': '엔진 시작 중입니다. 잠시만 기다려 주세요...',
+  'engine-ready': '엔진이 성공적으로 시작되었습니다',
+  'engine-failed': '엔진 시작 실패',
   'new-version-available': '업데이트 가능',
   'older-version-available': '이전 버전 사용 가능',
   'tray-new-task': '새 작업',

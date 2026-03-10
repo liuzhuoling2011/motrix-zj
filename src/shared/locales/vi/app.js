@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': 'Xác nhận thoát',
   'confirm-exit-message': 'Bạn có chắc muốn thoát? Các tải xuống đang hoạt động sẽ bị tạm dừng.',
   'engine-not-ready': 'Engine đang khởi động, vui lòng đợi...',
+  'engine-ready': 'Khởi động engine thành công',
+  'engine-failed': 'Không thể khởi động engine',
   'new-version-available': 'Có bản cập nhật',
   'older-version-available': 'Có phiên bản cũ hơn',
   'tray-new-task': 'Tác vụ mới',

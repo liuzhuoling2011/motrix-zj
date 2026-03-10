@@ -337,6 +337,7 @@ fn cleanup_port(port: &str) {
             let pids = String::from_utf8_lossy(&out.stdout);
             let pids = pids.trim();
             if !pids.is_empty() {
+                let mut killed_any = false;
                 for pid in pids.lines() {
                     let pid = pid.trim();
                     if pid.is_empty() {
@@ -357,6 +358,7 @@ fn cleanup_port(port: &str) {
                             let _ = std::process::Command::new("sh")
                                 .args(["-c", &format!("kill -9 {} 2>/dev/null", pid)])
                                 .status();
+                            killed_any = true;
                         } else {
                             eprintln!(
                                 "[aria2c] port {} occupied by non-aria2c process '{}' (PID {}), skipping",
@@ -365,8 +367,10 @@ fn cleanup_port(port: &str) {
                         }
                     }
                 }
-                // Brief wait for OS to release the port
-                std::thread::sleep(std::time::Duration::from_millis(300));
+                // Brief wait for OS to release the port — only needed when we killed something
+                if killed_any {
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                }
             }
         }
     }
@@ -387,6 +391,7 @@ fn cleanup_port(port: &str) {
 
         if let Ok(out) = output {
             let text = String::from_utf8_lossy(&out.stdout);
+            let mut killed_any = false;
             for line in text.lines() {
                 if let Some(pid) = line.split_whitespace().last() {
                     if pid.parse::<u32>().is_ok() {
@@ -413,6 +418,7 @@ fn cleanup_port(port: &str) {
                                 .args(["/F", "/PID", pid])
                                 .creation_flags(CREATE_NO_WINDOW)
                                 .status();
+                            killed_any = true;
                         } else {
                             eprintln!(
                                 "[aria2c] port {} occupied by non-aria2c process (PID {}), skipping",
@@ -422,7 +428,10 @@ fn cleanup_port(port: &str) {
                     }
                 }
             }
-            std::thread::sleep(std::time::Duration::from_millis(300));
+            // Brief wait for OS to release the port — only needed when we killed something
+            if killed_any {
+                std::thread::sleep(std::time::Duration::from_millis(300));
+            }
         }
     }
 }

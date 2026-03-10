@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': 'Kilépés megerősítése',
   'confirm-exit-message': 'Biztosan ki szeretne lépni? Az aktív letöltések szünetelni fognak.',
   'engine-not-ready': 'A motor elindul, kérjük várjon...',
+  'engine-ready': 'A motor sikeresen elindult',
+  'engine-failed': 'A motor indítása sikertelen',
   'new-version-available': 'Frissítés elérhető',
   'older-version-available': 'Régebbi verzió elérhető',
   'tray-new-task': 'Új feladat',

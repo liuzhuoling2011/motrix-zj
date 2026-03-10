@@ -38,6 +38,8 @@ export const useAppStore = defineStore('app', () => {
   const addTaskOptions = ref<Aria2EngineOptions>({})
   const progress = ref(0)
   const pendingUpdate = ref<TauriUpdate | null>(null)
+  const engineInitializing = ref(true)
+  const engineReady = ref(false)
 
   function updateInterval(millisecond: number) {
     let val = millisecond
@@ -240,6 +242,8 @@ export const useAppStore = defineStore('app', () => {
     addTaskOptions,
     progress,
     pendingUpdate,
+    engineInitializing,
+    engineReady,
     updateInterval,
     increaseInterval,
     decreaseInterval,

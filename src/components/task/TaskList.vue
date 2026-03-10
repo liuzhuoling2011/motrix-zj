@@ -5,8 +5,8 @@ import { useTaskStore } from '@/stores/task'
 import { useTheme } from '@/composables/useTheme'
 import TaskItem from './TaskItem.vue'
 import type { Aria2Task } from '@shared/types'
-import watermarkDark from '@/assets/brand-watermark-dark.png'
-import watermarkLight from '@/assets/brand-watermark-light.png'
+import watermarkDark from '@/assets/logo-bolt-dark.png'
+import watermarkLight from '@/assets/logo-bolt-light.png'
 
 const emit = defineEmits<{
   pause: [task: Aria2Task]

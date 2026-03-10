@@ -134,6 +134,22 @@ onMounted(async () => {
   }, 120)
   startGlobalPolling()
 
+  // Show feedback when the engine finishes initializing.
+  // Uses engineReady to distinguish success from failure.
+  const stopWatchEngine = watch(
+    () => appStore.engineInitializing,
+    (initializing) => {
+      if (!initializing) {
+        if (appStore.engineReady) {
+          message.success(t('app.engine-ready'))
+        } else {
+          message.error(t('app.engine-failed'), { duration: 8000, closable: true })
+        }
+        stopWatchEngine()
+      }
+    },
+  )
+
   router.beforeEach((to, from) => {
     const leavingPrefs = from.path.startsWith('/preference') && !to.path.startsWith('/preference')
     const switchingPrefsTab =
@@ -295,6 +311,13 @@ onUnmounted(() => {
 
 <template>
   <div id="container" :class="{ 'app-ready': appReady, 'app-closing': isExiting }">
+    <!-- Non-blocking engine initialization banner -->
+    <Transition name="init-slide">
+      <div v-if="appStore.engineInitializing" class="init-banner">
+        <div class="init-progress" />
+        <span>{{ t('app.engine-not-ready') }}</span>
+      </div>
+    </Transition>
     <AsideBar @show-about="showAbout = true" />
     <div class="subnav-slot">
       <Transition name="fade" mode="out-in">
@@ -421,5 +444,56 @@ onUnmounted(() => {
   justify-content: center;
   font-size: 13px;
   opacity: 0.85;
+}
+
+/* Non-blocking engine initialization banner */
+.init-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--m3-on-surface-variant);
+  background: var(--m3-surface-container-high);
+  z-index: 200;
+  overflow: hidden;
+  opacity: 0.9;
+}
+.init-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, var(--color-primary), transparent);
+  animation: init-indeterminate 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes init-indeterminate {
+  0% {
+    left: -30%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+.init-slide-enter-active {
+  transition:
+    transform 0.25s cubic-bezier(0, 0, 0, 1),
+    opacity 0.2s linear;
+}
+.init-slide-leave-active {
+  transition:
+    transform 0.2s cubic-bezier(0.3, 0, 1, 1),
+    opacity 0.15s linear;
+}
+.init-slide-enter-from,
+.init-slide-leave-to {
+  transform: translateY(-100%);
+  opacity: 0;
 }
 </style>

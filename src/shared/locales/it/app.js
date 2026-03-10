@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': 'Conferma uscita',
   'confirm-exit-message': 'Sicuro di voler uscire? I download attivi verranno sospesi.',
   'engine-not-ready': 'Il motore si sta avviando, attendere...',
+  'engine-ready': 'Motore avviato con successo',
+  'engine-failed': 'Avvio del motore non riuscito',
   'new-version-available': 'Aggiornamento disponibile',
   'older-version-available': 'Versione precedente disponibile',
   'tray-new-task': 'Nuova attività',

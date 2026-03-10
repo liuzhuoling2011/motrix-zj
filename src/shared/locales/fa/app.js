@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': 'تأیید خروج',
   'confirm-exit-message': 'آیا مطمئن هستید که می‌خواهید خارج شوید؟ دانلودهای فعال متوقف خواهند شد.',
   'engine-not-ready': 'موتور در حال راه‌اندازی است، لطفاً صبر کنید...',
+  'engine-ready': 'موتور با موفقیت راه‌اندازی شد',
+  'engine-failed': 'خطا در راه‌اندازی موتور',
   'new-version-available': 'به‌روزرسانی موجود است',
   'older-version-available': 'نسخه قدیمی‌تر موجود است',
   'tray-new-task': 'وظیفه جدید',

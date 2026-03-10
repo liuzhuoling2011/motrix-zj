@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': 'Bekreft avslutning',
   'confirm-exit-message': 'Er du sikker på at du vil avslutte? Aktive nedlastinger blir satt på pause.',
   'engine-not-ready': 'Motoren starter, vennligst vent...',
+  'engine-ready': 'Motoren startet',
+  'engine-failed': 'Kunne ikke starte motoren',
   'new-version-available': 'Oppdatering tilgjengelig',
   'older-version-available': 'Eldre versjon tilgjengelig',
   'tray-new-task': 'Ny oppgave',

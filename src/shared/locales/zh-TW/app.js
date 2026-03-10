@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': '確認結束',
   'confirm-exit-message': '確定要結束嗎？進行中的下載將被暫停。',
   'engine-not-ready': '引擎正在啟動，請稍候...',
+  'engine-ready': '引擎已就緒',
+  'engine-failed': '引擎啟動失敗',
   'new-version-available': '版本更新可用',
   'older-version-available': '可切換到舊版本',
   'tray-new-task': '新增任務',

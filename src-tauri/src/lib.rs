@@ -44,7 +44,11 @@ pub fn run() {
     }
 
     builder = builder.plugin(tauri_plugin_deep_link::init());
-    builder = builder.plugin(tauri_plugin_window_state::Builder::new().build());
+    builder = builder.plugin(
+        tauri_plugin_window_state::Builder::new()
+            .with_denylist(&["splashscreen"])
+            .build(),
+    );
 
     builder
         .manage(EngineState::new())
@@ -73,6 +77,7 @@ pub fn run() {
             commands::get_upnp_status,
             commands::set_dock_visible,
             commands::probe_trackers,
+            commands::close_splashscreen,
         ])
         .setup(|app| {
             let handle = app.handle();

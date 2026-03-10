@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': 'Confirmer la fermeture',
   'confirm-exit-message': 'Voulez-vous vraiment quitter ? Les téléchargements actifs seront suspendus.',
   'engine-not-ready': 'Le moteur démarre, veuillez patienter...',
+  'engine-ready': 'Moteur démarré avec succès',
+  'engine-failed': 'Échec du démarrage du moteur',
   'new-version-available': 'Mise à jour disponible',
   'older-version-available': 'Ancienne version disponible',
   'tray-new-task': 'Nouvelle tâche',

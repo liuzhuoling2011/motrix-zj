@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': 'Підтвердження виходу',
   'confirm-exit-message': 'Ви впевнені, що хочете вийти? Активні завантаження буде призупинено.',
   'engine-not-ready': 'Рушій запускається, зачекайте...',
+  'engine-ready': 'Рушій успішно запущено',
+  'engine-failed': 'Не вдалося запустити двигун',
   'new-version-available': 'Доступне оновлення',
   'older-version-available': 'Доступна старіша версія',
   'tray-new-task': 'Нове завдання',

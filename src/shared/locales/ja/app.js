@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': '終了確認',
   'confirm-exit-message': '終了してもよろしいですか？進行中のダウンロードは一時停止されます。',
   'engine-not-ready': 'エンジンを起動中です。お待ちください...',
+  'engine-ready': 'エンジンが正常に起動しました',
+  'engine-failed': 'エンジンの起動に失敗しました',
   'new-version-available': 'アップデートがあります',
   'older-version-available': '旧バージョンが利用可能',
   'tray-new-task': '新規タスク',

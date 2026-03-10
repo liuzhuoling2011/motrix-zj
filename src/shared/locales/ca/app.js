@@ -36,6 +36,8 @@ export default {
   'confirm-exit-title': 'Confirmar sortida',
   'confirm-exit-message': 'Segur que voleu sortir? Les descàrregues actives es posaran en pausa.',
   'engine-not-ready': 'El motor s\'està iniciant, si us plau espereu...',
+  'engine-ready': 'El motor ha arrancat correctament',
+  'engine-failed': 'No s\'ha pogut iniciar el motor',
   'new-version-available': 'Actualització disponible',
   'older-version-available': 'Versió anterior disponible',
   'tray-new-task': 'Nova tasca',

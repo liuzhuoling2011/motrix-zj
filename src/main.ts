@@ -33,7 +33,7 @@ const preferenceStore = usePreferenceStore()
 const taskStore = useTaskStore()
 const appStore = useAppStore()
 
-async function waitForEngine(port: number, secret: string, maxRetries = 15): Promise<boolean> {
+async function waitForEngine(port: number, secret: string, maxRetries = 10): Promise<boolean> {
   const { Aria2 } = await import('@shared/aria2')
   for (let i = 0; i < maxRetries; i++) {
     try {
@@ -43,8 +43,10 @@ async function waitForEngine(port: number, secret: string, maxRetries = 15): Pro
       await probe.close()
       return true
     } catch (e) {
-      logger.debug('waitForEngine', `attempt ${i + 1}/${maxRetries} failed: ${e}`)
-      await new Promise((r) => setTimeout(r, 500))
+      // Exponential backoff: 100 → 200 → 400 → 800 → 1600 → 2000 → 2000 …
+      const delay = Math.min(100 * 2 ** i, 2000)
+      logger.debug('waitForEngine', `attempt ${i + 1}/${maxRetries} failed, retry in ${delay}ms: ${e}`)
+      await new Promise((r) => setTimeout(r, delay))
     }
   }
   return false
@@ -105,7 +107,84 @@ async function autoSyncTrackerOnStartup() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Startup orchestration
+//
+// The chain is split into phases that run as parallel as possible so the
+// window appears almost instantly while the engine boots in the background.
+//
+//  Phase 1 (critical path)   – loadPreference → locale → window.show()
+//  Phase 2 (engine, async)   – rpcSecret → save config → start engine
+//                              → waitForEngine → initClient
+//  Phase 3 (non-critical)    – deep-link, autostart (parallel)
+//  Phase 4 (deferred)        – update check, tracker sync, FS warmup,
+//                              clipboard monitor
+// ---------------------------------------------------------------------------
+
+/** Start the aria2 engine, wait for readiness, and connect the RPC client.
+ *  Returns `true` if the engine is usable, `false` on failure. */
+async function initEngine(port: number, secret: string): Promise<boolean> {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('save_system_config', {
+      config: { 'rpc-secret': secret, 'rpc-listen-port': String(port) },
+    })
+    await invoke('start_engine_command')
+  } catch (e) {
+    logger.error('Engine', e)
+    return false
+  }
+
+  const ready = await waitForEngine(port, secret)
+  if (!ready) {
+    logger.error('Engine', 'Engine did not become ready after retries')
+    return false
+  }
+
+  try {
+    await initClient({ port, secret })
+    logger.info('Engine', `RPC client connected via WebSocket on port ${port}`)
+  } catch (e) {
+    logger.warn('Engine', 'WebSocket failed, using HTTP fallback: ' + (e as Error).message)
+    const { setEngineReady } = await import('@/api/aria2')
+    setEngineReady(true)
+  }
+  return true
+}
+
+/** Setup deep-link handler to accept URLs/files from OS. */
+async function setupDeepLinks(): Promise<void> {
+  try {
+    const { getCurrent, onOpenUrl } = await import('@tauri-apps/plugin-deep-link')
+    const startUrls = await getCurrent()
+    if (startUrls && startUrls.length > 0) {
+      appStore.handleDeepLinkUrls(startUrls)
+    }
+    await onOpenUrl((urls) => {
+      appStore.handleDeepLinkUrls(urls)
+    })
+  } catch (e) {
+    logger.warn('DeepLink', 'setup failed: ' + (e as Error).message)
+  }
+}
+
+/** Sync autostart state with persisted preference. */
+async function syncAutostart(config: typeof preferenceStore.config): Promise<void> {
+  try {
+    const { isEnabled, enable, disable } = await import('@tauri-apps/plugin-autostart')
+    const currentlyEnabled = await isEnabled()
+    if (config.openAtLogin && !currentlyEnabled) {
+      await enable()
+    } else if (!config.openAtLogin && currentlyEnabled) {
+      await disable()
+    }
+  } catch (e) {
+    logger.debug('main.autostart', e)
+  }
+}
+
 preferenceStore.loadPreference().then(async () => {
+  // ── Phase 1: critical path → window visible ASAP ──────────────────────
   let locale = preferenceStore.locale
   if (!locale) {
     try {
@@ -134,6 +213,28 @@ preferenceStore.loadPreference().then(async () => {
   }
 
   const config = preferenceStore.config
+
+  // Close the splash screen with a M3 fade-out animation, then show main.
+  // Wrapped in try/catch — if IPC fails, fall back to direct window.show()
+  // so the app is never stuck invisible.
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const { emit } = await import('@tauri-apps/api/event')
+    await emit('splash-close')
+    await new Promise((r) => setTimeout(r, 300))
+    await invoke('close_splashscreen', { showMain: !config.autoHideWindow })
+  } catch (e) {
+    logger.warn('Splash', 'close_splashscreen failed, falling back: ' + e)
+    try {
+      const mainWindow = getCurrentWindow()
+      await mainWindow.show()
+      await mainWindow.setFocus()
+    } catch {
+      /* window already visible or unavailable — nothing we can do */
+    }
+  }
+
+  // ── Phase 2: engine startup (non-blocking) ────────────────────────────
   const port = config.rpcListenPort || ENGINE_RPC_PORT
   let secret = config.rpcSecret || ''
 
@@ -146,65 +247,14 @@ preferenceStore.loadPreference().then(async () => {
 
   taskStore.setApi(aria2Api)
 
-  try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    await invoke('save_system_config', {
-      config: { 'rpc-secret': secret, 'rpc-listen-port': String(port) },
-    })
-    await invoke('start_engine_command')
-  } catch (e) {
-    logger.error('Engine', e)
-  }
+  // Engine initializes in the background — does NOT block the UI.
+  // appStore.engineInitializing drives the init banner in MainLayout.
+  const enginePromise = initEngine(port, secret)
 
-  const ready = await waitForEngine(port, secret)
-  if (!ready) {
-    logger.error('Engine', 'Engine did not become ready after retries')
-  }
+  // ── Phase 3: non-critical IPC (parallel) ──────────────────────────────
+  Promise.allSettled([setupDeepLinks(), syncAutostart(config)])
 
-  try {
-    await initClient({ port, secret })
-    logger.info('Engine', `RPC client connected via WebSocket on port ${port}`)
-
-    // Warm up Tauri FS plugin IPC channel to eliminate cold-start delay on first
-    // file operation (e.g. task deletion). Deferred to avoid impacting startup.
-    setTimeout(() => {
-      import('@tauri-apps/plugin-fs').then(({ exists }) => exists('/')).catch(() => {})
-    }, 500)
-  } catch (e) {
-    logger.warn('Engine', 'WebSocket failed, using HTTP fallback: ' + (e as Error).message)
-    // Engine is running (confirmed by waitForEngine), mark as ready for HTTP RPC polling
-    const { setEngineReady } = await import('@/api/aria2')
-    setEngineReady(true)
-  }
-
-  try {
-    const { getCurrent, onOpenUrl } = await import('@tauri-apps/plugin-deep-link')
-    const startUrls = await getCurrent()
-    if (startUrls && startUrls.length > 0) {
-      appStore.handleDeepLinkUrls(startUrls)
-    }
-    await onOpenUrl((urls) => {
-      appStore.handleDeepLinkUrls(urls)
-    })
-  } catch (e) {
-    logger.warn('DeepLink', 'setup failed: ' + (e as Error).message)
-  }
-
-  // Show the window unless user has autoHideWindow enabled.
-  // When autoHideWindow + hideDockOnMinimize are both enabled, the Rust
-  // setup() handler has already set ActivationPolicy::Accessory.
-  if (!config.autoHideWindow) {
-    const mainWindow = getCurrentWindow()
-    await mainWindow.show()
-    await mainWindow.setFocus()
-  }
-
-  // Resume all paused/waiting tasks on launch if configured
-  if (config.resumeAllWhenAppLaunched) {
-    taskStore.resumeAllTask().catch((e) => logger.debug('main.resumeAll', e))
-  }
-
-  // Start UPnP port mapping if enabled (mirrors legacy Motrix initUPnPManager)
+  // Start UPnP port mapping if enabled (fire-and-forget)
   if (config.enableUpnp) {
     import('@tauri-apps/api/core')
       .then(({ invoke }) =>
@@ -216,25 +266,37 @@ preferenceStore.loadPreference().then(async () => {
       .catch((e) => logger.warn('UPnP', 'startup mapping failed: ' + e))
   }
 
-  // Sync autostart state with user preference
+  // ── Phase 2 completion: engine ready ───────────────────────────────────
+  // try/finally guarantees engineInitializing always clears, even on failure.
+  // engineReady distinguishes success from failure for the UI toast.
   try {
-    const { isEnabled, enable, disable } = await import('@tauri-apps/plugin-autostart')
-    const currentlyEnabled = await isEnabled()
-    if (config.openAtLogin && !currentlyEnabled) {
-      await enable()
-    } else if (!config.openAtLogin && currentlyEnabled) {
-      await disable()
-    }
+    const ok = await enginePromise
+    appStore.engineReady = ok
   } catch (e) {
-    logger.debug('main.autostart', e)
+    logger.error('Engine', 'unexpected startup error: ' + e)
+    appStore.engineReady = false
+  } finally {
+    appStore.engineInitializing = false
   }
 
+  // Resume all paused/waiting tasks on launch if configured
+  if (config.resumeAllWhenAppLaunched) {
+    taskStore.resumeAllTask().catch((e) => logger.debug('main.resumeAll', e))
+  }
+
+  // ── Phase 4: deferred non-critical tasks ───────────────────────────────
   autoCheckForUpdate()
   autoSyncTrackerOnStartup()
 
   // Re-check tracker sync hourly for long-running sessions.
   // autoSyncTrackerOnStartup() internally de-duplicates via lastSyncTrackerTime.
   setInterval(autoSyncTrackerOnStartup, 3_600_000)
+
+  // Warm up Tauri FS plugin IPC channel to eliminate cold-start delay on first
+  // file operation (e.g. task deletion).
+  setTimeout(() => {
+    import('@tauri-apps/plugin-fs').then(({ exists }) => exists('/')).catch(() => {})
+  }, 3000)
 
   let lastClipboardText = ''
   getCurrentWindow().onFocusChanged(async ({ payload: focused }) => {
