@@ -43,7 +43,9 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
 
     let _tray = TrayIconBuilder::with_id("main")
         .menu(&menu)
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(tauri::image::Image::from_bytes(include_bytes!(
+            "../icons/tray-icon.png"
+        ))?)
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
                 button: MouseButton::Left,
