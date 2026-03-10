@@ -416,6 +416,7 @@ onUnmounted(() => {
 }
 .remember-choice {
   margin-top: 16px;
+  margin-bottom: 8px;
   display: flex;
   justify-content: center;
   font-size: 13px;
