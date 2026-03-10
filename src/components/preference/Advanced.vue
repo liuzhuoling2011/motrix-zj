@@ -178,8 +178,21 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
     // Hot-reload engine when startup-only settings change (port, secret).
     const changed = diffConfig(prevConfig, f)
     if (checkIsNeedRestart(changed)) {
-      const port = f.rpcListenPort || ENGINE_RPC_PORT
-      await restartEngineAndReconnect(port, f.rpcSecret || '')
+      const confirmed = await new Promise<boolean>((resolve) => {
+        dialog.warning({
+          title: t('preferences.engine-restart-title'),
+          content: t('preferences.engine-restart-confirm'),
+          positiveText: t('preferences.engine-restart-now'),
+          negativeText: t('preferences.engine-restart-later'),
+          onPositiveClick: () => resolve(true),
+          onNegativeClick: () => resolve(false),
+          onClose: () => resolve(false),
+        })
+      })
+      if (confirmed) {
+        const port = f.rpcListenPort || ENGINE_RPC_PORT
+        await restartEngineAndReconnect(port, f.rpcSecret || '')
+      }
     }
   },
 })
@@ -282,10 +295,11 @@ async function restartEngineAndReconnect(port: number, secret: string): Promise<
   const { setEngineReady } = await import('@/api/aria2')
   const appStore = useAppStore()
 
-  // Immediately signal "restarting" — shows init banner, stops polling.
+  // Immediately signal "restarting" — shows progress bar, stops polling.
   appStore.engineReady = false
   appStore.engineInitializing = true
   setEngineReady(false)
+  message.info(t('preferences.engine-restarting'), { duration: 2000 })
 
   try {
     await invoke('restart_engine_command')

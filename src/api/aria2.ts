@@ -64,23 +64,18 @@ export async function closeClient(): Promise<void> {
  *  Includes a connection timeout to avoid hanging on unresponsive sockets.
  *  Used when restart-required settings (port, secret) change at runtime. */
 export async function reconnectClient(options: { port: number; secret: string }, timeoutMs = 3000): Promise<Aria2> {
-  logger.debug('reconnectClient', 'closing old client...')
   await closeClient()
   engineReady = false
 
   // Race initClient against a timeout — WebSocket open() has no built-in
   // deadline, so a just-started engine can cause it to hang indefinitely.
-  logger.debug('reconnectClient', `connecting to port ${options.port} (timeout ${timeoutMs}ms)`)
   const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error(`reconnect timed out after ${timeoutMs}ms`)), timeoutMs),
   )
   try {
-    const result = await Promise.race([initClient(options), timeout])
-    logger.debug('reconnectClient', 'connected successfully')
-    return result
+    return await Promise.race([initClient(options), timeout])
   } catch (e) {
     // On timeout, the initClient WebSocket may still be pending — tear it down.
-    logger.debug('reconnectClient', `failed: ${e}`)
     await closeClient()
     throw e
   }

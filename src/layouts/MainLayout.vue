@@ -311,11 +311,10 @@ onUnmounted(() => {
 
 <template>
   <div id="container" :class="{ 'app-ready': appReady, 'app-closing': isExiting }">
-    <!-- Non-blocking engine initialization banner -->
+    <!-- Minimal progress bar during engine initialization / restart -->
     <Transition name="init-slide">
       <div v-if="appStore.engineInitializing" class="init-banner">
         <div class="init-progress" />
-        <span>{{ t('app.engine-not-ready') }}</span>
       </div>
     </Transition>
     <AsideBar @show-about="showAbout = true" />
@@ -446,23 +445,16 @@ onUnmounted(() => {
   opacity: 0.85;
 }
 
-/* Non-blocking engine initialization banner */
+/* Minimal progress bar during engine initialization / restart */
 .init-banner {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--m3-on-surface-variant);
-  background: var(--m3-surface-container-high);
+  height: 2px;
   z-index: 200;
   overflow: hidden;
-  opacity: 0.9;
+  pointer-events: none;
 }
 .init-progress {
   position: absolute;
