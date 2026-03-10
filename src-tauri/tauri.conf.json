@@ -63,7 +63,12 @@
         "description": "Metalink File",
         "role": "Viewer"
       }
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installerHooks": "nsis/hooks.nsh"
+      }
+    }
   },
   "plugins": {
     "updater": {

@@ -207,6 +207,30 @@ pub async fn install_update(
         }
     }
 
+    // macOS: flush icon cache after OTA bundle replacement.
+    // The updater replaces the entire .app bundle, but LaunchServices may
+    // still display the cached old icon (known Tauri issue #5163).
+    // touch: invalidates Finder's modification-time-based icon cache.
+    // lsregister -f: re-registers this single app (safe, NOT -kill).
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        if let Ok(exe) = std::env::current_exe() {
+            // Executable path: .app/Contents/MacOS/<binary>
+            // Walk up 3 levels to reach the .app bundle root.
+            if let Some(app_bundle) = exe
+                .parent()
+                .and_then(|p| p.parent())
+                .and_then(|p| p.parent())
+            {
+                let _ = Command::new("touch").arg(app_bundle).output();
+                let _ = Command::new("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister")
+                    .args(["-f", &app_bundle.to_string_lossy()])
+                    .output();
+            }
+        }
+    }
+
     Ok(())
 }
 
