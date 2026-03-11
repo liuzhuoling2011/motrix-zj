@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** @fileoverview Batch task action buttons: resume all, pause all, delete all, purge. */
-import { ref, computed, h, inject, type Ref } from 'vue'
+import { ref, computed, h, inject, watch, onBeforeUnmount, type Ref, type WatchStopHandle } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { useTaskStore } from '@/stores/task'
@@ -30,6 +30,8 @@ const dialog = useDialog()
 
 const refreshing = ref(false)
 const stoppingAllSeeding = ref(false)
+let stopSeedingWatcher: WatchStopHandle | null = null
+let stopSeedingSafetyTimer: ReturnType<typeof setTimeout> | null = null
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 
 const stoppingGids = inject<Ref<string[]>>('stoppingGids')
@@ -151,24 +153,58 @@ function stopAllSeeding() {
     positiveText: t('app.yes'),
     negativeText: t('app.no'),
     onPositiveClick: async () => {
-      // 1. Push seeder gids into shared stoppingGids → triggers card spin animations
-      const seederGids = taskStore.taskList.filter(checkTaskIsSeeder).map((t) => t.gid)
+      // 1. Snapshot seeder gids at click time — only these are tracked
+      const targetGids = new Set(taskStore.taskList.filter(checkTaskIsSeeder).map((t) => t.gid))
+
+      // 2. Push into shared stoppingGids → triggers card spin animations
       if (stoppingGids) {
-        stoppingGids.value = [...stoppingGids.value, ...seederGids]
+        stoppingGids.value = [...stoppingGids.value, ...targetGids]
       }
-      // 2. Set toolbar button spinning state
+
+      // 3. Set toolbar button spinning
       stoppingAllSeeding.value = true
-      try {
-        await taskStore.stopAllSeeding()
-        message.success(t('task.stop-all-seeding-success'))
-      } catch {
-        message.error(t('task.stop-all-seeding-fail'))
-      } finally {
+
+      // 4. Fire RPC (don't tie spin to this promise — it resolves instantly)
+      taskStore
+        .stopAllSeeding()
+        .then(() => message.success(t('task.stop-all-seeding-success')))
+        .catch(() => message.error(t('task.stop-all-seeding-fail')))
+
+      // 5. Watch taskList — spin stops when ALL target gids exit seeding
+      cleanupStopSeedingWatcher()
+      stopSeedingWatcher = watch(
+        () => taskStore.taskList,
+        (list) => {
+          const stillSeeding = list.some((task) => targetGids.has(task.gid) && checkTaskIsSeeder(task))
+          if (!stillSeeding) {
+            stoppingAllSeeding.value = false
+            cleanupStopSeedingWatcher()
+          }
+        },
+        { deep: true },
+      )
+
+      // 6. Safety timeout — 10s fallback
+      stopSeedingSafetyTimer = setTimeout(() => {
         stoppingAllSeeding.value = false
-      }
+        cleanupStopSeedingWatcher()
+      }, 10_000)
     },
   })
 }
+
+function cleanupStopSeedingWatcher() {
+  if (stopSeedingWatcher) {
+    stopSeedingWatcher()
+    stopSeedingWatcher = null
+  }
+  if (stopSeedingSafetyTimer) {
+    clearTimeout(stopSeedingSafetyTimer)
+    stopSeedingSafetyTimer = null
+  }
+}
+
+onBeforeUnmount(() => cleanupStopSeedingWatcher())
 
 function purgeRecord() {
   if (!isEngineReady()) {
@@ -360,7 +396,9 @@ function onBtnRelease(ev: PointerEvent) {
   align-items: center;
 }
 .task-actions :deep(.n-button) {
-  transition: transform 0.25s cubic-bezier(0.05, 0.7, 0.1, 1);
+  transition:
+    transform 0.25s cubic-bezier(0.05, 0.7, 0.1, 1),
+    opacity 0.3s ease;
   transform-origin: center;
 }
 .task-actions :deep(.n-button.pressed) {

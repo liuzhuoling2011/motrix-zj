@@ -411,30 +411,59 @@ describe('TaskActions', () => {
       const wrapper = createWrapper()
       await clickButton(wrapper, 4) // Stop All Seeding
 
-      // Simulate dialog confirm
       const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
-      await onPositiveClick()
+      onPositiveClick() // fire-and-forget — watcher keeps spinning
+      await wrapper.vm.$nextTick()
 
       expect(stoppingGids.value).toContain('s1')
       expect(stoppingGids.value).toContain('s2')
       expect(stoppingGids.value).not.toContain('a1')
     })
 
-    it('shows spinning icon on toolbar button during batch stop', async () => {
+    it('shows spinning while snapshotted seeder tasks still have seeder=true', async () => {
       const taskStore = useTaskStore()
       taskStore.taskList = [{ gid: 's1', bittorrent: { info: { name: 'x' } }, seeder: 'true' }] as never
-
-      // Use a never-resolving promise to keep the button in spinning state
-      mockStopAllSeeding.mockReturnValueOnce(new Promise(() => {}))
 
       const wrapper = createWrapper()
       await clickButton(wrapper, 4)
 
       const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
-      onPositiveClick() // Don't await — it's pending
+      onPositiveClick()
+      await wrapper.vm.$nextTick()
+
+      // Task still seeding → button should spin
+      expect(wrapper.find('.stop-all-spinning').exists()).toBe(true)
+
+      // Simulate task exiting seeding state
+      taskStore.taskList = [{ gid: 's1', bittorrent: { info: { name: 'x' } }, seeder: 'false' }] as never
+      await wrapper.vm.$nextTick()
+
+      // Now button should stop spinning
+      expect(wrapper.find('.stop-all-spinning').exists()).toBe(false)
+    })
+
+    it('ignores new seeders appearing during batch stop', async () => {
+      const taskStore = useTaskStore()
+      taskStore.taskList = [{ gid: 's1', bittorrent: { info: { name: 'a' } }, seeder: 'true' }] as never
+
+      const wrapper = createWrapper()
+      await clickButton(wrapper, 4)
+
+      const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
+      onPositiveClick()
       await wrapper.vm.$nextTick()
 
       expect(wrapper.find('.stop-all-spinning').exists()).toBe(true)
+
+      // Original seeder exits, but a NEW seeder appears
+      taskStore.taskList = [
+        { gid: 's1', bittorrent: { info: { name: 'a' } }, seeder: 'false' },
+        { gid: 's_new', bittorrent: { info: { name: 'new' } }, seeder: 'true' },
+      ] as never
+      await wrapper.vm.$nextTick()
+
+      // Spin should stop — s_new was NOT in the snapshot
+      expect(wrapper.find('.stop-all-spinning').exists()).toBe(false)
     })
 
     it('calls stopAllSeeding store method on confirm', async () => {
@@ -448,6 +477,26 @@ describe('TaskActions', () => {
       await onPositiveClick()
 
       expect(mockStopAllSeeding).toHaveBeenCalledOnce()
+    })
+
+    it('stops spinning after safety timeout even if tasks remain seeding', async () => {
+      const taskStore = useTaskStore()
+      taskStore.taskList = [{ gid: 's1', bittorrent: { info: { name: 'x' } }, seeder: 'true' }] as never
+
+      const wrapper = createWrapper()
+      await clickButton(wrapper, 4)
+
+      const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
+      onPositiveClick()
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('.stop-all-spinning').exists()).toBe(true)
+
+      // Advance past the 10s safety timeout
+      vi.advanceTimersByTime(11000)
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('.stop-all-spinning').exists()).toBe(false)
     })
   })
 })
