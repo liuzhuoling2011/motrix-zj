@@ -80,6 +80,9 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
         .spawn()
         .map_err(|e| format!("Failed to spawn aria2c: {}", e))?;
 
+    eprintln!("[aria2c] started engine process: PID {}", child.pid());
+
+    let spawned_pid = child.pid();
     *child_lock = Some(child);
 
     let app_handle = app.clone();
@@ -90,8 +93,12 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
                 CommandEvent::Stderr(_line) => {}
                 CommandEvent::Terminated(_payload) => {
                     if let Some(state) = app_handle.try_state::<EngineState>() {
-                        if let Ok(mut child_lock) = state.child.lock() {
-                            *child_lock = None;
+                        if let Ok(mut lock) = state.child.lock() {
+                            // Only clear if the current child matches — prevents a
+                            // stale monitor from an old process wiping the new one.
+                            if lock.as_ref().map(|c| c.pid()) == Some(spawned_pid) {
+                                *lock = None;
+                            }
                         }
                     }
                 }
@@ -104,23 +111,124 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
 }
 
 /// Kills the running aria2c child process and releases the lock.
+/// Waits briefly after kill to let the OS reclaim the process.
 pub fn stop_engine(app: &tauri::AppHandle) -> Result<(), String> {
     let state = app.state::<EngineState>();
     let mut child_lock = state.child.lock().map_err(|e| e.to_string())?;
 
     if let Some(child) = child_lock.take() {
+        let pid = child.pid();
         child
             .kill()
             .map_err(|e| format!("Failed to kill aria2c: {}", e))?;
+        eprintln!("[aria2c] stopped engine process: PID {}", pid);
+        // Brief wait for the OS to fully terminate the process and release the port.
+        // Without this, a subsequent spawn can race against the dying process.
+        std::thread::sleep(std::time::Duration::from_millis(100));
     }
 
     Ok(())
 }
 
-/// Stops the current engine (if running) and starts a new one with fresh config.
+/// Atomically stops the current engine and starts a new one.
+///
+/// Holds the `EngineState` Mutex for the entire duration to prevent concurrent
+/// restarts from spawning duplicate aria2c processes.  Sequence:
+///   1. Kill the old child (if any) and wait for OS cleanup
+///   2. Run `cleanup_port` to kill any orphaned aria2c on the RPC port
+///   3. Spawn a new aria2c sidecar
+///
+/// This is the fix for: rapid "Save & Apply" → "Restart Engine" creating
+/// orphaned aria2c processes on all platforms.
 pub fn restart_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Result<(), String> {
-    stop_engine(app)?;
-    start_engine(app, config)
+    let state = app.state::<EngineState>();
+    let mut child_lock = state.child.lock().map_err(|e| e.to_string())?;
+
+    // Step 1: Kill existing child if present
+    if let Some(child) = child_lock.take() {
+        let pid = child.pid();
+        child
+            .kill()
+            .map_err(|e| format!("Failed to kill aria2c: {}", e))?;
+        eprintln!("[aria2c] restart: killed old engine process: PID {}", pid);
+        // Wait for the OS to reclaim the process and release the port
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+
+    // Step 2: Defense-in-depth — kill any orphans still holding the port
+    let port = config
+        .get("rpc-listen-port")
+        .and_then(|v| v.as_str())
+        .unwrap_or("16800");
+    cleanup_port(port);
+
+    // Step 3: Spawn new aria2c (inlined from start_engine to keep lock held)
+    if let Some(dir) = config.get("dir").and_then(|v| v.as_str()) {
+        std::fs::create_dir_all(dir)
+            .map_err(|e| format!("Failed to create download directory '{}': {}", dir, e))?;
+    }
+
+    let exe_dir = std::env::current_exe().map_err(|e| format!("Failed to get exe path: {}", e))?;
+    let exe_dir = exe_dir.parent().ok_or("Failed to get exe dir")?;
+    let conf_path = exe_dir.join("binaries").join("aria2.conf");
+    let conf_str = conf_path.to_string_lossy().to_string();
+
+    let session_path = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?
+        .join("download.session");
+    let session_str = session_path.to_string_lossy().to_string();
+
+    if let Some(parent) = session_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+
+    let args = build_start_args(
+        config,
+        if conf_path.exists() {
+            Some(&conf_str)
+        } else {
+            None
+        },
+        &session_str,
+        session_path.exists(),
+    );
+
+    let sidecar = app
+        .shell()
+        .sidecar("aria2c")
+        .map_err(|e| format!("Failed to create sidecar: {}", e))?
+        .args(&args);
+
+    let (mut rx, child) = sidecar
+        .spawn()
+        .map_err(|e| format!("Failed to spawn aria2c: {}", e))?;
+
+    eprintln!("[aria2c] restart: started new engine process: PID {}", child.pid());
+    let spawned_pid = child.pid();
+    *child_lock = Some(child);
+
+    // Monitor for process termination (PID-guarded clear)
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Terminated(_payload) => {
+                    if let Some(state) = app_handle.try_state::<EngineState>() {
+                        if let Ok(mut lock) = state.child.lock() {
+                            if lock.as_ref().map(|c| c.pid()) == Some(spawned_pid) {
+                                *lock = None;
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    });
+
+    Ok(())
 }
 
 fn build_start_args(

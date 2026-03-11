@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /** @fileoverview Advanced preference form: proxy, tracker, RPC, port, and user-agent settings. */
-import { ref, h, onMounted } from 'vue'
+import { ref, h, nextTick, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
 import { usePreferenceForm } from '@/composables/usePreferenceForm'
+import { useEngineRestart } from '@/composables/useEngineRestart'
 import { useTaskStore } from '@/stores/task'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { appDataDir, join, resolveResource } from '@tauri-apps/api/path'
@@ -42,6 +43,8 @@ import { SyncOutline, DiceOutline } from '@vicons/ionicons5'
 import { logger } from '@shared/logger'
 import PreferenceActionBar from './PreferenceActionBar.vue'
 
+const { restartEngine } = useEngineRestart()
+
 const { t } = useI18n()
 const preferenceStore = usePreferenceStore()
 const taskStore = useTaskStore()
@@ -50,7 +53,6 @@ const dialog = useDialog()
 
 import { DEFAULT_TRACKER_SOURCE, ENGINE_RPC_PORT } from '@shared/constants'
 import { diffConfig, checkIsNeedRestart } from '@shared/utils/config'
-import { reconnectClient } from '@/api/aria2'
 
 const trackerSourceOptions = [
   {
@@ -178,21 +180,25 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
     // Hot-reload engine when startup-only settings change (port, secret).
     const changed = diffConfig(prevConfig, f)
     if (checkIsNeedRestart(changed)) {
-      const confirmed = await new Promise<boolean>((resolve) => {
-        dialog.warning({
-          title: t('preferences.engine-restart-title'),
-          content: t('preferences.engine-restart-confirm'),
-          positiveText: t('preferences.engine-restart-now'),
-          negativeText: t('preferences.engine-restart-later'),
-          onPositiveClick: () => resolve(true),
-          onNegativeClick: () => resolve(false),
-          onClose: () => resolve(false),
-        })
+      const port = f.rpcListenPort || ENGINE_RPC_PORT
+      const secret = f.rpcSecret || ''
+      const d = dialog.warning({
+        title: t('preferences.engine-restart-title'),
+        content: t('preferences.engine-restart-confirm'),
+        positiveText: t('preferences.engine-restart-now'),
+        negativeText: t('preferences.engine-restart-later'),
+        maskClosable: false,
+        onPositiveClick: async () => {
+          d.loading = true
+          d.negativeText = ''
+          d.closable = false
+          message.info(t('preferences.engine-restarting'), { duration: 2000 })
+          // Yield to browser so it paints the loading spinner before the IPC call
+          await nextTick()
+          await new Promise((r) => requestAnimationFrame(r))
+          await restartEngine({ port, secret })
+        },
       })
-      if (confirmed) {
-        const port = f.rpcListenPort || ENGINE_RPC_PORT
-        await restartEngineAndReconnect(port, f.rpcSecret || '')
-      }
     }
   },
 })
@@ -284,47 +290,6 @@ async function syncUpnpState(enabled: boolean, btPort: number, dhtPort: number) 
   } catch (e) {
     logger.warn('UPnP', `sync failed: ${e}`)
     message.warning(t('preferences.upnp-mapping-failed'))
-  }
-}
-
-/** Restart the aria2 engine process and reconnect the RPC client.
- *  Sets engineInitializing to show the init banner and suppress polling.
- *  Uses exponential backoff to wait for the engine to become ready. */
-async function restartEngineAndReconnect(port: number, secret: string): Promise<void> {
-  const { useAppStore } = await import('@/stores/app')
-  const { setEngineReady } = await import('@/api/aria2')
-  const appStore = useAppStore()
-
-  // Immediately signal "restarting" — shows progress bar, stops polling.
-  appStore.engineReady = false
-  appStore.engineInitializing = true
-  setEngineReady(false)
-  message.info(t('preferences.engine-restarting'), { duration: 2000 })
-
-  try {
-    await invoke('restart_engine_command')
-
-    // Exponential backoff: 200 → 400 → 800 → 1600 → 2000ms
-    const maxRetries = 5
-    let lastError: unknown
-    for (let i = 0; i < maxRetries; i++) {
-      const delay = Math.min(200 * 2 ** i, 2000)
-      await new Promise((r) => setTimeout(r, delay))
-      try {
-        await reconnectClient({ port, secret })
-        appStore.engineReady = true
-        return
-      } catch (e) {
-        lastError = e
-        logger.debug('EngineRestart', `reconnect attempt ${i + 1}/${maxRetries} failed: ${e}`)
-      }
-    }
-    throw lastError
-  } catch (e) {
-    logger.error('EngineRestart', `failed to restart engine: ${e}`)
-    appStore.engineReady = false
-  } finally {
-    appStore.engineInitializing = false
   }
 }
 
