@@ -52,6 +52,7 @@ let unlistenMenuEvent: (() => void) | null = null
 let unlistenCloseRequested: (() => void) | null = null
 let unlistenDeepLink: (() => void) | null = null
 let unlistenSingleInstance: (() => void) | null = null
+let unlistenTrayMenu: (() => void) | null = null
 let globalStatTimer: ReturnType<typeof setTimeout> | null = null
 
 function startGlobalPolling() {
@@ -242,6 +243,35 @@ onMounted(async () => {
     }
   })
 
+  // Bridge custom tray popup actions (Windows) to main window.
+  // The tray-menu window emits 'tray-menu-action' with the item id as payload.
+  unlistenTrayMenu = await listen<string>('tray-menu-action', async (event) => {
+    const action = event.payload
+    const mainWindow = getCurrentWindow()
+    switch (action) {
+      case 'show':
+        await mainWindow.show()
+        await mainWindow.setFocus()
+        break
+      case 'new-task':
+        await mainWindow.show()
+        await mainWindow.setFocus()
+        appStore.showAddTaskDialog()
+        break
+      case 'resume-all':
+        taskStore.resumeAllTask().catch(console.error)
+        break
+      case 'pause-all':
+        taskStore.pauseAllTask().catch(console.error)
+        break
+      case 'quit': {
+        const window = getCurrentWindow()
+        await window.destroy()
+        break
+      }
+    }
+  })
+
   unlistenDeepLink = await listen<string[]>('deep-link-open', (event) => {
     appStore.handleDeepLinkUrls(event.payload)
   })
@@ -306,6 +336,7 @@ onUnmounted(() => {
   if (unlistenCloseRequested) unlistenCloseRequested()
   if (unlistenDeepLink) unlistenDeepLink()
   if (unlistenSingleInstance) unlistenSingleInstance()
+  if (unlistenTrayMenu) unlistenTrayMenu()
 })
 </script>
 

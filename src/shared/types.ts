@@ -159,8 +159,8 @@ export interface AppConfig {
   userAgent: string
   rpcListenPort: number
   rpcSecret: string
-  listenPort: string
-  dhtListenPort: string
+  listenPort: number
+  dhtListenPort: number
   btTracker: string
   btSaveMetadata: boolean
   btForceEncryption: boolean

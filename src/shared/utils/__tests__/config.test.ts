@@ -95,6 +95,19 @@ describe('diffConfig', () => {
     const result = diffConfig({ proxy: { host: 'a' } }, { proxy: { host: 'b' } })
     expect(result).toEqual({ proxy: { host: 'b' } })
   })
+
+  it('treats coerce-equal primitives as unchanged (string "21301" vs number 21301)', () => {
+    const result = diffConfig(
+      { listenPort: '21301', dhtListenPort: '26701' },
+      { listenPort: 21301, dhtListenPort: 26701 },
+    )
+    expect(result).toEqual({})
+  })
+
+  it('still detects genuinely different values across types', () => {
+    const result = diffConfig({ listenPort: '21301' }, { listenPort: 21302 })
+    expect(result).toEqual({ listenPort: 21302 })
+  })
 })
 
 describe('checkIsNeedRestart', () => {
@@ -118,6 +131,16 @@ describe('checkIsNeedRestart', () => {
   })
   it('detects restart key among multiple changes', () => {
     expect(checkIsNeedRestart({ theme: 'dark', rpcSecret: 'changed' })).toBe(true)
+  })
+
+  it('returns false when port values are same but types differ (real afterSave scenario)', () => {
+    // Simulates the real bug: prevConfig stores ports as strings,
+    // form uses numbers, but the actual values are identical.
+    const changed = diffConfig(
+      { listenPort: '21301', dhtListenPort: '26701', rpcListenPort: 16800, rpcSecret: 'abc' },
+      { listenPort: 21301, dhtListenPort: 26701, rpcListenPort: 16800, rpcSecret: 'abc' },
+    )
+    expect(checkIsNeedRestart(changed)).toBe(false)
   })
 })
 

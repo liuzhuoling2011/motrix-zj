@@ -62,7 +62,12 @@ export const diffConfig = (
     if (isArray(val) || isPlainObject(val)) {
       return JSON.stringify(curr[key]) === JSON.stringify(val)
     }
-    return curr[key] === val
+    // Coerce-equal primitives (e.g. string "21301" == number 21301) are NOT
+    // real changes.  This handles legacy config.json entries where port values
+    // were stored as strings but the form produces numbers.
+
+    if (curr[key] != val) return false
+    return true
   })
 }
 

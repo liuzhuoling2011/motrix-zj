@@ -69,8 +69,8 @@ export function buildAdvancedForm(config: AppConfig): { form: AdvancedForm; gene
       rpcListenPort: config.rpcListenPort ?? D.rpcListenPort,
       rpcSecret,
       enableUpnp: config.enableUpnp ?? D.enableUpnp,
-      listenPort: Number(config.listenPort) || Number(D.listenPort),
-      dhtListenPort: Number(config.dhtListenPort) || Number(D.dhtListenPort),
+      listenPort: Number(config.listenPort ?? D.listenPort),
+      dhtListenPort: Number(config.dhtListenPort ?? D.dhtListenPort),
       userAgent: config.userAgent ?? D.userAgent,
       logLevel: config.logLevel ?? D.logLevel,
     },
@@ -108,8 +108,6 @@ export function transformAdvancedForStore(f: AdvancedForm): Record<string, unkno
   return {
     ...f,
     btTracker: convertLineToComma(f.btTracker),
-    listenPort: String(f.listenPort),
-    dhtListenPort: String(f.dhtListenPort),
   }
 }
 

@@ -39,6 +39,11 @@ const router = createRouter({
       ],
     },
     {
+      path: '/tray-menu',
+      name: 'tray-menu',
+      component: () => import('@/components/tray/TrayMenu.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },

@@ -11,6 +11,32 @@ pub struct TrayMenuState {
     pub items: Mutex<HashMap<String, MenuItem<tauri::Wry>>>,
 }
 
+/// Create the custom tray popup window on Windows.
+///
+/// The window is built dynamically (NOT declared in tauri.conf.json) so that
+/// macOS and Linux never instantiate it.  It starts hidden and is shown/hidden
+/// on right-click via `on_tray_icon_event`.
+#[cfg(target_os = "windows")]
+fn ensure_tray_popup(app: &AppHandle) {
+    use tauri::WebviewWindowBuilder;
+
+    // Only create once — subsequent calls are no-ops.
+    if app.get_webview_window("tray-menu").is_some() {
+        return;
+    }
+
+    let _popup = WebviewWindowBuilder::new(app, "tray-menu", tauri::WebviewUrl::App("/tray-menu".into()))
+        .title("")
+        .inner_size(232.0, 280.0)
+        .visible(false)
+        .decorations(false)
+        .transparent(true)
+        .skip_taskbar(true)
+        .always_on_top(true)
+        .resizable(false)
+        .build();
+}
+
 pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::Error>> {
     let show_item = MenuItem::with_id(app, "show", "Show Motrix Next", true, None::<&str>)?;
     let new_task_item = MenuItem::with_id(app, "tray-new-task", "New Task", true, None::<&str>)?;
@@ -41,34 +67,60 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
         ],
     )?;
 
-    let _tray = TrayIconBuilder::with_id("main")
-        .menu(&menu)
+    // On Windows: eagerly create the hidden popup window.
+    #[cfg(target_os = "windows")]
+    ensure_tray_popup(app);
+
+    let mut builder = TrayIconBuilder::with_id("main")
         .icon(tauri::image::Image::from_bytes(include_bytes!(
             "../icons/tray-icon.png"
         ))?)
         .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click {
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                ..
-            } = event
-            {
-                let app = tray.app_handle();
-                // Restore Dock icon before showing the window.
-                #[cfg(target_os = "macos")]
-                {
-                    use tauri::ActivationPolicy;
-                    let _ = app.set_activation_policy(ActivationPolicy::Regular);
+            match event {
+                // Left-click: show main window (all platforms)
+                TrayIconEvent::Click {
+                    button: MouseButton::Left,
+                    button_state: MouseButtonState::Up,
+                    ..
+                } => {
+                    let app = tray.app_handle();
+                    #[cfg(target_os = "macos")]
+                    {
+                        use tauri::ActivationPolicy;
+                        let _ = app.set_activation_policy(ActivationPolicy::Regular);
+                    }
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
                 }
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
+                // Windows: right-click shows the custom tray popup window
+                #[cfg(target_os = "windows")]
+                TrayIconEvent::Click {
+                    button: MouseButton::Right,
+                    button_state: MouseButtonState::Up,
+                    position,
+                    ..
+                } => {
+                    let app = tray.app_handle();
+                    // Lazily create the popup if it was destroyed or not yet ready.
+                    ensure_tray_popup(app);
+                    if let Some(popup) = app.get_webview_window("tray-menu") {
+                        // Position the popup near the click (above the tray icon)
+                        let popup_width = 232.0_f64;
+                        let popup_height = 280.0_f64;
+                        let x = position.x - popup_width / 2.0;
+                        let y = position.y - popup_height;
+                        let _ = popup.set_position(tauri::LogicalPosition::new(x, y));
+                        let _ = popup.show();
+                        let _ = popup.set_focus();
+                    }
                 }
+                _ => {}
             }
         })
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => {
-                // Restore Dock icon before showing the window.
                 #[cfg(target_os = "macos")]
                 {
                     use tauri::ActivationPolicy;
@@ -89,17 +141,22 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
                 let _ = app.emit("menu-event", "pause-all");
             }
             "tray-quit" => {
-                // Destroy the window first to bypass the frontend CloseRequested
-                // listener (which would otherwise show an exit confirmation dialog).
-                // destroy() is a hard kill that doesn't fire CloseRequested.
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.destroy();
                 }
                 app.exit(0);
             }
             _ => {}
-        })
-        .build(app)?;
+        });
+
+    // On Windows: no native menu (custom popup used instead).
+    // On macOS/Linux: native system menu.
+    #[cfg(not(target_os = "windows"))]
+    {
+        builder = builder.menu(&menu);
+    }
+
+    let _tray = builder.build(app)?;
 
     Ok(TrayMenuState {
         items: Mutex::new(items_map),

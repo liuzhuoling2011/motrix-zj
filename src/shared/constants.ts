@@ -122,8 +122,8 @@ export const DEFAULT_APP_CONFIG = {
   enableUpnp: false, // security consensus: UPnP has zero-auth design, default OFF
   rpcListenPort: ENGINE_RPC_PORT,
   rpcSecret: '', // generated dynamically at runtime (main.ts / resetToDefaults)
-  listenPort: '21301',
-  dhtListenPort: '26701',
+  listenPort: 21301,
+  dhtListenPort: 26701,
   proxy: { enable: false, server: '', bypass: '', scope: [] as string[] },
   protocols: { magnet: false, thunder: false },
   userAgent: '',

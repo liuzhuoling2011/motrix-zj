@@ -17,6 +17,7 @@ import {
   type AdvancedForm,
 } from '../useAdvancedPreference'
 import { ENGINE_RPC_PORT, PROXY_SCOPES } from '@shared/constants'
+import { diffConfig } from '@shared/utils/config'
 import type { AppConfig } from '@shared/types'
 
 // ── generateSecret ──────────────────────────────────────────────────
@@ -193,7 +194,7 @@ describe('transformAdvancedForStore', () => {
     expect(result.btTracker).toBe('udp://a,udp://b')
   })
 
-  it('converts port numbers to strings', () => {
+  it('preserves port numbers as numbers (not strings)', () => {
     const form: AdvancedForm = {
       proxy: { enable: false, server: '', bypass: '', scope: [] },
       trackerSource: [],
@@ -209,8 +210,30 @@ describe('transformAdvancedForStore', () => {
       logLevel: 'warn',
     }
     const result = transformAdvancedForStore(form)
-    expect(result.listenPort).toBe('21301')
-    expect(result.dhtListenPort).toBe('26701')
+    expect(result.listenPort).toBe(21301)
+    expect(typeof result.listenPort).toBe('number')
+    expect(result.dhtListenPort).toBe(26701)
+    expect(typeof result.dhtListenPort).toBe('number')
+  })
+
+  it('round-trip: buildAdvancedForm → transformAdvancedForStore produces no phantom diff', () => {
+    // This is the exact scenario that caused the bug: config → form → store → diffConfig
+    // should report ZERO changes when the user didn't touch anything.
+    const config = {
+      listenPort: 21301,
+      dhtListenPort: 26701,
+      rpcListenPort: 16800,
+      rpcSecret: 'existingSecret',
+      enableUpnp: false,
+    } as AppConfig
+    const { form } = buildAdvancedForm(config)
+    const stored = transformAdvancedForStore(form)
+    const diff = diffConfig(config as Record<string, unknown>, stored)
+    // None of the restart-relevant keys should appear in the diff
+    expect(diff).not.toHaveProperty('listenPort')
+    expect(diff).not.toHaveProperty('dhtListenPort')
+    expect(diff).not.toHaveProperty('rpcListenPort')
+    expect(diff).not.toHaveProperty('rpcSecret')
   })
 })
 
