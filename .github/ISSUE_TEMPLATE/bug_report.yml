@@ -68,6 +68,7 @@ body:
       label: Logs & Screenshots
       description: |
         If applicable, attach screenshots or paste relevant logs.
+        Screen recordings are especially helpful for UI and interaction bugs.
         Logs can be found in DevTools (View → Toggle Developer Tools).
 
   - type: checkboxes
