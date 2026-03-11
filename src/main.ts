@@ -5,6 +5,7 @@ import router from './router'
 import { i18n } from '@/composables/useLocale'
 import { setI18nLocale } from '@shared/utils/i18n'
 import { usePreferenceStore } from './stores/preference'
+import { useTheme } from './composables/useTheme'
 import { useTaskStore } from './stores/task'
 import { useAppStore } from './stores/app'
 import aria2Api, { initClient } from './api/aria2'
@@ -32,9 +33,15 @@ app.mount('#app')
 // stores, WebSocket, deep-link, UPnP, clipboard monitor) to let
 // TrayMenu.vue mount instantly without blocking or focus conflicts.
 if (getCurrentWindow().label === 'tray-menu') {
-  // Lightweight locale-only init — TrayMenu.vue needs i18n but nothing else.
+  // Lightweight locale + theme init — TrayMenu.vue needs i18n and
+  // theme-aware M3 CSS variables, but nothing else (no engine, no
+  // WebSocket, no deep-link, no UPnP, no clipboard monitor).
   const preferenceStore = usePreferenceStore()
   preferenceStore.loadPreference().then(async () => {
+    // ── Theme: apply .dark class so M3 CSS vars follow user preference ──
+    useTheme()
+
+    // ── Locale: detect and apply ──
     let locale = preferenceStore.locale
     if (!locale) {
       try {

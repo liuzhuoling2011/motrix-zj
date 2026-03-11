@@ -22,9 +22,11 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useI18n } from 'vue-i18n'
+import { usePreferenceStore } from '@/stores/preference'
 import { TRAY_MENU_ITEMS, type TrayMenuActionItem } from './trayMenuItems'
 
 const { t } = useI18n()
+const preferenceStore = usePreferenceStore()
 const currentWindow = getCurrentWindow()
 
 /** Resolve Ionicons5 component by name. */
@@ -62,6 +64,10 @@ let hiding = false
  *  4. Re-add the animation class  (`animating = true`)
  */
 async function onWindowShow() {
+  // Re-read preferences from persistent store so theme/locale
+  // changes made in the main window take effect immediately.
+  await preferenceStore.loadPreference()
+
   // Reset exit state
   exiting.value = false
   hiding = false
