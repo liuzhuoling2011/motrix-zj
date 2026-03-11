@@ -166,7 +166,6 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
       if (failed.length > 0) {
         message.warning(`${failed.length} ${t('task.failed') || 'failed'}`, { duration: 5000, closable: true })
       } else {
-        message.success(t('task.add-task-success') || 'Task added successfully')
         onClose()
         if (preferenceStore.config.newTaskShowDownloading !== false) {
           router.push({ path: '/task/active' }).catch(() => {})

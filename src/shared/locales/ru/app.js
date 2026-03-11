@@ -38,6 +38,7 @@ export default {
   'engine-not-ready': 'Движок запускается, подождите...',
   'engine-ready': 'Движок успешно запущен',
   'engine-failed': 'Не удалось запустить движок',
+  'engine-crash': 'Движок загрузки неожиданно завершился (код {code})',
   'new-version-available': 'Доступно обновление',
   'older-version-available': 'Доступна более старая версия',
   'tray-new-task': 'Новая задача',

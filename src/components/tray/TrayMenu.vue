@@ -1,18 +1,18 @@
 <script setup lang="ts">
 /**
- * @fileoverview Custom tray popup menu for Windows.
- *
- * macOS uses native NSMenu (good styling by default).
- * Linux follows DE theme (acceptable).
- * Windows Win32 context menus are visually plain — this custom popup
- * provides M3-styled menu items with icons, hover effects, and animations.
+ * @fileoverview Custom tray popup menu (cross-platform).
  *
  * Architecture: Runs inside a dedicated borderless, transparent Tauri window
  * (`tray-menu`). On right-click, tray.rs shows this window positioned near
- * the system tray icon.  Clicking an item emits the action to the main
- * window via Tauri events, then auto-closes.
+ * the system tray icon via tauri-plugin-positioner.  Clicking an item emits
+ * the action to the main window via Tauri events, then auto-closes.
+ *
+ * Focus guard: macOS can trigger onFocusChanged(false) during the show()
+ * animation before the window is fully visible.  Without a delay guard,
+ * this causes hide/show thrashing and a frozen UI.  The `focusGuardActive`
+ * ref blocks focus-loss hiding for 200ms after each show.
  */
-import { onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useI18n } from 'vue-i18n'
@@ -32,8 +32,23 @@ const iconMap: Record<string, typeof OpenOutline> = {
   PowerOutline,
 }
 
+/**
+ * Focus guard: when true, onFocusChanged(false) is ignored.
+ * Armed for 200ms after the window becomes visible to prevent the
+ * macOS show-animation race condition.
+ */
+const focusGuardActive = ref(false)
+let focusGuardTimer: ReturnType<typeof setTimeout> | null = null
+
+function armFocusGuard() {
+  focusGuardActive.value = true
+  if (focusGuardTimer) clearTimeout(focusGuardTimer)
+  focusGuardTimer = setTimeout(() => {
+    focusGuardActive.value = false
+  }, 200)
+}
+
 async function handleItemClick(item: TrayMenuActionItem) {
-  // Emit action to the main window, then close the popup.
   await emit('tray-menu-action', item.id)
   await currentWindow.hide()
 }
@@ -44,16 +59,27 @@ function handleEscape(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
+let unlistenFocus: (() => void) | null = null
+
+onMounted(async () => {
   document.addEventListener('keydown', handleEscape)
-  // Auto-close when the popup loses focus.
-  currentWindow.onFocusChanged(({ payload: focused }) => {
-    if (!focused) currentWindow.hide()
+
+  // Arm the focus guard whenever the window gains focus (i.e. becomes visible).
+  // Auto-hide when the window loses focus (clicked outside) after the guard expires.
+  const unlistenShow = await currentWindow.onFocusChanged(({ payload: focused }) => {
+    if (focused) {
+      armFocusGuard()
+    } else if (!focusGuardActive.value) {
+      currentWindow.hide()
+    }
   })
+  unlistenFocus = unlistenShow
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleEscape)
+  if (focusGuardTimer) clearTimeout(focusGuardTimer)
+  if (unlistenFocus) unlistenFocus()
 })
 </script>
 
@@ -151,5 +177,13 @@ onUnmounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+</style>
+
+<!-- Global style: transparent body required for Tauri transparent window -->
+<style>
+html,
+body {
+  background: transparent !important;
 }
 </style>

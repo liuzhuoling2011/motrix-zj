@@ -151,6 +151,13 @@ onMounted(async () => {
     },
   )
 
+  // Notify user when the aria2 engine crashes at runtime (non-zero exit code).
+  // Distinct from engine-failed which fires during initialization.
+  listen<{ code: number; signal?: number }>('engine-error', (event) => {
+    const { code } = event.payload
+    message.error(t('app.engine-crash', { code }), { closable: true })
+  })
+
   router.beforeEach((to, from) => {
     const leavingPrefs = from.path.startsWith('/preference') && !to.path.startsWith('/preference')
     const switchingPrefsTab =

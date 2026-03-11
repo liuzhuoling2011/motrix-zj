@@ -1,22 +1,23 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::{
-    menu::{Menu, MenuItem, PredefinedMenuItem},
+    menu::MenuItem,
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager,
+    AppHandle, Manager,
 };
+use tauri_plugin_positioner::{Position, WindowExt as PositionerExt};
 
 /// Holds references to tray menu items for dynamic label updates (i18n).
+/// Retained for backward-compatibility with `update_tray_menu_labels` command.
 pub struct TrayMenuState {
     pub items: Mutex<HashMap<String, MenuItem<tauri::Wry>>>,
 }
 
-/// Create the custom tray popup window on Windows.
+/// Create the custom tray popup window.
 ///
-/// The window is built dynamically (NOT declared in tauri.conf.json) so that
-/// macOS and Linux never instantiate it.  It starts hidden and is shown/hidden
-/// on right-click via `on_tray_icon_event`.
-#[cfg(target_os = "windows")]
+/// The window is built dynamically (NOT declared in tauri.conf.json).
+/// It starts hidden and is shown/positioned on click via
+/// `on_tray_icon_event` + `tauri-plugin-positioner`.
 fn ensure_tray_popup(app: &AppHandle) {
     use tauri::WebviewWindowBuilder;
 
@@ -33,49 +34,62 @@ fn ensure_tray_popup(app: &AppHandle) {
         .transparent(true)
         .skip_taskbar(true)
         .always_on_top(true)
+        .accept_first_mouse(true)
+        .shadow(false)
         .resizable(false)
         .build();
 }
 
+/// Position, show, and focus the custom tray popup window.
+///
+/// Uses `tauri-plugin-positioner` with `Position::TrayCenter` for
+/// cross-platform tray-relative positioning (handles DPI, multi-monitor,
+/// and tray orientation automatically).
+///
+/// **Prerequisite**: `on_tray_event` must be called first in the tray icon
+/// event handler so the positioner knows the tray icon's screen coordinates.
+fn show_tray_popup(app: &AppHandle) {
+    ensure_tray_popup(app);
+    if let Some(popup) = app.get_webview_window("tray-menu") {
+        let _ = popup.move_window(Position::TrayCenter);
+        let _ = popup.show();
+        let _ = popup.set_focus();
+    }
+}
+
 pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::Error>> {
+    // Create MenuItem references for TrayMenuState (used by update_tray_menu_labels).
+    // These are NOT attached to a native OS menu — all platforms use the custom popup.
     let show_item = MenuItem::with_id(app, "show", "Show Motrix Next", true, None::<&str>)?;
     let new_task_item = MenuItem::with_id(app, "tray-new-task", "New Task", true, None::<&str>)?;
     let resume_all_item =
         MenuItem::with_id(app, "tray-resume-all", "Resume All", true, None::<&str>)?;
     let pause_all_item = MenuItem::with_id(app, "tray-pause-all", "Pause All", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "tray-quit", "Quit", true, None::<&str>)?;
-    let separator = PredefinedMenuItem::separator(app)?;
 
-    // Clone refs before moving into menu
     let mut items_map: HashMap<String, MenuItem<tauri::Wry>> = HashMap::new();
-    items_map.insert("show".to_string(), show_item.clone());
-    items_map.insert("tray-new-task".to_string(), new_task_item.clone());
-    items_map.insert("tray-resume-all".to_string(), resume_all_item.clone());
-    items_map.insert("tray-pause-all".to_string(), pause_all_item.clone());
-    items_map.insert("tray-quit".to_string(), quit_item.clone());
+    items_map.insert("show".to_string(), show_item);
+    items_map.insert("tray-new-task".to_string(), new_task_item);
+    items_map.insert("tray-resume-all".to_string(), resume_all_item);
+    items_map.insert("tray-pause-all".to_string(), pause_all_item);
+    items_map.insert("tray-quit".to_string(), quit_item);
 
-    let menu = Menu::with_items(
-        app,
-        &[
-            &show_item,
-            &separator,
-            &new_task_item,
-            &resume_all_item,
-            &pause_all_item,
-            &PredefinedMenuItem::separator(app)?,
-            &quit_item,
-        ],
-    )?;
+    // Popup is created lazily on click via ensure_tray_popup / show_tray_popup.
+    // No eager creation at startup — prevents blocking the main window.
 
-    // On Windows: eagerly create the hidden popup window.
-    #[cfg(target_os = "windows")]
-    ensure_tray_popup(app);
-
-    let mut builder = TrayIconBuilder::with_id("main")
+    let builder = TrayIconBuilder::with_id("main")
         .icon(tauri::image::Image::from_bytes(include_bytes!(
             "../icons/tray-icon.png"
         ))?)
         .on_tray_icon_event(|tray, event| {
+            let app = tray.app_handle();
+
+            // CRITICAL: feed every tray event to the positioner plugin so it
+            // knows the tray icon's screen coordinates. Without this,
+            // `move_window(Position::TrayCenter)` panics with
+            // "Tray position not set".
+            tauri_plugin_positioner::on_tray_event(app, &event);
+
             match event {
                 // Left-click: show main window (all platforms)
                 TrayIconEvent::Click {
@@ -83,7 +97,6 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
                     button_state: MouseButtonState::Up,
                     ..
                 } => {
-                    let app = tray.app_handle();
                     #[cfg(target_os = "macos")]
                     {
                         use tauri::ActivationPolicy;
@@ -94,76 +107,17 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
                         let _ = window.set_focus();
                     }
                 }
-                // Windows: right-click shows the custom tray popup window
-                #[cfg(target_os = "windows")]
+                // Right-click: show the custom tray popup window (all platforms)
                 TrayIconEvent::Click {
                     button: MouseButton::Right,
                     button_state: MouseButtonState::Up,
-                    position,
                     ..
                 } => {
-                    let app = tray.app_handle();
-                    // Lazily create the popup if it was destroyed or not yet ready.
-                    ensure_tray_popup(app);
-                    if let Some(popup) = app.get_webview_window("tray-menu") {
-                        // Position the popup near the click (above the tray icon)
-                        let popup_width = 232.0_f64;
-                        let popup_height = 280.0_f64;
-                        let x = position.x - popup_width / 2.0;
-                        let y = position.y - popup_height;
-                        let _ = popup.set_position(tauri::LogicalPosition::new(x, y));
-                        let _ = popup.show();
-                        let _ = popup.set_focus();
-                    }
+                    show_tray_popup(app);
                 }
                 _ => {}
             }
-        })
-        .on_menu_event(|app, event| match event.id.as_ref() {
-            "show" => {
-                #[cfg(target_os = "macos")]
-                {
-                    use tauri::ActivationPolicy;
-                    let _ = app.set_activation_policy(ActivationPolicy::Regular);
-                }
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-            }
-            "tray-new-task" => {
-                #[cfg(target_os = "macos")]
-                {
-                    use tauri::ActivationPolicy;
-                    let _ = app.set_activation_policy(ActivationPolicy::Regular);
-                }
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-                let _ = app.emit("menu-event", "new-task");
-            }
-            "tray-resume-all" => {
-                let _ = app.emit("menu-event", "resume-all");
-            }
-            "tray-pause-all" => {
-                let _ = app.emit("menu-event", "pause-all");
-            }
-            "tray-quit" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.destroy();
-                }
-                app.exit(0);
-            }
-            _ => {}
         });
-
-    // On Windows: no native menu (custom popup used instead).
-    // On macOS/Linux: native system menu.
-    #[cfg(not(target_os = "windows"))]
-    {
-        builder = builder.menu(&menu);
-    }
 
     let _tray = builder.build(app)?;
 

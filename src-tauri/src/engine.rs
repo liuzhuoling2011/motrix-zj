@@ -1,5 +1,5 @@
 use std::sync::Mutex;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
@@ -89,9 +89,29 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
     tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
-                CommandEvent::Stdout(_line) => {}
-                CommandEvent::Stderr(_line) => {}
-                CommandEvent::Terminated(_payload) => {
+                CommandEvent::Stdout(line) => {
+                    let text = String::from_utf8_lossy(&line);
+                    eprintln!("[aria2c] stdout: {}", text.trim());
+                }
+                CommandEvent::Stderr(line) => {
+                    let text = String::from_utf8_lossy(&line);
+                    eprintln!("[aria2c] stderr: {}", text.trim());
+                }
+                CommandEvent::Terminated(payload) => {
+                    let exit_code = payload.code.unwrap_or(-1);
+                    eprintln!("[aria2c] terminated with exit code: {}", exit_code);
+
+                    // Notify frontend of abnormal termination
+                    if exit_code != 0 {
+                        let _ = app_handle.emit(
+                            "engine-error",
+                            serde_json::json!({
+                                "code": exit_code,
+                                "signal": payload.signal
+                            }),
+                        );
+                    }
+
                     if let Some(state) = app_handle.try_state::<EngineState>() {
                         if let Ok(mut lock) = state.child.lock() {
                             // Only clear if the current child matches — prevents a
@@ -214,7 +234,29 @@ pub fn restart_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Res
     tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
-                CommandEvent::Terminated(_payload) => {
+                CommandEvent::Stdout(line) => {
+                    let text = String::from_utf8_lossy(&line);
+                    eprintln!("[aria2c] stdout: {}", text.trim());
+                }
+                CommandEvent::Stderr(line) => {
+                    let text = String::from_utf8_lossy(&line);
+                    eprintln!("[aria2c] stderr: {}", text.trim());
+                }
+                CommandEvent::Terminated(payload) => {
+                    let exit_code = payload.code.unwrap_or(-1);
+                    eprintln!("[aria2c] restart: terminated with exit code: {}", exit_code);
+
+                    // Notify frontend of abnormal termination
+                    if exit_code != 0 {
+                        let _ = app_handle.emit(
+                            "engine-error",
+                            serde_json::json!({
+                                "code": exit_code,
+                                "signal": payload.signal
+                            }),
+                        );
+                    }
+
                     if let Some(state) = app_handle.try_state::<EngineState>() {
                         if let Ok(mut lock) = state.child.lock() {
                             if lock.as_ref().map(|c| c.pid()) == Some(spawned_pid) {
