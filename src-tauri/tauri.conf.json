@@ -70,7 +70,7 @@
         "installerIcon": "icons/icon.ico",
         "headerImage": "nsis/header.bmp",
         "sidebarImage": "nsis/sidebar.bmp",
-        "installMode": "both",
+        "installMode": "currentUser",
         "displayLanguageSelector": true,
         "languages": [
           "Arabic",
