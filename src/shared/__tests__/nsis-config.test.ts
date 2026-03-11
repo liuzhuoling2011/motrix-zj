@@ -102,9 +102,9 @@ describe('NSIS installer brand configuration', () => {
       expect(nsis.sidebarImage).toBe('nsis/sidebar.bmp')
     })
 
-    it('sets installMode to "both" for user-selectable install path', () => {
+    it('sets installMode to "currentUser" (no misleading path selector)', () => {
       const nsis = getNsisConfig()
-      expect(nsis.installMode).toBe('both')
+      expect(nsis.installMode).toBe('currentUser')
     })
 
     it('enables the language selector dialog', () => {
