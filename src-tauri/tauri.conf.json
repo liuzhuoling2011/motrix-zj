@@ -13,13 +13,13 @@
       {
         "label": "main",
         "title": "Motrix Next",
-        "width": 1120,
-        "height": 700,
+        "width": 1024,
+        "height": 640,
         "minWidth": 970,
         "minHeight": 560,
         "transparent": true,
         "decorations": false,
-        "visible": true
+        "visible": false
       }
     ],
     "security": {

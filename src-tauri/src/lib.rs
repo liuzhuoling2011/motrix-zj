@@ -44,7 +44,11 @@ pub fn run() {
     }
 
     builder = builder.plugin(tauri_plugin_deep_link::init());
-    builder = builder.plugin(tauri_plugin_window_state::Builder::new().build());
+    builder = builder.plugin(
+        tauri_plugin_window_state::Builder::new()
+            .skip_initial_state("main")
+            .build(),
+    );
 
     builder
         .manage(EngineState::new())
@@ -110,6 +114,37 @@ pub fn run() {
                 let _ = app_handle.emit("deep-link-open", &urls);
             });
 
+            // Conditionally restore window state based on user preference.
+            // The window-state plugin is registered with skip_initial_state("main")
+            // so it does NOT auto-restore.  We read the preference here and
+            // call restore_state() manually only when the user has opted in.
+            // The plugin still saves state on exit regardless, so toggling the
+            // preference on later will pick up the last saved geometry.
+            {
+                use tauri_plugin_window_state::{StateFlags, WindowExt};
+
+                let keep_state = app
+                    .store("config.json")
+                    .ok()
+                    .and_then(|s| s.get("preferences"))
+                    .and_then(|p| p.get("keepWindowState")?.as_bool())
+                    .unwrap_or(false);
+
+                if keep_state {
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.restore_state(StateFlags::all());
+                    }
+                }
+            }
+
+            // Show the main window now that state restoration is complete.
+            // The window starts hidden (tauri.conf.json visible: false) to
+            // prevent the default-size flash on Windows.  The auto-hide
+            // block below will re-hide it if tray-only mode is active.
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+            }
+
             // Hide Dock icon on startup when both autoHideWindow and
             // hideDockOnMinimize are enabled.  Setting the activation policy
             // in setup() — before any window is shown — is the most widely
@@ -143,9 +178,9 @@ pub fn run() {
             }
 
             // Auto-hide the main window on startup when the user has
-            // opted into tray-only mode.  The window is created visible
-            // (tauri.conf.json visible: true) for instant display; calling
-            // hide() in setup() prevents it from ever reaching the screen.
+            // opted into tray-only mode.  The window starts hidden
+            // (tauri.conf.json visible: false) and was just shown above;
+            // calling hide() here prevents it from reaching the screen.
             {
                 let auto_hide = app
                     .store("config.json")
