@@ -19,7 +19,7 @@
  * ref blocks focus-loss hiding for 200ms after each show.
  */
 import { ref, onMounted, onUnmounted } from 'vue'
-import { emit } from '@tauri-apps/api/event'
+import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
@@ -141,25 +141,32 @@ function handleEscape(e: KeyboardEvent) {
   }
 }
 
-let unlistenFocus: (() => void) | null = null
+let unlistenShow: UnlistenFn | null = null
+let unlistenBlur: (() => void) | null = null
 
 onMounted(async () => {
   document.addEventListener('keydown', handleEscape)
 
-  const unlistenShow = await currentWindow.onFocusChanged(({ payload: focused }) => {
-    if (focused) {
-      onWindowShow()
-    } else if (!_w.__trayFocusGuard) {
+  // Enter animation: triggered by explicit Rust event (cross-platform reliable).
+  // Rust emits 'tray-popup-show' before calling show(), so the animation
+  // state is set before the window becomes visible.
+  unlistenShow = await listen('tray-popup-show', () => {
+    onWindowShow()
+  })
+
+  // Exit: blur-only — hide when the window loses focus.
+  unlistenBlur = await currentWindow.onFocusChanged(({ payload: focused }) => {
+    if (!focused && !_w.__trayFocusGuard) {
       hideWithAnimation()
     }
   })
-  unlistenFocus = unlistenShow
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleEscape)
   if (_w.__trayGuardTimer) clearTimeout(_w.__trayGuardTimer)
-  if (unlistenFocus) unlistenFocus()
+  if (unlistenShow) unlistenShow()
+  if (unlistenBlur) unlistenBlur()
 })
 </script>
 

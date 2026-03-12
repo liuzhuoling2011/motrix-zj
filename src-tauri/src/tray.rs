@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use tauri::{
     menu::MenuItem,
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, Rect,
+    AppHandle, Emitter, Manager, Rect,
 };
 #[cfg(not(target_os = "linux"))]
 use tauri::PhysicalPosition;
@@ -119,6 +119,7 @@ fn show_tray_popup(app: &AppHandle, icon_rect: Rect) {
     y = y.clamp(0.0, (screen_h - POPUP_HEIGHT).max(0.0));
 
     let _ = popup.set_position(PhysicalPosition::new(x as i32, y as i32));
+    let _ = popup.emit("tray-popup-show", ());
     let _ = popup.show();
     let _ = popup.set_focus();
 }
