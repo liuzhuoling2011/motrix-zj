@@ -29,7 +29,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
+            Some(vec!["--autostart"]),
         ));
 
     #[cfg(desktop)]
@@ -146,15 +146,16 @@ pub fn run() {
             }
 
             // Hide Dock icon on startup when both autoHideWindow and
-            // hideDockOnMinimize are enabled.  Setting the activation policy
-            // in setup() — before any window is shown — is the most widely
-            // adopted pattern in the Tauri ecosystem.
+            // hideDockOnMinimize are enabled, AND the app was launched by
+            // the OS autostart mechanism (--autostart flag).  Manual launches
+            // always keep the Dock icon visible.
             //
             // NOTE: This only takes effect in production builds (.app bundle).
             // In `cargo tauri dev` the process is a cargo child, so macOS
             // Launch Services does not honour activation policy changes.
             #[cfg(target_os = "macos")]
             {
+                let is_autostart = std::env::args().any(|a| a == "--autostart");
                 let hide_dock = app
                     .store("config.json")
                     .ok()
@@ -171,24 +172,27 @@ pub fn run() {
                         auto_hide && dock_hide
                     })
                     .unwrap_or(false);
-                if hide_dock {
+                if hide_dock && is_autostart {
                     use tauri::ActivationPolicy;
                     let _ = app.set_activation_policy(ActivationPolicy::Accessory);
                 }
             }
 
             // Auto-hide the main window on startup when the user has
-            // opted into tray-only mode.  The window starts hidden
-            // (tauri.conf.json visible: false) and was just shown above;
-            // calling hide() here prevents it from reaching the screen.
+            // opted into tray-only mode AND the app was launched by the
+            // OS autostart mechanism (--autostart flag).  Manual launches
+            // (user double-clicks the app) always show the main window.
+            // This matches industry standard behavior (Discord, Telegram,
+            // Steam, Clash Verge).
             {
+                let is_autostart = std::env::args().any(|a| a == "--autostart");
                 let auto_hide = app
                     .store("config.json")
                     .ok()
                     .and_then(|s| s.get("preferences"))
                     .and_then(|p| p.get("autoHideWindow")?.as_bool())
                     .unwrap_or(false);
-                if auto_hide {
+                if auto_hide && is_autostart {
                     if let Some(w) = app.get_webview_window("main") {
                         let _ = w.hide();
                     }
