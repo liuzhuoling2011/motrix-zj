@@ -18,7 +18,7 @@
  * this causes hide/show thrashing and a frozen UI.  The `focusGuardActive`
  * ref blocks focus-loss hiding for 200ms after each show.
  */
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { emit } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useI18n } from 'vue-i18n'
@@ -40,9 +40,15 @@ const iconMap: Record<string, typeof OpenOutline> = {
   PowerOutline,
 }
 
-// ── Focus guard ──────────────────────────────────────────────────────
-const focusGuardActive = ref(false)
-let focusGuardTimer: ReturnType<typeof setTimeout> | null = null
+// ── Focus guard (window-global to survive HMR) ─────────────────────
+// Stored on `window` so that HMR-created duplicate onFocusChanged
+// listeners all share the same guard boolean.  Without this, each
+// hot-reload cycle creates a new module scope with its own variable,
+// and old listeners read a stale copy that is always `false`.
+const _w = window as unknown as {
+  __trayFocusGuard?: boolean
+  __trayGuardTimer?: ReturnType<typeof setTimeout>
+}
 
 // ── Animation state ──────────────────────────────────────────────────
 const animating = ref(false)
@@ -52,45 +58,42 @@ let hiding = false
 /**
  * Re-trigger the M3 enter animation and arm the focus guard.
  *
- * Called on every `onFocusChanged(true)`.  Restarting a CSS animation
- * requires THREE steps:
+ * Two critical design constraints:
  *
- *  1. Remove the animation class  (Vue reactive: `animating = false`)
- *  2. Wait for Vue to flush the class removal to the real DOM (`nextTick`)
- *  3. Force the browser to process the removal by triggering a reflow
- *     (`offsetWidth` read).  Without this, the browser batches the
- *     removal and re-addition into a single paint frame and the
- *     animation never visually restarts.
- *  4. Re-add the animation class  (`animating = true`)
+ * 1. **Focus guard first** — macOS fires rapid focus→blur→focus during
+ *    app activation.  The guard must be armed BEFORE any other logic
+ *    so the interleaved blur callback sees it immediately.
+ *
+ * 2. **requestAnimationFrame for animation restart** — CSS animations
+ *    only restart when the class is removed for at least one frame.
+ *    Vue batches synchronous ref changes (`false → true`) into a
+ *    single render, producing no DOM change.  `requestAnimationFrame`
+ *    guarantees the removal is painted before re-addition.
+ *
+ * Preference reload is fire-and-forget after the animation is armed.
  */
-async function onWindowShow() {
-  // Re-read preferences from persistent store so theme/locale
-  // changes made in the main window take effect immediately.
-  await preferenceStore.loadPreference()
+function onWindowShow() {
+  // ── 1. Arm the focus guard (window-global) ──
+  _w.__trayFocusGuard = true
+  if (_w.__trayGuardTimer) clearTimeout(_w.__trayGuardTimer)
+  _w.__trayGuardTimer = setTimeout(() => {
+    _w.__trayFocusGuard = false
+  }, 300)
 
-  // Reset exit state
+  // ── 2. Reset exit state synchronously ──
   exiting.value = false
   hiding = false
 
-  // Step 1: remove the enter class
+  // ── 3. Restart CSS animation via requestAnimationFrame ──
+  // Frame N:   remove animation class → browser paints opacity:0
+  // Frame N+1: add animation class    → CSS animation plays
   animating.value = false
+  requestAnimationFrame(() => {
+    animating.value = true
+  })
 
-  // Step 2: wait for Vue to update the DOM
-  await nextTick()
-
-  // Step 3: force the browser to acknowledge the class removal
-  const menu = document.querySelector('.tray-menu') as HTMLElement | null
-  if (menu) void menu.offsetWidth
-
-  // Step 4: re-add the enter class → animation starts fresh
-  animating.value = true
-
-  // Arm the focus guard
-  focusGuardActive.value = true
-  if (focusGuardTimer) clearTimeout(focusGuardTimer)
-  focusGuardTimer = setTimeout(() => {
-    focusGuardActive.value = false
-  }, 250)
+  // ── 4. Non-blocking preference refresh ──
+  preferenceStore.loadPreference()
 }
 
 /**
@@ -146,7 +149,7 @@ onMounted(async () => {
   const unlistenShow = await currentWindow.onFocusChanged(({ payload: focused }) => {
     if (focused) {
       onWindowShow()
-    } else if (!focusGuardActive.value) {
+    } else if (!_w.__trayFocusGuard) {
       hideWithAnimation()
     }
   })
@@ -155,7 +158,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleEscape)
-  if (focusGuardTimer) clearTimeout(focusGuardTimer)
+  if (_w.__trayGuardTimer) clearTimeout(_w.__trayGuardTimer)
   if (unlistenFocus) unlistenFocus()
 })
 </script>

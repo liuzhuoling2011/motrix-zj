@@ -140,12 +140,15 @@ describe('MainLayout.vue — Dock hide on window close paths', () => {
       expect(handlerBody).toContain('rememberChoice.value = !!preferenceStore.config.minimizeToTrayOnClose')
     })
 
-    it('syncs rememberChoice from minimizeToTrayOnClose when dialog opens via tray quit', () => {
-      // The tray-menu-action 'quit' handler also opens the exit dialog
+    it('tray quit calls handleExitConfirm directly (no dialog, no rememberChoice)', () => {
+      // Tray quit bypasses the exit dialog entirely — it calls
+      // handleExitConfirm() directly, matching industry standard behavior
+      // (Discord, Telegram, Steam). No rememberChoice sync is needed.
       const quitIdx = source.indexOf("case 'quit':")
       expect(quitIdx).toBeGreaterThanOrEqual(0)
       const quitBlock = source.slice(quitIdx, source.indexOf('break', quitIdx) + 10)
-      expect(quitBlock).toContain('rememberChoice.value = !!preferenceStore.config.minimizeToTrayOnClose')
+      expect(quitBlock).toContain('handleExitConfirm')
+      expect(quitBlock).not.toContain('showExitDialog')
     })
   })
 })

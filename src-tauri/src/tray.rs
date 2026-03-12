@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use tauri::{
     menu::MenuItem,
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager,
+    AppHandle, Manager, Rect,
 };
 #[cfg(not(target_os = "linux"))]
 use tauri::PhysicalPosition;
@@ -35,7 +35,7 @@ fn ensure_tray_popup(app: &AppHandle) {
 
     let _popup = WebviewWindowBuilder::new(app, "tray-menu", tauri::WebviewUrl::App("/tray-menu".into()))
         .title("")
-        .inner_size(232.0, 280.0)
+        .inner_size(232.0, 200.0)
         .visible(false)
         .decorations(false)
         .transparent(true)
@@ -51,34 +51,46 @@ fn ensure_tray_popup(app: &AppHandle) {
 #[cfg(not(target_os = "linux"))]
 const POPUP_WIDTH: f64 = 232.0;
 #[cfg(not(target_os = "linux"))]
-const POPUP_HEIGHT: f64 = 280.0;
+const POPUP_HEIGHT: f64 = 200.0;
 
-/// Gap between the popup and the cursor to avoid overlapping the icon.
+/// Gap between the popup content and the tray icon edge.
 #[cfg(not(target_os = "linux"))]
 const POPUP_GAP: f64 = 8.0;
 
 /// Position, show, and focus the custom tray popup window.
 ///
-/// Uses the mouse click coordinates from `TrayIconEvent::Click.position`
-/// for reliable cross-platform positioning.  This replaced the previous
-/// `tauri-plugin-positioner` approach, which had known DPI and overflow-area
-/// offset bugs on Windows.
+/// Uses the tray icon's bounding rectangle (`TrayIconEvent::Click.rect`)
+/// for precise, icon-aligned positioning.  The popup is centered
+/// horizontally on the icon and placed above or below it depending on
+/// the icon's vertical position on screen.
 ///
-/// Clamping algorithm:
-///   - X: center the popup horizontally on the cursor, clamp to screen
-///   - Y: place above cursor by default (bottom taskbar).  If the cursor
-///         is near the top of the screen (top 1/3), flip below instead.
+/// Direction algorithm:
+///   - icon in top half of screen (macOS menu bar, or Windows top taskbar)
+///     → popup appears BELOW the icon
+///   - icon in bottom half of screen (Windows default bottom taskbar)
+///     → popup appears ABOVE the icon
+///
+/// All coordinates are clamped to screen bounds.
 ///
 /// Excluded on Linux: same rationale as `ensure_tray_popup`.
 #[cfg(not(target_os = "linux"))]
-fn show_tray_popup(app: &AppHandle, cursor: PhysicalPosition<f64>) {
+fn show_tray_popup(app: &AppHandle, icon_rect: Rect) {
     ensure_tray_popup(app);
 
     let Some(popup) = app.get_webview_window("tray-menu") else {
         return;
     };
 
-    // Resolve the monitor that contains the cursor for screen bounds.
+    let (icon_x, icon_y) = match icon_rect.position {
+        tauri::Position::Physical(p) => (p.x as f64, p.y as f64),
+        tauri::Position::Logical(p) => (p.x, p.y),
+    };
+    let (icon_w, icon_h) = match icon_rect.size {
+        tauri::Size::Physical(s) => (s.width as f64, s.height as f64),
+        tauri::Size::Logical(s) => (s.width, s.height),
+    };
+
+    // Resolve the monitor for screen bounds.
     let (screen_w, screen_h) = popup
         .current_monitor()
         .ok()
@@ -89,17 +101,18 @@ fn show_tray_popup(app: &AppHandle, cursor: PhysicalPosition<f64>) {
         })
         .unwrap_or((1920.0, 1080.0));
 
-    // Center popup horizontally on cursor.
-    let mut x = cursor.x - POPUP_WIDTH / 2.0;
+    // Center popup horizontally on the tray icon.
+    let mut x = icon_x + icon_w / 2.0 - POPUP_WIDTH / 2.0;
 
-    // Default: place popup above cursor (typical for bottom taskbar).
-    let mut y = cursor.y - POPUP_HEIGHT - POPUP_GAP;
-
-    // If cursor is in the top third of the screen, the taskbar is
-    // likely at the top — flip the popup below the cursor instead.
-    if cursor.y < screen_h / 3.0 {
-        y = cursor.y + POPUP_GAP;
-    }
+    // Determine direction based on icon position:
+    // Top half → below icon, bottom half → above icon.
+    let mut y = if icon_y < screen_h / 2.0 {
+        // Icon is in the top half (macOS menu bar, or top taskbar)
+        icon_y + icon_h + POPUP_GAP
+    } else {
+        // Icon is in the bottom half (Windows default bottom taskbar)
+        icon_y - POPUP_HEIGHT - POPUP_GAP
+    };
 
     // Clamp to screen bounds to prevent off-screen overflow.
     x = x.clamp(0.0, (screen_w - POPUP_WIDTH).max(0.0));
@@ -178,16 +191,17 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
                         let _ = window.set_focus();
                     }
                 }
-                // Right-click: show the custom tray popup at cursor position.
+                // Right-click: show the custom tray popup aligned to the icon.
+                // Uses rect (icon bounds) for precise positioning.
                 // Excluded on Linux: libappindicator does not emit Click events.
                 #[cfg(not(target_os = "linux"))]
                 TrayIconEvent::Click {
                     button: MouseButton::Right,
                     button_state: MouseButtonState::Up,
-                    position,
+                    rect,
                     ..
                 } => {
-                    show_tray_popup(app, position);
+                    show_tray_popup(app, rect);
                 }
                 _ => {}
             }

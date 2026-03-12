@@ -314,10 +314,7 @@ onMounted(async () => {
         }
         break
       case 'quit':
-        await mainWindow.show()
-        await mainWindow.setFocus()
-        rememberChoice.value = !!preferenceStore.config.minimizeToTrayOnClose
-        showExitDialog.value = true
+        await handleExitConfirm()
         break
     }
   })

@@ -2,12 +2,12 @@
  * @fileoverview Structural tests for the cross-platform custom tray menu.
  *
  * macOS/Windows use the custom Vue-based TrayMenu.vue popup, positioned
- * via cursor coordinates from TrayIconEvent::Click.position.  No native
- * OS menu is used.  Linux is excluded at compile time because
- * libappindicator does not emit TrayIconEvent::Click.
+ * via icon_rect from TrayIconEvent::Click.rect (the tray icon's bounding
+ * rectangle).  No native OS menu is used.  Linux is excluded at compile
+ * time because libappindicator does not emit TrayIconEvent::Click.
  *
  * Verifies:
- * 1. tray.rs — cursor-based positioning with screen-bounds clamping,
+ * 1. tray.rs — icon_rect-based positioning with screen-bounds clamping,
  *    no tauri-plugin-positioner, Linux isolation via cfg gates
  * 2. TrayMenu.vue — emits actions, auto-hides on blur
  * 3. MainLayout.vue — handles all tray-menu-action events
@@ -22,27 +22,36 @@ import * as path from 'node:path'
 const TAURI_ROOT = path.resolve(__dirname, '../../../../src-tauri')
 const SRC_ROOT = path.resolve(__dirname, '../../../..')
 
-// ─── Test Group 1: tray.rs — cursor-based custom tray ───────────────
+// ─── Test Group 1: tray.rs — icon_rect-based custom tray ────────────
 
-describe('tray.rs — cursor-based custom tray menu', () => {
+describe('tray.rs — icon_rect-based custom tray menu', () => {
   let traySource: string
 
   beforeAll(() => {
     traySource = fs.readFileSync(path.join(TAURI_ROOT, 'src', 'tray.rs'), 'utf-8')
   })
 
-  describe('cursor-based positioning', () => {
-    it('uses set_position for cursor-based popup positioning', () => {
+  describe('icon_rect-based positioning', () => {
+    it('uses set_position for popup positioning', () => {
       expect(traySource).toContain('set_position')
     })
 
-    it('extracts position from TrayIconEvent::Click', () => {
-      // The right-click handler must destructure the position field
+    it('extracts rect (icon bounds) from TrayIconEvent::Click', () => {
+      // The right-click handler must destructure the rect field (icon bounds),
+      // NOT just the position field (mouse cursor).
       const rightClickBlock = extractClickBlock(traySource, 'MouseButton::Right')
       expect(rightClickBlock).toBeTruthy()
-      // show_tray_popup must receive cursor coordinates
-      expect(rightClickBlock).toContain('position')
+      expect(rightClickBlock).toContain('rect')
       expect(rightClickBlock).toContain('show_tray_popup')
+    })
+
+    it('passes rect (not cursor position) to show_tray_popup', () => {
+      // show_tray_popup must accept the tray icon Rect, not a PhysicalPosition.
+      // This ensures the popup is positioned relative to the icon, not the mouse.
+      const fnSignature = traySource.match(/fn show_tray_popup\([^)]+\)/)
+      expect(fnSignature).toBeTruthy()
+      expect(fnSignature![0]).toContain('Rect')
+      expect(fnSignature![0]).not.toContain('PhysicalPosition')
     })
 
     it('clamps popup to screen bounds', () => {
@@ -57,12 +66,32 @@ describe('tray.rs — cursor-based custom tray menu', () => {
       expect(traySource).not.toContain('on_tray_event')
     })
 
-    it('handles both top and bottom taskbar layouts', () => {
-      // Must consider cursor Y position relative to screen height
-      // to decide whether popup goes above or below the cursor
+    it('determines popup direction from icon.y vs screen midpoint', () => {
+      // Use ICON position (not cursor) to decide above/below direction.
+      // icon.y < screen_h / 2 → below (macOS menu bar / Windows top taskbar)
+      // icon.y >= screen_h / 2 → above (Windows bottom taskbar)
       const fnBody = extractFunctionBody(traySource, 'show_tray_popup')
       expect(fnBody).toBeTruthy()
       expect(fnBody).toContain('screen_h')
+    })
+
+    it('POPUP_HEIGHT matches actual content (not oversized)', () => {
+      // 5 items(34px) + 1 separator(9px) + padding(12px) ≈ 193px
+      // Must NOT be 280 — that caused 80px gap on Windows bottom taskbar.
+      const match = traySource.match(/const POPUP_HEIGHT:\s*f64\s*=\s*([\d.]+)/)
+      expect(match).toBeTruthy()
+      const height = parseFloat(match![1])
+      expect(height).toBeLessThanOrEqual(210)
+      expect(height).toBeGreaterThanOrEqual(180)
+    })
+
+    it('inner_size height matches POPUP_HEIGHT constant', () => {
+      // The window builder inner_size must use the same height as POPUP_HEIGHT
+      const heightMatch = traySource.match(/const POPUP_HEIGHT:\s*f64\s*=\s*([\d.]+)/)
+      const innerMatch = traySource.match(/\.inner_size\(([\d.]+),\s*([\d.]+)\)/)
+      expect(heightMatch).toBeTruthy()
+      expect(innerMatch).toBeTruthy()
+      expect(parseFloat(innerMatch![2])).toBe(parseFloat(heightMatch![1]))
     })
   })
 
