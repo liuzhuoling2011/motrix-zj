@@ -3,12 +3,10 @@ use std::sync::Mutex;
 use tauri::{
     menu::MenuItem,
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, Rect,
+    AppHandle, Emitter, Manager,
 };
 #[cfg(not(target_os = "linux"))]
-use tauri::LogicalPosition;
-#[cfg(target_os = "linux")]
-use tauri::Emitter;
+use tauri::{LogicalPosition, Rect};
 
 /// Holds references to tray menu items for dynamic label updates (i18n).
 /// Retained for backward-compatibility with `update_tray_menu_labels` command.
