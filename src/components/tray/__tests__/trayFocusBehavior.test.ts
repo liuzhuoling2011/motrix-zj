@@ -1,17 +1,17 @@
 /**
  * @fileoverview Structural tests for the cross-platform custom tray menu.
  *
- * ALL platforms use the custom Vue-based TrayMenu.vue popup, positioned via
- * tauri-plugin-positioner (official Tauri plugin). No native OS menu is used.
+ * ALL platforms use the custom Vue-based TrayMenu.vue popup, positioned
+ * via cursor coordinates from TrayIconEvent::Click.position.  No native
+ * OS menu is used.
  *
  * Verifies:
- * 1. Cargo.toml — tauri-plugin-positioner with tray-icon feature
- * 2. lib.rs — positioner plugin registered
- * 3. tray.rs — uses positioner API, no manual coordinate calculation,
- *    macOS left-click also triggers popup, no cfg gate on popup
- * 4. TrayMenu.vue — emits actions, auto-hides on blur
- * 5. MainLayout.vue — handles all tray-menu-action events
- * 6. trayMenuItems.ts — correct item definitions
+ * 1. tray.rs — cursor-based positioning with screen-bounds clamping,
+ *    no tauri-plugin-positioner, no cfg gate on popup
+ * 2. TrayMenu.vue — emits actions, auto-hides on blur
+ * 3. MainLayout.vue — handles all tray-menu-action events
+ * 4. trayMenuItems.ts — correct item definitions
+ * 5. main.ts — tray-menu window skips heavy initialization
  */
 import { describe, it, expect, beforeAll } from 'vitest'
 import * as fs from 'node:fs'
@@ -20,71 +20,47 @@ import * as path from 'node:path'
 const TAURI_ROOT = path.resolve(__dirname, '../../../../src-tauri')
 const SRC_ROOT = path.resolve(__dirname, '../../../..')
 
-// ─── Test Group 1: Cargo.toml — positioner dependency ───────────────
+// ─── Test Group 1: tray.rs — cursor-based custom tray ───────────────
 
-describe('Cargo.toml — positioner plugin dependency', () => {
-  let cargoToml: string
-
-  beforeAll(() => {
-    cargoToml = fs.readFileSync(path.join(TAURI_ROOT, 'Cargo.toml'), 'utf-8')
-  })
-
-  it('has tauri-plugin-positioner dependency', () => {
-    expect(cargoToml).toContain('tauri-plugin-positioner')
-  })
-
-  it('enables tray-icon feature for positioner', () => {
-    // Must have features = ["tray-icon"] for tray-relative positioning
-    const posLine = cargoToml.split('\n').find((l) => l.includes('tauri-plugin-positioner'))
-    expect(posLine).toBeTruthy()
-    expect(posLine).toContain('tray-icon')
-  })
-})
-
-// ─── Test Group 2: lib.rs — plugin registration ────────────────────
-
-describe('lib.rs — positioner plugin registration', () => {
-  let libSource: string
-
-  beforeAll(() => {
-    libSource = fs.readFileSync(path.join(TAURI_ROOT, 'src', 'lib.rs'), 'utf-8')
-  })
-
-  it('registers tauri_plugin_positioner', () => {
-    expect(libSource).toContain('tauri_plugin_positioner')
-  })
-})
-
-// ─── Test Group 3: tray.rs — cross-platform custom tray ─────────────
-
-describe('tray.rs — cross-platform custom tray menu', () => {
+describe('tray.rs — cursor-based custom tray menu', () => {
   let traySource: string
 
   beforeAll(() => {
     traySource = fs.readFileSync(path.join(TAURI_ROOT, 'src', 'tray.rs'), 'utf-8')
   })
 
-  describe('positioner-based positioning (no manual coordinates)', () => {
-    it('uses tauri_plugin_positioner for popup positioning', () => {
-      expect(traySource).toContain('tauri_plugin_positioner')
+  describe('cursor-based positioning', () => {
+    it('uses set_position for cursor-based popup positioning', () => {
+      expect(traySource).toContain('set_position')
     })
 
-    it('calls on_tray_event to feed tray position to positioner', () => {
-      // Without on_tray_event, move_window(Position::TrayCenter) panics
-      expect(traySource).toContain('on_tray_event')
+    it('extracts position from TrayIconEvent::Click', () => {
+      // The right-click handler must destructure the position field
+      const rightClickBlock = extractClickBlock(traySource, 'MouseButton::Right')
+      expect(rightClickBlock).toBeTruthy()
+      // show_tray_popup must receive cursor coordinates
+      expect(rightClickBlock).toContain('position')
+      expect(rightClickBlock).toContain('show_tray_popup')
     })
 
-    it('uses Position::TrayCenter or Position::TrayBottomCenter', () => {
-      const hasTrayCenterVariant =
-        traySource.includes('Position::TrayCenter') || traySource.includes('Position::TrayBottomCenter')
-      expect(hasTrayCenterVariant).toBe(true)
+    it('clamps popup to screen bounds', () => {
+      // Must use .clamp() or equivalent to prevent off-screen overflow
+      expect(traySource).toContain('.clamp(')
     })
 
-    it('does NOT hardcode popup dimensions for position calculation', () => {
-      // No manual y = position.y - popup_height style calculation
-      expect(traySource).not.toContain('position.y - popup_height')
-      expect(traySource).not.toContain('position.y - 280')
-      expect(traySource).not.toContain('position.x - popup_width')
+    it('does NOT use tauri-plugin-positioner', () => {
+      expect(traySource).not.toContain('tauri_plugin_positioner')
+      expect(traySource).not.toContain('Position::TrayCenter')
+      expect(traySource).not.toContain('move_window')
+      expect(traySource).not.toContain('on_tray_event')
+    })
+
+    it('handles both top and bottom taskbar layouts', () => {
+      // Must consider cursor Y position relative to screen height
+      // to decide whether popup goes above or below the cursor
+      const fnBody = extractFunctionBody(traySource, 'show_tray_popup')
+      expect(fnBody).toBeTruthy()
+      expect(fnBody).toContain('screen_h')
     })
   })
 
@@ -166,7 +142,21 @@ describe('tray.rs — cross-platform custom tray menu', () => {
   })
 })
 
-// ─── Test Group 4: MainLayout.vue — tray-menu-action handler ───────
+// ─── Test Group 2: positioner plugin fully removed ──────────────────
+
+describe('positioner plugin fully removed', () => {
+  it('Cargo.toml does NOT contain positioner dependency', () => {
+    const cargoToml = fs.readFileSync(path.join(TAURI_ROOT, 'Cargo.toml'), 'utf-8')
+    expect(cargoToml).not.toContain('tauri-plugin-positioner')
+  })
+
+  it('lib.rs does NOT register positioner plugin', () => {
+    const libSource = fs.readFileSync(path.join(TAURI_ROOT, 'src', 'lib.rs'), 'utf-8')
+    expect(libSource).not.toContain('tauri_plugin_positioner')
+  })
+})
+
+// ─── Test Group 3: MainLayout.vue — tray-menu-action handler ───────
 
 describe('MainLayout.vue — tray-menu-action handler', () => {
   let mainLayoutSource: string
@@ -199,7 +189,7 @@ describe('MainLayout.vue — tray-menu-action handler', () => {
   })
 })
 
-// ─── Test Group 5: TrayMenu.vue — emission and auto-hide ───────────
+// ─── Test Group 4: TrayMenu.vue — emission and auto-hide ───────────
 
 describe('TrayMenu.vue — menu items and event emission', () => {
   let trayMenuSource: string
@@ -236,9 +226,13 @@ describe('TrayMenu.vue — menu items and event emission', () => {
     // the rounded-corner popup, creating a visible white rectangle.
     expect(trayMenuSource).toContain('background: transparent')
   })
+
+  it('does NOT reference tauri-plugin-positioner', () => {
+    expect(trayMenuSource).not.toContain('tauri-plugin-positioner')
+  })
 })
 
-// ─── Test Group 6: main.ts — tray-menu window skip ─────────────────
+// ─── Test Group 5: main.ts — tray-menu window skip ─────────────────
 
 describe('main.ts — tray-menu window skips heavy initialization', () => {
   let mainSource: string
@@ -263,7 +257,7 @@ describe('main.ts — tray-menu window skips heavy initialization', () => {
   })
 })
 
-// ─── Test Group 7: trayMenuItems.ts — completeness ──────────────────
+// ─── Test Group 6: trayMenuItems.ts — completeness ──────────────────
 
 describe('trayMenuItems.ts — menu item definitions', () => {
   let items: Array<{ type: string; id: string; labelKey?: string; icon?: string }>

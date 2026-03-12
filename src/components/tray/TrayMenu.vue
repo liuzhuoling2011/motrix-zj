@@ -3,8 +3,8 @@
  * @fileoverview Custom tray popup menu (cross-platform).
  *
  * Architecture: Runs inside a dedicated borderless, transparent Tauri window
- * (`tray-menu`). On right-click, tray.rs shows this window positioned near
- * the system tray icon via tauri-plugin-positioner.  Clicking an item emits
+ * (`tray-menu`). On right-click, tray.rs positions this window at the mouse
+ * cursor coordinates and shows it.  Clicking an item emits
  * the action to the main window via Tauri events, then auto-closes.
  *
  * Animation lifecycle:

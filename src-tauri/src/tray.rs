@@ -3,9 +3,8 @@ use std::sync::Mutex;
 use tauri::{
     menu::MenuItem,
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager,
+    AppHandle, Manager, PhysicalPosition,
 };
-use tauri_plugin_positioner::{Position, WindowExt as PositionerExt};
 
 /// Holds references to tray menu items for dynamic label updates (i18n).
 /// Retained for backward-compatibility with `update_tray_menu_labels` command.
@@ -17,7 +16,7 @@ pub struct TrayMenuState {
 ///
 /// The window is built dynamically (NOT declared in tauri.conf.json).
 /// It starts hidden and is shown/positioned on click via
-/// `on_tray_icon_event` + `tauri-plugin-positioner`.
+/// `on_tray_icon_event` using click-event cursor coordinates.
 fn ensure_tray_popup(app: &AppHandle) {
     use tauri::WebviewWindowBuilder;
 
@@ -40,21 +39,61 @@ fn ensure_tray_popup(app: &AppHandle) {
         .build();
 }
 
+/// Popup dimensions (must match the CSS in TrayMenu.vue + padding).
+const POPUP_WIDTH: f64 = 232.0;
+const POPUP_HEIGHT: f64 = 280.0;
+
+/// Gap between the popup and the cursor to avoid overlapping the icon.
+const POPUP_GAP: f64 = 8.0;
+
 /// Position, show, and focus the custom tray popup window.
 ///
-/// Uses `tauri-plugin-positioner` with `Position::TrayCenter` for
-/// cross-platform tray-relative positioning (handles DPI, multi-monitor,
-/// and tray orientation automatically).
+/// Uses the mouse click coordinates from `TrayIconEvent::Click.position`
+/// for reliable cross-platform positioning.  This replaced the previous
+/// `tauri-plugin-positioner` approach, which had known DPI and overflow-area
+/// offset bugs on Windows.
 ///
-/// **Prerequisite**: `on_tray_event` must be called first in the tray icon
-/// event handler so the positioner knows the tray icon's screen coordinates.
-fn show_tray_popup(app: &AppHandle) {
+/// Clamping algorithm:
+///   - X: center the popup horizontally on the cursor, clamp to screen
+///   - Y: place above cursor by default (bottom taskbar).  If the cursor
+///         is near the top of the screen (top 1/3), flip below instead.
+fn show_tray_popup(app: &AppHandle, cursor: PhysicalPosition<f64>) {
     ensure_tray_popup(app);
-    if let Some(popup) = app.get_webview_window("tray-menu") {
-        let _ = popup.move_window(Position::TrayCenter);
-        let _ = popup.show();
-        let _ = popup.set_focus();
+
+    let Some(popup) = app.get_webview_window("tray-menu") else {
+        return;
+    };
+
+    // Resolve the monitor that contains the cursor for screen bounds.
+    let (screen_w, screen_h) = popup
+        .current_monitor()
+        .ok()
+        .flatten()
+        .map(|m| {
+            let size = m.size();
+            (size.width as f64, size.height as f64)
+        })
+        .unwrap_or((1920.0, 1080.0));
+
+    // Center popup horizontally on cursor.
+    let mut x = cursor.x - POPUP_WIDTH / 2.0;
+
+    // Default: place popup above cursor (typical for bottom taskbar).
+    let mut y = cursor.y - POPUP_HEIGHT - POPUP_GAP;
+
+    // If cursor is in the top third of the screen, the taskbar is
+    // likely at the top — flip the popup below the cursor instead.
+    if cursor.y < screen_h / 3.0 {
+        y = cursor.y + POPUP_GAP;
     }
+
+    // Clamp to screen bounds to prevent off-screen overflow.
+    x = x.clamp(0.0, (screen_w - POPUP_WIDTH).max(0.0));
+    y = y.clamp(0.0, (screen_h - POPUP_HEIGHT).max(0.0));
+
+    let _ = popup.set_position(PhysicalPosition::new(x as i32, y as i32));
+    let _ = popup.show();
+    let _ = popup.set_focus();
 }
 
 pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::Error>> {
@@ -84,12 +123,6 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
         .on_tray_icon_event(|tray, event| {
             let app = tray.app_handle();
 
-            // CRITICAL: feed every tray event to the positioner plugin so it
-            // knows the tray icon's screen coordinates. Without this,
-            // `move_window(Position::TrayCenter)` panics with
-            // "Tray position not set".
-            tauri_plugin_positioner::on_tray_event(app, &event);
-
             match event {
                 // Left-click: show main window (all platforms)
                 TrayIconEvent::Click {
@@ -107,13 +140,14 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
                         let _ = window.set_focus();
                     }
                 }
-                // Right-click: show the custom tray popup window (all platforms)
+                // Right-click: show the custom tray popup at cursor position
                 TrayIconEvent::Click {
                     button: MouseButton::Right,
                     button_state: MouseButtonState::Up,
+                    position,
                     ..
                 } => {
-                    show_tray_popup(app);
+                    show_tray_popup(app, position);
                 }
                 _ => {}
             }
