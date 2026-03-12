@@ -25,6 +25,13 @@ app.use(pinia)
 app.use(router)
 app.use(i18n)
 
+// ── Production guard: suppress browser default context menu ─────────
+// In dev mode, keep the context menu for DevTools / Inspect Element.
+// Industry standard for Tauri/Electron desktop apps (Discord, Slack, VS Code).
+if (import.meta.env.PROD) {
+  document.addEventListener('contextmenu', (e) => e.preventDefault())
+}
+
 app.mount('#app')
 
 // ── Window-type gate ────────────────────────────────────────────────

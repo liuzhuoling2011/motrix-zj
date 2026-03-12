@@ -3,8 +3,10 @@ use std::sync::Mutex;
 use tauri::{
     menu::MenuItem,
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, PhysicalPosition,
+    AppHandle, Manager,
 };
+#[cfg(not(target_os = "linux"))]
+use tauri::PhysicalPosition;
 
 /// Holds references to tray menu items for dynamic label updates (i18n).
 /// Retained for backward-compatibility with `update_tray_menu_labels` command.
@@ -17,6 +19,10 @@ pub struct TrayMenuState {
 /// The window is built dynamically (NOT declared in tauri.conf.json).
 /// It starts hidden and is shown/positioned on click via
 /// `on_tray_icon_event` using click-event cursor coordinates.
+///
+/// Excluded on Linux: `libappindicator` does not emit `TrayIconEvent::Click`,
+/// so the popup would never be shown — skip creating the WebKitGTK process.
+#[cfg(not(target_os = "linux"))]
 fn ensure_tray_popup(app: &AppHandle) {
     use tauri::WebviewWindowBuilder;
 
@@ -40,10 +46,13 @@ fn ensure_tray_popup(app: &AppHandle) {
 }
 
 /// Popup dimensions (must match the CSS in TrayMenu.vue + padding).
+#[cfg(not(target_os = "linux"))]
 const POPUP_WIDTH: f64 = 232.0;
+#[cfg(not(target_os = "linux"))]
 const POPUP_HEIGHT: f64 = 280.0;
 
 /// Gap between the popup and the cursor to avoid overlapping the icon.
+#[cfg(not(target_os = "linux"))]
 const POPUP_GAP: f64 = 8.0;
 
 /// Position, show, and focus the custom tray popup window.
@@ -57,6 +66,9 @@ const POPUP_GAP: f64 = 8.0;
 ///   - X: center the popup horizontally on the cursor, clamp to screen
 ///   - Y: place above cursor by default (bottom taskbar).  If the cursor
 ///         is near the top of the screen (top 1/3), flip below instead.
+///
+/// Excluded on Linux: same rationale as `ensure_tray_popup`.
+#[cfg(not(target_os = "linux"))]
 fn show_tray_popup(app: &AppHandle, cursor: PhysicalPosition<f64>) {
     ensure_tray_popup(app);
 
@@ -140,7 +152,9 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
                         let _ = window.set_focus();
                     }
                 }
-                // Right-click: show the custom tray popup at cursor position
+                // Right-click: show the custom tray popup at cursor position.
+                // Excluded on Linux: libappindicator does not emit Click events.
+                #[cfg(not(target_os = "linux"))]
                 TrayIconEvent::Click {
                     button: MouseButton::Right,
                     button_state: MouseButtonState::Up,
@@ -158,6 +172,8 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
     // Pre-create the popup window (hidden) so the WebView pre-loads the SPA.
     // Without this, the first right-click has a multi-second delay while the
     // JS bundle is fetched and compiled.  Subsequent shows are instant.
+    // Excluded on Linux: popup is never shown, so skip the WebKitGTK process.
+    #[cfg(not(target_os = "linux"))]
     ensure_tray_popup(app);
 
     Ok(TrayMenuState {

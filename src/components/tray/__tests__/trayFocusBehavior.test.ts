@@ -1,17 +1,19 @@
 /**
  * @fileoverview Structural tests for the cross-platform custom tray menu.
  *
- * ALL platforms use the custom Vue-based TrayMenu.vue popup, positioned
+ * macOS/Windows use the custom Vue-based TrayMenu.vue popup, positioned
  * via cursor coordinates from TrayIconEvent::Click.position.  No native
- * OS menu is used.
+ * OS menu is used.  Linux is excluded at compile time because
+ * libappindicator does not emit TrayIconEvent::Click.
  *
  * Verifies:
  * 1. tray.rs — cursor-based positioning with screen-bounds clamping,
- *    no tauri-plugin-positioner, no cfg gate on popup
+ *    no tauri-plugin-positioner, Linux isolation via cfg gates
  * 2. TrayMenu.vue — emits actions, auto-hides on blur
  * 3. MainLayout.vue — handles all tray-menu-action events
  * 4. trayMenuItems.ts — correct item definitions
  * 5. main.ts — tray-menu window skips heavy initialization
+ * 6. Linux isolation — popup, positioning, and right-click handler gated
  */
 import { describe, it, expect, beforeAll } from 'vitest'
 import * as fs from 'node:fs'
@@ -69,13 +71,6 @@ describe('tray.rs — cursor-based custom tray menu', () => {
       expect(traySource).not.toContain('builder.menu(')
       expect(traySource).not.toContain('builder = builder.menu(')
     })
-
-    it('does NOT gate ensure_tray_popup with cfg(target_os)', () => {
-      const fnDef = traySource.indexOf('fn ensure_tray_popup')
-      expect(fnDef).toBeGreaterThanOrEqual(0)
-      const linesBefore = traySource.slice(Math.max(0, fnDef - 200), fnDef)
-      expect(linesBefore).not.toContain('#[cfg(target_os')
-    })
   })
 
   describe('popup lifecycle', () => {
@@ -126,14 +121,7 @@ describe('tray.rs — cursor-based custom tray menu', () => {
     })
   })
 
-  describe('right-click handler (all platforms)', () => {
-    it('handles MouseButton::Right without cfg gate', () => {
-      const rightClickIdx = traySource.indexOf('MouseButton::Right')
-      expect(rightClickIdx).toBeGreaterThanOrEqual(0)
-      const linesBefore = traySource.slice(Math.max(0, rightClickIdx - 200), rightClickIdx)
-      expect(linesBefore).not.toContain('#[cfg(target_os')
-    })
-
+  describe('right-click handler', () => {
     it('calls show_tray_popup on right-click', () => {
       const rightClickBlock = extractClickBlock(traySource, 'MouseButton::Right')
       expect(rightClickBlock).toBeTruthy()
@@ -153,6 +141,65 @@ describe('positioner plugin fully removed', () => {
   it('lib.rs does NOT register positioner plugin', () => {
     const libSource = fs.readFileSync(path.join(TAURI_ROOT, 'src', 'lib.rs'), 'utf-8')
     expect(libSource).not.toContain('tauri_plugin_positioner')
+  })
+})
+
+// ─── Test Group 2b: Linux isolation — popup excluded at compile time ─
+
+describe('tray.rs — Linux isolation (cfg gates)', () => {
+  let traySource: string
+
+  beforeAll(() => {
+    traySource = fs.readFileSync(path.join(TAURI_ROOT, 'src', 'tray.rs'), 'utf-8')
+  })
+
+  describe('ensure_tray_popup is gated for non-Linux only', () => {
+    it('has #[cfg(not(target_os = "linux"))] before fn ensure_tray_popup', () => {
+      const fnIdx = traySource.indexOf('fn ensure_tray_popup')
+      expect(fnIdx).toBeGreaterThanOrEqual(0)
+      // The cfg gate must appear in the 200 chars preceding the fn definition
+      const preceding = traySource.slice(Math.max(0, fnIdx - 200), fnIdx)
+      expect(preceding).toContain('#[cfg(not(target_os = "linux"))]')
+    })
+  })
+
+  describe('show_tray_popup is gated for non-Linux only', () => {
+    it('has #[cfg(not(target_os = "linux"))] before fn show_tray_popup', () => {
+      const fnIdx = traySource.indexOf('fn show_tray_popup')
+      expect(fnIdx).toBeGreaterThanOrEqual(0)
+      const preceding = traySource.slice(Math.max(0, fnIdx - 200), fnIdx)
+      expect(preceding).toContain('#[cfg(not(target_os = "linux"))]')
+    })
+  })
+
+  describe('popup constants are gated for non-Linux only', () => {
+    it('POPUP_WIDTH is gated with cfg(not(target_os = "linux"))', () => {
+      const constIdx = traySource.indexOf('const POPUP_WIDTH')
+      expect(constIdx).toBeGreaterThanOrEqual(0)
+      const preceding = traySource.slice(Math.max(0, constIdx - 200), constIdx)
+      expect(preceding).toContain('#[cfg(not(target_os = "linux"))]')
+    })
+  })
+
+  describe('startup pre-creation is gated for non-Linux only', () => {
+    it('ensure_tray_popup(app) call after builder.build is cfg-gated', () => {
+      // The eager pre-creation at the end of setup_tray must be skipped on Linux
+      const buildIdx = traySource.indexOf('builder.build(app)')
+      expect(buildIdx).toBeGreaterThanOrEqual(0)
+      const afterBuild = traySource.slice(buildIdx, buildIdx + 500)
+      // Either the call itself or a block containing it must be cfg-gated
+      expect(afterBuild).toContain('#[cfg(not(target_os = "linux"))]')
+    })
+  })
+
+  describe('left-click handler has NO Linux gate (all platforms)', () => {
+    it('left-click handler is NOT gated by cfg', () => {
+      const leftClickIdx = traySource.indexOf('MouseButton::Left')
+      expect(leftClickIdx).toBeGreaterThanOrEqual(0)
+      const preceding = traySource.slice(Math.max(0, leftClickIdx - 300), leftClickIdx)
+      // Must NOT be gated — left-click → show main window works everywhere
+      expect(preceding).not.toContain('#[cfg(not(target_os = "linux"))]')
+    })
   })
 })
 
