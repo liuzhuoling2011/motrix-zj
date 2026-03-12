@@ -96,6 +96,32 @@ describe('lib.rs — autostart-only silent startup', () => {
       expect(dockBlock).toMatch(/hide_dock\s*&&\s*is_autostart/)
     })
   })
+
+  // ─── Test 4: startup show block calls set_focus() ────────────────
+
+  describe('startup window focus (all platforms)', () => {
+    it('calls set_focus() after show() in the startup block', () => {
+      // After auto-update restart or manual launch, the window must receive
+      // focus — not just be shown behind other windows.  This is standard
+      // behavior for Chrome, VSCode, Discord, etc.
+      // Tauri's show() alone does NOT guarantee focus on macOS.
+      const showBlock = extractStartupShowBlock(libSource)
+      expect(showBlock).toBeTruthy()
+      expect(showBlock).toContain('.show()')
+      expect(showBlock).toContain('.set_focus()')
+    })
+
+    it('calls show() before set_focus() (correct order)', () => {
+      // Window must be shown before it can receive focus.
+      const showBlock = extractStartupShowBlock(libSource)
+      expect(showBlock).toBeTruthy()
+      const showIdx = showBlock!.indexOf('.show()')
+      const focusIdx = showBlock!.indexOf('.set_focus()')
+      expect(showIdx).toBeGreaterThanOrEqual(0)
+      expect(focusIdx).toBeGreaterThanOrEqual(0)
+      expect(showIdx).toBeLessThan(focusIdx)
+    })
+  })
 })
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -155,6 +181,32 @@ function extractDockHideBlock(source: string): string | null {
   const braceStart = source.indexOf('{', idx)
   if (braceStart === -1) return null
   // Need to go into the outer cfg block
+  let depth = 0
+  let end = braceStart
+  for (let i = braceStart; i < source.length; i++) {
+    if (source[i] === '{') depth++
+    if (source[i] === '}') depth--
+    if (depth === 0) {
+      end = i
+      break
+    }
+  }
+  return source.slice(idx, end + 1)
+}
+
+/**
+ * Extract the startup window-show block.
+ * Identified by the comment "Show the main window now that state restoration".
+ */
+function extractStartupShowBlock(source: string): string | null {
+  const marker = 'Show the main window now that state restoration'
+  const idx = source.indexOf(marker)
+  if (idx === -1) return null
+  // Find the if-let block that follows
+  const ifIdx = source.indexOf('if let Some(w)', idx)
+  if (ifIdx === -1) return null
+  const braceStart = source.indexOf('{', ifIdx)
+  if (braceStart === -1) return null
   let depth = 0
   let end = braceStart
   for (let i = braceStart; i < source.length; i++) {

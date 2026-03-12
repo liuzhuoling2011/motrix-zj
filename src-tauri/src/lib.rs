@@ -143,6 +143,7 @@ pub fn run() {
             // block below will re-hide it if tray-only mode is active.
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.show();
+                let _ = w.set_focus();
             }
 
             // Hide Dock icon on startup when both autoHideWindow and
