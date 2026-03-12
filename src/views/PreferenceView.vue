@@ -21,7 +21,7 @@ const tabKey = computed(() => {
     </header>
     <div class="panel-body">
       <router-view v-slot="{ Component, route: innerRoute }">
-        <Transition name="pref-fade" mode="out-in">
+        <Transition name="fade" mode="out-in">
           <component :is="Component" :key="innerRoute.path" />
         </Transition>
       </router-view>
@@ -51,21 +51,5 @@ const tabKey = computed(() => {
 .panel-body {
   flex: 1;
   overflow-y: auto;
-}
-
-/* ── pref-fade: opacity-only transition for preference sub-routes ──
- * The global `fade` transition uses `transform: scale(0.98)` which creates
- * a new CSS containing block — breaking `position: sticky` on the action
- * bar and causing a visible "snap-down" at the end of the animation.
- * This variant uses pure opacity to avoid the stacking context conflict. */
-.pref-fade-enter-active {
-  transition: opacity 0.2s cubic-bezier(0.2, 0, 0, 1);
-}
-.pref-fade-leave-active {
-  transition: opacity 0.15s cubic-bezier(0.3, 0, 0.8, 0.15);
-}
-.pref-fade-enter-from,
-.pref-fade-leave-to {
-  opacity: 0;
 }
 </style>

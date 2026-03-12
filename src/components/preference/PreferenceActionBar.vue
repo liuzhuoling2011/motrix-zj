@@ -31,9 +31,6 @@ const { t } = useI18n()
 
 <style scoped>
 .form-actions {
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
   display: flex;
   align-items: center;
   gap: 24px;

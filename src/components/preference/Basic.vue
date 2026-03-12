@@ -466,9 +466,6 @@ onMounted(async () => {
   padding-left: 50px;
 }
 .form-actions {
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
   padding: 16px 24px 16px 40px;
 }
 </style>
