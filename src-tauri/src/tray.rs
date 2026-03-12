@@ -7,6 +7,8 @@ use tauri::{
 };
 #[cfg(not(target_os = "linux"))]
 use tauri::PhysicalPosition;
+#[cfg(target_os = "linux")]
+use tauri::Emitter;
 
 /// Holds references to tray menu items for dynamic label updates (i18n).
 /// Retained for backward-compatibility with `update_tray_menu_labels` command.
@@ -194,6 +196,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
     // Linux: attach native menu and its event handler.
     #[cfg(target_os = "linux")]
     let builder = builder.menu(&linux_menu).on_menu_event(|app, event| {
+        use tauri::Emitter;
         match event.id.as_ref() {
             "show" => {
                 if let Some(window) = app.get_webview_window("main") {
