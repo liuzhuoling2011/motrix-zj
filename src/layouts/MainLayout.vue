@@ -95,10 +95,8 @@ async function handleExitConfirm() {
   rememberChoice.value = false
   appReady.value = false
   await new Promise((r) => setTimeout(r, 250))
-  // Terminate the Tauri process BEFORE destroying the webview.
   // exit(0) sends an IPC call to Rust — if we destroy() first,
-  // the webview is gone and the IPC silently fails, leaving the
-  // tray-menu window alive as a zombie process.
+  // the webview is gone and the IPC silently fails.
   const { exit } = await import('@tauri-apps/plugin-process')
   await exit(0)
 }
@@ -258,8 +256,8 @@ onMounted(async () => {
     }
   })
 
-  // Bridge custom tray popup actions (Windows) to main window.
-  // The tray-menu window emits 'tray-menu-action' with the item id as payload.
+  // Bridge native tray menu actions to main window.
+  // Rust on_menu_event emits 'tray-menu-action' with the action as payload.
   unlistenTrayMenu = await listen<string>('tray-menu-action', async (event) => {
     const action = event.payload
     const mainWindow = getCurrentWindow()

@@ -12,8 +12,8 @@
  * 2. The listener calls `preventDefault()` to suppress the menu
  * 3. The suppression is guarded by `import.meta.env.PROD` so devtools
  *    remain accessible during development
- * 4. The guard is registered early (before the window-type gate) so it
- *    applies to both the main window and the tray-menu popup
+ * 4. The guard is registered early (before the main window initialization)
+ *    so all windows are covered
  */
 import { describe, it, expect, beforeAll } from 'vitest'
 import * as fs from 'node:fs'
@@ -49,14 +49,14 @@ describe('main.ts — production context-menu suppression', () => {
     expect(prodIdx).toBeLessThan(ctxIdx)
   })
 
-  it('is registered before the window-type gate (covers all windows)', () => {
-    // The contextmenu guard must come before the tray-menu / main window branch
-    // so both the main window and tray-menu popup are covered.
+  it('is registered before main window initialization', () => {
+    // The contextmenu guard must come before the main window init code
+    // so all windows are covered.
     const ctxIdx = mainSource.indexOf("'contextmenu'")
-    const windowGateIdx = mainSource.indexOf("=== 'tray-menu'")
+    const mountIdx = mainSource.indexOf("app.mount('#app')")
     expect(ctxIdx).toBeGreaterThanOrEqual(0)
-    expect(windowGateIdx).toBeGreaterThanOrEqual(0)
-    expect(ctxIdx).toBeLessThan(windowGateIdx)
+    expect(mountIdx).toBeGreaterThanOrEqual(0)
+    expect(ctxIdx).toBeLessThan(mountIdx)
   })
 
   it('does NOT unconditionally suppress (no bare addEventListener without guard)', () => {

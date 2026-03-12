@@ -218,7 +218,7 @@ pub fn run() {
             // paths (e.g. Alt+F4, GNOME overview ×, taskbar close).
             // This handler ensures the main window is hidden rather
             // than destroyed when the setting is enabled.
-            // Non-main windows (e.g. tray-menu) are never intercepted.
+            // Non-main windows are never intercepted.
             tauri::RunEvent::WindowEvent {
                 event: tauri::WindowEvent::CloseRequested { api, .. },
                 label,

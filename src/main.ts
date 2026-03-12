@@ -5,7 +5,6 @@ import router from './router'
 import { i18n } from '@/composables/useLocale'
 import { setI18nLocale } from '@shared/utils/i18n'
 import { usePreferenceStore } from './stores/preference'
-import { useTheme } from './composables/useTheme'
 import { useTaskStore } from './stores/task'
 import { useAppStore } from './stores/app'
 import aria2Api, { initClient } from './api/aria2'
@@ -34,44 +33,9 @@ if (import.meta.env.PROD) {
 
 app.mount('#app')
 
-// ── Window-type gate ────────────────────────────────────────────────
-// The tray-menu popup reuses the same SPA entry point. It only needs
-// Vue + router + i18n — skip ALL heavyweight initialization (engine,
-// stores, WebSocket, deep-link, UPnP, clipboard monitor) to let
-// TrayMenu.vue mount instantly without blocking or focus conflicts.
-if (getCurrentWindow().label === 'tray-menu') {
-  // Lightweight locale + theme init — TrayMenu.vue needs i18n and
-  // theme-aware M3 CSS variables, but nothing else (no engine, no
-  // WebSocket, no deep-link, no UPnP, no clipboard monitor).
-  const preferenceStore = usePreferenceStore()
-  preferenceStore.loadPreference().then(async () => {
-    // ── Theme: apply .dark class so M3 CSS vars follow user preference ──
-    useTheme()
+// ── Main window initialization ──────────────────────────────────────
 
-    // ── Locale: detect and apply ──
-    let locale = preferenceStore.locale
-    if (!locale) {
-      try {
-        const raw = (await getLocale()) || 'en-US'
-        const sysLang = raw.replace('-Hans', '').replace('-Hant', '')
-        const available = i18n.global.availableLocales
-        if (available.includes(sysLang)) {
-          locale = sysLang
-        } else {
-          const prefix = sysLang.split('-')[0]
-          locale = available.find((l) => l === prefix || l.startsWith(prefix + '-')) || 'en-US'
-        }
-      } catch {
-        locale = 'en-US'
-      }
-    }
-    if (locale && i18n.global.locale) {
-      setI18nLocale(i18n, locale)
-    }
-  })
-} else {
-  // ── Main window initialization below ──────────────────────────────
-
+{
   const preferenceStore = usePreferenceStore()
   const taskStore = useTaskStore()
   const appStore = useAppStore()
@@ -340,4 +304,4 @@ if (getCurrentWindow().label === 'tray-menu') {
       }
     })
   })
-} // end: main window initialization (tray-menu window skips this)
+} // end: main window initialization
