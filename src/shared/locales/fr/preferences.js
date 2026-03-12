@@ -40,7 +40,7 @@ export default {
   'theme-auto': 'Automatique',
   'theme-light': 'Clair',
   'theme-dark': 'Sombre',
-  'auto-hide-window': 'Masquer automatiquement la fenêtre',
+  'auto-hide-window': 'Démarrer réduit dans la barre des tâches',
   'minimize-to-tray-on-close': 'Réduire dans la barre des tâches à la fermeture',
   'hide-dock-on-minimize': 'Masquer l\u0027icône du Dock lors de la réduction (macOS)',
   'run-mode': 'Mode d\'exécution',

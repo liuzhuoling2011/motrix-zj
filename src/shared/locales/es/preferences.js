@@ -40,7 +40,7 @@ export default {
   'theme-auto': 'Automático',
   'theme-light': 'Claro',
   'theme-dark': 'Oscuro',
-  'auto-hide-window': 'Ocultar ventana automáticamente',
+  'auto-hide-window': 'Iniciar minimizado en la bandeja del sistema',
   'minimize-to-tray-on-close': 'Minimizar a la bandeja al cerrar',
   'hide-dock-on-minimize': 'Ocultar icono del Dock al minimizar (macOS)',
   'run-mode': 'Modo de ejecución',

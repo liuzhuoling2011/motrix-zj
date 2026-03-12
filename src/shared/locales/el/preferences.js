@@ -40,7 +40,7 @@ export default {
   'theme-auto': 'Αυτόματο',
   'theme-light': 'Φωτεινό',
   'theme-dark': 'Σκοτεινό',
-  'auto-hide-window': 'Αυτόματη απόκρυψη παραθύρου',
+  'auto-hide-window': 'Εκκίνηση ελαχιστοποιημένο στο δίσκο συστήματος',
   'minimize-to-tray-on-close': 'Ελαχιστοποίηση στο δίσκο κατά το κλείσιμο',
   'hide-dock-on-minimize': 'Απόκρυψη εικονιδίου Dock κατά την ελαχιστοποίηση (macOS)',
   'run-mode': 'Λειτουργία εκτέλεσης',

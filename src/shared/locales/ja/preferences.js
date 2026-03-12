@@ -40,7 +40,7 @@ export default {
   'theme-auto': '自動',
   'theme-light': 'ライト',
   'theme-dark': 'ダーク',
-  'auto-hide-window': 'ウィンドウを自動で隠す',
+  'auto-hide-window': 'トレイに最小化して起動',
   'minimize-to-tray-on-close': '閉じたときにトレイに最小化',
   'hide-dock-on-minimize': 'トレイに最小化時にDockアイコンを隠す (macOS)',
   'run-mode': '実行モード',

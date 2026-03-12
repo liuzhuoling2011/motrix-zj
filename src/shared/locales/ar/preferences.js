@@ -40,7 +40,7 @@ export default {
   'theme-auto': 'تلقائي',
   'theme-light': 'فاتح',
   'theme-dark': 'داكن',
-  'auto-hide-window': 'إخفاء النافذة تلقائيًا',
+  'auto-hide-window': 'بدء التشغيل مصغرًا في شريط النظام',
   'minimize-to-tray-on-close': 'تصغير إلى شريط المهام عند الإغلاق',
   'hide-dock-on-minimize': 'إخفاء أيقونة Dock عند التصغير (macOS)',
   'run-mode': 'وضع التشغيل',

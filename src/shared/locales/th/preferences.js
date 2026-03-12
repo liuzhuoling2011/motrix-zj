@@ -40,7 +40,7 @@ export default {
   'theme-auto': 'อัตโนมัติ',
   'theme-light': 'สว่าง',
   'theme-dark': 'มืด',
-  'auto-hide-window': 'ซ่อนหน้าต่างอัตโนมัติ',
+  'auto-hide-window': 'เริ่มต้นย่อลงในถาดระบบ',
   'minimize-to-tray-on-close': 'ย่อลงในถาดเมื่อปิด',
   'hide-dock-on-minimize': 'ซ่อนไอคอน Dock เมื่อย่อลงถาด (macOS)',
   'run-mode': 'โหมดการทำงาน',

@@ -40,7 +40,7 @@ export default {
   'theme-auto': 'Tự động',
   'theme-light': 'Sáng',
   'theme-dark': 'Tối',
-  'auto-hide-window': 'Tự động ẩn cửa sổ',
+  'auto-hide-window': 'Khởi động thu nhỏ vào khay hệ thống',
   'minimize-to-tray-on-close': 'Thu nhỏ vào khay hệ thống khi đóng',
   'hide-dock-on-minimize': 'Ẩn biểu tượng Dock khi thu nhỏ (macOS)',
   'run-mode': 'Chế độ chạy',

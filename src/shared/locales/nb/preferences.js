@@ -40,7 +40,7 @@ export default {
   'theme-auto': 'Automatisk',
   'theme-light': 'Lys',
   'theme-dark': 'Mørk',
-  'auto-hide-window': 'Skjul vindu automatisk',
+  'auto-hide-window': 'Start minimert til systemstatusfeltet',
   'minimize-to-tray-on-close': 'Minimer til systemstatusfeltet ved lukking',
   'hide-dock-on-minimize': 'Skjul Dock-ikon ved minimering (macOS)',
   'run-mode': 'Kjøremodus',

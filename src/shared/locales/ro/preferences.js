@@ -40,7 +40,7 @@ export default {
   'theme-auto': 'Automat',
   'theme-light': 'Deschis',
   'theme-dark': 'Închis',
-  'auto-hide-window': 'Ascunde fereastra automat',
+  'auto-hide-window': 'Pornire minimizată în bara de sistem',
   'minimize-to-tray-on-close': 'Minimizare în bara de sistem la închidere',
   'hide-dock-on-minimize': 'Ascunde pictograma Dock la minimizare (macOS)',
   'run-mode': 'Mod de execuție',

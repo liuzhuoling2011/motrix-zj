@@ -40,7 +40,7 @@ export default {
   'theme-auto': 'Автоматично',
   'theme-light': 'Светъл',
   'theme-dark': 'Тъмен',
-  'auto-hide-window': 'Автоматично скриване на прозореца',
+  'auto-hide-window': 'Стартиране минимизирано в системния трей',
   'minimize-to-tray-on-close': 'Минимизиране в системния трей при затваряне',
   'hide-dock-on-minimize': 'Скриване на иконата в Dock при минимизиране (macOS)',
   'run-mode': 'Режим на работа',

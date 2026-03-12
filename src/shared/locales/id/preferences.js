@@ -40,7 +40,7 @@ export default {
   'theme-auto': 'Otomatis',
   'theme-light': 'Terang',
   'theme-dark': 'Gelap',
-  'auto-hide-window': 'Sembunyikan jendela otomatis',
+  'auto-hide-window': 'Mulai dalam keadaan tersembunyi di baki sistem',
   'minimize-to-tray-on-close': 'Minimalkan ke tray saat ditutup',
   'hide-dock-on-minimize': 'Sembunyikan ikon Dock saat diminimalkan (macOS)',
   'run-mode': 'Mode operasi',
