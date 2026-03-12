@@ -8,6 +8,7 @@ import { NModal, NButton, NProgress, NIcon, NText, NSpin, NTag } from 'naive-ui'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { relaunch } from '@tauri-apps/plugin-process'
+import { useIpc } from '@/composables/useIpc'
 import { getVersion } from '@tauri-apps/api/app'
 import {
   CheckmarkCircleOutline,
@@ -166,7 +167,9 @@ function cancelDownload() {
   })
 }
 
-function handleRelaunch() {
+async function handleRelaunch() {
+  const { stopEngine } = useIpc()
+  await stopEngine()
   relaunch()
 }
 

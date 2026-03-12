@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
 import { usePreferenceForm } from '@/composables/usePreferenceForm'
 import { relaunch } from '@tauri-apps/plugin-process'
+import { useIpc } from '@/composables/useIpc'
 import { platform } from '@tauri-apps/plugin-os'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { downloadDir } from '@tauri-apps/api/path'
@@ -75,7 +76,9 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
         content: 'Restart the application to apply the new language.',
         positiveText: 'Restart Now',
         negativeText: 'Later',
-        onPositiveClick: () => {
+        onPositiveClick: async () => {
+          const { stopEngine } = useIpc()
+          await stopEngine()
           relaunch()
         },
       })
@@ -236,7 +239,11 @@ function handleRestoreDefaults() {
           content: t('preferences.restart-required'),
           positiveText: t('preferences.restart-now'),
           negativeText: t('app.cancel'),
-          onPositiveClick: () => relaunch(),
+          onPositiveClick: async () => {
+            const { stopEngine } = useIpc()
+            await stopEngine()
+            relaunch()
+          },
         })
       }
     },

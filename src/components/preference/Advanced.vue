@@ -8,6 +8,7 @@ import { usePreferenceForm } from '@/composables/usePreferenceForm'
 import { useEngineRestart } from '@/composables/useEngineRestart'
 import { useTaskStore } from '@/stores/task'
 import { relaunch } from '@tauri-apps/plugin-process'
+import { useIpc } from '@/composables/useIpc'
 import { appDataDir, join, resolveResource } from '@tauri-apps/api/path'
 import { LOG_LEVELS, PROXY_SCOPE_OPTIONS } from '@shared/constants'
 import { convertTrackerDataToLine } from '@shared/utils/tracker'
@@ -371,7 +372,11 @@ function handleRestoreDefaults() {
           content: t('preferences.restart-required'),
           positiveText: t('preferences.restart-now'),
           negativeText: t('app.cancel'),
-          onPositiveClick: () => relaunch(),
+          onPositiveClick: async () => {
+            const { stopEngine } = useIpc()
+            await stopEngine()
+            relaunch()
+          },
         })
       }
     },
@@ -387,6 +392,8 @@ function handleFactoryReset() {
     onPositiveClick: async () => {
       try {
         await invoke('factory_reset')
+        const { stopEngine } = useIpc()
+        await stopEngine()
         relaunch()
       } catch (e) {
         logger.error('Advanced.factoryReset', e)

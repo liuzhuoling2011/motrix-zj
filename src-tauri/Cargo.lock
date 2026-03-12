@@ -2455,7 +2455,7 @@ dependencies = [
 
 [[package]]
 name = "motrix-next"
-version = "3.0.6-beta.3"
+version = "3.0.6"
 dependencies = [
  "igd-next",
  "log",
@@ -2868,9 +2868,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.21.3"
+version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
+checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "open"
