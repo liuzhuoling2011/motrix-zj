@@ -62,6 +62,9 @@
   /* ── M3 Shadow ─────────────────────────────────────────────────── */
   --m3-shadow: rgba(0, 0, 0, 0.15);
 
+  /* ── M3 Window Border (CSD transparent canvas edge) ────────────── */
+  --window-border-color: rgba(0, 0, 0, 0.12);
+
   /* ── M3 Status Colors (semantic) ────────────────────────────────── */
   --m3-status-active: #7c5800;
   --m3-status-waiting: #7c5800;
@@ -212,6 +215,9 @@
 
   /* ── M3 Shadow ─────────────────────────────────────────────────── */
   --m3-shadow: rgba(0, 0, 0, 0.5);
+
+  /* ── M3 Window Border (CSD transparent canvas edge) ────────────── */
+  --window-border-color: rgba(255, 255, 255, 0.14);
 
   /* ── M3 Status Colors (semantic — lighter in dark) ──────────────── */
   --m3-status-active: #f0bf48;

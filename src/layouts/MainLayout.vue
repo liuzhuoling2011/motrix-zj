@@ -490,6 +490,7 @@ onUnmounted(() => {
   height: 100vh;
   position: relative;
   border-radius: 12px;
+  border: 1px solid var(--window-border-color);
   overflow: hidden;
   opacity: 0;
   transform: scale(0.96);
