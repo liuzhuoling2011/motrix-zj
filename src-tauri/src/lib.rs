@@ -146,6 +146,33 @@ pub fn run() {
             // finishes initializing.  The frontend checks autoHideWindow +
             // is_autostart_launch to decide whether to show.
 
+            // Disable Windows 11 DWM rounded corners on the main window.
+            // With `transparent: true` + `decorations: false`, Windows 11
+            // applies its own ~8px corner rounding to the HWND, which
+            // conflicts with the CSS `border-radius: 12px` on #container.
+            // The mismatch creates visible desktop-color leaks at the
+            // corners.  Setting DWMWCP_DONOTROUND (value 1) tells DWM to
+            // keep the window rectangular, letting CSS handle all rounding
+            // on the transparent canvas.
+            #[cfg(target_os = "windows")]
+            {
+                use windows_sys::Win32::Graphics::Dwm::{
+                    DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE,
+                };
+                if let Some(w) = app.get_webview_window("main") {
+                    let hwnd = w.hwnd().unwrap().0 as isize;
+                    let preference: u32 = 1; // DWMWCP_DONOTROUND
+                    unsafe {
+                        DwmSetWindowAttribute(
+                            hwnd,
+                            DWMWA_WINDOW_CORNER_PREFERENCE,
+                            &preference as *const u32 as *const _,
+                            std::mem::size_of::<u32>() as u32,
+                        );
+                    }
+                }
+            }
+
             // Hide Dock icon on startup when both autoHideWindow and
             // hideDockOnMinimize are enabled, AND the app was launched by
             // the OS autostart mechanism (--autostart flag).  Manual launches
