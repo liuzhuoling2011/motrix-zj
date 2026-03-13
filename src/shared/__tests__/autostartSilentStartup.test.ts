@@ -50,30 +50,27 @@ describe('lib.rs — autostart-only silent startup', () => {
     })
   })
 
-  // ─── Test 2: auto-hide window block checks --autostart ───────────
+  // ─── Test 2: auto-hide now handled by Vue frontend ────────────────
 
-  describe('auto-hide window logic', () => {
-    it('reads --autostart from std::env::args in the auto-hide block', () => {
-      // The auto-hide block must check for --autostart before hiding.
-      // This ensures manual launches always show the window.
+  describe('auto-hide window logic (deferred to frontend)', () => {
+    it('does NOT have a Rust-side auto-hide block (moved to frontend)', () => {
+      // The auto-hide logic was moved to MainLayout.vue onMounted.
+      // The Rust setup() no longer hides the window — it never shows it.
       const autoHideBlock = extractAutoHideBlock(libSource)
-      expect(autoHideBlock).toBeTruthy()
-      expect(autoHideBlock).toContain('"--autostart"')
+      // The old "Auto-hide the main window" block should be gone
+      expect(autoHideBlock).toBeNull()
     })
 
-    it('combines autoHideWindow preference AND --autostart check', () => {
-      // Both conditions must be true: user opted in AND launched by OS
-      const autoHideBlock = extractAutoHideBlock(libSource)
-      expect(autoHideBlock).toBeTruthy()
-      expect(autoHideBlock).toContain('autoHideWindow')
-      expect(autoHideBlock).toContain('is_autostart')
+    it('exposes is_autostart_launch command for frontend to check', () => {
+      // The frontend uses this command to determine if it should skip show().
+      expect(libSource).toContain('is_autostart_launch')
     })
 
-    it('only hides window when BOTH auto_hide AND is_autostart are true', () => {
-      // The if-condition must use && (logical AND), not ||
-      const autoHideBlock = extractAutoHideBlock(libSource)
-      expect(autoHideBlock).toBeTruthy()
-      expect(autoHideBlock).toMatch(/auto_hide\s*&&\s*is_autostart/)
+    it('frontend checks autoHideWindow AND is_autostart_launch before showing', () => {
+      // MainLayout.vue must check both conditions before calling show()
+      const mainLayout = fs.readFileSync(path.join(PROJECT_ROOT, 'src', 'layouts', 'MainLayout.vue'), 'utf-8')
+      expect(mainLayout).toContain('is_autostart_launch')
+      expect(mainLayout).toContain('autoHideWindow')
     })
   })
 
@@ -97,29 +94,24 @@ describe('lib.rs — autostart-only silent startup', () => {
     })
   })
 
-  // ─── Test 4: startup show block calls set_focus() ────────────────
+  // ─── Test 4: window show deferred to frontend ────────────────────
 
-  describe('startup window focus (all platforms)', () => {
-    it('calls set_focus() after show() in the startup block', () => {
-      // After auto-update restart or manual launch, the window must receive
-      // focus — not just be shown behind other windows.  This is standard
-      // behavior for Chrome, VSCode, Discord, etc.
-      // Tauri's show() alone does NOT guarantee focus on macOS.
+  describe('window show deferred to frontend', () => {
+    it('does NOT call show() or set_focus() in the startup block', () => {
+      // Window visibility is now handled by the Vue frontend
+      // (MainLayout.vue onMounted) to prevent transparent-frame flash
+      // on Windows.  The Rust setup must NOT show the window.
       const showBlock = extractStartupShowBlock(libSource)
-      expect(showBlock).toBeTruthy()
-      expect(showBlock).toContain('.show()')
-      expect(showBlock).toContain('.set_focus()')
+      // The old show block should be gone or should not contain show/focus
+      if (showBlock) {
+        expect(showBlock).not.toContain('.show()')
+        expect(showBlock).not.toContain('.set_focus()')
+      }
     })
 
-    it('calls show() before set_focus() (correct order)', () => {
-      // Window must be shown before it can receive focus.
-      const showBlock = extractStartupShowBlock(libSource)
-      expect(showBlock).toBeTruthy()
-      const showIdx = showBlock!.indexOf('.show()')
-      const focusIdx = showBlock!.indexOf('.set_focus()')
-      expect(showIdx).toBeGreaterThanOrEqual(0)
-      expect(focusIdx).toBeGreaterThanOrEqual(0)
-      expect(showIdx).toBeLessThan(focusIdx)
+    it('exposes is_autostart_launch in the invoke_handler', () => {
+      // The frontend needs this command to check autostart status
+      expect(libSource).toContain('is_autostart_launch')
     })
   })
 })

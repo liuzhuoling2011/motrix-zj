@@ -134,6 +134,25 @@ function handleExitCancel() {
 }
 
 onMounted(async () => {
+  // Show the main window now that the frontend has mounted and the
+  // webview has renderable content.  This prevents the transparent-frame
+  // flash on Windows where DWM renders a native shadow before WebView2
+  // finishes initializing.  Follows Tauri official recommendation:
+  // visible:false in config → show() from frontend when content is ready.
+  //
+  // Skip show when the app was launched by OS autostart AND the user has
+  // opted into "minimize to tray on autostart" — the window stays hidden.
+  {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const isAutostart: boolean = await invoke('is_autostart_launch')
+    const shouldHide = isAutostart && !!preferenceStore.config.autoHideWindow
+    if (!shouldHide) {
+      const appWindow = getCurrentWindow()
+      await appWindow.show()
+      await appWindow.setFocus()
+    }
+  }
+
   setTimeout(() => {
     appReady.value = true
   }, 120)

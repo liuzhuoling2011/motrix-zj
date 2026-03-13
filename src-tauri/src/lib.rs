@@ -77,6 +77,7 @@ pub fn run() {
             commands::get_upnp_status,
             commands::set_dock_visible,
             commands::probe_trackers,
+            commands::is_autostart_launch,
         ])
         .setup(|app| {
             let handle = app.handle();
@@ -137,14 +138,13 @@ pub fn run() {
                 }
             }
 
-            // Show the main window now that state restoration is complete.
-            // The window starts hidden (tauri.conf.json visible: false) to
-            // prevent the default-size flash on Windows.  The auto-hide
-            // block below will re-hide it if tray-only mode is active.
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.show();
-                let _ = w.set_focus();
-            }
+            // Window visibility is deferred to the Vue frontend.
+            // The window starts hidden (tauri.conf.json visible: false) and
+            // only becomes visible when MainLayout.vue mounts and calls
+            // show() + setFocus().  This prevents the transparent-frame
+            // flash on Windows where DWM renders a shadow before WebView2
+            // finishes initializing.  The frontend checks autoHideWindow +
+            // is_autostart_launch to decide whether to show.
 
             // Hide Dock icon on startup when both autoHideWindow and
             // hideDockOnMinimize are enabled, AND the app was launched by
@@ -176,27 +176,6 @@ pub fn run() {
                 if hide_dock && is_autostart {
                     use tauri::ActivationPolicy;
                     let _ = app.set_activation_policy(ActivationPolicy::Accessory);
-                }
-            }
-
-            // Auto-hide the main window on startup when the user has
-            // opted into tray-only mode AND the app was launched by the
-            // OS autostart mechanism (--autostart flag).  Manual launches
-            // (user double-clicks the app) always show the main window.
-            // This matches industry standard behavior (Discord, Telegram,
-            // Steam, Clash Verge).
-            {
-                let is_autostart = std::env::args().any(|a| a == "--autostart");
-                let auto_hide = app
-                    .store("config.json")
-                    .ok()
-                    .and_then(|s| s.get("preferences"))
-                    .and_then(|p| p.get("autoHideWindow")?.as_bool())
-                    .unwrap_or(false);
-                if auto_hide && is_autostart {
-                    if let Some(w) = app.get_webview_window("main") {
-                        let _ = w.hide();
-                    }
                 }
             }
 

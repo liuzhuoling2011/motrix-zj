@@ -354,3 +354,10 @@ mod tests {
         );
     }
 }
+
+/// Returns `true` when the current process was launched by the OS
+/// autostart mechanism (the Tauri autostart plugin appends `--autostart`).
+#[tauri::command]
+pub fn is_autostart_launch() -> bool {
+    std::env::args().any(|a| a == "--autostart")
+}
