@@ -76,10 +76,13 @@ describe('WindowControls.vue — Dock hide on custom close button', () => {
     assertOrderedBefore(closeBody, "invoke('set_dock_visible'", 'appWindow.hide()', 'WindowControls.close()')
   })
 
-  it('falls back to appWindow.close() when minimize-to-tray is disabled', () => {
+  it('emits close event to parent when minimize-to-tray is disabled', () => {
     const closeBody = extractFunctionBody(source, 'async function close()')
     expect(closeBody).toBeTruthy()
-    expect(closeBody).toContain('appWindow.close()')
+    // Must NOT call appWindow.close() — causes webview freeze on macOS (Tauri v2 bug).
+    // Instead emits 'close' to the parent component which shows the exit dialog.
+    expect(closeBody).not.toContain('appWindow.close()')
+    expect(closeBody).toContain("emit('close')")
   })
 
   it('passes { visible: false } to set_dock_visible', () => {

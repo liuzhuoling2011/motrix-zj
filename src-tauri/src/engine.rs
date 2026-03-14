@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
@@ -12,6 +12,11 @@ use tauri_plugin_shell::ShellExt;
 pub struct EngineState {
     child: Mutex<Option<CommandChild>>,
     intentional_stop: AtomicBool,
+    /// Monotonically increasing generation counter.
+    /// Each call to `start_engine` / `restart_engine` increments this.
+    /// Terminated handlers capture their generation at spawn time and
+    /// silently ignore events when their generation is stale.
+    gen: AtomicU32,
 }
 
 impl EngineState {
@@ -19,7 +24,24 @@ impl EngineState {
         Self {
             child: Mutex::new(None),
             intentional_stop: AtomicBool::new(false),
+            gen: AtomicU32::new(0),
         }
+    }
+
+    /// Returns the current generation value (used by tests).
+    #[cfg(test)]
+    pub fn generation(&self) -> u32 {
+        self.gen.load(Ordering::SeqCst)
+    }
+
+    /// Atomically increments the generation counter and returns the new value.
+    pub fn next_generation(&self) -> u32 {
+        self.gen.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    /// Returns `true` if `gen` matches the current generation.
+    pub fn is_current_generation(&self, gen: u32) -> bool {
+        self.gen.load(Ordering::SeqCst) == gen
     }
 }
 
@@ -91,6 +113,7 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
 
     let spawned_pid = child.pid();
     *child_lock = Some(child);
+    let my_gen = state.next_generation();
 
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -114,6 +137,16 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
                     let exit_code = payload.code.unwrap_or(-1);
                     eprintln!("[aria2c] terminated with exit code: {}", exit_code);
 
+                    // Generation guard: if a newer engine was spawned since this
+                    // monitor started, this is a stale handler — ignore silently.
+                    let is_stale = app_handle
+                        .try_state::<EngineState>()
+                        .map_or(true, |s| !s.is_current_generation(my_gen));
+                    if is_stale {
+                        eprintln!("[aria2c] stale monitor (gen {}) ignoring termination", my_gen);
+                        break;
+                    }
+
                     // Only notify frontend of UNEXPECTED termination.
                     // Intentional stops (restart, update, relaunch) set the flag
                     // before kill() — swap(false) atomically reads and resets.
@@ -123,22 +156,22 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
                         false
                     };
 
-                    if exit_code != 0 && !was_intentional {
+                    if !was_intentional {
+                        // Any non-intentional exit is a crash — including kill -9
+                        // which produces exit_code 0.  Frontend drives recovery.
                         let _ = app_handle.emit(
-                            "engine-error",
+                            "engine-crashed",
                             serde_json::json!({
                                 "code": exit_code,
                                 "signal": payload.signal
                             }),
                         );
-                    } else if was_intentional {
+                    } else {
                         let _ = app_handle.emit("engine-stopped", ());
                     }
 
                     if let Some(state) = app_handle.try_state::<EngineState>() {
                         if let Ok(mut lock) = state.child.lock() {
-                            // Only clear if the current child matches — prevents a
-                            // stale monitor from an old process wiping the new one.
                             if lock.as_ref().map(|c| c.pid()) == Some(spawned_pid) {
                                 *lock = None;
                             }
@@ -256,8 +289,13 @@ pub fn restart_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Res
     eprintln!("[aria2c] restart: started new engine process: PID {}", child.pid());
     let spawned_pid = child.pid();
     *child_lock = Some(child);
+    let my_gen = state.next_generation();
 
-    // New child successfully spawned — reset flag so genuine crashes get reported.
+    // Reset intentional_stop for the NEW process.  This is safe because old
+    // monitors are gated by generation and will never reach the swap — they
+    // break immediately on stale gen check.  Without this reset, the flag
+    // stays true forever and every future termination is wrongly treated as
+    // intentional (suppressing crash detection AND blocking app exit).
     state.intentional_stop.store(false, Ordering::SeqCst);
 
     // Monitor for process termination (PID-guarded clear)
@@ -283,6 +321,15 @@ pub fn restart_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Res
                     let exit_code = payload.code.unwrap_or(-1);
                     eprintln!("[aria2c] restart: terminated with exit code: {}", exit_code);
 
+                    // Generation guard: stale monitor → ignore silently.
+                    let is_stale = app_handle
+                        .try_state::<EngineState>()
+                        .map_or(true, |s| !s.is_current_generation(my_gen));
+                    if is_stale {
+                        eprintln!("[aria2c] stale monitor (gen {}) ignoring termination", my_gen);
+                        break;
+                    }
+
                     // Only notify frontend of UNEXPECTED termination.
                     let was_intentional = if let Some(state) = app_handle.try_state::<EngineState>() {
                         state.intentional_stop.swap(false, Ordering::SeqCst)
@@ -290,15 +337,15 @@ pub fn restart_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Res
                         false
                     };
 
-                    if exit_code != 0 && !was_intentional {
+                    if !was_intentional {
                         let _ = app_handle.emit(
-                            "engine-error",
+                            "engine-crashed",
                             serde_json::json!({
                                 "code": exit_code,
                                 "signal": payload.signal
                             }),
                         );
-                    } else if was_intentional {
+                    } else {
                         let _ = app_handle.emit("engine-stopped", ());
                     }
 
@@ -717,5 +764,55 @@ mod tests {
     fn build_args_no_rpc_enable_with_conf() {
         let args = build_start_args(&json!({}), Some("/etc/aria2.conf"), "/tmp/s.session", false);
         assert!(!args.iter().any(|a| a.contains("enable-rpc")));
+    }
+
+    // ── Generation counter tests ────────────────────────────────────────
+
+    #[test]
+    fn engine_state_starts_at_generation_zero() {
+        let state = EngineState::new();
+        assert_eq!(state.generation(), 0);
+    }
+
+    #[test]
+    fn next_generation_increments_monotonically() {
+        let state = EngineState::new();
+        assert_eq!(state.next_generation(), 1);
+        assert_eq!(state.next_generation(), 2);
+        assert_eq!(state.next_generation(), 3);
+        assert_eq!(state.generation(), 3);
+    }
+
+    #[test]
+    fn is_current_generation_true_for_matching() {
+        let state = EngineState::new();
+        let gen = state.next_generation();
+        assert!(state.is_current_generation(gen));
+    }
+
+    #[test]
+    fn is_current_generation_false_for_stale() {
+        let state = EngineState::new();
+        let old_gen = state.next_generation();
+        let _new_gen = state.next_generation();
+        // Old generation must NOT match current
+        assert!(!state.is_current_generation(old_gen));
+    }
+
+    #[test]
+    fn is_current_generation_false_for_zero() {
+        let state = EngineState::new();
+        let _gen = state.next_generation();
+        // Generation 0 (initial) is never "current" after any increment
+        assert!(!state.is_current_generation(0));
+    }
+
+    #[test]
+    fn intentional_stop_is_independent_of_generation() {
+        let state = EngineState::new();
+        state.intentional_stop.store(true, Ordering::SeqCst);
+        let _gen = state.next_generation();
+        // Incrementing generation must NOT touch intentional_stop
+        assert!(state.intentional_stop.load(Ordering::SeqCst));
     }
 }

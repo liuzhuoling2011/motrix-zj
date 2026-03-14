@@ -236,6 +236,17 @@ pub fn run() {
                     return;
                 }
 
+                // ALWAYS prevent the native close — the frontend owns the
+                // exit flow (exit confirmation dialog / minimize-to-tray).
+                // Without this, the window starts closing before the JS
+                // onCloseRequested handler can show the dialog, freezing
+                // the webview on macOS.
+                api.prevent_close();
+
+                // Fast path: if minimize-to-tray is enabled, hide the
+                // window immediately from Rust without waiting for JS.
+                // This covers native close paths that may bypass the
+                // frontend listener (e.g. Alt+F4 on Linux/Wayland).
                 let store_prefs = app
                     .store("config.json")
                     .ok()
@@ -247,12 +258,10 @@ pub fn run() {
                     .unwrap_or(false);
 
                 if should_hide {
-                    api.prevent_close();
                     if let Some(window) = app.get_webview_window("main") {
                         let _ = window.hide();
                     }
 
-                    // Hide Dock icon when the user has opted in.
                     #[cfg(target_os = "macos")]
                     {
                         let hide_dock = store_prefs
@@ -265,6 +274,9 @@ pub fn run() {
                         }
                     }
                 }
+                // When should_hide is false, the frontend's onCloseRequested
+                // listener shows the exit dialog.  The user can then choose
+                // to quit (which calls exit(0) → RunEvent::Exit).
             }
             #[cfg(target_os = "macos")]
             tauri::RunEvent::Reopen { .. } => {

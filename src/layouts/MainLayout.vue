@@ -15,6 +15,7 @@ import TaskSubnav from '@/components/layout/TaskSubnav.vue'
 import PreferenceSubnav from '@/components/layout/PreferenceSubnav.vue'
 import Speedometer from '@/components/layout/Speedometer.vue'
 import WindowControls from '@/components/layout/WindowControls.vue'
+import EngineOverlay from '@/components/layout/EngineOverlay.vue'
 import AboutPanel from '@/components/about/AboutPanel.vue'
 import AddTask from '@/components/task/AddTask.vue'
 import UpdateDialog from '@/components/preference/UpdateDialog.vue'
@@ -22,7 +23,7 @@ import { useTaskStore } from '@/stores/task'
 import { usePreferenceStore } from '@/stores/preference'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import aria2Api, { isEngineReady } from '@/api/aria2'
+import aria2Api, { isEngineReady, setEngineReady } from '@/api/aria2'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { NModal, NButton, NSpace, NIcon, NCheckbox, useDialog } from 'naive-ui'
 import { WarningOutline } from '@vicons/ionicons5'
@@ -45,6 +46,7 @@ const isExiting = ref(false)
 const rememberChoice = ref(false)
 const pendingTrayHide = ref(false)
 const isMaximized = ref(false)
+const showEngineOverlay = ref(false)
 
 const updateDialogRef = ref<InstanceType<typeof UpdateDialog> | null>(null)
 
@@ -187,11 +189,19 @@ onMounted(async () => {
     },
   )
 
-  // Notify user when the aria2 engine crashes at runtime (non-zero exit code).
-  // Distinct from engine-failed which fires during initialization.
-  listen<{ code: number; signal?: number }>('engine-error', (event) => {
+  // Engine crash recovery — show full-screen overlay and drive auto-restart.
+  // Replaces the old engine-error toast with a blocking overlay that prevents
+  // the user from interacting with a broken download engine.
+  listen<{ code: number; signal?: number }>('engine-crashed', (event) => {
+    // Suppress crash recovery if the app is shutting down — stop_engine
+    // kills aria2 intentionally and the Rust generation guard handles
+    // stale monitors, but this is a defense-in-depth safeguard.
+    if (isExiting.value) return
     const { code } = event.payload
-    message.error(t('app.engine-crash', { code }), { closable: true })
+    logger.error('MainLayout', `engine crashed with code ${code}`)
+    appStore.engineReady = false
+    setEngineReady(false)
+    showEngineOverlay.value = true
   })
 
   // Notify user when the engine is intentionally stopped (restart, update, relaunch).
@@ -393,7 +403,10 @@ onMounted(async () => {
 
   const appWindow = getCurrentWindow()
   unlistenCloseRequested = await appWindow.onCloseRequested(async (event) => {
-    event.preventDefault()
+    // Do NOT call event.preventDefault() here — Rust always calls
+    // api.prevent_close() for the main window.  Calling preventDefault()
+    // from JS is redundant and freezes the webview on macOS (Tauri v2 bug).
+    void event
 
     // When minimize-to-tray is enabled, hide the window instead of prompting
     // to exit. This covers all native close paths: taskbar close, Alt+F4,
@@ -474,11 +487,16 @@ onUnmounted(() => {
         </Transition>
       </router-view>
     </main>
-    <WindowControls class="window-controls" />
+    <WindowControls class="window-controls" @close="showExitDialog = true" />
     <Speedometer />
     <AboutPanel :show="showAbout" @close="showAbout = false" />
     <AddTask :show="appStore.addTaskVisible" @close="appStore.hideAddTaskDialog()" />
     <UpdateDialog ref="updateDialogRef" />
+    <EngineOverlay
+      :show="showEngineOverlay"
+      @recovered="showEngineOverlay = false"
+      @close="showEngineOverlay = false"
+    />
 
     <!-- Close action dialog: minimize-to-tray / quit / cancel -->
     <NModal

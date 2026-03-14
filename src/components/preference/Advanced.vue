@@ -637,24 +637,25 @@ onMounted(() => {
   padding: 16px 24px 16px 40px;
 }
 
-/* ── Restart Engine — M3 Tertiary ghost button ───────────────────── */
+/* ── Restart Engine — warning-toned ghost button ──────────────────── */
 .restart-engine-btn {
-  color: var(--m3-tertiary) !important;
-  border-color: var(--m3-tertiary) !important;
+  color: var(--n-color-target, #d4a04a) !important;
+  border-color: var(--n-color-target, #d4a04a) !important;
+  --btn-warning: #d4a04a;
   transition:
     color 0.35s cubic-bezier(0.2, 0, 0, 1),
     background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
     border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 .restart-engine-btn:hover {
-  background-color: var(--m3-tertiary-container) !important;
+  background-color: color-mix(in srgb, var(--btn-warning) 12%, transparent) !important;
 }
 .restart-engine-btn :deep(.n-button__border) {
-  border-color: var(--m3-tertiary) !important;
+  border-color: var(--btn-warning) !important;
   transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 .restart-engine-btn :deep(.n-button__state-border) {
-  border-color: var(--m3-tertiary) !important;
+  border-color: var(--btn-warning) !important;
   transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 

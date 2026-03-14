@@ -5,6 +5,10 @@ import { NIcon } from 'naive-ui'
 import { RemoveOutline, CopyOutline, CloseOutline } from '@vicons/ionicons5'
 import { usePreferenceStore } from '@/stores/preference'
 
+const emit = defineEmits<{
+  close: []
+}>()
+
 const appWindow = getCurrentWindow()
 const preferenceStore = usePreferenceStore()
 
@@ -25,7 +29,11 @@ async function close() {
 
     appWindow.hide()
   } else {
-    appWindow.close()
+    // Emit to parent instead of triggering the native window close.
+    // On macOS, the native close → onCloseRequested → preventDefault()
+    // flow freezes the webview (known Tauri v2 bug).  The parent
+    // (MainLayout) handles showing the exit confirmation dialog.
+    emit('close')
   }
 }
 </script>

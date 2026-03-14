@@ -284,19 +284,19 @@ describe('engine.rs — stdout/stderr logging and exit code events', () => {
 
   // ── Terminated handlers check intentional_stop ──────────────────
 
-  describe('Terminated handlers gate engine-error on intentional_stop', () => {
+  describe('Terminated handlers gate engine-crashed on intentional_stop', () => {
     it('start_engine Terminated handler checks intentional_stop before emitting', () => {
       const terminatedBlock = extractEventHandler(engineSource, 'Terminated', 'start_engine')
       expect(terminatedBlock).toBeTruthy()
       expect(terminatedBlock).toContain('intentional_stop')
-      expect(terminatedBlock).toContain('engine-error')
+      expect(terminatedBlock).toContain('engine-crashed')
     })
 
     it('restart_engine Terminated handler checks intentional_stop before emitting', () => {
       const terminatedBlock = extractEventHandler(engineSource, 'Terminated', 'restart_engine')
       expect(terminatedBlock).toBeTruthy()
       expect(terminatedBlock).toContain('intentional_stop')
-      expect(terminatedBlock).toContain('engine-error')
+      expect(terminatedBlock).toContain('engine-crashed')
     })
   })
 
@@ -336,10 +336,10 @@ describe('engine.rs — stdout/stderr logging and exit code events', () => {
       expect(terminatedBlock).toContain('code')
     })
 
-    it('emits engine-error event on non-zero exit code', () => {
+    it('emits engine-crashed event on non-zero exit code', () => {
       const terminatedBlock = extractEventHandler(engineSource, 'Terminated', 'start_engine')
       expect(terminatedBlock).toBeTruthy()
-      expect(terminatedBlock).toContain('engine-error')
+      expect(terminatedBlock).toContain('engine-crashed')
       expect(terminatedBlock).toContain('emit')
     })
   })
@@ -359,16 +359,16 @@ describe('engine.rs — stdout/stderr logging and exit code events', () => {
       expect(stdoutBlock).toContain('eprintln!')
     })
 
-    it('emits engine-error event on non-zero exit code', () => {
+    it('emits engine-crashed event on non-zero exit code', () => {
       const terminatedBlock = extractEventHandler(engineSource, 'Terminated', 'restart_engine')
       expect(terminatedBlock).toBeTruthy()
-      expect(terminatedBlock).toContain('engine-error')
+      expect(terminatedBlock).toContain('engine-crashed')
       expect(terminatedBlock).toContain('emit')
     })
   })
 })
 
-// ─── Test Group 4: MainLayout.vue — engine-error listener ─────────────
+// ─── Test Group 4: MainLayout.vue — engine-crashed listener ─────────────
 
 describe('MainLayout.vue — engine event listeners', () => {
   let layoutSource: string
@@ -378,19 +378,27 @@ describe('MainLayout.vue — engine event listeners', () => {
     layoutSource = fs.readFileSync(layoutPath, 'utf-8')
   })
 
-  describe('engine-error crash listener', () => {
-    it('listens for "engine-error" event', () => {
-      expect(layoutSource).toContain("'engine-error'")
+  describe('engine-crashed listener', () => {
+    it('listens for "engine-crashed" event', () => {
+      expect(layoutSource).toContain("'engine-crashed'")
     })
 
-    it('uses i18n key "app.engine-crash" for crash notification', () => {
-      expect(layoutSource).toContain('engine-crash')
-    })
-
-    it('shows an error notification (message.error)', () => {
-      const listenerBlock = extractListenerBlock(layoutSource, 'engine-error')
+    it('shows engine overlay on crash', () => {
+      const listenerBlock = extractListenerBlock(layoutSource, 'engine-crashed')
       expect(listenerBlock).toBeTruthy()
-      expect(listenerBlock).toContain('message.error')
+      expect(listenerBlock).toContain('showEngineOverlay')
+    })
+
+    it('sets engineReady to false on crash', () => {
+      const listenerBlock = extractListenerBlock(layoutSource, 'engine-crashed')
+      expect(listenerBlock).toBeTruthy()
+      expect(listenerBlock).toContain('engineReady')
+    })
+
+    it('calls setEngineReady(false) to disable RPC', () => {
+      const listenerBlock = extractListenerBlock(layoutSource, 'engine-crashed')
+      expect(listenerBlock).toBeTruthy()
+      expect(listenerBlock).toContain('setEngineReady')
     })
   })
 
