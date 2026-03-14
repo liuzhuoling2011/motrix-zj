@@ -322,11 +322,11 @@ describe('engine.rs — stdout/stderr logging and exit code events', () => {
       expect(stderrBlock).toContain('log::')
     })
 
-    it('logs stdout output (not silently discarded)', () => {
+    it('logs stdout output via semantic log_engine_stdout helper', () => {
       const stdoutBlock = extractEventHandler(engineSource, 'Stdout', 'start_engine')
       expect(stdoutBlock).toBeTruthy()
       expect(stdoutBlock).not.toMatch(/=>\s*\{\s*\}/)
-      expect(stdoutBlock).toContain('log::')
+      expect(stdoutBlock).toContain('log_engine_stdout')
     })
 
     it('extracts exit code from Terminated payload', () => {
@@ -352,11 +352,11 @@ describe('engine.rs — stdout/stderr logging and exit code events', () => {
       expect(stderrBlock).toContain('log::')
     })
 
-    it('logs stdout output (not silently discarded)', () => {
+    it('logs stdout output via semantic log_engine_stdout helper', () => {
       const stdoutBlock = extractEventHandler(engineSource, 'Stdout', 'restart_engine')
       expect(stdoutBlock).toBeTruthy()
       expect(stdoutBlock).not.toMatch(/=>\s*\{\s*\}/)
-      expect(stdoutBlock).toContain('log::')
+      expect(stdoutBlock).toContain('log_engine_stdout')
     })
 
     it('emits engine-crashed event on non-zero exit code', () => {

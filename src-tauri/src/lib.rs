@@ -55,8 +55,6 @@ pub fn run() {
                 .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
                 .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
                 .level(log_level)
-                .level_for("motrix_next_lib", log::LevelFilter::Debug)
-                .level_for("motrix_next_lib::engine", log::LevelFilter::Debug)
                 .filter(|metadata| {
                     !metadata.target().starts_with("tao")
                         && !metadata.target().starts_with("tracing")
