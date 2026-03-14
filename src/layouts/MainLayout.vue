@@ -44,6 +44,7 @@ const showExitDialog = ref(false)
 const isExiting = ref(false)
 const rememberChoice = ref(false)
 const pendingTrayHide = ref(false)
+const isMaximized = ref(false)
 
 const updateDialogRef = ref<InstanceType<typeof UpdateDialog> | null>(null)
 
@@ -53,6 +54,7 @@ let unlistenCloseRequested: (() => void) | null = null
 let unlistenDeepLink: (() => void) | null = null
 let unlistenSingleInstance: (() => void) | null = null
 let unlistenTrayMenu: (() => void) | null = null
+let unlistenResize: (() => void) | null = null
 let globalStatTimer: ReturnType<typeof setTimeout> | null = null
 
 function startGlobalPolling() {
@@ -157,6 +159,17 @@ onMounted(async () => {
     appReady.value = true
   }, 120)
   startGlobalPolling()
+
+  // Track maximize state to remove border-radius + border when maximized.
+  // On Windows, transparent + decorations:false windows leak transparent
+  // pixels through CSS border-radius corners when the HWND is maximized.
+  {
+    const appWindow = getCurrentWindow()
+    isMaximized.value = await appWindow.isMaximized()
+    unlistenResize = await appWindow.onResized(async () => {
+      isMaximized.value = await appWindow.isMaximized()
+    })
+  }
 
   // Show feedback when the engine finishes initializing (or re-initializing
   // after a hot-reload restart triggered from Advanced preferences).
@@ -435,11 +448,12 @@ onUnmounted(() => {
   if (unlistenDeepLink) unlistenDeepLink()
   if (unlistenSingleInstance) unlistenSingleInstance()
   if (unlistenTrayMenu) unlistenTrayMenu()
+  if (unlistenResize) unlistenResize()
 })
 </script>
 
 <template>
-  <div id="container" :class="{ 'app-ready': appReady, 'app-closing': isExiting }">
+  <div id="container" :class="{ 'app-ready': appReady, 'app-closing': isExiting, maximized: isMaximized }">
     <!-- Minimal progress bar during engine initialization / restart -->
     <Transition name="init-slide">
       <div v-if="appStore.engineInitializing" class="init-banner">
@@ -524,7 +538,13 @@ onUnmounted(() => {
   transform: scale(0.96);
   transition:
     opacity 650ms cubic-bezier(0.05, 0.7, 0.1, 1),
-    transform 650ms cubic-bezier(0.05, 0.7, 0.1, 1);
+    transform 650ms cubic-bezier(0.05, 0.7, 0.1, 1),
+    border-radius 0.2s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+#container.maximized {
+  border-radius: 0;
+  border-color: transparent;
 }
 #container.app-ready {
   opacity: 1;
