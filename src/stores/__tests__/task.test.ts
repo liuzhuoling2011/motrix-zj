@@ -523,4 +523,80 @@ describe('TaskStore', () => {
     expect(mockApi.addUriAtomic).not.toHaveBeenCalled()
     expect(mockApi.removeTaskRecord).not.toHaveBeenCalled()
   })
+
+  // ─── hasActiveTasks ─────────────────────────────────────
+
+  describe('hasActiveTasks', () => {
+    it('returns true when active tasks exist', async () => {
+      mockApi.fetchTaskList.mockResolvedValueOnce([makeMockTask('a1', 'active')])
+      expect(await store.hasActiveTasks()).toBe(true)
+    })
+
+    it('returns true when waiting tasks exist', async () => {
+      mockApi.fetchTaskList.mockResolvedValueOnce([makeMockTask('w1', 'waiting')])
+      expect(await store.hasActiveTasks()).toBe(true)
+    })
+
+    it('returns false when only paused/completed tasks exist', async () => {
+      mockApi.fetchTaskList.mockResolvedValueOnce([makeMockTask('p1', 'paused'), makeMockTask('c1', 'complete')])
+      expect(await store.hasActiveTasks()).toBe(false)
+    })
+
+    it('returns false when no tasks exist', async () => {
+      mockApi.fetchTaskList.mockResolvedValueOnce([])
+      expect(await store.hasActiveTasks()).toBe(false)
+    })
+
+    it('returns false on API error', async () => {
+      mockApi.fetchTaskList.mockRejectedValueOnce(new Error('RPC fail'))
+      expect(await store.hasActiveTasks()).toBe(false)
+    })
+
+    it('queries globally regardless of current tab', async () => {
+      // Switch to completed tab first
+      mockApi.fetchTaskList.mockResolvedValue([])
+      await store.changeCurrentList('stopped')
+      mockApi.fetchTaskList.mockReset()
+
+      mockApi.fetchTaskList.mockResolvedValueOnce([makeMockTask('a1', 'active')])
+      expect(await store.hasActiveTasks()).toBe(true)
+      // Must query active type, not the current 'stopped' tab
+      expect(mockApi.fetchTaskList).toHaveBeenCalledWith({ type: 'active' })
+    })
+  })
+
+  // ─── hasPausedTasks ─────────────────────────────────────
+
+  describe('hasPausedTasks', () => {
+    it('returns true when paused tasks exist', async () => {
+      mockApi.fetchTaskList.mockResolvedValueOnce([makeMockTask('p1', 'paused')])
+      expect(await store.hasPausedTasks()).toBe(true)
+    })
+
+    it('returns false when only active/waiting tasks exist', async () => {
+      mockApi.fetchTaskList.mockResolvedValueOnce([makeMockTask('a1', 'active'), makeMockTask('w1', 'waiting')])
+      expect(await store.hasPausedTasks()).toBe(false)
+    })
+
+    it('returns false when no tasks exist', async () => {
+      mockApi.fetchTaskList.mockResolvedValueOnce([])
+      expect(await store.hasPausedTasks()).toBe(false)
+    })
+
+    it('returns false on API error', async () => {
+      mockApi.fetchTaskList.mockRejectedValueOnce(new Error('RPC fail'))
+      expect(await store.hasPausedTasks()).toBe(false)
+    })
+
+    it('queries globally regardless of current tab', async () => {
+      // Switch to completed tab
+      mockApi.fetchTaskList.mockResolvedValue([])
+      await store.changeCurrentList('stopped')
+      mockApi.fetchTaskList.mockReset()
+
+      mockApi.fetchTaskList.mockResolvedValueOnce([makeMockTask('p1', 'paused')])
+      expect(await store.hasPausedTasks()).toBe(true)
+      expect(mockApi.fetchTaskList).toHaveBeenCalledWith({ type: 'active' })
+    })
+  })
 })

@@ -150,10 +150,10 @@ export async function fetchTaskList(params: { type: string }): Promise<Aria2Task
   switch (type) {
     case TASK_STATUS.ACTIVE: {
       const [active, waiting] = await Promise.all([tellActive(), tellWaiting(0, 1000)])
-      return [...active, ...waiting]
+      return [...active, ...waiting].sort((a, b) => a.gid.localeCompare(b.gid))
     }
     default:
-      return tellStopped(0, 1000)
+      return (await tellStopped(0, 1000)).sort((a, b) => a.gid.localeCompare(b.gid))
   }
 }
 

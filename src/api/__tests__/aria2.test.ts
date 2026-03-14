@@ -231,6 +231,58 @@ describe('aria2 API', () => {
       expect(result.gid).toBe('abc')
       expect(result.peers).toHaveLength(1)
     })
+
+    // ── GID-based stable sorting ──────────────────────────────────
+
+    it('fetchTaskList sorts active+waiting results by GID ascending', async () => {
+      // Simulate aria2 returning tasks out of order (e.g., after pause/resume)
+      const active = [
+        { gid: 'c', status: 'active' },
+        { gid: 'a', status: 'active' },
+      ]
+      const waiting = [
+        { gid: 'd', status: 'paused' },
+        { gid: 'b', status: 'waiting' },
+      ]
+      mockCall.mockResolvedValueOnce(active).mockResolvedValueOnce(waiting)
+
+      const result = await fetchTaskList({ type: 'active' })
+      expect(result.map((t) => t.gid)).toEqual(['a', 'b', 'c', 'd'])
+    })
+
+    it('fetchTaskList sorts stopped results by GID ascending', async () => {
+      const stopped = [
+        { gid: '0000000000000003', status: 'complete' },
+        { gid: '0000000000000001', status: 'error' },
+        { gid: '0000000000000002', status: 'complete' },
+      ]
+      mockCall.mockResolvedValueOnce(stopped)
+
+      const result = await fetchTaskList({ type: 'stopped' })
+      expect(result.map((t) => t.gid)).toEqual(['0000000000000001', '0000000000000002', '0000000000000003'])
+    })
+
+    it('sorting is stable across poll cycles regardless of status changes', async () => {
+      // First poll: task 'b' is active
+      mockCall
+        .mockResolvedValueOnce([
+          { gid: 'b', status: 'active' },
+          { gid: 'a', status: 'active' },
+        ])
+        .mockResolvedValueOnce([{ gid: 'c', status: 'waiting' }])
+      const poll1 = await fetchTaskList({ type: 'active' })
+
+      // Second poll: task 'b' moved to waiting (paused), order from aria2 changed
+      mockCall.mockResolvedValueOnce([{ gid: 'a', status: 'active' }]).mockResolvedValueOnce([
+        { gid: 'c', status: 'waiting' },
+        { gid: 'b', status: 'paused' },
+      ])
+      const poll2 = await fetchTaskList({ type: 'active' })
+
+      // GID order must be identical in both polls
+      expect(poll1.map((t) => t.gid)).toEqual(['a', 'b', 'c'])
+      expect(poll2.map((t) => t.gid)).toEqual(['a', 'b', 'c'])
+    })
   })
 
   // ── Task Creation ───────────────────────────────────────────────

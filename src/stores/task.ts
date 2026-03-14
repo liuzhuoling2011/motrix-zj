@@ -350,6 +350,34 @@ export const useTaskStore = defineStore('task', () => {
     api.saveSession()
   }
 
+  /**
+   * Checks if there are any active or waiting tasks globally.
+   * Unlike taskList, this always queries aria2 directly — independent of
+   * which tab the UI is currently showing.
+   */
+  async function hasActiveTasks(): Promise<boolean> {
+    try {
+      const tasks = await api.fetchTaskList({ type: TASK_STATUS.ACTIVE })
+      return tasks.some((t) => t.status === TASK_STATUS.ACTIVE || t.status === TASK_STATUS.WAITING)
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Checks if there are any paused tasks globally.
+   * Paused tasks are stored in aria2's waiting queue, so we query the
+   * active+waiting list and filter by status === 'paused'.
+   */
+  async function hasPausedTasks(): Promise<boolean> {
+    try {
+      const tasks = await api.fetchTaskList({ type: TASK_STATUS.ACTIVE })
+      return tasks.some((t) => t.status === TASK_STATUS.PAUSED)
+    } catch {
+      return false
+    }
+  }
+
   function saveSession() {
     api.saveSession()
   }
@@ -417,5 +445,7 @@ export const useTaskStore = defineStore('task', () => {
     batchRemoveTask,
     restartTask,
     setOnTaskError,
+    hasActiveTasks,
+    hasPausedTasks,
   }
 })

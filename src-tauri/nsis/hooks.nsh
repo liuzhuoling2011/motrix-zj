@@ -2,6 +2,15 @@
 ; These macros are invoked by Tauri's NSIS template during both
 ; fresh installs AND silent OTA (updater) installs.
 
+!macro NSIS_HOOK_PREINSTALL
+  ; Defense-in-depth: kill any lingering aria2c.exe before file copy.
+  ; The Rust backend should have already stopped the engine, but this
+  ; catches edge cases (app crash, stop timeout, etc.).
+  ; On Windows, a running .exe is locked by the OS and cannot be overwritten.
+  ; taskkill exits with code 128 if the process does not exist — harmless.
+  nsExec::ExecToLog 'taskkill /F /IM aria2c.exe'
+!macroend
+
 !macro NSIS_HOOK_POSTINSTALL
   ; Flush Windows icon cache so updated icons appear immediately.
   ; ie4uinit.exe is a built-in Windows 10/11 system utility that

@@ -121,6 +121,11 @@ pub async fn check_for_update(
 
 /// Downloads and installs the latest update on the specified channel.
 ///
+/// Uses a three-phase approach to prevent file-lock failures on Windows:
+///   1. **Download** — aria2c keeps running; user downloads are unaffected.
+///   2. **Stop engine** — kill the aria2c sidecar so NSIS can overwrite it.
+///   3. **Install** — run the platform installer (NSIS / tar.gz replacement).
+///
 /// Emits `update-progress` events to the frontend with download progress.
 /// The download can be cancelled by calling `cancel_update`.
 /// After installation, the frontend should call `relaunch()` to apply.
@@ -153,11 +158,13 @@ pub async fn install_update(
         None => return Ok(()),
     };
 
+    // ── Phase 1: Download only ──────────────────────────────────────
+    // aria2c keeps running during download — user's tasks are unaffected.
     let app_handle = app.clone();
     let cancel = cancel_state.inner().clone();
     let mut downloaded: u64 = 0;
 
-    let download_fut = update.download_and_install(
+    let download_fut = update.download(
         move |chunk_length, content_length| {
             // Stop emitting progress once cancelled (download may still be in flight)
             if cancel.is_cancelled() {
@@ -183,28 +190,49 @@ pub async fn install_update(
                 },
             );
         },
-        {
-            let app_handle = app.clone();
-            let cancel = cancel_state.inner().clone();
-            move || {
-                if !cancel.is_cancelled() {
-                    let _ = app_handle.emit("update-progress", UpdateProgressEvent::Finished);
-                }
-            }
+        || {
+            // Intentional no-op: the Finished event is emitted after
+            // install() completes (Phase 3), not when download finishes,
+            // so the frontend sees the correct lifecycle.
         },
     );
 
-    // Race the download against cancellation
-    tokio::select! {
+    // Race the download against cancellation.
+    // On success, `bytes` holds the verified update package.
+    let bytes = tokio::select! {
         result = download_fut => {
             if cancel_state.is_cancelled() {
                 return Err(AppError::Updater("Update cancelled by user".into()));
             }
-            result.map_err(|e| AppError::Updater(e.to_string()))?;
+            result.map_err(|e| AppError::Updater(e.to_string()))?
         }
         _ = cancel_state.notify.notified() => {
             return Err(AppError::Updater("Update cancelled by user".into()));
         }
+    };
+
+    // ── Phase 2: Stop aria2c engine BEFORE installation ─────────────
+    // On Windows, NSIS cannot overwrite a running .exe binary.
+    // On macOS/Linux this is harmless but prevents session file corruption
+    // and is consistent "clean shutdown before upgrade" on all platforms.
+    {
+        let app_for_stop = app.clone();
+        tokio::task::spawn_blocking(move || {
+            let _ = crate::engine::stop_engine(&app_for_stop);
+        })
+        .await
+        .map_err(|e| AppError::Engine(e.to_string()))?;
+    }
+
+    // ── Phase 3: Install (NSIS / tar.gz replacement) ────────────────
+    // At this point aria2c is dead; file locks released on Windows.
+    update
+        .install(bytes)
+        .map_err(|e| AppError::Updater(e.to_string()))?;
+
+    // Emit finish event after successful installation
+    if !cancel_state.is_cancelled() {
+        let _ = app.emit("update-progress", UpdateProgressEvent::Finished);
     }
 
     // macOS: flush icon cache after OTA bundle replacement.
@@ -240,4 +268,117 @@ pub fn cancel_update(app: AppHandle) -> Result<(), AppError> {
     let cancel_state = app.state::<Arc<UpdateCancelState>>();
     cancel_state.cancel();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── UpdateCancelState ───────────────────────────────────────────
+
+    #[test]
+    fn cancel_state_starts_not_cancelled() {
+        let state = UpdateCancelState::new();
+        assert!(!state.is_cancelled());
+    }
+
+    #[test]
+    fn cancel_state_cancel_sets_flag() {
+        let state = UpdateCancelState::new();
+        state.cancel();
+        assert!(state.is_cancelled());
+    }
+
+    #[test]
+    fn cancel_state_reset_clears_flag() {
+        let state = UpdateCancelState::new();
+        state.cancel();
+        assert!(state.is_cancelled());
+        state.reset();
+        assert!(!state.is_cancelled());
+    }
+
+    #[test]
+    fn cancel_state_double_cancel_is_idempotent() {
+        let state = UpdateCancelState::new();
+        state.cancel();
+        state.cancel();
+        assert!(state.is_cancelled());
+    }
+
+    #[test]
+    fn cancel_state_reset_cancel_cycle() {
+        let state = UpdateCancelState::new();
+        for _ in 0..5 {
+            state.cancel();
+            assert!(state.is_cancelled());
+            state.reset();
+            assert!(!state.is_cancelled());
+        }
+    }
+
+    // ── endpoint_for_channel ────────────────────────────────────────
+
+    #[test]
+    fn endpoint_for_stable_channel_returns_latest_json() {
+        let url = endpoint_for_channel("stable");
+        assert!(url.ends_with("/latest.json"));
+        assert!(url.starts_with(UPDATER_BASE_URL));
+    }
+
+    #[test]
+    fn endpoint_for_beta_channel_returns_beta_json() {
+        let url = endpoint_for_channel("beta");
+        assert!(url.ends_with("/beta.json"));
+        assert!(url.starts_with(UPDATER_BASE_URL));
+    }
+
+    #[test]
+    fn endpoint_for_unknown_channel_falls_back_to_latest() {
+        let url = endpoint_for_channel("nightly");
+        assert!(url.ends_with("/latest.json"));
+    }
+
+    // ── Structural: install_update must stop engine before install ──
+
+    /// Verifies that the `install_update` function source code calls
+    /// `stop_engine` before calling `install()`. This is the same
+    /// structural testing pattern used by the frontend's
+    /// `relaunchShutdown.test.ts`.
+    #[test]
+    fn install_update_source_stops_engine_before_install() {
+        let source = include_str!("updater.rs");
+        let stop_pos = source
+            .find("stop_engine")
+            .expect("install_update must call stop_engine");
+        let install_pos = source
+            .find(".install(bytes)")
+            .expect("install_update must call .install(bytes)");
+        assert!(
+            stop_pos < install_pos,
+            "stop_engine (pos {}) must appear before .install() (pos {}) in updater.rs",
+            stop_pos,
+            install_pos
+        );
+    }
+
+    /// Verifies that `install_update` uses the split download/install
+    /// pattern instead of the combined method.
+    #[test]
+    fn install_update_uses_separate_download_install() {
+        let source = include_str!("updater.rs");
+        // Build the banned pattern at runtime so this assertion text
+        // doesn't self-match when include_str! scans the whole file.
+        let banned = format!("{}{}", "download_and_", "install");
+        // Exclude the #[cfg(test)] section from the search by only
+        // scanning up to the test module boundary.
+        let production_end = source.find("#[cfg(test)]").unwrap_or(source.len());
+        let production_code = &source[..production_end];
+        assert!(
+            !production_code.contains(&banned),
+            "production code in updater.rs must NOT call {} — \
+             use download() + stop_engine + install() instead",
+            banned
+        );
+    }
 }

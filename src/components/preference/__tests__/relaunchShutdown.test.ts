@@ -81,6 +81,34 @@ describe('graceful engine shutdown before relaunch()', () => {
       assertStopBeforeEveryRelaunch(advancedSrc, 'Advanced.vue')
     })
   })
+
+  // ── Rust backend: updater.rs ─────────────────────────────────────
+
+  describe('updater.rs (Rust backend)', () => {
+    const UPDATER_RS = path.join(SRC, '..', 'src-tauri', 'src', 'commands', 'updater.rs')
+    let updaterSrc: string
+
+    beforeAll(() => {
+      updaterSrc = fs.readFileSync(UPDATER_RS, 'utf-8')
+    })
+
+    it('calls stop_engine before .install()', () => {
+      const stopIdx = updaterSrc.indexOf('stop_engine')
+      const installIdx = updaterSrc.indexOf('.install(bytes)')
+      expect(stopIdx).toBeGreaterThanOrEqual(0)
+      expect(installIdx).toBeGreaterThan(0)
+      expect(stopIdx).toBeLessThan(installIdx)
+    })
+
+    it('does NOT use combined download-and-install (must split download/install)', () => {
+      // Build banned pattern at runtime to avoid self-matching
+      const banned = 'download_and_' + 'install'
+      // Only scan production code — exclude test module
+      const testBoundary = updaterSrc.indexOf('#[cfg(test)]')
+      const productionCode = testBoundary > 0 ? updaterSrc.slice(0, testBoundary) : updaterSrc
+      expect(productionCode).not.toContain(banned)
+    })
+  })
 })
 
 // ─── Helpers ────────────────────────────────────────────────────────

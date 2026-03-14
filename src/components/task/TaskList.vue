@@ -95,12 +95,23 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
 
 <style scoped>
 .task-list {
-  padding: 16px 36px 64px;
+  padding: 16px 36px 16px;
   min-height: 100%;
   box-sizing: border-box;
   position: relative;
   display: flex;
   flex-direction: column;
+}
+/*
+ * Speedometer clearance spacer — only when cards are present.
+ * padding-bottom on a flex + overflow:auto parent is ignored by browsers
+ * (known CSS bug). A ::after pseudo-element participates in flex layout,
+ * reliably reserving space above the fixed Speedometer widget.
+ */
+.task-list:not(.is-empty)::after {
+  content: '';
+  display: block;
+  flex: 0 0 50px;
 }
 .task-list-inner {
   position: relative;

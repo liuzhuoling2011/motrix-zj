@@ -23,7 +23,6 @@ import { usePreferenceStore } from '@/stores/preference'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import aria2Api, { isEngineReady } from '@/api/aria2'
-import { TASK_STATUS } from '@shared/constants'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { NModal, NButton, NSpace, NIcon, NCheckbox, useDialog } from 'naive-ui'
 import { WarningOutline } from '@vicons/ionicons5'
@@ -262,11 +261,11 @@ onMounted(async () => {
         })
         break
       case 'resume-all':
-        if (!taskStore.taskList.some((t) => t.status === TASK_STATUS.PAUSED)) break
+        if (!(await taskStore.hasPausedTasks())) break
         taskStore.resumeAllTask().catch(console.error)
         break
       case 'pause-all':
-        if (!taskStore.taskList.some((t) => t.status === TASK_STATUS.ACTIVE || t.status === TASK_STATUS.WAITING)) break
+        if (!(await taskStore.hasActiveTasks())) break
         taskStore.pauseAllTask().catch(console.error)
         break
       case 'release-notes':
@@ -296,7 +295,7 @@ onMounted(async () => {
       case 'resume-all':
         await mainWindow.show()
         await mainWindow.setFocus()
-        if (!taskStore.taskList.some((t) => t.status === TASK_STATUS.PAUSED)) {
+        if (!(await taskStore.hasPausedTasks())) {
           message.info(t('task.no-paused-tasks'))
           break
         }
@@ -320,7 +319,7 @@ onMounted(async () => {
       case 'pause-all':
         await mainWindow.show()
         await mainWindow.setFocus()
-        if (!taskStore.taskList.some((t) => t.status === TASK_STATUS.ACTIVE || t.status === TASK_STATUS.WAITING)) {
+        if (!(await taskStore.hasActiveTasks())) {
           message.info(t('task.no-active-tasks'))
           break
         }
