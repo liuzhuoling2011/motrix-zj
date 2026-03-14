@@ -168,14 +168,10 @@ function cancelDownload() {
   })
 }
 
-/** Minimum spinner duration to prevent flicker (ms). */
-const MIN_INSTALLING_DURATION = 500
-
 async function handleInstallAndRelaunch() {
   phase.value = 'installing'
   const ch = activeChannel.value
-  const timer = new Promise<void>((resolve) => setTimeout(resolve, MIN_INSTALLING_DURATION))
-  await Promise.all([invoke('apply_update', { channel: ch, proxy: getUpdateProxy() }), timer])
+  await invoke('apply_update', { channel: ch, proxy: getUpdateProxy() })
   relaunch()
 }
 

@@ -92,7 +92,6 @@ Download the latest release from [GitHub Releases](https://github.com/AnInsomnia
 ### macOS Users
 
 This app is not code-signed — Apple charges $99/year and I'm a PhD student surviving on instant noodles 🍜
-My supervisor doesn't know about this side project — [see what I'm supposed to be doing](https://github.com/AnInsomniacy). [Buy me a coffee ☕](https://github.com/AnInsomniacy) and maybe I'll finally afford that certificate!
 
 > If macOS says the app is **"damaged and can't be opened"**, open Terminal and run:
 >
@@ -188,6 +187,11 @@ See [AGENTS.md](AGENTS.md) for detailed version management, release workflow, an
 - [Motrix](https://github.com/agalwood/Motrix) by [agalwood](https://github.com/agalwood) and all its contributors
 - [Aria2](https://aria2.github.io/) — the powerful download engine at the core
 - Community translators who contributed 25+ locale files for worldwide accessibility
+
+## Sponsor
+
+My supervisor doesn't know about this side project — [see what I'm supposed to be doing](https://github.com/AnInsomniacy).
+[Buy me a coffee ☕](https://github.com/AnInsomniacy/AnInsomniacy/blob/main/SPONSOR.md) and maybe I'll finally afford that certificate!
 
 ## Contributing
 

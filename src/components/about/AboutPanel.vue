@@ -92,7 +92,7 @@ const links = [
     key: 'support',
     i18n: 'about.support',
     icon: HeartOutline,
-    url: 'https://github.com/AnInsomniacy/motrix-next/issues',
+    url: 'https://github.com/AnInsomniacy/AnInsomniacy/blob/main/SPONSOR.md',
   },
 ]
 
