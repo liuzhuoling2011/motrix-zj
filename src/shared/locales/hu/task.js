@@ -189,5 +189,7 @@ export default {
   'status-complete': 'Befejezve',
   'status-error': 'Hiba',
   'status-removed': 'Eltávolítva',
-  'status-seeding': 'Megosztás'
+  'status-seeding': 'Megosztás',
+  'no-paused-tasks': 'Nincsenek szüneteltetett feladatok',
+  'no-active-tasks': 'Nincsenek aktív feladatok',
 }

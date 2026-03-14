@@ -189,5 +189,7 @@ export default {
   'status-complete': '완료',
   'status-error': '오류',
   'status-removed': '삭제됨',
-  'status-seeding': '시딩 중'
+  'status-seeding': '시딩 중',
+  'no-paused-tasks': '일시정지된 작업이 없습니다',
+  'no-active-tasks': '진행 중인 작업이 없습니다',
 }

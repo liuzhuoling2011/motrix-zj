@@ -189,5 +189,7 @@ export default {
   'status-complete': 'Finalizat',
   'status-error': 'Eroare',
   'status-removed': 'Eliminat',
-  'status-seeding': 'Partajare'
+  'status-seeding': 'Partajare',
+  'no-paused-tasks': 'Nu există sarcini în pauză',
+  'no-active-tasks': 'Nu există sarcini active',
 }

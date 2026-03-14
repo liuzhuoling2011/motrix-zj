@@ -189,5 +189,7 @@ export default {
   'status-complete': 'Hoàn tất',
   'status-error': 'Lỗi',
   'status-removed': 'Đã xóa',
-  'status-seeding': 'Đang chia sẻ'
+  'status-seeding': 'Đang chia sẻ',
+  'no-paused-tasks': 'Không có tác vụ tạm dừng',
+  'no-active-tasks': 'Không có tác vụ đang hoạt động',
 }

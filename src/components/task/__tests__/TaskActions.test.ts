@@ -28,7 +28,7 @@ const mockStopAllSeeding = vi.fn().mockResolvedValue(2)
 let lastDialogOptions: Record<string, unknown> | null = null
 const mockDialogWarning = vi.fn((opts: Record<string, unknown>) => {
   lastDialogOptions = opts
-  return { loading: false, negativeButtonProps: {}, closable: true, maskClosable: true }
+  return { loading: false, negativeButtonProps: {}, closable: true, maskClosable: true, destroy: vi.fn() }
 })
 
 // Message mock: captures calls for assertion
@@ -168,6 +168,8 @@ describe('TaskActions', () => {
   describe('engine guard', () => {
     it('shows warning when resumeAll is clicked and engine is not ready', async () => {
       mockIsEngineReady.mockReturnValue(false)
+      const taskStore = useTaskStore()
+      taskStore.taskList = [{ gid: 'p1', status: 'paused' }] as never
       const wrapper = createWrapper()
 
       await clickButton(wrapper, 2) // Resume All
@@ -178,6 +180,8 @@ describe('TaskActions', () => {
 
     it('shows warning when pauseAll is clicked and engine is not ready', async () => {
       mockIsEngineReady.mockReturnValue(false)
+      const taskStore = useTaskStore()
+      taskStore.taskList = [{ gid: 'a1', status: 'active' }] as never
       const wrapper = createWrapper()
 
       await clickButton(wrapper, 3) // Pause All
@@ -199,6 +203,8 @@ describe('TaskActions', () => {
     })
 
     it('opens confirmation dialog for resumeAll when engine IS ready', async () => {
+      const taskStore = useTaskStore()
+      taskStore.taskList = [{ gid: 'p1', status: 'paused' }] as never
       const wrapper = createWrapper()
 
       await clickButton(wrapper, 2) // Resume All
@@ -208,6 +214,8 @@ describe('TaskActions', () => {
     })
 
     it('opens confirmation dialog for pauseAll when engine IS ready', async () => {
+      const taskStore = useTaskStore()
+      taskStore.taskList = [{ gid: 'a1', status: 'active' }] as never
       const wrapper = createWrapper()
 
       await clickButton(wrapper, 3) // Pause All
@@ -225,6 +233,101 @@ describe('TaskActions', () => {
 
       expect(mockMessageWarning).not.toHaveBeenCalled()
       expect(mockDialogWarning).toHaveBeenCalledOnce()
+    })
+  })
+
+  // ── Disabled State Guards ──────────────────────────────────────
+
+  describe('disabled state guards', () => {
+    it('Resume All button is disabled when taskList is empty', () => {
+      const wrapper = createWrapper()
+      // Button order: [0]Add [1]Refresh [2]ResumeAll [3]PauseAll [4]StopAllSeed [5]DeleteAll
+      const resumeBtn = wrapper.findAll('button')[2]
+      expect(resumeBtn.attributes('disabled')).toBeDefined()
+    })
+
+    it('Pause All button is disabled when taskList is empty', () => {
+      const wrapper = createWrapper()
+      const pauseBtn = wrapper.findAll('button')[3]
+      expect(pauseBtn.attributes('disabled')).toBeDefined()
+    })
+
+    it('Resume All button is disabled when only active tasks exist (none paused)', () => {
+      const taskStore = useTaskStore()
+      taskStore.taskList = [
+        { gid: 'a1', status: 'active' },
+        { gid: 'a2', status: 'active' },
+      ] as never
+      const wrapper = createWrapper()
+      const resumeBtn = wrapper.findAll('button')[2]
+      expect(resumeBtn.attributes('disabled')).toBeDefined()
+    })
+
+    it('Pause All button is disabled when only paused tasks exist (none active)', () => {
+      const taskStore = useTaskStore()
+      taskStore.taskList = [
+        { gid: 'p1', status: 'paused' },
+        { gid: 'p2', status: 'paused' },
+      ] as never
+      const wrapper = createWrapper()
+      const pauseBtn = wrapper.findAll('button')[3]
+      expect(pauseBtn.attributes('disabled')).toBeDefined()
+    })
+
+    it('Resume All button is enabled when at least one paused task exists', () => {
+      const taskStore = useTaskStore()
+      taskStore.taskList = [
+        { gid: 'a1', status: 'active' },
+        { gid: 'p1', status: 'paused' },
+      ] as never
+      const wrapper = createWrapper()
+      const resumeBtn = wrapper.findAll('button')[2]
+      expect(resumeBtn.attributes('disabled')).toBeUndefined()
+    })
+
+    it('Pause All button is enabled when at least one active task exists', () => {
+      const taskStore = useTaskStore()
+      taskStore.taskList = [
+        { gid: 'a1', status: 'active' },
+        { gid: 'p1', status: 'paused' },
+      ] as never
+      const wrapper = createWrapper()
+      const pauseBtn = wrapper.findAll('button')[3]
+      expect(pauseBtn.attributes('disabled')).toBeUndefined()
+    })
+
+    it('Pause All button is enabled when waiting tasks exist', () => {
+      const taskStore = useTaskStore()
+      taskStore.taskList = [{ gid: 'w1', status: 'waiting' }] as never
+      const wrapper = createWrapper()
+      const pauseBtn = wrapper.findAll('button')[3]
+      expect(pauseBtn.attributes('disabled')).toBeUndefined()
+    })
+
+    it('Resume All button remains disabled with completed/error/seeding tasks', () => {
+      const taskStore = useTaskStore()
+      taskStore.taskList = [
+        { gid: 'c1', status: 'complete' },
+        { gid: 'e1', status: 'error' },
+        { gid: 's1', status: 'active', bittorrent: { info: { name: 'x' } }, seeder: 'true' },
+      ] as never
+      const wrapper = createWrapper()
+      const resumeBtn = wrapper.findAll('button')[2]
+      expect(resumeBtn.attributes('disabled')).toBeDefined()
+    })
+
+    it('disabled Resume All does not open a dialog when clicked', async () => {
+      // Empty task list → Resume All should be disabled
+      const wrapper = createWrapper()
+      await clickButton(wrapper, 2) // Resume All
+      expect(mockDialogWarning).not.toHaveBeenCalled()
+    })
+
+    it('disabled Pause All does not open a dialog when clicked', async () => {
+      // Empty task list → Pause All should be disabled
+      const wrapper = createWrapper()
+      await clickButton(wrapper, 3) // Pause All
+      expect(mockDialogWarning).not.toHaveBeenCalled()
     })
   })
 
@@ -287,24 +390,28 @@ describe('TaskActions', () => {
 
   describe('confirmation dialogs', () => {
     it('resumeAll dialog calls resumeAllTask on positive click', async () => {
+      const taskStore = useTaskStore()
+      taskStore.taskList = [{ gid: 'p1', status: 'paused' }] as never
       const wrapper = createWrapper()
 
       await clickButton(wrapper, 2) // Resume All
       expect(lastDialogOptions).not.toBeNull()
 
       // Simulate user clicking "Yes"
-      const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
-      await onPositiveClick()
+      const onPositiveClick = lastDialogOptions!.onPositiveClick as () => void
+      onPositiveClick()
 
       expect(mockResumeAllTask).toHaveBeenCalledOnce()
     })
 
-    it('resumeAll shows success message after successful execution', async () => {
+    it('resumeAll shows success message after execution', async () => {
+      const taskStore = useTaskStore()
+      taskStore.taskList = [{ gid: 'p1', status: 'paused' }] as never
       const wrapper = createWrapper()
 
       await clickButton(wrapper, 2)
-      const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
-      await onPositiveClick()
+      const onPositiveClick = lastDialogOptions!.onPositiveClick as () => void
+      onPositiveClick()
       await vi.runAllTimersAsync()
 
       expect(mockMessageSuccess).toHaveBeenCalled()
@@ -312,6 +419,8 @@ describe('TaskActions', () => {
 
     it('resumeAll shows error message on failure', async () => {
       mockResumeAllTask.mockRejectedValueOnce(new Error('rpc fail'))
+      const taskStore = useTaskStore()
+      taskStore.taskList = [{ gid: 'p1', status: 'paused' }] as never
       const wrapper = createWrapper()
 
       await clickButton(wrapper, 2)
@@ -323,11 +432,15 @@ describe('TaskActions', () => {
     })
 
     it('pauseAll dialog calls pauseAllTask on positive click', async () => {
+      const taskStore = useTaskStore()
+      taskStore.taskList = [{ gid: 'a1', status: 'active' }] as never
       const wrapper = createWrapper()
 
       await clickButton(wrapper, 3) // Pause All
-      const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
-      await onPositiveClick()
+      const onPositiveClick = lastDialogOptions!.onPositiveClick as () => false
+      onPositiveClick()
+      // Flush the fire-and-forget .then() chain
+      await vi.runAllTimersAsync()
 
       expect(mockPauseAllTask).toHaveBeenCalledOnce()
     })

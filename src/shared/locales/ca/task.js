@@ -189,5 +189,7 @@ export default {
   'status-complete': 'Completat',
   'status-error': 'Error',
   'status-removed': 'Eliminat',
-  'status-seeding': 'Compartint'
+  'status-seeding': 'Compartint',
+  'no-paused-tasks': 'No hi ha tasques en pausa',
+  'no-active-tasks': 'No hi ha tasques actives',
 }

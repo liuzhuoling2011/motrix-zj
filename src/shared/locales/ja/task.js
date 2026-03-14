@@ -189,5 +189,7 @@ export default {
   'status-complete': '完了',
   'status-error': 'エラー',
   'status-removed': '削除済み',
-  'status-seeding': 'シード中'
+  'status-seeding': 'シード中',
+  'no-paused-tasks': '一時停止中のタスクはありません',
+  'no-active-tasks': '進行中のタスクはありません',
 }

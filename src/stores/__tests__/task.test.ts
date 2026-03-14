@@ -119,16 +119,17 @@ describe('TaskStore', () => {
 
   // ─── pauseAllTask / resumeAllTask ───────────────────────
 
-  it('pauseAllTask falls back to forcePause on error', async () => {
-    mockApi.pauseAllTask.mockRejectedValueOnce(new Error('fail'))
+  it('pauseAllTask calls forcePauseAllTask directly (no graceful fallback)', async () => {
     await store.pauseAllTask()
     expect(mockApi.forcePauseAllTask).toHaveBeenCalled()
+    expect(mockApi.pauseAllTask).not.toHaveBeenCalled()
     expect(mockApi.saveSession).toHaveBeenCalled()
   })
 
-  it('pauseAllTask calls saveSession after completion', async () => {
+  it('pauseAllTask refreshes list and saves session', async () => {
     await store.pauseAllTask()
-    expect(mockApi.pauseAllTask).toHaveBeenCalled()
+    expect(mockApi.forcePauseAllTask).toHaveBeenCalled()
+    expect(mockApi.fetchTaskList).toHaveBeenCalled()
     expect(mockApi.saveSession).toHaveBeenCalled()
   })
 

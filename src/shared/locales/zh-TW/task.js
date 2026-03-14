@@ -189,5 +189,7 @@ export default {
   'status-complete': '已完成',
   'status-error': '錯誤',
   'status-removed': '已刪除',
-  'status-seeding': '做種中'
+  'status-seeding': '做種中',
+  'no-paused-tasks': '沒有暫停中的任務',
+  'no-active-tasks': '沒有進行中的任務',
 }

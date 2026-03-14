@@ -189,5 +189,7 @@ export default {
   'status-complete': 'Completato',
   'status-error': 'Errore',
   'status-removed': 'Rimosso',
-  'status-seeding': 'In condivisione'
+  'status-seeding': 'In condivisione',
+  'no-paused-tasks': 'Nessun download in pausa',
+  'no-active-tasks': 'Nessun download attivo',
 }

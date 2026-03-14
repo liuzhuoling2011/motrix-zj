@@ -189,5 +189,7 @@ export default {
   'status-complete': 'Selesai',
   'status-error': 'Kesalahan',
   'status-removed': 'Dihapus',
-  'status-seeding': 'Berbagi'
+  'status-seeding': 'Berbagi',
+  'no-paused-tasks': 'Tidak ada tugas yang dijeda',
+  'no-active-tasks': 'Tidak ada tugas aktif',
 }

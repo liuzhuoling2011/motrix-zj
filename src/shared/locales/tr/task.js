@@ -189,5 +189,7 @@ export default {
   'status-complete': 'Tamamlandı',
   'status-error': 'Hata',
   'status-removed': 'Kaldırıldı',
-  'status-seeding': 'Paylaşılıyor'
+  'status-seeding': 'Paylaşılıyor',
+  'no-paused-tasks': 'Duraklatılmış görev yok',
+  'no-active-tasks': 'Aktif görev yok',
 }

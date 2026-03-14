@@ -217,9 +217,6 @@ export const useTaskStore = defineStore('task', () => {
 
   async function pauseAllTask() {
     try {
-      await api.pauseAllTask()
-    } catch (e) {
-      logger.debug('TaskStore.pauseAll', e)
       await api.forcePauseAllTask()
     } finally {
       await fetchList()

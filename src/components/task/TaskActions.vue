@@ -6,6 +6,7 @@ import { useAppStore } from '@/stores/app'
 import { useTaskStore } from '@/stores/task'
 
 import { isEngineReady } from '@/api/aria2'
+import { TASK_STATUS } from '@shared/constants'
 import { checkTaskIsSeeder } from '@shared/utils/task'
 import { deleteTaskFiles } from '@/composables/useFileDelete'
 import { logger } from '@shared/logger'
@@ -38,6 +39,14 @@ const stoppingGids = inject<Ref<string[]>>('stoppingGids')
 const currentList = computed(() => taskStore.currentList)
 const allGids = computed(() => taskStore.taskList.map((t: { gid: string }) => t.gid))
 const hasSeeders = computed(() => taskStore.taskList.some(checkTaskIsSeeder))
+const hasActiveTasks = computed(() =>
+  taskStore.taskList.some(
+    (t: { status: string }) => t.status === TASK_STATUS.ACTIVE || t.status === TASK_STATUS.WAITING,
+  ),
+)
+const hasPausedTasks = computed(() =>
+  taskStore.taskList.some((t: { status: string }) => t.status === TASK_STATUS.PAUSED),
+)
 
 function showAddTask() {
   appStore.showAddTaskDialog()
@@ -110,8 +119,8 @@ function resumeAll() {
     content: t('task.resume-all-task-confirm') || 'Resume all tasks?',
     positiveText: t('app.yes'),
     negativeText: t('app.no'),
-    onPositiveClick: async () => {
-      await taskStore
+    onPositiveClick: () => {
+      taskStore
         .resumeAllTask()
         .then(() => message.success(t('task.resume-all-task-success')))
         .catch(() => message.error(t('task.resume-all-task-fail')))
@@ -124,16 +133,31 @@ function pauseAll() {
     message.warning(t('app.engine-not-ready'))
     return
   }
-  dialog.warning({
+  const d = dialog.warning({
     title: t('task.pause-all-task'),
     content: t('task.pause-all-task-confirm') || 'Pause all tasks?',
     positiveText: t('app.yes'),
     negativeText: t('app.no'),
-    onPositiveClick: async () => {
-      await taskStore
+    onPositiveClick: () => {
+      d.loading = true
+      d.negativeButtonProps = { disabled: true }
+      d.closable = false
+      d.maskClosable = false
+      taskStore
         .pauseAllTask()
-        .then(() => message.success(t('task.pause-all-task-success')))
-        .catch(() => message.error(t('task.pause-all-task-fail')))
+        .then(async () => {
+          // aria2 accepts the pause instantly but processes asynchronously —
+          // wait briefly then re-fetch so the task list reflects the real state
+          await new Promise((r) => setTimeout(r, 500))
+          await taskStore.fetchList()
+          message.success(t('task.pause-all-task-success'))
+          d.destroy()
+        })
+        .catch(() => {
+          message.error(t('task.pause-all-task-fail'))
+          d.destroy()
+        })
+      return false
     },
   })
 }
@@ -297,6 +321,7 @@ function onBtnRelease(ev: PointerEvent) {
           quaternary
           circle
           size="small"
+          :disabled="!hasPausedTasks"
           @pointerdown="onBtnPress"
           @pointerup="onBtnRelease"
           @pointerleave="onBtnRelease"
@@ -315,6 +340,7 @@ function onBtnRelease(ev: PointerEvent) {
           quaternary
           circle
           size="small"
+          :disabled="!hasActiveTasks"
           @pointerdown="onBtnPress"
           @pointerup="onBtnRelease"
           @pointerleave="onBtnRelease"

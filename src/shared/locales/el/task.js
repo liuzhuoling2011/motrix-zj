@@ -189,5 +189,7 @@ export default {
   'status-complete': 'Ολοκληρώθηκε',
   'status-error': 'Σφάλμα',
   'status-removed': 'Αφαιρέθηκε',
-  'status-seeding': 'Διαμοιρασμός'
+  'status-seeding': 'Διαμοιρασμός',
+  'no-paused-tasks': 'Δεν υπάρχουν εργασίες σε παύση',
+  'no-active-tasks': 'Δεν υπάρχουν ενεργές εργασίες',
 }

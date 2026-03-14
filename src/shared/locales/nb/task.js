@@ -189,5 +189,7 @@ export default {
   'status-complete': 'Fullført',
   'status-error': 'Feil',
   'status-removed': 'Fjernet',
-  'status-seeding': 'Deling'
+  'status-seeding': 'Deling',
+  'no-paused-tasks': 'Ingen oppgaver på pause',
+  'no-active-tasks': 'Ingen aktive oppgaver',
 }

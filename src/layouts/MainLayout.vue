@@ -23,6 +23,7 @@ import { usePreferenceStore } from '@/stores/preference'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import aria2Api, { isEngineReady } from '@/api/aria2'
+import { TASK_STATUS } from '@shared/constants'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { NModal, NButton, NSpace, NIcon, NCheckbox, useDialog } from 'naive-ui'
 import { WarningOutline } from '@vicons/ionicons5'
@@ -261,9 +262,11 @@ onMounted(async () => {
         })
         break
       case 'resume-all':
+        if (!taskStore.taskList.some((t) => t.status === TASK_STATUS.PAUSED)) break
         taskStore.resumeAllTask().catch(console.error)
         break
       case 'pause-all':
+        if (!taskStore.taskList.some((t) => t.status === TASK_STATUS.ACTIVE || t.status === TASK_STATUS.WAITING)) break
         taskStore.pauseAllTask().catch(console.error)
         break
       case 'release-notes':
@@ -293,6 +296,10 @@ onMounted(async () => {
       case 'resume-all':
         await mainWindow.show()
         await mainWindow.setFocus()
+        if (!taskStore.taskList.some((t) => t.status === TASK_STATUS.PAUSED)) {
+          message.info(t('task.no-paused-tasks'))
+          break
+        }
         if (!isEngineReady()) {
           message.warning(t('app.engine-not-ready'))
         } else {
@@ -301,8 +308,8 @@ onMounted(async () => {
             content: t('task.resume-all-task-confirm') || 'Resume all tasks?',
             positiveText: t('app.yes'),
             negativeText: t('app.no'),
-            onPositiveClick: async () => {
-              await taskStore
+            onPositiveClick: () => {
+              taskStore
                 .resumeAllTask()
                 .then(() => message.success(t('task.resume-all-task-success')))
                 .catch(() => message.error(t('task.resume-all-task-fail')))
@@ -313,19 +320,36 @@ onMounted(async () => {
       case 'pause-all':
         await mainWindow.show()
         await mainWindow.setFocus()
+        if (!taskStore.taskList.some((t) => t.status === TASK_STATUS.ACTIVE || t.status === TASK_STATUS.WAITING)) {
+          message.info(t('task.no-active-tasks'))
+          break
+        }
         if (!isEngineReady()) {
           message.warning(t('app.engine-not-ready'))
         } else {
-          navDialog.warning({
+          const d = navDialog.warning({
             title: t('task.pause-all-task'),
             content: t('task.pause-all-task-confirm') || 'Pause all tasks?',
             positiveText: t('app.yes'),
             negativeText: t('app.no'),
-            onPositiveClick: async () => {
-              await taskStore
+            onPositiveClick: () => {
+              d.loading = true
+              d.negativeButtonProps = { disabled: true }
+              d.closable = false
+              d.maskClosable = false
+              taskStore
                 .pauseAllTask()
-                .then(() => message.success(t('task.pause-all-task-success')))
-                .catch(() => message.error(t('task.pause-all-task-fail')))
+                .then(async () => {
+                  await new Promise((r) => setTimeout(r, 500))
+                  await taskStore.fetchList()
+                  message.success(t('task.pause-all-task-success'))
+                  d.destroy()
+                })
+                .catch(() => {
+                  message.error(t('task.pause-all-task-fail'))
+                  d.destroy()
+                })
+              return false
             },
           })
         }

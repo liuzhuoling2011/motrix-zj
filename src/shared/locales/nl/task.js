@@ -189,5 +189,7 @@ export default {
   'status-complete': 'Voltooid',
   'status-error': 'Fout',
   'status-removed': 'Verwijderd',
-  'status-seeding': 'Seeden'
+  'status-seeding': 'Seeden',
+  'no-paused-tasks': 'Geen gepauzeerde taken',
+  'no-active-tasks': 'Geen actieve taken',
 }

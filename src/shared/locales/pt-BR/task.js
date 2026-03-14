@@ -189,5 +189,7 @@ export default {
   'status-complete': 'Concluído',
   'status-error': 'Erro',
   'status-removed': 'Removido',
-  'status-seeding': 'Semeando'
+  'status-seeding': 'Semeando',
+  'no-paused-tasks': 'Nenhuma tarefa pausada',
+  'no-active-tasks': 'Nenhuma tarefa ativa',
 }

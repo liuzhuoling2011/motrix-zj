@@ -189,5 +189,7 @@ export default {
   'status-complete': 'مكتمل',
   'status-error': 'خطأ',
   'status-removed': 'محذوف',
-  'status-seeding': 'مشاركة'
+  'status-seeding': 'مشاركة',
+  'no-paused-tasks': 'لا توجد مهام متوقفة مؤقتاً',
+  'no-active-tasks': 'لا توجد مهام نشطة',
 }

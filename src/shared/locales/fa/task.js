@@ -189,5 +189,7 @@ export default {
   'status-complete': 'تکمیل شده',
   'status-error': 'خطا',
   'status-removed': 'حذف شده',
-  'status-seeding': 'اشتراک‌گذاری'
+  'status-seeding': 'اشتراک‌گذاری',
+  'no-paused-tasks': 'هیچ وظیفه متوقفی وجود ندارد',
+  'no-active-tasks': 'هیچ وظیفه فعالی وجود ندارد',
 }

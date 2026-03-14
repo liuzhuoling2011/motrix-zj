@@ -189,5 +189,7 @@ export default {
   'status-complete': 'Завершено',
   'status-error': 'Ошибка',
   'status-removed': 'Удалено',
-  'status-seeding': 'Раздача'
+  'status-seeding': 'Раздача',
+  'no-paused-tasks': 'Нет приостановленных задач',
+  'no-active-tasks': 'Нет активных задач',
 }
