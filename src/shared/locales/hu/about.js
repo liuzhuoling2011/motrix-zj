@@ -11,4 +11,5 @@ export default {
   'app-version': 'Motrix Next verzió',
   'aria2-version': 'aria2 verzió',
   'loading': 'Betöltés…',
+  'unavailable': 'Nem elérhető',
 }

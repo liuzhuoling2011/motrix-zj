@@ -17,30 +17,36 @@ const message = useAppMessage()
 const appVersion = ref('')
 const aria2Version = ref('')
 const aria2Loading = ref(true)
+const aria2Error = ref(false)
 const year = new Date().getFullYear()
 const animate = ref(false)
 
 onMounted(async () => {
   appVersion.value = await getVersion()
-  try {
-    const info = await getAria2Version()
-    aria2Version.value = info.version
-  } catch {
-    aria2Version.value = '—'
-  } finally {
-    aria2Loading.value = false
-  }
 })
 
-/* Trigger entrance animation each time the panel opens. */
+/* Trigger entrance animation and re-fetch aria2 version each time the panel opens. */
 watch(
   () => props.show,
-  (visible) => {
+  async (visible) => {
     if (visible) {
       animate.value = false
       requestAnimationFrame(() => {
         animate.value = true
       })
+
+      /* Reset state and fetch fresh aria2 version */
+      aria2Loading.value = true
+      aria2Error.value = false
+      aria2Version.value = ''
+      try {
+        const info = await getAria2Version()
+        aria2Version.value = info.version
+      } catch {
+        aria2Error.value = true
+      } finally {
+        aria2Loading.value = false
+      }
     }
   },
 )
@@ -154,6 +160,7 @@ function openUrl(url: string) {
           </svg>
         </button>
         <Transition name="version-swap" mode="out-in">
+          <!-- Loading -->
           <div v-if="aria2Loading" key="loading" class="version-badge version-badge--loading">
             <span class="version-label">{{ t('about.aria2-version') }}</span>
             <span class="version-loading">
@@ -164,6 +171,12 @@ function openUrl(url: string) {
               {{ t('about.loading') }}
             </span>
           </div>
+          <!-- Error -->
+          <div v-else-if="aria2Error" key="error" class="version-badge version-badge--loading">
+            <span class="version-label">{{ t('about.aria2-version') }}</span>
+            <span class="version-error">{{ t('about.unavailable') }}</span>
+          </div>
+          <!-- Success -->
           <button
             v-else
             key="loaded"
@@ -426,6 +439,13 @@ function openUrl(url: string) {
 }
 .about-link:hover {
   text-decoration: underline;
+}
+.version-error {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--m3-outline);
+  letter-spacing: 0.3px;
 }
 
 /* ── Staggered Entrance Animation ─────────────────────────────────── */

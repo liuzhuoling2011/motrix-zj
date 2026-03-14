@@ -11,4 +11,5 @@ export default {
   'app-version': 'إصدار Motrix Next',
   'aria2-version': 'إصدار aria2',
   'loading': 'جارٍ التحميل…',
+  'unavailable': 'غير متاح',
 }

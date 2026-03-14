@@ -11,4 +11,5 @@ export default {
   'app-version': 'Phiên bản Motrix Next',
   'aria2-version': 'Phiên bản aria2',
   'loading': 'Đang tải…',
+  'unavailable': 'Không khả dụng',
 }

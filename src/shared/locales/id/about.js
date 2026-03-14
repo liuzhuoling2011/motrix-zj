@@ -11,4 +11,5 @@ export default {
   'app-version': 'Versi Motrix Next',
   'aria2-version': 'Versi aria2',
   'loading': 'Memuat…',
+  'unavailable': 'Tidak tersedia',
 }
