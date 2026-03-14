@@ -5,4 +5,9 @@ export default {
   'release': 'Sürüm notları',
   'support': 'Destek',
   'description': 'Tauri, Vue 3 ve TypeScript ile sıfırdan yeniden inşa edilmiş tam özellikli bir indirme yöneticisi.',
+  'copied': '{label} kopyalandı',
+  'click-to-copy': 'Kopyalamak için tıklayın',
+  'version-copied': '{label} sürümü kopyalandı',
+  'app-version': 'Motrix Next Sürümü',
+  'aria2-version': 'aria2 Sürümü',
 }

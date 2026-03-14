@@ -5,4 +5,9 @@ export default {
   'release': 'Notes de version',
   'support': 'Assistance',
   'description': 'Un gestionnaire de téléchargements complet, reconstruit de zéro avec Tauri, Vue 3 et TypeScript.',
+  'copied': '{label} copié',
+  'click-to-copy': 'Cliquer pour copier',
+  'version-copied': 'Version de {label} copiée',
+  'app-version': 'Version de Motrix Next',
+  'aria2-version': 'Version d\'aria2',
 }

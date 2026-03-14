@@ -6,17 +6,27 @@ import { NModal, NIcon } from 'naive-ui'
 import { LogoGithub, HeartOutline, DocumentTextOutline, RocketOutline } from '@vicons/ionicons5'
 import { open } from '@tauri-apps/plugin-shell'
 import { getVersion } from '@tauri-apps/api/app'
+import { getVersion as getAria2Version } from '@/api/aria2'
+import { useAppMessage } from '@/composables/useAppMessage'
 
 const props = defineProps<{ show: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const { t } = useI18n()
-const version = ref('')
+const message = useAppMessage()
+const appVersion = ref('')
+const aria2Version = ref('')
 const year = new Date().getFullYear()
 const animate = ref(false)
 
 onMounted(async () => {
-  version.value = await getVersion()
+  appVersion.value = await getVersion()
+  try {
+    const info = await getAria2Version()
+    aria2Version.value = info.version
+  } catch {
+    aria2Version.value = '—'
+  }
 })
 
 /* Trigger entrance animation each time the panel opens. */
@@ -33,16 +43,39 @@ watch(
 )
 
 const techStack = [
-  { name: 'Tauri v2', color: '#FFC131' },
-  { name: 'Vue 3', color: '#42b883' },
-  { name: 'aria2', color: '#339af0' },
-  { name: 'Naive UI', color: '#63e2b7' },
-  { name: 'TypeScript', color: '#3178c6' },
-  { name: 'Vite', color: '#bd34fe' },
+  {
+    name: 'Tauri v2',
+    color: '#FFC131',
+    /* Tauri shield — simplified from official logo */
+    svg: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" fill="currentColor"/>',
+  },
+  {
+    name: 'Rust',
+    color: '#DE5623',
+    /* Rust gear — simplified */
+    svg: '<path d="M12 2a1 1 0 011 1v1.07A7.97 7.97 0 0116.93 7H18a1 1 0 110 2h-1.07A7.97 7.97 0 0114 12.93V14a1 1 0 11-2 0v-1.07A7.97 7.97 0 018 9.07V8a1 1 0 010-2h1.07A7.97 7.97 0 0112 2zm0 5a3 3 0 100 6 3 3 0 000-6z" fill="currentColor"/>',
+  },
+  {
+    name: 'Vue 3',
+    color: '#42b883',
+    /* Vue chevron */
+    svg: '<path d="M2 3h3.5L12 14.5 18.5 3H22L12 21 2 3zm5 0h3l2 3.5L14 3h3L12 14 7 3z" fill="currentColor"/>',
+  },
+  {
+    name: 'Naive UI',
+    color: '#63e2b7',
+    /* Leaf / diamond */
+    svg: '<path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75C7 8 17 8 17 8z" fill="currentColor"/>',
+  },
 ]
 
 const links = [
-  { key: 'github', label: 'GitHub', icon: LogoGithub, url: 'https://github.com/AnInsomniacy/motrix-next' },
+  {
+    key: 'github',
+    label: 'GitHub',
+    icon: LogoGithub,
+    url: 'https://github.com/AnInsomniacy/motrix-next',
+  },
   {
     key: 'release',
     i18n: 'about.release',
@@ -62,6 +95,15 @@ const links = [
     url: 'https://github.com/AnInsomniacy/motrix-next/issues',
   },
 ]
+
+async function copyToClipboard(text: string, label: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    message.success(t('about.version-copied', { label }))
+  } catch {
+    /* Clipboard API may fail in some contexts — silently ignore. */
+  }
+}
 
 function openUrl(url: string) {
   open(url)
@@ -91,9 +133,36 @@ function openUrl(url: string) {
         <img src="@/assets/logo.png" alt="Motrix Next" width="96" height="96" />
       </div>
 
-      <!-- Title + Version -->
+      <!-- Title -->
       <div class="about-title stagger stagger-2">Motrix <span class="accent">Next</span></div>
-      <div class="about-version stagger stagger-2">v{{ version }}</div>
+
+      <!-- Version Badges (stacked, prominent) -->
+      <div class="about-versions stagger stagger-2">
+        <button
+          class="version-badge"
+          :title="t('about.click-to-copy')"
+          @click="copyToClipboard(`Motrix Next v${appVersion}`, 'Motrix Next')"
+        >
+          <span class="version-label">{{ t('about.app-version') }}</span>
+          <span class="version-value">v{{ appVersion }}</span>
+          <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
+          </svg>
+        </button>
+        <button
+          class="version-badge"
+          :title="t('about.click-to-copy')"
+          @click="copyToClipboard(`aria2 v${aria2Version}`, 'aria2')"
+        >
+          <span class="version-label">{{ t('about.aria2-version') }}</span>
+          <span class="version-value">v{{ aria2Version }}</span>
+          <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
+          </svg>
+        </button>
+      </div>
 
       <!-- Description -->
       <p class="about-desc stagger stagger-3">{{ t('about.description') }}</p>
@@ -102,6 +171,7 @@ function openUrl(url: string) {
       <div class="about-section-label stagger stagger-4">Tech Stack</div>
       <div class="about-tags stagger stagger-4">
         <span v-for="tech in techStack" :key="tech.name" class="about-tag" :style="{ '--tag-color': tech.color }">
+          <svg width="14" height="14" viewBox="0 0 24 24" v-html="tech.svg" />
           {{ tech.name }}
         </span>
       </div>
@@ -187,18 +257,55 @@ function openUrl(url: string) {
   color: var(--color-primary);
 }
 
-/* ── Version Badge ────────────────────────────────────────────────── */
-.about-version {
-  display: inline-block;
-  margin-top: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  padding: 3px 12px;
-  border-radius: 20px;
+/* ── Version Badges (stacked, prominent) ──────────────────────────── */
+.about-versions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 0 12px;
+}
+.version-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
   border: 1px solid var(--m3-outline-variant);
+  border-radius: 10px;
+  background: var(--about-card-bg);
+  cursor: pointer;
+  transition: var(--transition-all);
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo, Monaco, 'Courier New', monospace;
+}
+.version-badge:hover {
+  border-color: var(--color-primary);
+  background: var(--about-card-hover-bg);
+}
+.version-badge:hover .copy-icon {
+  opacity: 1;
+  color: var(--color-primary);
+}
+.version-badge:active {
+  transform: scale(0.98);
+}
+.version-label {
+  font-size: 12px;
+  font-weight: 500;
   color: var(--m3-on-surface-variant);
-  background: var(--m3-surface-container);
+  letter-spacing: 0.3px;
+}
+.version-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--m3-on-surface);
+  letter-spacing: 0.5px;
+  margin-left: auto;
+}
+.copy-icon {
+  opacity: 0.3;
+  color: var(--m3-outline);
+  transition: var(--transition-all);
+  flex-shrink: 0;
 }
 
 /* ── Description ──────────────────────────────────────────────────── */
@@ -229,6 +336,9 @@ function openUrl(url: string) {
   gap: 8px;
 }
 .about-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   font-weight: 600;
   padding: 3px 10px;
@@ -236,6 +346,9 @@ function openUrl(url: string) {
   color: var(--tag-color);
   background: color-mix(in srgb, var(--tag-color) 12%, transparent);
   letter-spacing: 0.3px;
+}
+.about-tag svg {
+  flex-shrink: 0;
 }
 
 /* ── Link Cards (2×2 Grid) ────────────────────────────────────────── */

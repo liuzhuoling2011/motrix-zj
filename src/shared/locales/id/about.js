@@ -5,4 +5,9 @@ export default {
   'release': 'Catatan rilis',
   'support': 'Dukungan',
   'description': 'Manajer unduhan lengkap, dibangun ulang dari awal dengan Tauri, Vue 3, dan TypeScript.',
+  'copied': '{label} disalin',
+  'click-to-copy': 'Klik untuk menyalin',
+  'version-copied': 'Versi {label} disalin',
+  'app-version': 'Versi Motrix Next',
+  'aria2-version': 'Versi aria2',
 }

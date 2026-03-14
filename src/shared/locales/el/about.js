@@ -5,4 +5,9 @@ export default {
   'release': 'Σημειώσεις έκδοσης',
   'support': 'Υποστήριξη',
   'description': 'Ένας πλήρης διαχειριστής λήψεων, ξαναχτισμένος από το μηδέν με Tauri, Vue 3 και TypeScript.',
+  'copied': '{label} αντιγράφηκε',
+  'click-to-copy': 'Κλικ για αντιγραφή',
+  'version-copied': 'Η έκδοση {label} αντιγράφηκε',
+  'app-version': 'Έκδοση Motrix Next',
+  'aria2-version': 'Έκδοση aria2',
 }
