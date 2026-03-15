@@ -216,8 +216,8 @@ describe('aria2 API', () => {
 
       const result = await fetchTaskList({ type: 'active' })
       expect(result).toHaveLength(2)
-      expect(result[0].gid).toBe('1')
-      expect(result[1].gid).toBe('2')
+      expect(result[0].gid).toBe('2')
+      expect(result[1].gid).toBe('1')
     })
 
     it('fetchTaskList with default type calls tellStopped', async () => {
@@ -263,7 +263,7 @@ describe('aria2 API', () => {
 
     // ── GID-based stable sorting ──────────────────────────────────
 
-    it('fetchTaskList sorts active+waiting results by GID ascending', async () => {
+    it('fetchTaskList sorts active+waiting results by GID descending (newest first)', async () => {
       // Simulate aria2 returning tasks out of order (e.g., after pause/resume)
       const active = [
         { gid: 'c', status: 'active' },
@@ -276,10 +276,10 @@ describe('aria2 API', () => {
       mockCall.mockResolvedValueOnce(active).mockResolvedValueOnce(waiting)
 
       const result = await fetchTaskList({ type: 'active' })
-      expect(result.map((t) => t.gid)).toEqual(['a', 'b', 'c', 'd'])
+      expect(result.map((t) => t.gid)).toEqual(['d', 'c', 'b', 'a'])
     })
 
-    it('fetchTaskList sorts stopped results by GID ascending', async () => {
+    it('fetchTaskList sorts stopped results by GID descending (newest first)', async () => {
       const stopped = [
         { gid: '0000000000000003', status: 'complete' },
         { gid: '0000000000000001', status: 'error' },
@@ -288,7 +288,7 @@ describe('aria2 API', () => {
       mockCall.mockResolvedValueOnce(stopped)
 
       const result = await fetchTaskList({ type: 'stopped' })
-      expect(result.map((t) => t.gid)).toEqual(['0000000000000001', '0000000000000002', '0000000000000003'])
+      expect(result.map((t) => t.gid)).toEqual(['0000000000000003', '0000000000000002', '0000000000000001'])
     })
 
     it('sorting is stable across poll cycles regardless of status changes', async () => {
@@ -308,9 +308,9 @@ describe('aria2 API', () => {
       ])
       const poll2 = await fetchTaskList({ type: 'active' })
 
-      // GID order must be identical in both polls
-      expect(poll1.map((t) => t.gid)).toEqual(['a', 'b', 'c'])
-      expect(poll2.map((t) => t.gid)).toEqual(['a', 'b', 'c'])
+      // GID descending order must be identical in both polls
+      expect(poll1.map((t) => t.gid)).toEqual(['c', 'b', 'a'])
+      expect(poll2.map((t) => t.gid)).toEqual(['c', 'b', 'a'])
     })
   })
 

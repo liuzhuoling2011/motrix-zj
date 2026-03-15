@@ -19,6 +19,7 @@ import {
 } from '@vicons/ionicons5'
 import { type Component } from 'vue'
 import type { Aria2Task } from '@shared/types'
+import { canRestart } from '@shared/utils'
 
 const props = defineProps<{ task: Aria2Task; status: string }>()
 const stoppingGids = inject<Ref<string[]>>('stoppingGids')
@@ -52,15 +53,21 @@ const actionsMap = computed<
     { key: 'delete', icon: CloseOutline, label: t('task.delete-task'), event: 'delete' },
   ],
   [TASK_STATUS.ERROR]: [
-    { key: 'restart', icon: RefreshOutline, label: t('task.resume-task'), event: 'resume' },
+    ...(canRestart(props.task)
+      ? [{ key: 'restart', icon: RefreshOutline, label: t('task.resume-task'), event: 'resume' }]
+      : []),
     { key: 'trash', icon: TrashOutline, label: t('task.remove-record'), event: 'delete-record' },
   ],
   [TASK_STATUS.COMPLETE]: [
-    { key: 'restart', icon: RefreshOutline, label: t('task.resume-task'), event: 'resume' },
+    ...(canRestart(props.task)
+      ? [{ key: 'restart', icon: RefreshOutline, label: t('task.restart-task'), event: 'resume' }]
+      : []),
     { key: 'trash', icon: TrashOutline, label: t('task.remove-record'), event: 'delete-record' },
   ],
   [TASK_STATUS.REMOVED]: [
-    { key: 'restart', icon: RefreshOutline, label: t('task.resume-task'), event: 'resume' },
+    ...(canRestart(props.task)
+      ? [{ key: 'restart', icon: RefreshOutline, label: t('task.restart-task'), event: 'resume' }]
+      : []),
     { key: 'trash', icon: TrashOutline, label: t('task.remove-record'), event: 'delete-record' },
   ],
   [TASK_STATUS.SEEDING]: [

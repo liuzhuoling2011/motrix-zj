@@ -234,8 +234,8 @@ function handleResumeTask(task: Aria2Task) {
     // Stopped tasks cannot be unpause'd — restart by re-adding the URI
     taskStore
       .restartTask(task)
-      .then(() => message.success(t('task.resume-task-success', { taskName })))
-      .catch(() => message.error(t('task.resume-task-fail', { taskName })))
+      .then(() => message.success(t('task.restart-task-success', { taskName })))
+      .catch(() => message.error(t('task.restart-task-fail', { taskName })))
   } else {
     taskStore
       .resumeTask(task)

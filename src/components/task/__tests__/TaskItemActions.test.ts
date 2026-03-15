@@ -40,7 +40,10 @@ import TaskItemActions from '../TaskItemActions.vue'
 const createWrapper = (status: string, gid = 'abc123') => {
   return mount(TaskItemActions, {
     props: {
-      task: { gid } as never,
+      task: {
+        gid,
+        files: [{ index: '1', path: '/dl/file.zip', uris: [{ uri: 'http://example.com/file.zip', status: 'used' }] }],
+      } as never,
       status,
     },
     global: {

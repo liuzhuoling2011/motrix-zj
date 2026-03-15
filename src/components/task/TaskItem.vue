@@ -129,7 +129,7 @@ const fileMissing = ref(false)
 
 async function checkFileExists() {
   const status = props.task.status
-  if (status === TASK_STATUS.ACTIVE || status === TASK_STATUS.WAITING) {
+  if (status === TASK_STATUS.ACTIVE || status === TASK_STATUS.WAITING || status === TASK_STATUS.PAUSED) {
     fileMissing.value = false
     return
   }

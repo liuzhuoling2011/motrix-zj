@@ -120,6 +120,12 @@ export const getTaskUri = (task: Aria2Task, withTracker = false): string => {
   return uris.length > 0 ? uris[0] : ''
 }
 
+/** Whether a stopped/errored/completed task can be re-submitted to aria2.
+ *  Returns false when the record lacks both a download URI and a BT infoHash. */
+export const canRestart = (task: Aria2Task): boolean => {
+  return getTaskUris(task, true).length > 0
+}
+
 export const checkTaskTitleIsEmpty = (task: Aria2Task): boolean => {
   const { files, bittorrent } = task
   const [file] = files

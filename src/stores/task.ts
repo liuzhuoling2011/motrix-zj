@@ -414,11 +414,19 @@ export const useTaskStore = defineStore('task', () => {
     }
 
     // Submit each URI as a separate download, tracking created GIDs for rollback
+    const isBT = checkTaskIsBT(task)
     const createdGids: string[] = []
     try {
       for (const uri of uris) {
         const newGid = await api.addUriAtomic({ uris: [uri], options })
         createdGids.push(newGid)
+        // BT restarts produce magnet URIs — register with the metadata poller
+        // so file selection triggers when pauseMetadata is enabled globally.
+        if (isBT) {
+          const { useAppStore } = await import('@/stores/app')
+          const appStore = useAppStore()
+          appStore.pendingMagnetGids = [...appStore.pendingMagnetGids, newGid]
+        }
       }
     } catch (e) {
       // Rollback: remove any partially created tasks
