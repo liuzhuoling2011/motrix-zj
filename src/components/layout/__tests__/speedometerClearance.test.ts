@@ -2,9 +2,9 @@
  * @fileoverview Structural test: TaskList.vue must have a conditional Speedometer
  * clearance spacer that only applies when cards are present.
  *
- * The spacer uses .task-list:not(.is-empty)::after so that:
- * - Empty list (watermark state) has no extra scroll space
- * - Non-empty list reserves 72px above the fixed Speedometer
+ * The spacer uses .task-list-inner:not(:empty)::after so that:
+ * - Empty inner container (no cards) has no extra scroll space
+ * - Non-empty inner container reserves space above the fixed Speedometer
  */
 import { describe, it, expect, beforeAll } from 'vitest'
 import * as fs from 'node:fs'
@@ -30,12 +30,12 @@ describe('Conditional Speedometer clearance spacer', () => {
     expect(parseInt(bottom![1], 10) + parseInt(height![1], 10)).toBe(60)
   })
 
-  it('spacer only applies when cards are present (not .is-empty)', () => {
-    expect(taskListSource).toMatch(/\.task-list:not\(\.is-empty\)::after/)
+  it('spacer only applies when cards are present (inner not empty)', () => {
+    expect(taskListSource).toMatch(/\.task-list-inner:not\(:empty\)::after/)
   })
 
   it('spacer height >= Speedometer occlusion zone', () => {
-    const match = taskListSource.match(/\.task-list:not\(\.is-empty\)::after\s*\{[^}]*flex:\s*0\s+0\s+(\d+)px/)
+    const match = taskListSource.match(/\.task-list-inner:not\(:empty\)::after\s*\{[^}]*flex:\s*0\s+0\s+(\d+)px/)
     expect(match).not.toBeNull()
     expect(parseInt(match![1], 10)).toBeGreaterThanOrEqual(40)
   })

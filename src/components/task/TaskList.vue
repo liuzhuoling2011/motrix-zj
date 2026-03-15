@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** @fileoverview Scrollable task list container with empty state. */
+/** @fileoverview Scrollable task list container with permanent brand watermark. */
 import { ref, computed, watch } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { useTheme } from '@/composables/useTheme'
@@ -23,11 +23,11 @@ const taskStore = useTaskStore()
 const { isDark } = useTheme()
 const watermarkSrc = computed(() => (isDark.value ? watermarkLight : watermarkDark))
 
-// ── Task list with immediate watermark ───────────────────────────────
-// The watermark is rendered from the FIRST frame when the task list is
-// empty.  The route-level <Transition name="fade"> handles the visual
-// fade-in on page mount.  The watermark's own <Transition> only plays
-// for in-page empty↔non-empty changes (e.g. deleting the last task).
+// ── Task list with permanent watermark ───────────────────────────────
+// The watermark is always rendered as a centered background element.
+// Task cards render on top via normal flow + relative positioning,
+// visually covering the watermark when present.  This eliminates all
+// empty-state transitions and tab-switch flicker issues.
 
 const taskList = ref<Aria2Task[]>(taskStore.taskList)
 const selectedGidList = computed(() => taskStore.selectedGidList)
@@ -59,7 +59,12 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
 </script>
 
 <template>
-  <div class="task-list" :class="{ 'is-empty': taskList.length === 0 }">
+  <div class="task-list">
+    <!-- Permanent brand watermark — always visible behind task cards -->
+    <div class="watermark" @dragstart.prevent @selectstart.prevent>
+      <img :src="watermarkSrc" alt="Motrix Next" class="watermark-brand" draggable="false" />
+    </div>
+    <!-- Task cards render on top of the watermark -->
     <TransitionGroup name="task-list" tag="div" class="task-list-inner">
       <div
         v-for="item in taskList"
@@ -81,13 +86,6 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
         />
       </div>
     </TransitionGroup>
-    <Transition name="watermark">
-      <div v-if="taskList.length === 0" class="no-task" @dragstart.prevent @selectstart.prevent>
-        <div class="no-task-inner">
-          <img :src="watermarkSrc" alt="Motrix Next" class="no-task-brand" draggable="false" />
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
@@ -102,17 +100,47 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
 }
 /*
  * Speedometer clearance spacer — only when cards are present.
- * padding-bottom on a flex + overflow:auto parent is ignored by browsers
- * (known CSS bug). A ::after pseudo-element participates in flex layout,
- * reliably reserving space above the fixed Speedometer widget.
+ * A ::after pseudo-element participates in flex layout, reliably
+ * reserving space above the fixed Speedometer widget.
  */
-.task-list:not(.is-empty)::after {
+.task-list-inner:not(:empty)::after {
   content: '';
   display: block;
   flex: 0 0 50px;
 }
+
+/* ── Permanent watermark — centered, behind cards ─────────────────── */
+.watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  animation: watermark-in 0.5s cubic-bezier(0.2, 0, 0, 1) both;
+}
+.watermark-brand {
+  max-width: 480px;
+  width: 80%;
+  opacity: 0.35;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+@keyframes watermark-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ── Task card layer — above watermark ────────────────────────────── */
 .task-list-inner {
   position: relative;
+  z-index: 1;
 }
 .selected :deep(.task-item) {
   border-color: var(--task-item-hover-border);
@@ -120,6 +148,8 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
 .task-list-item {
   margin-bottom: 16px;
 }
+
+/* ── TransitionGroup animations ───────────────────────────────────── */
 .task-list-enter-active {
   transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
@@ -138,37 +168,5 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
 }
 .task-list-move {
   transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
-}
-.no-task {
-  display: flex;
-  flex: 1;
-  text-align: center;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-}
-.no-task-inner {
-  width: 100%;
-}
-.no-task-brand {
-  max-width: 480px;
-  width: 80%;
-  opacity: 0.35;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
-/* ── Watermark transition — unique name avoids collision with the   ── */
-/* ── global "fade" classes used by the route-level <Transition>.   ── */
-/* ── GPU-only: animates opacity exclusively (no layout/paint).     ── */
-.watermark-enter-active {
-  transition: opacity 0.2s cubic-bezier(0.2, 0, 0, 1);
-}
-.watermark-leave-active {
-  transition: opacity 0.15s cubic-bezier(0.3, 0, 0.8, 0.15);
-}
-.watermark-enter-from,
-.watermark-leave-to {
-  opacity: 0;
 }
 </style>

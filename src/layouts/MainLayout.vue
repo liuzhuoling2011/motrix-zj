@@ -238,6 +238,15 @@ onMounted(async () => {
   })
 
   router.beforeEach((to, from) => {
+    // Clear stale task cards BEFORE the new TaskView mounts.
+    // Without this, the shared Pinia taskList still contains old-tab data
+    // when the new component initializes, causing a ghost flash of cards
+    // from the previous tab followed by a leave animation.
+    if (from.name === 'task' && to.name === 'task' && from.params.status !== to.params.status) {
+      taskStore.taskList = []
+      taskStore.selectedGidList = []
+    }
+
     const leavingPrefs = from.path.startsWith('/preference') && !to.path.startsWith('/preference')
     const switchingPrefsTab =
       from.path.startsWith('/preference') && to.path.startsWith('/preference') && from.path !== to.path
