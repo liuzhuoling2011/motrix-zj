@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': 'File dipilih, unduhan dimulai',
   'magnet-select-fail': 'Gagal mengonfigurasi unduhan',
   'select-files': 'Pilih File',
+  'task-type': 'Tipe',
+  'task-completed-at': 'Selesai Pada',
 }

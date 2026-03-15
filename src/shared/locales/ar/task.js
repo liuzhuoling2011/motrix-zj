@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': 'تم اختيار الملفات، بدء التنزيل',
   'magnet-select-fail': 'فشل في تكوين التنزيل',
   'select-files': 'اختيار الملفات',
+  'task-type': 'النوع',
+  'task-completed-at': 'وقت الاكتمال',
 }

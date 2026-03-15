@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': 'Fitxers seleccionats, la descàrrega comença',
   'magnet-select-fail': 'No s\'ha pogut configurar la descàrrega',
   'select-files': 'Seleccionar fitxers',
+  'task-type': 'Tipus',
+  'task-completed-at': 'Completat el',
 }

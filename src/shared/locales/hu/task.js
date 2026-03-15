@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': 'Fájlok kiválasztva, letöltés indul',
   'magnet-select-fail': 'A letöltés konfigurálása sikertelen',
   'select-files': 'Fájlok kiválasztása',
+  'task-type': 'Típus',
+  'task-completed-at': 'Befejezve',
 }

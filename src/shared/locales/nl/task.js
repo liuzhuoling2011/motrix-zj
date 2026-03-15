@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': 'Bestanden geselecteerd, download start',
   'magnet-select-fail': 'Configuratie van download mislukt',
   'select-files': 'Bestanden selecteren',
+  'task-type': 'Type',
+  'task-completed-at': 'Voltooid op',
 }

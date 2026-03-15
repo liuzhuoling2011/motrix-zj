@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': 'Файли обрані, завантаження починається',
   'magnet-select-fail': 'Не вдалося налаштувати завантаження',
   'select-files': 'Вибір файлів',
+  'task-type': 'Тип',
+  'task-completed-at': 'Завершено',
 }

@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': 'Filer valgt, nedlasting starter',
   'magnet-select-fail': 'Kunne ikke konfigurere nedlasting',
   'select-files': 'Velg filer',
+  'task-type': 'Type',
+  'task-completed-at': 'Fullført',
 }

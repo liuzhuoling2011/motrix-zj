@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': 'Αρχεία επιλέχθηκαν, η λήψη ξεκινά',
   'magnet-select-fail': 'Αποτυχία διαμόρφωσης λήψης',
   'select-files': 'Επιλογή αρχείων',
+  'task-type': 'Τύπος',
+  'task-completed-at': 'Ολοκληρώθηκε στις',
 }

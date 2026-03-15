@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': '文件已选择，开始下载',
   'magnet-select-fail': '下载配置失败',
   'select-files': '选择文件',
+  'task-type': '类型',
+  'task-completed-at': '完成时间',
 }

@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': 'Archivos seleccionados, descarga iniciando',
   'magnet-select-fail': 'Error al configurar la descarga',
   'select-files': 'Seleccionar archivos',
+  'task-type': 'Tipo',
+  'task-completed-at': 'Completado el',
 }

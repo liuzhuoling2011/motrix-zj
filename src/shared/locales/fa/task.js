@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': 'فایل‌ها انتخاب شدند، دانلود شروع می‌شود',
   'magnet-select-fail': 'پیکربندی دانلود ناموفق بود',
   'select-files': 'انتخاب فایل‌ها',
+  'task-type': 'نوع',
+  'task-completed-at': 'زمان اتمام',
 }

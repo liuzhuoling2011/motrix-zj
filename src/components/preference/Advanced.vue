@@ -60,6 +60,7 @@ const dialog = useDialog()
 
 import { DEFAULT_TRACKER_SOURCE, ENGINE_RPC_PORT } from '@shared/constants'
 import { diffConfig, checkIsNeedRestart } from '@shared/utils/config'
+import { bytesToSize } from '@shared/utils/format'
 
 const trackerSourceOptions = [
   {
@@ -447,40 +448,34 @@ const showDbBrowse = ref(false)
 const dbRecords = ref<import('@shared/types').HistoryRecord[]>([])
 const dbRecordsLoading = ref(false)
 
-function formatFileSize(bytes: number | undefined | null): string {
-  if (!bytes) return '—'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let i = 0
-  let size = bytes
-  while (size >= 1024 && i < units.length - 1) {
-    size /= 1024
-    i++
-  }
-  return `${size.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
+const STATUS_I18N_MAP: Record<string, string> = {
+  complete: 'task.task-complete',
+  error: 'task.task-error',
+  removed: 'task.task-removed',
 }
 
 const dbBrowseColumns = computed<DataTableColumns<import('@shared/types').HistoryRecord>>(() => [
-  { title: t('task.name') || 'Name', key: 'name', ellipsis: { tooltip: true }, minWidth: 200 },
+  { title: t('task.task-name'), key: 'name', ellipsis: { tooltip: true }, minWidth: 200 },
   {
-    title: t('task.status') || 'Status',
+    title: t('task.task-status'),
     key: 'status',
     width: 100,
     render: (row) =>
       h(
         NTag,
         { type: row.status === 'complete' ? 'success' : row.status === 'error' ? 'error' : 'warning', size: 'small' },
-        () => row.status,
+        () => t(STATUS_I18N_MAP[row.status] ?? 'task.task-removed'),
       ),
   },
   {
-    title: t('task.size') || 'Size',
+    title: t('task.task-file-size'),
     key: 'total_length',
     width: 100,
-    render: (row) => formatFileSize(row.total_length),
+    render: (row) => (row.total_length ? bytesToSize(row.total_length) : '—'),
   },
-  { title: t('task.type') || 'Type', key: 'task_type', width: 90 },
+  { title: t('task.task-type'), key: 'task_type', width: 90 },
   {
-    title: t('task.completed-at') || 'Completed',
+    title: t('task.task-completed-at'),
     key: 'completed_at',
     width: 170,
     render: (row) => (row.completed_at ? new Date(row.completed_at).toLocaleString() : '—'),
@@ -735,13 +730,13 @@ onMounted(() => {
       <NDivider title-placement="left">{{ t('preferences.db-maintenance') }}</NDivider>
       <NFormItem :show-label="false">
         <NSpace>
-          <NButton class="db-integrity-check-btn" type="info" ghost @click="handleDbIntegrityCheck">
+          <NButton class="db-integrity-check-btn" @click="handleDbIntegrityCheck">
             {{ t('preferences.db-integrity-check') }}
           </NButton>
-          <NButton class="db-browse-btn" type="info" ghost @click="handleDbBrowse">
+          <NButton class="db-browse-btn" @click="handleDbBrowse">
             {{ t('preferences.db-browse') }}
           </NButton>
-          <NButton class="db-reset-btn" type="error" ghost @click="handleDbReset">
+          <NButton class="db-reset-btn" ghost @click="handleDbReset">
             {{ t('preferences.db-reset') }}
           </NButton>
         </NSpace>
@@ -750,10 +745,10 @@ onMounted(() => {
       <NDivider title-placement="left">{{ t('preferences.reset') }}</NDivider>
       <NFormItem :show-label="false">
         <NSpace>
-          <NButton class="session-reset-btn" type="warning" ghost @click="handleSessionReset">
+          <NButton class="session-reset-btn" ghost @click="handleSessionReset">
             {{ t('preferences.session-reset') }}
           </NButton>
-          <NButton class="factory-reset-btn" type="error" ghost @click="handleFactoryReset">
+          <NButton class="factory-reset-btn" ghost @click="handleFactoryReset">
             {{ t('preferences.factory-reset') }}
           </NButton>
         </NSpace>
@@ -886,9 +881,33 @@ onMounted(() => {
   width: 100%;
 }
 
-/* ── Session Reset — warning-toned ghost button with M3 easing ───── */
+/* ── DB Reset — muted-rose ghost, background fills on hover ──────── */
+.db-reset-btn {
+  --btn-error: #c97070;
+  color: var(--btn-error) !important;
+  border-color: var(--btn-error) !important;
+  transition:
+    color 0.35s cubic-bezier(0.2, 0, 0, 1),
+    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+.db-reset-btn:hover {
+  background-color: color-mix(in srgb, var(--btn-error) 12%, transparent) !important;
+}
+.db-reset-btn :deep(.n-button__border) {
+  border-color: var(--btn-error) !important;
+  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+.db-reset-btn :deep(.n-button__state-border) {
+  border-color: var(--btn-error) !important;
+  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ── Session Reset — warm-gold ghost, background fills on hover ──── */
 .session-reset-btn {
-  --btn-warning: #d4a04a;
+  --btn-warning: #c9a055;
+  color: var(--btn-warning) !important;
+  border-color: var(--btn-warning) !important;
   transition:
     color 0.35s cubic-bezier(0.2, 0, 0, 1),
     background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
@@ -898,15 +917,19 @@ onMounted(() => {
   background-color: color-mix(in srgb, var(--btn-warning) 12%, transparent) !important;
 }
 .session-reset-btn :deep(.n-button__border) {
+  border-color: var(--btn-warning) !important;
   transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 .session-reset-btn :deep(.n-button__state-border) {
+  border-color: var(--btn-warning) !important;
   transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* ── Factory Reset — error-toned ghost button with M3 easing ─────── */
+/* ── Factory Reset — muted-rose ghost, background fills on hover ─── */
 .factory-reset-btn {
-  --btn-error: #e5534b;
+  --btn-error: #c97070;
+  color: var(--btn-error) !important;
+  border-color: var(--btn-error) !important;
   transition:
     color 0.35s cubic-bezier(0.2, 0, 0, 1),
     background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
@@ -916,9 +939,11 @@ onMounted(() => {
   background-color: color-mix(in srgb, var(--btn-error) 12%, transparent) !important;
 }
 .factory-reset-btn :deep(.n-button__border) {
+  border-color: var(--btn-error) !important;
   transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 .factory-reset-btn :deep(.n-button__state-border) {
+  border-color: var(--btn-error) !important;
   transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 
@@ -929,9 +954,9 @@ onMounted(() => {
   gap: 10px;
 }
 
-/* ── UA Reset — muted ghost that warms on hover ──────────────────── */
+/* ── UA Reset — muted-rose ghost that highlights on hover ─────────── */
 .ua-reset-btn {
-  --btn-muted: var(--m3-on-surface-variant, #9e9e9e);
+  --btn-muted: #c97070;
   color: var(--btn-muted) !important;
   transition:
     color 0.35s cubic-bezier(0.2, 0, 0, 1),
@@ -939,15 +964,14 @@ onMounted(() => {
     border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 .ua-reset-btn:hover {
-  color: #cf6b6b !important;
-  background-color: color-mix(in srgb, #cf6b6b 10%, transparent) !important;
+  background-color: color-mix(in srgb, var(--btn-muted) 12%, transparent) !important;
 }
 .ua-reset-btn :deep(.n-button__border) {
   border-color: var(--btn-muted) !important;
   transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 .ua-reset-btn:hover :deep(.n-button__border) {
-  border-color: #cf6b6b !important;
+  border-color: var(--btn-muted) !important;
 }
 .ua-reset-btn :deep(.n-button__state-border) {
   transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);

@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': 'Đã chọn tệp, bắt đầu tải xuống',
   'magnet-select-fail': 'Không thể cấu hình tải xuống',
   'select-files': 'Chọn tệp',
+  'task-type': 'Loại',
+  'task-completed-at': 'Hoàn thành lúc',
 }

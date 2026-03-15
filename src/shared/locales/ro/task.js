@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': 'Fișiere selectate, descărcarea începe',
   'magnet-select-fail': 'Configurarea descărcării a eșuat',
   'select-files': 'Selectare fișiere',
+  'task-type': 'Tip',
+  'task-completed-at': 'Finalizat la',
 }

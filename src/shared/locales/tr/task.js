@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': 'Dosyalar seçildi, indirme başlıyor',
   'magnet-select-fail': 'İndirme yapılandırılamadı',
   'select-files': 'Dosyaları seç',
+  'task-type': 'Tür',
+  'task-completed-at': 'Tamamlanma Tarihi',
 }

@@ -197,4 +197,6 @@ export default {
   'magnet-files-selected': 'Файловете са избрани, изтеглянето започва',
   'magnet-select-fail': 'Неуспешно конфигуриране на изтеглянето',
   'select-files': 'Избор на файлове',
+  'task-type': 'Тип',
+  'task-completed-at': 'Завършено на',
 }
