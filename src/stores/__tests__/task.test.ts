@@ -2,7 +2,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useTaskStore } from '../task'
-import type { Aria2Task, Aria2Peer, TaskStatus } from '@shared/types'
+import type { Aria2Task, Aria2Peer, TaskStatus, HistoryRecord } from '@shared/types'
+
+// ── Mock history store (DB-primary architecture) ─────────────────────
+const mockHistoryFns = {
+  init: vi.fn().mockResolvedValue(undefined),
+  addRecord: vi.fn().mockResolvedValue(undefined),
+  getRecords: vi.fn().mockResolvedValue([] as HistoryRecord[]),
+  removeRecord: vi.fn().mockResolvedValue(undefined),
+  clearRecords: vi.fn().mockResolvedValue(undefined),
+  removeStaleRecords: vi.fn().mockResolvedValue(undefined),
+  checkIntegrity: vi.fn().mockResolvedValue('ok'),
+  closeConnection: vi.fn().mockResolvedValue(undefined),
+}
+vi.mock('@/stores/history', () => ({
+  useHistoryStore: () => mockHistoryFns,
+}))
 
 const makeMockTask = (gid: string, status: TaskStatus = 'active', extra: Partial<Aria2Task> = {}): Aria2Task => ({
   gid,
@@ -67,6 +82,9 @@ describe('TaskStore', () => {
     store = useTaskStore()
     mockApi = createMockApi()
     store.setApi(mockApi)
+    // Reset history mock between tests
+    Object.values(mockHistoryFns).forEach((fn) => fn.mockClear())
+    mockHistoryFns.getRecords.mockResolvedValue([])
   })
 
   // ─── fetchList ──────────────────────────────────────────
@@ -334,7 +352,7 @@ describe('TaskStore', () => {
 
   // ─── stopSeeding ────────────────────────────────────────
 
-  it('stopSeeding calls forcePause then removeTask in order', async () => {
+  it('stopSeeding calls forcePause then removeTask then writes DB', async () => {
     const callOrder: string[] = []
     mockApi.forcePauseTask.mockImplementation(() => {
       callOrder.push('forcePause')
@@ -345,24 +363,29 @@ describe('TaskStore', () => {
       return Promise.resolve('OK')
     })
 
-    await store.stopSeeding('gid1')
+    const task = makeMockTask('gid1', 'active', { bittorrent: { info: { name: 'seed' } }, seeder: 'true' })
+    await store.stopSeeding(task)
 
     expect(mockApi.forcePauseTask).toHaveBeenCalledWith({ gid: 'gid1' })
     expect(mockApi.removeTask).toHaveBeenCalledWith({ gid: 'gid1' })
     expect(callOrder).toEqual(['forcePause', 'removeTask'])
+    // DB persistence
+    expect(mockHistoryFns.addRecord).toHaveBeenCalledWith(expect.objectContaining({ gid: 'gid1', status: 'complete' }))
   })
 
   it('stopSeeding does not call removeTask if forcePause fails', async () => {
     mockApi.forcePauseTask.mockRejectedValueOnce(new Error('pause failed'))
 
-    await expect(store.stopSeeding('gid1')).rejects.toThrow('pause failed')
+    const task = makeMockTask('gid1', 'active', { bittorrent: { info: { name: 'x' } }, seeder: 'true' })
+    await expect(store.stopSeeding(task)).rejects.toThrow('pause failed')
     expect(mockApi.forcePauseTask).toHaveBeenCalledWith({ gid: 'gid1' })
     expect(mockApi.removeTask).not.toHaveBeenCalled()
+    expect(mockHistoryFns.addRecord).not.toHaveBeenCalled()
   })
 
   // ─── stopAllSeeding ─────────────────────────────────────
 
-  it('stopAllSeeding calls two-step stop for every seeding task', async () => {
+  it('stopAllSeeding calls two-step stop + DB write for every seeding task', async () => {
     const seeder1 = makeMockTask('s1', 'active', { bittorrent: { info: { name: 'a' } }, seeder: 'true' })
     const seeder2 = makeMockTask('s2', 'active', { bittorrent: { info: { name: 'b' } }, seeder: 'true' })
     store.taskList = [seeder1, seeder2]
@@ -372,6 +395,8 @@ describe('TaskStore', () => {
     expect(mockApi.forcePauseTask).toHaveBeenCalledWith({ gid: 's2' })
     expect(mockApi.removeTask).toHaveBeenCalledWith({ gid: 's1' })
     expect(mockApi.removeTask).toHaveBeenCalledWith({ gid: 's2' })
+    // Both tasks persisted to DB
+    expect(mockHistoryFns.addRecord).toHaveBeenCalledTimes(2)
   })
 
   it('stopAllSeeding skips non-seeding tasks', async () => {
@@ -407,22 +432,26 @@ describe('TaskStore', () => {
 
   // ─── removeTaskRecord ───────────────────────────────────
 
-  it('removeTaskRecord removes completed task record', async () => {
+  it('removeTaskRecord removes completed task via DB then aria2', async () => {
     const task = makeMockTask('gid1', 'complete')
     await store.removeTaskRecord(task)
+    // DB is primary — removeRecord called first
+    expect(mockHistoryFns.removeRecord).toHaveBeenCalledWith('gid1')
+    // aria2 best-effort cleanup
     expect(mockApi.removeTaskRecord).toHaveBeenCalledWith({ gid: 'gid1' })
-    expect(mockApi.fetchTaskList).toHaveBeenCalled()
   })
 
-  it('removeTaskRecord removes error task record', async () => {
+  it('removeTaskRecord removes error task via DB then aria2', async () => {
     const task = makeMockTask('gid1', 'error')
     await store.removeTaskRecord(task)
+    expect(mockHistoryFns.removeRecord).toHaveBeenCalledWith('gid1')
     expect(mockApi.removeTaskRecord).toHaveBeenCalledWith({ gid: 'gid1' })
   })
 
   it('removeTaskRecord ignores active task', async () => {
     const task = makeMockTask('gid1', 'active')
     await store.removeTaskRecord(task)
+    expect(mockHistoryFns.removeRecord).not.toHaveBeenCalled()
     expect(mockApi.removeTaskRecord).not.toHaveBeenCalled()
   })
 
@@ -431,14 +460,28 @@ describe('TaskStore', () => {
     store.showTaskDetail(task)
     await store.removeTaskRecord(task)
     expect(store.taskDetailVisible).toBe(false)
+    expect(mockHistoryFns.removeRecord).toHaveBeenCalledWith('gid1')
+  })
+
+  it('removeTaskRecord survives aria2 failure (DB-only records)', async () => {
+    mockApi.removeTaskRecord.mockRejectedValueOnce(new Error('GID not found'))
+    const task = makeMockTask('gid1', 'complete')
+    await store.removeTaskRecord(task)
+    expect(mockHistoryFns.removeRecord).toHaveBeenCalledWith('gid1')
   })
 
   // ─── purgeTaskRecord ────────────────────────────────────
 
-  it('purgeTaskRecord calls API and refreshes list', async () => {
+  it('purgeTaskRecord clears DB then aria2 and refreshes list', async () => {
     await store.purgeTaskRecord()
+    expect(mockHistoryFns.clearRecords).toHaveBeenCalled()
     expect(mockApi.purgeTaskRecord).toHaveBeenCalled()
-    expect(mockApi.fetchTaskList).toHaveBeenCalled()
+  })
+
+  it('purgeTaskRecord survives aria2 failure', async () => {
+    mockApi.purgeTaskRecord.mockRejectedValueOnce(new Error('RPC fail'))
+    await store.purgeTaskRecord()
+    expect(mockHistoryFns.clearRecords).toHaveBeenCalled()
   })
 
   // ─── saveSession ────────────────────────────────────────
@@ -684,18 +727,20 @@ describe('TaskStore', () => {
       expect(onError).toHaveBeenCalledWith(expect.objectContaining({ gid: 'e2', errorCode: '6' }))
     })
 
-    it('fetches stopped pool even when not on the active tab', async () => {
+    it('fetches stopped pool for lifecycle scanning via aria2 active query', async () => {
       const onComplete = vi.fn()
       store.setOnTaskComplete(onComplete)
       store.setApi(mockApi)
 
-      // changeCurrentList triggers fetchList (initial scan).
-      // Include c1 so it's suppressed by initialScanDone guard.
+      // When on the stopped tab, fetchList now reads from DB.
+      // Lifecycle scanning for onComplete fires from the separate
+      // _scanStoppedPool path which still calls fetchTaskList({ type: 'stopped' }).
+      // Initial scan: c1 present → suppressed by initialScanDone guard
       mockApi.fetchTaskList.mockResolvedValue([makeMockTask('c1', 'complete')])
-      await store.changeCurrentList('stopped')
-      expect(onComplete).not.toHaveBeenCalled()
+      await store.changeCurrentList('active')
+      await store.fetchList()
 
-      // Second fetch: c2 is genuinely new → callback fires
+      // c2 is new → onComplete fires
       mockApi.fetchTaskList.mockResolvedValue([makeMockTask('c1', 'complete'), makeMockTask('c2', 'complete')])
       await store.fetchList()
       expect(onComplete).toHaveBeenCalledTimes(1)

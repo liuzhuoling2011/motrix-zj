@@ -62,9 +62,9 @@ describe('deleteTaskFiles', () => {
 
     await deleteTaskFiles(task)
 
-    expect(mockRemove).toHaveBeenCalledWith('/downloads/file1.zip')
+    expect(mockRemove).toHaveBeenCalledWith('/downloads/file1.zip', { recursive: true })
     expect(mockRemove).toHaveBeenCalledWith('/downloads/file1.zip.aria2')
-    expect(mockRemove).toHaveBeenCalledWith('/downloads/file2.zip')
+    expect(mockRemove).toHaveBeenCalledWith('/downloads/file2.zip', { recursive: true })
     expect(mockRemove).toHaveBeenCalledWith('/downloads/file2.zip.aria2')
   })
 

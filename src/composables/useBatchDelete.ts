@@ -23,7 +23,7 @@ export async function deleteLocalFiles(paths: string[]): Promise<{ deleted: numb
     try {
       const fileExists = await exists(path)
       if (!fileExists) continue
-      await remove(path)
+      await remove(path, { recursive: true })
       deleted++
     } catch (e) {
       errors++

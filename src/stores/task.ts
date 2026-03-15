@@ -15,7 +15,7 @@ import type {
   TaskOptionParams,
 } from '@shared/types'
 
-import { mergeHistoryIntoTasks } from '@/composables/useTaskLifecycle'
+import { historyRecordToTask, buildHistoryRecord } from '@/composables/useTaskLifecycle'
 import { useHistoryStore } from '@/stores/history'
 
 export type { Aria2Task, Aria2File, Aria2Peer }
@@ -89,20 +89,15 @@ export const useTaskStore = defineStore('task', () => {
 
   async function fetchList() {
     try {
-      let data = await api.fetchTaskList({ type: currentList.value })
-
-      // Fuse history DB records into the stopped tab so completed/errored
-      // tasks survive app restarts. DB records are appended after live
-      // aria2 data; duplicates are deduplicated by GID (aria2 wins).
+      // Stopped tab is DB-primary: history.db is the single source of truth.
+      // Active tab reads from aria2 (tellActive + tellWaiting).
+      let data: Aria2Task[]
       if (currentList.value === 'stopped') {
-        try {
-          const historyStore = useHistoryStore()
-          const records = await historyStore.getRecords()
-          data = mergeHistoryIntoTasks(data, records)
-        } catch (e) {
-          // History DB failure must never break the task list
-          logger.debug('TaskStore.fetchList.historyMerge', e)
-        }
+        const historyStore = useHistoryStore()
+        const records = await historyStore.getRecords()
+        data = records.map(historyRecordToTask)
+      } else {
+        data = await api.fetchTaskList({ type: currentList.value })
       }
 
       taskList.value = data
@@ -328,19 +323,25 @@ export const useTaskStore = defineStore('task', () => {
     seedingList.value = [...seedingList.value.slice(0, idx), ...seedingList.value.slice(idx + 1)]
   }
 
-  async function stopSeeding(gid: string) {
+  async function stopSeeding(task: Aria2Task) {
+    const { gid } = task
     // Two-step flow for immediate seeding stop:
     // 1. forcePause — halts seeding instantly (skips tracker unregistration)
     // 2. removeTask (forceRemove) — transitions task to 'removed' in stopped list
     await api.forcePauseTask({ gid })
     await api.removeTask({ gid })
+    // DB-primary: persist record before it vanishes from aria2
+    const record = buildHistoryRecord(task)
+    record.status = 'complete'
+    const historyStore = useHistoryStore()
+    await historyStore.addRecord(record)
   }
 
   /** Stops ALL currently seeding tasks. Returns the count of seeding tasks found. */
   async function stopAllSeeding(): Promise<number> {
     const seeders = taskList.value.filter(checkTaskIsSeeder)
     if (seeders.length === 0) return 0
-    await Promise.allSettled(seeders.map((t) => stopSeeding(t.gid)))
+    await Promise.allSettled(seeders.map((t) => stopSeeding(t)))
     return seeders.length
   }
 
@@ -349,35 +350,27 @@ export const useTaskStore = defineStore('task', () => {
     if (gid === currentTaskGid.value) hideTaskDetail()
     const { ERROR, COMPLETE, REMOVED } = TASK_STATUS
     if ([ERROR, COMPLETE, REMOVED].indexOf(status) === -1) return
-    // Remove from aria2 current-session memory (may fail for history-only GIDs)
+    // DB is primary — remove the persistent record first
+    const historyStore = useHistoryStore()
+    await historyStore.removeRecord(gid)
+    // Best-effort: clean aria2 session memory (may fail for DB-only records)
     try {
       await api.removeTaskRecord({ gid })
     } catch (e) {
       logger.debug('TaskStore.removeTaskRecord.aria2', e)
     }
-    // Remove from persistent history DB
-    try {
-      const historyStore = useHistoryStore()
-      await historyStore.removeRecord(gid)
-    } catch (e) {
-      logger.debug('TaskStore.removeTaskRecord.db', e)
-    }
     await fetchList()
   }
 
   async function purgeTaskRecord() {
-    // Clear aria2 current-session stopped records
+    // DB is primary — clear all persistent records
+    const historyStore = useHistoryStore()
+    await historyStore.clearRecords()
+    // Best-effort: clean aria2 session memory
     try {
       await api.purgeTaskRecord()
     } catch (e) {
       logger.debug('TaskStore.purgeTaskRecord.aria2', e)
-    }
-    // Clear persistent history DB
-    try {
-      const historyStore = useHistoryStore()
-      await historyStore.clearRecords()
-    } catch (e) {
-      logger.debug('TaskStore.purgeTaskRecord.db', e)
     }
     await fetchList()
   }

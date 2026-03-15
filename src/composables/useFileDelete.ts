@@ -40,7 +40,7 @@ export async function deleteTaskFiles(task: Aria2Task): Promise<void> {
   for (const f of files) {
     if (!f.path) continue
     try {
-      await remove(f.path)
+      await remove(f.path, { recursive: true })
     } catch (e) {
       logger.debug('deleteTaskFiles.file', e)
     }

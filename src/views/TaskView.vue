@@ -290,11 +290,54 @@ function handleDeleteTask(task: Aria2Task) {
   })
 }
 function handleDeleteRecord(task: Aria2Task) {
-  const taskName = getTaskName(task, { defaultName: 'Unknown' })
-  taskStore
-    .removeTaskRecord(task)
-    .then(() => message.success(t('task.remove-record-success', { taskName })))
-    .catch(() => message.error(t('task.remove-record-fail', { taskName })))
+  const noConfirm = preferenceStore.config?.noConfirmBeforeDeleteTask
+  if (noConfirm) {
+    taskStore
+      .removeTaskRecord(task)
+      .then(() =>
+        message.success(t('task.remove-record-success', { taskName: getTaskName(task, { defaultName: 'Unknown' }) })),
+      )
+      .catch((e) => logger.error('TaskView.deleteRecord', e))
+    return
+  }
+  const deleteFiles = ref(false)
+  const name = getTaskName(task, { defaultName: 'Unknown' })
+  const d = dialog.warning({
+    title: t('task.delete-task'),
+    content: () =>
+      h('div', {}, [
+        h('p', { style: 'margin: 0 0 12px; word-break: break-all;' }, name),
+        h(
+          NCheckbox,
+          {
+            checked: deleteFiles.value,
+            'onUpdate:checked': (v: boolean) => {
+              deleteFiles.value = v
+            },
+          },
+          { default: () => t('task.delete-task-label') },
+        ),
+      ]),
+    positiveText: t('app.yes'),
+    negativeText: t('app.no'),
+    onPositiveClick: async () => {
+      d.loading = true
+      d.negativeButtonProps = { disabled: true }
+      d.closable = false
+      d.maskClosable = false
+      await new Promise((r) => setTimeout(r, 50))
+      try {
+        if (deleteFiles.value) {
+          await deleteTaskFiles(task)
+        }
+        await taskStore.removeTaskRecord(task)
+        message.success(t('task.delete-task-success', { taskName: name }))
+      } catch (e) {
+        logger.error('TaskView.deleteRecord', e)
+        message.error(t('task.delete-task-fail', { taskName: name }))
+      }
+    },
+  })
 }
 function handleCopyLink(task: Aria2Task) {
   navigator.clipboard.writeText(getTaskUri(task))
@@ -318,13 +361,8 @@ async function handleStopSeeding(task: Aria2Task) {
   if (stoppingGids.value.includes(task.gid)) return // prevent double-click
   stoppingGids.value = [...stoppingGids.value, task.gid]
   try {
-    await taskStore.stopSeeding(task.gid)
+    await taskStore.stopSeeding(task)
     stoppingGids.value = stoppingGids.value.filter((g) => g !== task.gid)
-    // Persist to history DB before the task vanishes — forceRemove bypasses
-    // the normal onComplete callback that normally handles this.
-    const record = buildHistoryRecord(task)
-    record.status = 'complete'
-    historyStore.addRecord(record).catch((e) => logger.debug('TaskView.stopSeeding.history', e))
     message.success(t('task.stop-all-seeding-success'))
     // Refresh list immediately so the task vanishes from the active tab
     await taskStore.fetchList()
