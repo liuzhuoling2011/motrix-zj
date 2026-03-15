@@ -170,6 +170,8 @@ export interface AppConfig {
   continue: boolean
   autoCheckUpdateInterval: number
   enableUpnp: boolean
+  deleteTorrentAfterComplete: boolean
+  autoDeleteStaleRecords: boolean
   [key: string]: unknown
 }
 
@@ -238,4 +240,30 @@ export interface BatchItem {
   status: BatchItemStatus
   /** Error message when status is 'failed'. */
   error?: string
+}
+
+/** A completed/errored download record stored in SQLite, independent from the aria2 session. */
+export interface HistoryRecord {
+  /** Auto-incremented primary key (present on read, omitted on insert). */
+  id?: number
+  /** aria2 GID — unique identifier for deduplication. */
+  gid: string
+  /** Display name of the downloaded file or torrent. */
+  name: string
+  /** Primary download URI or magnet link. */
+  uri?: string
+  /** Local directory where the file was saved. */
+  dir?: string
+  /** Total file size in bytes. */
+  total_length?: number
+  /** Terminal status: 'complete', 'error', or 'removed'. */
+  status: string
+  /** Download type: 'uri', 'torrent', or 'metalink'. */
+  task_type?: string
+  /** ISO 8601 timestamp when the record was created. */
+  created_at?: string
+  /** ISO 8601 timestamp when the download finished. */
+  completed_at?: string
+  /** JSON-encoded metadata (BT info hash, torrent source path, etc.). */
+  meta?: string
 }

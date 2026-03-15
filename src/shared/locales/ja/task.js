@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': '進行中のタスクはありません',
   'failed': '件のタスクを追加できませんでした',
   'file-load-failed': 'ファイルの読み込みに失敗しました',
+  'magnet-files-selected': 'ファイルが選択されました。ダウンロードを開始します',
+  'magnet-select-fail': 'ダウンロードの設定に失敗しました',
+  'select-files': 'ファイルを選択',
 }

@@ -448,6 +448,18 @@ onMounted(async () => {
           </NCheckbox>
         </NSpace>
       </NFormItem>
+
+      <NDivider title-placement="left">{{ t('preferences.auto-cleanup') }}</NDivider>
+      <NFormItem :show-label="false">
+        <NSpace vertical>
+          <NCheckbox v-model:checked="form.deleteTorrentAfterComplete">
+            {{ t('preferences.delete-torrent-after-complete') || 'Delete .torrent file after download completes' }}
+          </NCheckbox>
+          <NCheckbox v-model:checked="form.autoDeleteStaleRecords">
+            {{ t('preferences.auto-delete-stale-records') || 'Auto-delete records when local files are missing' }}
+          </NCheckbox>
+        </NSpace>
+      </NFormItem>
     </NForm>
     <PreferenceActionBar
       :is-dirty="isDirty"

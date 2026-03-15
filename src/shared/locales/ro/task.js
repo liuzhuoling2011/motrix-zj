@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': 'Nu există sarcini active',
   'failed': 'sarcină(-ini) nu a/au putut fi adăugată(-e)',
   'file-load-failed': 'Încărcarea fișierului a eșuat',
+  'magnet-files-selected': 'Fișiere selectate, descărcarea începe',
+  'magnet-select-fail': 'Configurarea descărcării a eșuat',
+  'select-files': 'Selectare fișiere',
 }

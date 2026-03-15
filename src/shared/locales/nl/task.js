@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': 'Geen actieve taken',
   'failed': 'taak/taken kon(den) niet worden toegevoegd',
   'file-load-failed': 'Bestand laden mislukt',
+  'magnet-files-selected': 'Bestanden geselecteerd, download start',
+  'magnet-select-fail': 'Configuratie van download mislukt',
+  'select-files': 'Bestanden selecteren',
 }

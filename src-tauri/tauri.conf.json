@@ -120,6 +120,9 @@
           "thunder"
         ]
       }
+    },
+    "sql": {
+      "preload": ["sqlite:history.db"]
     }
   }
 }

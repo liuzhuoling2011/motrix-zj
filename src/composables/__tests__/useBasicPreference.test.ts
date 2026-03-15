@@ -120,6 +120,8 @@ describe('buildBasicSystemConfig', () => {
     seedRatio: 1,
     seedTime: 60,
     continue: true,
+    deleteTorrentAfterComplete: false,
+    autoDeleteStaleRecords: false,
   }
 
   it('maps all required aria2 config keys', () => {
@@ -181,6 +183,8 @@ describe('transformBasicForStore', () => {
     seedRatio: 1,
     seedTime: 60,
     continue: true,
+    deleteTorrentAfterComplete: false,
+    autoDeleteStaleRecords: false,
   }
 
   it('expands btAutoDownloadContent=true into follow+resume', () => {

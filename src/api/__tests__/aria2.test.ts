@@ -50,6 +50,7 @@ import {
   changeGlobalOption,
   getOption,
   changeOption,
+  getFiles,
   fetchTaskList,
   fetchTaskItem,
   fetchTaskItemWithPeers,
@@ -170,6 +171,34 @@ describe('aria2 API', () => {
       mockCall.mockResolvedValueOnce('OK')
       await changeOption({ gid: 'abc', options: { maxDownloadLimit: '0' } as never })
       expect(mockCall).toHaveBeenCalledWith('changeOption', 'abc', expect.any(Object))
+    })
+
+    it('getFiles calls aria2.getFiles and returns camelCase typed files', async () => {
+      const rawFiles = [
+        {
+          index: '1',
+          path: '/downloads/movie.mkv',
+          length: '1500000000',
+          'completed-length': '0',
+          selected: 'true',
+          uris: [{ uri: 'magnet:?xt=urn:btih:abc', status: 'used' }],
+        },
+        {
+          index: '2',
+          path: '/downloads/subtitle.srt',
+          length: '50000',
+          'completed-length': '0',
+          selected: 'true',
+          uris: [],
+        },
+      ]
+      mockCall.mockResolvedValueOnce(rawFiles)
+      const result = await getFiles({ gid: 'magnet-gid' })
+      expect(mockCall).toHaveBeenCalledWith('getFiles', 'magnet-gid')
+      expect(result).toHaveLength(2)
+      expect(result[0].path).toBe('/downloads/movie.mkv')
+      expect(result[0].completedLength).toBe('0')
+      expect(result[1].length).toBe('50000')
     })
   })
 

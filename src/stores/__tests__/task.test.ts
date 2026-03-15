@@ -40,6 +40,7 @@ function createMockApi() {
     addMetalink: vi.fn().mockResolvedValue(['gid5']),
     getOption: vi.fn().mockResolvedValue({}),
     changeOption: vi.fn().mockResolvedValue(undefined),
+    getFiles: vi.fn().mockResolvedValue([]),
     removeTask: vi.fn().mockResolvedValue('gid1'),
     forcePauseTask: vi.fn().mockResolvedValue('gid1'),
     pauseTask: vi.fn().mockResolvedValue('gid1'),

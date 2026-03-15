@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': '진행 중인 작업이 없습니다',
   'failed': '개 작업을 추가할 수 없습니다',
   'file-load-failed': '파일 로드 실패',
+  'magnet-files-selected': '파일이 선택되었습니다. 다운로드를 시작합니다',
+  'magnet-select-fail': '다운로드 구성에 실패했습니다',
+  'select-files': '파일 선택',
 }

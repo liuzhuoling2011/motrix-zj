@@ -7,6 +7,7 @@ import { setI18nLocale } from '@shared/utils/i18n'
 import { usePreferenceStore } from './stores/preference'
 import { useTaskStore } from './stores/task'
 import { useAppStore } from './stores/app'
+import { useHistoryStore } from './stores/history'
 import aria2Api, { initClient } from './api/aria2'
 import { ENGINE_RPC_PORT, AUTO_SYNC_TRACKER_INTERVAL, DEFAULT_TRACKER_SOURCE } from '@shared/constants'
 import { convertTrackerDataToLine, convertTrackerDataToComma, reduceTrackerString } from '@shared/utils/tracker'
@@ -49,6 +50,7 @@ window.addEventListener('unhandledrejection', (e) => {
   const preferenceStore = usePreferenceStore()
   const taskStore = useTaskStore()
   const appStore = useAppStore()
+  const historyStore = useHistoryStore()
 
   async function waitForEngine(port: number, secret: string, maxRetries = 10): Promise<boolean> {
     const { Aria2 } = await import('@shared/aria2')
@@ -284,6 +286,39 @@ window.addEventListener('unhandledrejection', (e) => {
     // ── Phase 4: deferred non-critical tasks ───────────────────────────────
     autoCheckForUpdate()
     autoSyncTrackerOnStartup()
+
+    // Initialize download history database, then schedule stale record cleanup
+    historyStore
+      .init()
+      .then(() => {
+        // Auto-delete stale records if enabled — delayed to avoid startup contention
+        if (preferenceStore.config?.autoDeleteStaleRecords) {
+          const runCleanup = async () => {
+            try {
+              const { runStaleRecordCleanup } = await import('./composables/useStaleCleanup')
+              const records = await historyStore.getRecords('complete')
+              const result = await runStaleRecordCleanup(
+                records.map((r) => ({
+                  gid: r.gid,
+                  name: r.name,
+                  dir: r.dir ?? '',
+                })),
+                historyStore.removeStaleRecords,
+              )
+              if (result.removed > 0) {
+                logger.info('StaleCleanup', `Removed ${result.removed}/${result.scanned} stale records`)
+              }
+            } catch (e) {
+              logger.debug('StaleCleanup', e)
+            }
+          }
+          // First scan 30s after startup — not urgent
+          setTimeout(runCleanup, 30_000)
+          // Re-scan every 30 minutes for long-running sessions
+          setInterval(runCleanup, 1_800_000)
+        }
+      })
+      .catch((e) => logger.warn('HistoryDB', 'init failed: ' + e))
 
     // Re-check tracker sync hourly for long-running sessions.
     // autoSyncTrackerOnStartup() internally de-duplicates via lastSyncTrackerTime.

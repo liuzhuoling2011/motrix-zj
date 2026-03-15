@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': 'No active tasks',
   'failed': 'task(s) could not be added',
   'file-load-failed': 'File load failed',
+  'magnet-files-selected': 'Files selected, download starting',
+  'magnet-select-fail': 'Failed to configure download',
+  'select-files': 'Select Files',
 }

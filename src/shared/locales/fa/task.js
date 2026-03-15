@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': 'هیچ وظیفه فعالی وجود ندارد',
   'failed': 'وظیفه(ها) اضافه نشد',
   'file-load-failed': 'بارگذاری فایل ناموفق بود',
+  'magnet-files-selected': 'فایل‌ها انتخاب شدند، دانلود شروع می‌شود',
+  'magnet-select-fail': 'پیکربندی دانلود ناموفق بود',
+  'select-files': 'انتخاب فایل‌ها',
 }

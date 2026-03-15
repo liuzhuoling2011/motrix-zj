@@ -40,6 +40,7 @@ export const useAppStore = defineStore('app', () => {
   const pendingUpdate = ref<TauriUpdate | null>(null)
   const engineInitializing = ref(true)
   const engineReady = ref(false)
+  const pendingMagnetGids = ref<string[]>([])
 
   function updateInterval(millisecond: number) {
     let val = millisecond
@@ -244,6 +245,7 @@ export const useAppStore = defineStore('app', () => {
     pendingUpdate,
     engineInitializing,
     engineReady,
+    pendingMagnetGids,
     updateInterval,
     increaseInterval,
     decreaseInterval,

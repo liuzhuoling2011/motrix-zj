@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': 'ไม่มีงานที่กำลังดำเนินการ',
   'failed': 'งานไม่สามารถเพิ่มได้',
   'file-load-failed': 'โหลดไฟล์ล้มเหลว',
+  'magnet-files-selected': 'เลือกไฟล์แล้ว เริ่มดาวน์โหลด',
+  'magnet-select-fail': 'ไม่สามารถกำหนดค่าการดาวน์โหลด',
+  'select-files': 'เลือกไฟล์',
 }

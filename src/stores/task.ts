@@ -14,6 +14,7 @@ import type {
   AddMetalinkParams,
   TaskOptionParams,
 } from '@shared/types'
+import { buildMetadataOnlyOptions } from '@/composables/useMagnetFlow'
 
 export type { Aria2Task, Aria2File, Aria2Peer }
 
@@ -28,6 +29,7 @@ interface TaskApi {
   addMetalink: (params: AddMetalinkParams) => Promise<string[]>
   getOption: (params: { gid: string }) => Promise<Record<string, string>>
   changeOption: (params: TaskOptionParams) => Promise<void>
+  getFiles: (params: { gid: string }) => Promise<Aria2File[]>
   removeTask: (params: { gid: string }) => Promise<string>
   forcePauseTask: (params: { gid: string }) => Promise<string>
   pauseTask: (params: { gid: string }) => Promise<string>
@@ -59,11 +61,17 @@ export const useTaskStore = defineStore('task', () => {
   let api: TaskApi
 
   const notifiedErrorGids = new Set<string>()
+  const notifiedCompleteGids = new Set<string>()
   let initialScanDone = false
   let onTaskError: ((task: Aria2Task) => void) | null = null
+  let onTaskComplete: ((task: Aria2Task) => void) | null = null
 
   function setOnTaskError(fn: (task: Aria2Task) => void) {
     onTaskError = fn
+  }
+
+  function setOnTaskComplete(fn: (task: Aria2Task) => void) {
+    onTaskComplete = fn
   }
 
   function setApi(a: TaskApi) {
@@ -93,14 +101,21 @@ export const useTaskStore = defineStore('task', () => {
           if (fresh) updateCurrentTaskItem(fresh)
         }
       }
+      // Fetch stopped tasks once for both error + completion scanning
+      // (active tab needs stopped pool because completed/errored tasks move there)
+      const stoppedTasks =
+        (onTaskError || onTaskComplete) && currentList.value === TASK_STATUS.ACTIVE
+          ? (await api.fetchTaskList({ type: 'stopped' })).slice(0, 20)
+          : []
+      const tasksToScan =
+        onTaskError || onTaskComplete
+          ? currentList.value === TASK_STATUS.ACTIVE
+            ? [...data, ...stoppedTasks]
+            : data
+          : []
+
       // Detect newly errored tasks and notify
       if (onTaskError) {
-        // When viewing the active tab, error tasks land in the stopped pool
-        // so also fetch recent stopped tasks for error scanning
-        const tasksToScan =
-          currentList.value === TASK_STATUS.ACTIVE
-            ? [...data, ...(await api.fetchTaskList({ type: 'stopped' })).slice(0, 20)]
-            : data
         for (const task of tasksToScan) {
           if (
             task.status === TASK_STATUS.ERROR &&
@@ -109,14 +124,27 @@ export const useTaskStore = defineStore('task', () => {
             !notifiedErrorGids.has(task.gid)
           ) {
             notifiedErrorGids.add(task.gid)
-            // Skip notifications on first scan to avoid re-alerting stale errors
             if (initialScanDone) {
               onTaskError(task)
             }
           }
         }
-        initialScanDone = true
       }
+      // Detect newly completed tasks and fire callback (complete only — not error)
+      if (onTaskComplete) {
+        for (const task of tasksToScan) {
+          if (task.status === 'complete' && !notifiedCompleteGids.has(task.gid)) {
+            notifiedCompleteGids.add(task.gid)
+            if (initialScanDone) {
+              onTaskComplete(task)
+            }
+          }
+        }
+      }
+      // Mark initial scan as done AFTER both callbacks — unconditionally.
+      // This prevents ghost notifications for tasks that were already
+      // in stopped state before the app started monitoring.
+      initialScanDone = true
     } catch (e) {
       logger.warn('TaskStore.fetchList', (e as Error).message)
     }
@@ -164,6 +192,26 @@ export const useTaskStore = defineStore('task', () => {
   async function addUri(data: { uris: string[]; outs: string[]; options: Aria2EngineOptions }) {
     await api.addUri(data)
     await fetchList()
+  }
+
+  /**
+   * Adds a magnet URI in metadata-only mode. Returns the GID.
+   * Caller is responsible for monitoring completion and presenting file selection.
+   */
+  async function addMagnetUri(data: { uri: string; options: Aria2EngineOptions }): Promise<string> {
+    const metaOptions = buildMetadataOnlyOptions(data.options)
+    const gids = await api.addUri({
+      uris: [data.uri],
+      outs: [],
+      options: metaOptions,
+    })
+    await fetchList()
+    return gids[0]
+  }
+
+  /** Retrieves the file list for a download task. */
+  async function getFiles(gid: string): Promise<Aria2File[]> {
+    return api.getFiles({ gid })
   }
 
   async function addTorrent(data: { torrent: string; options: Aria2EngineOptions }) {
@@ -425,6 +473,8 @@ export const useTaskStore = defineStore('task', () => {
     addUri,
     addTorrent,
     addMetalink,
+    addMagnetUri,
+    getFiles,
     getTaskOption,
     changeTaskOption,
     removeTask,
@@ -445,6 +495,7 @@ export const useTaskStore = defineStore('task', () => {
     batchRemoveTask,
     restartTask,
     setOnTaskError,
+    setOnTaskComplete,
     hasActiveTasks,
     hasPausedTasks,
   }

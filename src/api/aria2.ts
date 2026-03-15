@@ -2,7 +2,7 @@
 import { Aria2 } from '@shared/aria2'
 import { TASK_STATUS } from '@shared/constants'
 import { changeKeysToCamelCase, formatOptionsForEngine } from '@shared/utils'
-import type { Aria2Task, Aria2RawGlobalStat, Aria2Peer, Aria2EngineOptions, AppConfig } from '@shared/types'
+import type { Aria2Task, Aria2RawGlobalStat, Aria2Peer, Aria2EngineOptions, Aria2File, AppConfig } from '@shared/types'
 import { isAria2Task, isAria2GlobalStat } from '@shared/guards'
 import { logger } from '@shared/logger'
 
@@ -117,6 +117,12 @@ export async function getOption(params: { gid: string }): Promise<Record<string,
 export async function changeOption(params: { gid: string; options: Aria2EngineOptions }): Promise<void> {
   const engineOptions = formatOptionsForEngine(params.options)
   await getClient().call<string>('changeOption', params.gid, engineOptions)
+}
+
+/** Retrieves the file list for a download task by GID. */
+export async function getFiles(params: { gid: string }): Promise<Aria2File[]> {
+  const data = await getClient().call<Record<string, unknown>[]>('getFiles', params.gid)
+  return data.map((f) => changeKeysToCamelCase(f)) as unknown as Aria2File[]
 }
 
 /** Retrieves the full status of a download task by GID. */
@@ -309,6 +315,7 @@ const api = {
   changeGlobalOption,
   getOption,
   changeOption,
+  getFiles,
   fetchActiveTaskList,
   fetchTaskList,
   fetchTaskItem,

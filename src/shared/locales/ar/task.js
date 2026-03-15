@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': 'لا توجد مهام نشطة',
   'failed': 'مهمة (مهام) لم يتم إضافتها',
   'file-load-failed': 'فشل تحميل الملف',
+  'magnet-files-selected': 'تم اختيار الملفات، بدء التنزيل',
+  'magnet-select-fail': 'فشل في تكوين التنزيل',
+  'select-files': 'اختيار الملفات',
 }

@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': 'Không có tác vụ đang hoạt động',
   'failed': 'tác vụ không thể thêm được',
   'file-load-failed': 'Tải tệp thất bại',
+  'magnet-files-selected': 'Đã chọn tệp, bắt đầu tải xuống',
+  'magnet-select-fail': 'Không thể cấu hình tải xuống',
+  'select-files': 'Chọn tệp',
 }

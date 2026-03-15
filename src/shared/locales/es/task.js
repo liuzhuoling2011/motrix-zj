@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': 'No hay tareas activas',
   'failed': 'tarea(s) no se pudo/pudieron agregar',
   'file-load-failed': 'Error al cargar el archivo',
+  'magnet-files-selected': 'Archivos seleccionados, descarga iniciando',
+  'magnet-select-fail': 'Error al configurar la descarga',
+  'select-files': 'Seleccionar archivos',
 }

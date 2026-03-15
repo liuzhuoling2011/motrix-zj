@@ -42,6 +42,8 @@ export interface BasicForm {
   seedRatio: number
   seedTime: number
   continue: boolean
+  deleteTorrentAfterComplete: boolean
+  autoDeleteStaleRecords: boolean
 }
 
 // ── Pure Functions ──────────────────────────────────────────────────
@@ -88,6 +90,8 @@ export function buildBasicForm(config: AppConfig, defaultDir: string = ''): Basi
     seedRatio: config.seedRatio ?? D.seedRatio,
     seedTime: config.seedTime ?? D.seedTime,
     continue: config.continue ?? D.continue,
+    deleteTorrentAfterComplete: config.deleteTorrentAfterComplete ?? false,
+    autoDeleteStaleRecords: config.autoDeleteStaleRecords ?? false,
   }
 }
 

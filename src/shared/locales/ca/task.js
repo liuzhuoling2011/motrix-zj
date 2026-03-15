@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': 'No hi ha tasques actives',
   'failed': 'tasques no afegides',
   'file-load-failed': 'Error en carregar el fitxer',
+  'magnet-files-selected': 'Fitxers seleccionats, la descàrrega comença',
+  'magnet-select-fail': 'No s\'ha pogut configurar la descàrrega',
+  'select-files': 'Seleccionar fitxers',
 }

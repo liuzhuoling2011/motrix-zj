@@ -452,7 +452,10 @@ describe('TaskActions', () => {
 
       await clickButton(wrapper, 2) // Purge
       const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
-      await onPositiveClick()
+      // onPositiveClick has internal setTimeout(50) — must advance timer
+      const promise = onPositiveClick()
+      await vi.advanceTimersByTimeAsync(100)
+      await promise
 
       expect(mockPurgeTaskRecord).toHaveBeenCalledOnce()
     })

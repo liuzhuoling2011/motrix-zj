@@ -5,10 +5,15 @@ import { useI18n } from 'vue-i18n'
 import { useTaskStore } from '@/stores/task'
 import { useAppStore } from '@/stores/app'
 import { usePreferenceStore } from '@/stores/preference'
+import { useHistoryStore } from '@/stores/history'
 import { getTaskUri, getTaskName } from '@shared/utils'
 import { revealItemInDir } from '@tauri-apps/plugin-opener'
 import { isEngineReady } from '@/api/aria2'
 import { deleteTaskFiles } from '@/composables/useFileDelete'
+import { parseFilesForSelection, buildSelectFileOption } from '@/composables/useMagnetFlow'
+import { buildHistoryRecord } from '@/composables/useTaskLifecycle'
+import { shouldDeleteTorrent, deleteTorrentFile } from '@/composables/useDownloadCleanup'
+import type { MagnetFileItem } from '@/composables/useMagnetFlow'
 import type { Aria2Task } from '@shared/types'
 import { TASK_STATUS } from '@shared/constants'
 import { ARIA2_ERROR_CODES } from '@shared/aria2ErrorCodes'
@@ -18,6 +23,7 @@ import { useAppMessage } from '@/composables/useAppMessage'
 import TaskList from '@/components/task/TaskList.vue'
 import TaskActions from '@/components/task/TaskActions.vue'
 import TaskDetail from '@/components/task/TaskDetail.vue'
+import MagnetFileSelect from '@/components/task/MagnetFileSelect.vue'
 
 const props = withDefaults(defineProps<{ status?: string }>(), { status: 'active' })
 
@@ -25,11 +31,19 @@ const { t } = useI18n()
 const taskStore = useTaskStore()
 const appStore = useAppStore()
 const preferenceStore = usePreferenceStore()
+const historyStore = useHistoryStore()
 const dialog = useDialog()
 const message = useAppMessage()
 
 const stoppingGids = ref<string[]>([])
 provide('stoppingGids', stoppingGids)
+
+// ── Magnet file selection state ──────────────────────────────────────
+const magnetSelectVisible = ref(false)
+const magnetSelectFiles = ref<MagnetFileItem[]>([])
+const magnetSelectGid = ref('')
+const magnetSelectName = ref('')
+let magnetPollTimer: ReturnType<typeof setTimeout> | null = null
 
 const subnavs = computed(() => [
   { key: 'active', title: t('task.active') || 'Active' },
@@ -77,8 +91,115 @@ onMounted(() => {
     const errorText = i18nKey ? t(i18nKey) : task.errorMessage || t('task.error-unknown')
     message.error(`${taskName}: ${errorText}`, { duration: 8000, closable: true })
   })
+  // Wire task completion lifecycle: history recording + optional torrent cleanup
+  taskStore.setOnTaskComplete((task) => {
+    // Record to history DB (fire-and-forget)
+    const record = buildHistoryRecord(task)
+    historyStore.addRecord(record).catch((e) => logger.debug('TaskView.historyRecord', e))
+    // Auto-delete .torrent file if enabled
+    if (shouldDeleteTorrent(preferenceStore.config)) {
+      const firstPath = task.files?.[0]?.path
+      if (firstPath) {
+        deleteTorrentFile(firstPath).catch((e) => logger.debug('TaskView.torrentCleanup', e))
+      }
+    }
+  })
 })
 onBeforeUnmount(stopPolling)
+onBeforeUnmount(() => {
+  if (magnetPollTimer) {
+    clearTimeout(magnetPollTimer)
+    magnetPollTimer = null
+  }
+})
+
+// ── Magnet metadata monitoring ───────────────────────────────────────
+
+/** Poll pending magnet tasks for metadata completion. */
+function startMagnetPoll() {
+  if (magnetPollTimer) clearTimeout(magnetPollTimer)
+
+  async function tick() {
+    const gids = appStore.pendingMagnetGids
+    if (gids.length === 0) {
+      magnetPollTimer = null
+      return
+    }
+
+    for (const gid of [...gids]) {
+      try {
+        const files = await taskStore.getFiles(gid)
+        // Metadata not ready yet — files will have length=0 or only 1 placeholder
+        const realFiles = files.filter((f) => Number(f.length) > 0)
+        if (realFiles.length === 0) continue
+
+        // Metadata ready — show file selection dialog
+        appStore.pendingMagnetGids = gids.filter((g) => g !== gid)
+        const parsed = parseFilesForSelection(realFiles)
+        magnetSelectFiles.value = parsed
+        magnetSelectGid.value = gid
+        magnetSelectName.value = parsed[0]?.name || 'Magnet Download'
+        magnetSelectVisible.value = true
+        return // Process one magnet at a time
+      } catch {
+        // Task may have been removed or metadata still downloading — skip
+      }
+    }
+
+    magnetPollTimer = setTimeout(tick, 2000)
+  }
+
+  magnetPollTimer = setTimeout(tick, 1500)
+}
+
+watch(
+  () => appStore.pendingMagnetGids,
+  (gids) => {
+    if (gids.length > 0) startMagnetPoll()
+  },
+  { immediate: true },
+)
+
+async function handleMagnetConfirm(selectedIndices: number[]) {
+  magnetSelectVisible.value = false
+  const gid = magnetSelectGid.value
+  if (!gid) return
+
+  try {
+    const selectFile = buildSelectFileOption(selectedIndices)
+    await taskStore.changeTaskOption({
+      gid,
+      options: {
+        'select-file': selectFile,
+        'bt-metadata-only': 'false',
+      },
+    })
+    // Unpause to start download with selected files
+    const task = taskStore.taskList.find((t) => t.gid === gid)
+    if (task) {
+      await taskStore.resumeTask(task)
+    }
+    message.success(t('task.magnet-files-selected') || 'Files selected, download starting')
+  } catch (e) {
+    logger.error('TaskView.magnetConfirm', e)
+    message.error(t('task.magnet-select-fail') || 'Failed to configure download')
+  }
+}
+
+async function handleMagnetCancel() {
+  magnetSelectVisible.value = false
+  const gid = magnetSelectGid.value
+  if (!gid) return
+
+  try {
+    const task = taskStore.taskList.find((t) => t.gid === gid)
+    if (task) {
+      await taskStore.removeTask(task)
+    }
+  } catch (e) {
+    logger.error('TaskView.magnetCancel', e)
+  }
+}
 
 // File deletion handled by @/composables/useFileDelete
 function handlePauseTask(task: Aria2Task) {
@@ -215,6 +336,13 @@ async function handleStopSeeding(task: Aria2Task) {
       :task="taskStore.currentTaskItem"
       :files="taskStore.currentTaskFiles"
       @close="taskStore.hideTaskDetail()"
+    />
+    <MagnetFileSelect
+      :show="magnetSelectVisible"
+      :files="magnetSelectFiles"
+      :task-name="magnetSelectName"
+      @confirm="handleMagnetConfirm"
+      @cancel="handleMagnetCancel"
     />
   </div>
 </template>

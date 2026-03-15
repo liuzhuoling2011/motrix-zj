@@ -9,6 +9,7 @@ import { isEngineReady } from '@/api/aria2'
 import { TASK_STATUS } from '@shared/constants'
 import { checkTaskIsSeeder } from '@shared/utils/task'
 import { deleteTaskFiles } from '@/composables/useFileDelete'
+import { deleteLocalFiles, buildFilePaths } from '@/composables/useBatchDelete'
 import { logger } from '@shared/logger'
 import { NButton, NIcon, NCheckbox, useDialog } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
@@ -236,15 +237,52 @@ function purgeRecord() {
     message.warning(t('app.engine-not-ready'))
     return
   }
-  dialog.warning({
+  const deleteFiles = ref(false)
+  const d = dialog.warning({
     title: t('task.purge-record'),
-    content: t('task.purge-record-confirm') || 'Clear all finished records?',
+    content: () =>
+      h('div', {}, [
+        h('p', { style: 'margin: 0 0 12px;' }, t('task.purge-record-confirm') || 'Clear all finished records?'),
+        h(
+          NCheckbox,
+          {
+            checked: deleteFiles.value,
+            'onUpdate:checked': (v: boolean) => {
+              deleteFiles.value = v
+            },
+          },
+          { default: () => t('task.delete-task-label') },
+        ),
+      ]),
     positiveText: t('app.yes'),
     negativeText: t('app.no'),
     onPositiveClick: async () => {
+      d.loading = true
+      d.negativeButtonProps = { disabled: true }
+      d.closable = false
+      d.maskClosable = false
+      await new Promise((r) => setTimeout(r, 50))
+
+      // Capture task info BEFORE purge (list mutates after)
+      const tasksToClean = deleteFiles.value
+        ? taskStore.taskList.map((t) => ({
+            dir: t.dir || '',
+            name: t.files?.[0]?.path?.split(/[/\\]/).pop() || '',
+          }))
+        : []
+
       await taskStore
         .purgeTaskRecord()
-        .then(() => message.success(t('task.purge-record-success')))
+        .then(async () => {
+          if (deleteFiles.value && tasksToClean.length > 0) {
+            const paths = await buildFilePaths(tasksToClean)
+            const { deleted, errors } = await deleteLocalFiles(paths)
+            if (errors > 0) {
+              logger.warn('purgeRecord', `Deleted ${deleted} files, ${errors} errors`)
+            }
+          }
+          message.success(t('task.purge-record-success'))
+        })
         .catch(() => message.error(t('task.purge-record-fail')))
     },
   })

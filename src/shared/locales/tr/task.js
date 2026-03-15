@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': 'Aktif görev yok',
   'failed': 'görev(ler) eklenemedi',
   'file-load-failed': 'Dosya yüklenemedi',
+  'magnet-files-selected': 'Dosyalar seçildi, indirme başlıyor',
+  'magnet-select-fail': 'İndirme yapılandırılamadı',
+  'select-files': 'Dosyaları seç',
 }

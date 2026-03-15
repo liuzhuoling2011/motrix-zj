@@ -7,6 +7,7 @@ import { usePreferenceStore } from '@/stores/preference'
 import { usePreferenceForm } from '@/composables/usePreferenceForm'
 import { useEngineRestart } from '@/composables/useEngineRestart'
 import { useTaskStore } from '@/stores/task'
+import { useHistoryStore } from '@/stores/history'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { useIpc } from '@/composables/useIpc'
 import { appDataDir, downloadDir, join, resolveResource } from '@tauri-apps/api/path'
@@ -420,6 +421,43 @@ function handleFactoryReset() {
   })
 }
 
+/** Check download history database integrity via PRAGMA integrity_check. */
+async function handleDbCheck() {
+  const historyStore = useHistoryStore()
+  message.info(t('preferences.db-check-running'))
+  try {
+    const result = await historyStore.checkIntegrity()
+    if (result === 'ok') {
+      message.success(t('preferences.db-check-ok'))
+    } else {
+      message.warning(`${t('preferences.db-check-fail')}: ${result}`)
+    }
+  } catch (e) {
+    message.error(`${t('preferences.db-check-fail')}: ${(e as Error).message}`)
+    logger.error('Advanced.dbCheck', e)
+  }
+}
+
+/** Reset (clear) the download history database with destructive confirmation. */
+function handleDbReset() {
+  const historyStore = useHistoryStore()
+  dialog.error({
+    title: t('preferences.db-reset'),
+    content: t('preferences.db-reset-confirm'),
+    positiveText: t('app.yes'),
+    negativeText: t('app.no'),
+    onPositiveClick: async () => {
+      try {
+        await historyStore.clearRecords()
+        message.success(t('preferences.db-reset-success'))
+      } catch (e) {
+        message.error(`${t('preferences.db-reset')}: ${(e as Error).message}`)
+        logger.error('Advanced.dbReset', e)
+      }
+    },
+  })
+}
+
 const exportingLogs = ref(false)
 
 async function handleExportLogs() {
@@ -631,6 +669,19 @@ onMounted(() => {
           </NButton>
         </div>
       </NFormItem>
+      <NDivider title-placement="left">{{ t('preferences.db-maintenance') }}</NDivider>
+      <NFormItem :show-label="false">
+        <NSpace>
+          <NButton class="db-check-btn" type="info" ghost @click="handleDbCheck">
+            {{ t('preferences.db-check') }}
+          </NButton>
+          <NButton class="db-reset-btn" type="warning" ghost @click="handleDbReset">
+            {{ t('preferences.db-reset') }}
+          </NButton>
+        </NSpace>
+      </NFormItem>
+
+      <NDivider title-placement="left">{{ t('preferences.reset') }}</NDivider>
       <NFormItem :show-label="false">
         <NSpace>
           <NButton class="session-reset-btn" type="warning" ghost @click="handleSessionReset">

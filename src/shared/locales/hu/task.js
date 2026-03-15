@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': 'Nincsenek aktív feladatok',
   'failed': 'feladat(ok) nem sikerült hozzáadni',
   'file-load-failed': 'A fájl betöltése sikertelen',
+  'magnet-files-selected': 'Fájlok kiválasztva, letöltés indul',
+  'magnet-select-fail': 'A letöltés konfigurálása sikertelen',
+  'select-files': 'Fájlok kiválasztása',
 }

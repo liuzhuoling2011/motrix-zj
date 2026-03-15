@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': '沒有進行中的任務',
   'failed': '個任務無法新增',
   'file-load-failed': '檔案載入失敗',
+  'magnet-files-selected': '檔案已選擇，開始下載',
+  'magnet-select-fail': '下載設定失敗',
+  'select-files': '選擇檔案',
 }

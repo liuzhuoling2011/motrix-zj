@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': 'Brak aktywnych zadań',
   'failed': 'zadanie(-nia) nie mogło(-gły) zostać dodane',
   'file-load-failed': 'Nie udało się załadować pliku',
+  'magnet-files-selected': 'Pliki wybrane, rozpoczynanie pobierania',
+  'magnet-select-fail': 'Nie udało się skonfigurować pobierania',
+  'select-files': 'Wybierz pliki',
 }

@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': 'Tidak ada tugas aktif',
   'failed': 'tugas tidak dapat ditambahkan',
   'file-load-failed': 'Gagal memuat file',
+  'magnet-files-selected': 'File dipilih, unduhan dimulai',
+  'magnet-select-fail': 'Gagal mengonfigurasi unduhan',
+  'select-files': 'Pilih File',
 }

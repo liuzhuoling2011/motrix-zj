@@ -55,6 +55,8 @@
     "updater:default",
     "deep-link:default",
     "locale:default",
-    "log:default"
+    "log:default",
+    "sql:default",
+    "sql:allow-execute"
   ]
 }

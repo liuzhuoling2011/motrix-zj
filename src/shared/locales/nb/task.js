@@ -194,4 +194,7 @@ export default {
   'no-active-tasks': 'Ingen aktive oppgaver',
   'failed': 'oppgave(r) kunne ikke legges til',
   'file-load-failed': 'Filen kunne ikke lastes',
+  'magnet-files-selected': 'Filer valgt, nedlasting starter',
+  'magnet-select-fail': 'Kunne ikke konfigurere nedlasting',
+  'select-files': 'Velg filer',
 }

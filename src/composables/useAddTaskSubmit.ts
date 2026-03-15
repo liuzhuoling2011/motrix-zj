@@ -20,6 +20,7 @@ import { normalizeUriLines } from '@shared/utils/batchHelpers'
 import { buildOuts } from '@shared/utils/rename'
 import { logger } from '@shared/logger'
 import type { Aria2EngineOptions, BatchItem } from '@shared/types'
+import { isMagnetUri } from '@/composables/useMagnetFlow'
 
 export interface AddTaskForm {
   uris: string
@@ -116,27 +117,52 @@ export async function submitBatchItems(
 /**
  * Submits manually entered URIs from the textarea.
  * Handles multi-URI rename with buildOuts.
+ *
+ * Magnet URIs are separated and submitted via addMagnetUri (metadata-only mode).
+ * Returns an array of magnet GIDs for the caller to monitor for file selection.
  */
 export async function submitManualUris(
   form: AddTaskForm,
   options: Aria2EngineOptions,
   taskStore: ReturnType<typeof useTaskStore>,
-): Promise<void> {
-  if (!form.uris.trim()) return
-  const uris = normalizeUriLines(form.uris)
-  if (uris.length > 1 && form.out) {
-    delete options.out
-    let outs = buildOuts(uris, form.out)
-    if (outs.length === 0) {
-      const dotIdx = form.out.lastIndexOf('.')
-      const base = dotIdx > 0 ? form.out.substring(0, dotIdx) : form.out
-      const ext = dotIdx > 0 ? form.out.substring(dotIdx) : ''
-      outs = uris.map((_, i) => `${base}_${i + 1}${ext}`)
+): Promise<string[]> {
+  if (!form.uris.trim()) return []
+  const allUris = normalizeUriLines(form.uris)
+
+  // Partition into magnet and regular URIs
+  const magnetUris = allUris.filter(isMagnetUri)
+  const regularUris = allUris.filter((uri) => !isMagnetUri(uri))
+
+  // Submit regular URIs using the existing path
+  if (regularUris.length > 0) {
+    if (regularUris.length > 1 && form.out) {
+      const regularOptions = { ...options }
+      delete regularOptions.out
+      let outs = buildOuts(regularUris, form.out)
+      if (outs.length === 0) {
+        const dotIdx = form.out.lastIndexOf('.')
+        const base = dotIdx > 0 ? form.out.substring(0, dotIdx) : form.out
+        const ext = dotIdx > 0 ? form.out.substring(dotIdx) : ''
+        outs = regularUris.map((_, i) => `${base}_${i + 1}${ext}`)
+      }
+      await taskStore.addUri({ uris: regularUris, outs, options: regularOptions })
+    } else {
+      await taskStore.addUri({ uris: regularUris, outs: [], options })
     }
-    await taskStore.addUri({ uris, outs, options })
-  } else {
-    await taskStore.addUri({ uris, outs: [], options })
   }
+
+  // Submit magnet URIs in metadata-only mode
+  const magnetGids: string[] = []
+  for (const uri of magnetUris) {
+    try {
+      const gid = await taskStore.addMagnetUri({ uri, options })
+      magnetGids.push(gid)
+    } catch (e) {
+      logger.error('submitManualUris.magnet', e)
+    }
+  }
+
+  return magnetGids
 }
 
 export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
@@ -160,7 +186,11 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
         await submitBatchItems(batch, options, taskStore)
       }
       if (form.value.uris.trim()) {
-        await submitManualUris(form.value, options, taskStore)
+        const magnetGids = await submitManualUris(form.value, options, taskStore)
+        // Store magnet GIDs for TaskView to monitor metadata completion
+        if (magnetGids.length > 0) {
+          appStore.pendingMagnetGids = magnetGids
+        }
       }
 
       const failed = batch.filter((i) => i.status === 'failed')
