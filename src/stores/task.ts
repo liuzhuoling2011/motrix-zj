@@ -101,18 +101,12 @@ export const useTaskStore = defineStore('task', () => {
           if (fresh) updateCurrentTaskItem(fresh)
         }
       }
-      // Fetch stopped tasks once for both error + completion scanning
-      // (active tab needs stopped pool because completed/errored tasks move there)
+      // Fetch stopped tasks for error + completion scanning regardless of tab.
+      // Completed/errored tasks always move to the stopped pool, so we must
+      // scan it from any tab to avoid missing lifecycle events.
       const stoppedTasks =
-        (onTaskError || onTaskComplete) && currentList.value === TASK_STATUS.ACTIVE
-          ? (await api.fetchTaskList({ type: 'stopped' })).slice(0, 20)
-          : []
-      const tasksToScan =
-        onTaskError || onTaskComplete
-          ? currentList.value === TASK_STATUS.ACTIVE
-            ? [...data, ...stoppedTasks]
-            : data
-          : []
+        onTaskError || onTaskComplete ? (await api.fetchTaskList({ type: 'stopped' })).slice(0, 20) : []
+      const tasksToScan = onTaskError || onTaskComplete ? [...data, ...stoppedTasks] : []
 
       // Detect newly errored tasks and notify
       if (onTaskError) {

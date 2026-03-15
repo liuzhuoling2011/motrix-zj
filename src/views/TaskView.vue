@@ -85,6 +85,10 @@ watch(() => props.status, changeCurrentList)
 onMounted(() => {
   changeCurrentList()
   taskStore.setOnTaskError((task) => {
+    // Persist error record to history DB (fire-and-forget)
+    const record = buildHistoryRecord(task)
+    historyStore.addRecord(record).catch((e) => logger.debug('TaskView.historyRecord.error', e))
+    // Show error toast notification
     if (preferenceStore.config?.taskNotification === false) return
     const i18nKey = task.errorCode ? ARIA2_ERROR_CODES[task.errorCode] : undefined
     const taskName = getTaskName(task, { defaultName: 'Unknown' })

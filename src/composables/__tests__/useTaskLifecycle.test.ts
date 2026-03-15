@@ -133,6 +133,14 @@ describe('buildHistoryRecord', () => {
     const record = buildHistoryRecord(task)
     expect(record.completed_at).toMatch(/^\d{4}-\d{2}-\d{2}T/)
   })
+
+  it('preserves error status for failed downloads', () => {
+    const task = makeTask({ status: 'error', errorCode: '3', errorMessage: 'Resource not found' })
+    const record = buildHistoryRecord(task)
+    expect(record.status).toBe('error')
+    expect(record.gid).toBe('abc123')
+    expect(record.completed_at).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+  })
 })
 
 // ── shouldRunStaleCleanup ────────────────────────────────────────────

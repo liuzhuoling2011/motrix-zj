@@ -600,4 +600,102 @@ describe('TaskStore', () => {
       expect(mockApi.fetchTaskList).toHaveBeenCalledWith({ type: 'active' })
     })
   })
+
+  // ── Task lifecycle scanning (completion + error detection) ────────
+
+  describe('task lifecycle scanning', () => {
+    it('fires onTaskComplete for newly completed tasks after initial scan', async () => {
+      const onComplete = vi.fn()
+      store.setOnTaskComplete(onComplete)
+      store.setApi(mockApi)
+
+      // Initial scan: complete task is seen but callback NOT fired (suppressed)
+      mockApi.fetchTaskList.mockImplementation(({ type }: { type: string }) =>
+        type === 'stopped'
+          ? Promise.resolve([makeMockTask('c1', 'complete')])
+          : Promise.resolve([makeMockTask('a1', 'active')]),
+      )
+      await store.changeCurrentList('active')
+      expect(onComplete).not.toHaveBeenCalled()
+
+      // Second fetch: new completed task appears → callback fires
+      mockApi.fetchTaskList.mockImplementation(({ type }: { type: string }) =>
+        type === 'stopped'
+          ? Promise.resolve([makeMockTask('c1', 'complete'), makeMockTask('c2', 'complete')])
+          : Promise.resolve([makeMockTask('a1', 'active')]),
+      )
+      await store.fetchList()
+      expect(onComplete).toHaveBeenCalledTimes(1)
+      expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ gid: 'c2' }))
+    })
+
+    it('fires onTaskError for newly errored tasks after initial scan', async () => {
+      const onError = vi.fn()
+      store.setOnTaskError(onError)
+      store.setApi(mockApi)
+
+      // Initial scan: error task present → suppressed
+      mockApi.fetchTaskList.mockImplementation(({ type }: { type: string }) =>
+        type === 'stopped'
+          ? Promise.resolve([makeMockTask('e1', 'error', { errorCode: '3', errorMessage: 'Not found' })])
+          : Promise.resolve([]),
+      )
+      await store.changeCurrentList('active')
+      expect(onError).not.toHaveBeenCalled()
+
+      // Second fetch: new error task → callback fires
+      mockApi.fetchTaskList.mockImplementation(({ type }: { type: string }) =>
+        type === 'stopped'
+          ? Promise.resolve([
+              makeMockTask('e1', 'error', { errorCode: '3' }),
+              makeMockTask('e2', 'error', { errorCode: '6', errorMessage: 'Network problem' }),
+            ])
+          : Promise.resolve([]),
+      )
+      await store.fetchList()
+      expect(onError).toHaveBeenCalledTimes(1)
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ gid: 'e2', errorCode: '6' }))
+    })
+
+    it('fetches stopped pool even when not on the active tab', async () => {
+      const onComplete = vi.fn()
+      store.setOnTaskComplete(onComplete)
+      store.setApi(mockApi)
+
+      // changeCurrentList triggers fetchList (initial scan).
+      // Include c1 so it's suppressed by initialScanDone guard.
+      mockApi.fetchTaskList.mockResolvedValue([makeMockTask('c1', 'complete')])
+      await store.changeCurrentList('stopped')
+      expect(onComplete).not.toHaveBeenCalled()
+
+      // Second fetch: c2 is genuinely new → callback fires
+      mockApi.fetchTaskList.mockResolvedValue([makeMockTask('c1', 'complete'), makeMockTask('c2', 'complete')])
+      await store.fetchList()
+      expect(onComplete).toHaveBeenCalledTimes(1)
+      expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ gid: 'c2' }))
+    })
+
+    it('does not re-fire callbacks for already-seen GIDs', async () => {
+      const onComplete = vi.fn()
+      store.setOnTaskComplete(onComplete)
+      store.setApi(mockApi)
+
+      // Initial scan
+      mockApi.fetchTaskList.mockImplementation(({ type }: { type: string }) =>
+        type === 'stopped' ? Promise.resolve([]) : Promise.resolve([]),
+      )
+      await store.changeCurrentList('active')
+
+      // Complete task appears
+      mockApi.fetchTaskList.mockImplementation(({ type }: { type: string }) =>
+        type === 'stopped' ? Promise.resolve([makeMockTask('c1', 'complete')]) : Promise.resolve([]),
+      )
+      await store.fetchList()
+      expect(onComplete).toHaveBeenCalledTimes(1)
+
+      // Same task in next poll → no duplicate fire
+      await store.fetchList()
+      expect(onComplete).toHaveBeenCalledTimes(1)
+    })
+  })
 })
