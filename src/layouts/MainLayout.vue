@@ -362,19 +362,16 @@ onUnmounted(() => {
   height: 100vh;
   position: relative;
   border-radius: 12px;
-  border: 1px solid var(--window-border-color);
   overflow: hidden;
   opacity: 0;
   transform: scale(0.96);
   transition:
     opacity 650ms cubic-bezier(0.05, 0.7, 0.1, 1),
     transform 650ms cubic-bezier(0.05, 0.7, 0.1, 1),
-    border-radius 0.2s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.2s cubic-bezier(0.2, 0, 0, 1);
+    border-radius 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 #container.maximized {
   border-radius: 0;
-  border-color: transparent;
 }
 #container.app-ready {
   opacity: 1;
