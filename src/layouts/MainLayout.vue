@@ -183,23 +183,21 @@ onMounted(async () => {
   }, 120)
   startGlobalPolling()
 
-  // Track maximize state to remove border-radius + border when maximized.
-  // On Windows, transparent + decorations:false windows leak transparent
-  // pixels through CSS border-radius corners when the HWND is maximized.
+  // Track maximize state to remove border-radius when maximized.
+  // Only Windows needs this: transparent + decorations:false HWNDs leak
+  // transparent pixels through CSS border-radius corners when maximized.
   //
-  // macOS: Cannot use onResized — isMaximized() IPC triggers a new resize
-  // event (tauri-apps/tauri#5812), creating an infinite loop.  Instead,
-  // the maximize state is updated via the "maximize-toggled" event emitted
-  // by WindowControls on button click, with a small delay to let the
-  // native animation settle before querying.
+  // macOS: Native window handles rounding; isMaximized() inside onResized
+  // triggers an infinite loop (tauri-apps/tauri#5812).
+  //
+  // Linux: Keeping border-radius during maximize avoids a GNOME/Wayland
+  // (Mutter) compositor bug where transparent clip is lost after the
+  // maximize → restore cycle, causing corners to render opaque.
   {
     const appWindow = getCurrentWindow()
-    const isMacOS = navigator.userAgent.includes('Macintosh')
+    const isWindows = navigator.userAgent.includes('Windows')
 
-    if (isMacOS) {
-      // Initial check is safe (not inside a resize handler).
-      isMaximized.value = await appWindow.isMaximized()
-    } else {
+    if (isWindows) {
       isMaximized.value = await appWindow.isMaximized()
       unlistenResize = await appWindow.onResized(() => {
         throttledResizeHandler(async () => {

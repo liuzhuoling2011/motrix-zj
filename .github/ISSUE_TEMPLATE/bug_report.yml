@@ -65,11 +65,21 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Logs & Screenshots
+      label: Diagnostic Logs
       description: |
-        If applicable, attach screenshots or paste relevant logs.
-        Screen recordings are especially helpful for UI and interaction bugs.
-        Logs can be found in DevTools (View → Toggle Developer Tools).
+        **Required.** Export logs via: **Advanced Settings → Export Diagnostic Logs** (the default `info` level is sufficient).
+        Attach the exported `.zip` file or paste the relevant log content below.
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: |
+        **Required.** Attach screenshots showing the issue. Screen recordings are especially helpful for UI and interaction bugs.
+    validations:
+      required: true
 
   - type: checkboxes
     id: validations
