@@ -96,5 +96,8 @@
   "dl.modal.notSure": "Niet zeker?",
   "dl.modal.help.macOS": " → Over deze Mac → Chip",
   "dl.modal.help.windows": "Instellingen → Systeem → Info → Systeemtype",
-  "dl.modal.help.linux": "Voer <code>uname -m</code> uit in de terminal"
+  "dl.modal.help.linux": "Voer <code>uname -m</code> uit in de terminal",
+  "theme.system": "Systeem",
+  "theme.light": "Licht",
+  "theme.dark": "Donker"
 }

@@ -96,5 +96,8 @@
   "dl.modal.notSure": "No estàs segur?",
   "dl.modal.help.macOS": " → Sobre aquest Mac → Xip",
   "dl.modal.help.windows": "Configuració → Sistema → Quant a → Tipus de sistema",
-  "dl.modal.help.linux": "Executeu <code>uname -m</code> al terminal"
+  "dl.modal.help.linux": "Executeu <code>uname -m</code> al terminal",
+  "theme.system": "Sistema",
+  "theme.light": "Clar",
+  "theme.dark": "Fosc"
 }

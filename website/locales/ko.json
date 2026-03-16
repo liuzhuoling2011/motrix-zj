@@ -96,5 +96,8 @@
   "dl.modal.notSure": "잘 모르겠다면?",
   "dl.modal.help.macOS": " → 이 Mac에 관하여 → 칩",
   "dl.modal.help.windows": "설정 → 시스템 → 정보 → 시스템 종류",
-  "dl.modal.help.linux": "터미널에서 <code>uname -m</code> 실행"
+  "dl.modal.help.linux": "터미널에서 <code>uname -m</code> 실행",
+  "theme.system": "시스템",
+  "theme.light": "라이트",
+  "theme.dark": "다크"
 }

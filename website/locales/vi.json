@@ -96,5 +96,8 @@
   "dl.modal.notSure": "Không chắc?",
   "dl.modal.help.macOS": " → Giới thiệu về máy Mac này → Chip",
   "dl.modal.help.windows": "Cài đặt → Hệ thống → Giới thiệu → Loại hệ thống",
-  "dl.modal.help.linux": "Chạy <code>uname -m</code> trong terminal"
+  "dl.modal.help.linux": "Chạy <code>uname -m</code> trong terminal",
+  "theme.system": "Hệ thống",
+  "theme.light": "Sáng",
+  "theme.dark": "Tối"
 }

@@ -96,5 +96,8 @@
   "dl.modal.notSure": "مطمئن نیستید؟",
   "dl.modal.help.macOS": " → درباره این Mac → تراشه",
   "dl.modal.help.windows": "تنظیمات → سیستم → درباره → نوع سیستم",
-  "dl.modal.help.linux": "دستور <code>uname -m</code> را در ترمینال اجرا کنید"
+  "dl.modal.help.linux": "دستور <code>uname -m</code> را در ترمینال اجرا کنید",
+  "theme.system": "سیستم",
+  "theme.light": "روشن",
+  "theme.dark": "تاریک"
 }

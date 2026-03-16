@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
@@ -109,6 +109,104 @@
             <button class="lang-option" data-lang="vi">Tiếng Việt</button>
             <button class="lang-option" data-lang="zh-CN">简体中文</button>
             <button class="lang-option" data-lang="zh-TW">繁體中文</button>
+          </div>
+        </div>
+        <!-- Theme picker -->
+        <div class="theme-picker" id="theme-picker">
+          <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Theme">
+            <svg
+              class="icon-sun"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="5" />
+              <line x1="12" y1="1" x2="12" y2="3" />
+              <line x1="12" y1="21" x2="12" y2="23" />
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+              <line x1="1" y1="12" x2="3" y2="12" />
+              <line x1="21" y1="12" x2="23" y2="12" />
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+            </svg>
+            <svg
+              class="icon-moon"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+            <span id="theme-toggle-label" data-i18n="theme.system">System</span>
+          </button>
+          <div class="theme-dropdown" id="theme-dropdown">
+            <button class="theme-option" data-theme="system" id="theme-system-hint">
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
+              <span data-i18n="theme.system">System</span>
+            </button>
+            <div class="theme-separator"></div>
+            <button class="theme-option" data-theme="light">
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="5" />
+                <line x1="12" y1="1" x2="12" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="23" />
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                <line x1="1" y1="12" x2="3" y2="12" />
+                <line x1="21" y1="12" x2="23" y2="12" />
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+              </svg>
+              <span data-i18n="theme.light">Light</span>
+            </button>
+            <button class="theme-option" data-theme="dark">
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+              <span data-i18n="theme.dark">Dark</span>
+            </button>
           </div>
         </div>
         <a
@@ -1111,8 +1209,120 @@
         if (e.key === 'Escape') {
           closeLightbox()
           closeDlModal()
+          document.getElementById('theme-dropdown').classList.remove('open')
         }
       })
+      /* ── Theme picker (dropdown + View Transition API) ──────────────── */
+      ;(function initTheme() {
+        const THEME_KEY = 'motrix-theme'
+        const meta = document.querySelector('meta[name="theme-color"]')
+        const toggle = document.getElementById('theme-toggle')
+        const dropdown = document.getElementById('theme-dropdown')
+        const label = document.getElementById('theme-toggle-label')
+        const systemHint = document.getElementById('theme-system-hint')
+        const colors = { dark: '#0c0c0e', light: '#f8f6f2' }
+        const i18nKeys = { system: 'theme.system', light: 'theme.light', dark: 'theme.dark' }
+
+        function getSystemTheme() {
+          return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+        }
+
+        function getEffective(choice) {
+          return choice === 'system' ? getSystemTheme() : choice
+        }
+
+        function getStored() {
+          const v = localStorage.getItem(THEME_KEY)
+          if (v === 'light' || v === 'dark' || v === 'system') return v
+          return 'system'
+        }
+
+        function applyTheme(choice) {
+          const effective = getEffective(choice)
+          document.documentElement.dataset.theme = effective
+          if (meta) meta.content = colors[effective] || colors.dark
+          if (choice === 'system') {
+            localStorage.removeItem(THEME_KEY)
+          } else {
+            localStorage.setItem(THEME_KEY, choice)
+          }
+          // Update toggle label via i18n
+          label.textContent = i18n.t(i18nKeys[choice])
+          // Update system hint: "System (Dark)" / "System (Light)"
+          const sys = getSystemTheme()
+          const sysLabel = i18n.t(i18nKeys[sys])
+          systemHint.querySelector('span').textContent = i18n.t('theme.system') + ' (' + sysLabel + ')'
+          // Update active states
+          dropdown.querySelectorAll('.theme-option').forEach((opt) => {
+            opt.classList.toggle('active', opt.dataset.theme === choice)
+          })
+        }
+
+        // Apply immediately
+        applyTheme(getStored())
+
+        // Toggle dropdown
+        toggle.addEventListener('click', (e) => {
+          e.stopPropagation()
+          dropdown.classList.toggle('open')
+        })
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+          if (!dropdown.contains(e.target) && !toggle.contains(e.target)) {
+            dropdown.classList.remove('open')
+          }
+        })
+
+        // Handle option selection with View Transition
+        dropdown.querySelectorAll('.theme-option').forEach((opt) => {
+          opt.addEventListener('click', async (e) => {
+            const choice = opt.dataset.theme
+            dropdown.classList.remove('open')
+
+            // Skip if already active
+            if (opt.classList.contains('active')) return
+
+            if (!document.startViewTransition) {
+              applyTheme(choice)
+              return
+            }
+
+            // Circular reveal from the toggle button position
+            const rect = toggle.getBoundingClientRect()
+            const x = rect.left + rect.width / 2
+            const y = rect.top + rect.height / 2
+            const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))
+
+            const transition = document.startViewTransition(() => {
+              applyTheme(choice)
+            })
+
+            await transition.ready
+
+            document.documentElement.animate(
+              {
+                clipPath: [
+                  'circle(0px at ' + x + 'px ' + y + 'px)',
+                  'circle(' + radius + 'px at ' + x + 'px ' + y + 'px)',
+                ],
+              },
+              {
+                duration: 600,
+                easing: 'ease-in-out',
+                pseudoElement: '::view-transition-new(root)',
+              },
+            )
+          })
+        })
+
+        // React to OS theme change when in system mode
+        window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+          if (!localStorage.getItem(THEME_KEY)) {
+            applyTheme('system')
+          }
+        })
+      })()
     </script>
   </body>
 </html>

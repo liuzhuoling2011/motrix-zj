@@ -96,5 +96,8 @@
   "dl.modal.notSure": "ไม่แน่ใจ?",
   "dl.modal.help.macOS": " → เกี่ยวกับ Mac เครื่องนี้ → ชิป",
   "dl.modal.help.windows": "การตั้งค่า → ระบบ → เกี่ยวกับ → ชนิดของระบบ",
-  "dl.modal.help.linux": "รัน <code>uname -m</code> ในเทอร์มินัล"
+  "dl.modal.help.linux": "รัน <code>uname -m</code> ในเทอร์มินัล",
+  "theme.system": "ระบบ",
+  "theme.light": "สว่าง",
+  "theme.dark": "มืด"
 }

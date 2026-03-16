@@ -96,5 +96,8 @@
   "dl.modal.notSure": "Tidak yakin?",
   "dl.modal.help.macOS": " → Mengenai Mac Ini → Chip",
   "dl.modal.help.windows": "Pengaturan → Sistem → Tentang → Tipe sistem",
-  "dl.modal.help.linux": "Jalankan <code>uname -m</code> di terminal"
+  "dl.modal.help.linux": "Jalankan <code>uname -m</code> di terminal",
+  "theme.system": "Sistem",
+  "theme.light": "Terang",
+  "theme.dark": "Gelap"
 }

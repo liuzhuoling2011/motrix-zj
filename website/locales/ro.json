@@ -96,5 +96,8 @@
   "dl.modal.notSure": "Nu ești sigur?",
   "dl.modal.help.macOS": " → Despre acest Mac → Cip",
   "dl.modal.help.windows": "Setări → Sistem → Despre → Tipul sistemului",
-  "dl.modal.help.linux": "Rulați <code>uname -m</code> în terminal"
+  "dl.modal.help.linux": "Rulați <code>uname -m</code> în terminal",
+  "theme.system": "Sistem",
+  "theme.light": "Deschis",
+  "theme.dark": "Întunecat"
 }

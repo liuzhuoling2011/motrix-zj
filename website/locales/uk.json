@@ -96,5 +96,8 @@
   "dl.modal.notSure": "Не впевнені?",
   "dl.modal.help.macOS": " → Про цей Mac → Чип",
   "dl.modal.help.windows": "Параметри → Система → Відомості → Тип системи",
-  "dl.modal.help.linux": "Виконайте <code>uname -m</code> у терміналі"
+  "dl.modal.help.linux": "Виконайте <code>uname -m</code> у терміналі",
+  "theme.system": "Системна",
+  "theme.light": "Світла",
+  "theme.dark": "Темна"
 }

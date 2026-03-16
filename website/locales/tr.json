@@ -96,5 +96,8 @@
   "dl.modal.notSure": "Emin değil misiniz?",
   "dl.modal.help.macOS": " → Bu Mac Hakkında → Çip",
   "dl.modal.help.windows": "Ayarlar → Sistem → Hakkında → Sistem türü",
-  "dl.modal.help.linux": "Terminalde <code>uname -m</code> komutunu çalıştırın"
+  "dl.modal.help.linux": "Terminalde <code>uname -m</code> komutunu çalıştırın",
+  "theme.system": "Sistem",
+  "theme.light": "Açık",
+  "theme.dark": "Koyu"
 }

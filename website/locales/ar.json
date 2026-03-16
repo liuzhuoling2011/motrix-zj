@@ -96,5 +96,8 @@
   "dl.modal.notSure": "غير متأكد؟",
   "dl.modal.help.macOS": " → حول هذا الـ Mac → الشريحة",
   "dl.modal.help.windows": "الإعدادات → النظام → حول → نوع النظام",
-  "dl.modal.help.linux": "شغّل <code>uname -m</code> في الطرفية"
+  "dl.modal.help.linux": "شغّل <code>uname -m</code> في الطرفية",
+  "theme.system": "النظام",
+  "theme.light": "فاتح",
+  "theme.dark": "داكن"
 }

@@ -96,5 +96,8 @@
   "dl.modal.notSure": "Δεν είστε σίγουροι;",
   "dl.modal.help.macOS": " → Σχετικά με αυτό το Mac → Τσιπ",
   "dl.modal.help.windows": "Ρυθμίσεις → Σύστημα → Πληροφορίες → Τύπος συστήματος",
-  "dl.modal.help.linux": "Εκτελέστε <code>uname -m</code> στο τερματικό"
+  "dl.modal.help.linux": "Εκτελέστε <code>uname -m</code> στο τερματικό",
+  "theme.system": "Σύστημα",
+  "theme.light": "Φωτεινό",
+  "theme.dark": "Σκοτεινό"
 }

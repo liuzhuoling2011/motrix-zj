@@ -96,5 +96,8 @@
   "dl.modal.notSure": "不確定？",
   "dl.modal.help.macOS": " → 關於這台 Mac → 晶片",
   "dl.modal.help.windows": "設定 → 系統 → 關於 → 系統類型",
-  "dl.modal.help.linux": "在終端機執行 <code>uname -m</code>"
+  "dl.modal.help.linux": "在終端機執行 <code>uname -m</code>",
+  "theme.system": "跟隨系統",
+  "theme.light": "淺色",
+  "theme.dark": "深色"
 }

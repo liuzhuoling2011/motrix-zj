@@ -96,5 +96,8 @@
   "dl.modal.notSure": "Not sure?",
   "dl.modal.help.macOS": " → About This Mac → Chip",
   "dl.modal.help.windows": "Settings → System → About → System type",
-  "dl.modal.help.linux": "Run <code>uname -m</code> in a terminal"
+  "dl.modal.help.linux": "Run <code>uname -m</code> in a terminal",
+  "theme.system": "System",
+  "theme.light": "Light",
+  "theme.dark": "Dark"
 }

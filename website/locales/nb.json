@@ -96,5 +96,8 @@
   "dl.modal.notSure": "Usikker?",
   "dl.modal.help.macOS": " → Om denne Macen → Brikke",
   "dl.modal.help.windows": "Innstillinger → System → Om → Systemtype",
-  "dl.modal.help.linux": "Kjør <code>uname -m</code> i terminalen"
+  "dl.modal.help.linux": "Kjør <code>uname -m</code> i terminalen",
+  "theme.system": "System",
+  "theme.light": "Lys",
+  "theme.dark": "Mørk"
 }

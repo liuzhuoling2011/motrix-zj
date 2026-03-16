@@ -96,5 +96,8 @@
   "dl.modal.notSure": "Pas sûr ?",
   "dl.modal.help.macOS": " → À propos de ce Mac → Puce",
   "dl.modal.help.windows": "Paramètres → Système → À propos → Type du système",
-  "dl.modal.help.linux": "Exécutez <code>uname -m</code> dans un terminal"
+  "dl.modal.help.linux": "Exécutez <code>uname -m</code> dans un terminal",
+  "theme.system": "Système",
+  "theme.light": "Clair",
+  "theme.dark": "Sombre"
 }

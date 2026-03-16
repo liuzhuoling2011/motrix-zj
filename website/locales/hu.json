@@ -96,5 +96,8 @@
   "dl.modal.notSure": "Nem biztos?",
   "dl.modal.help.macOS": " → A Macről → Chip",
   "dl.modal.help.windows": "Beállítások → Rendszer → Névjegy → Rendszer típusa",
-  "dl.modal.help.linux": "Futtassa a <code>uname -m</code> parancsot a terminálban"
+  "dl.modal.help.linux": "Futtassa a <code>uname -m</code> parancsot a terminálban",
+  "theme.system": "Rendszer",
+  "theme.light": "Világos",
+  "theme.dark": "Sötét"
 }

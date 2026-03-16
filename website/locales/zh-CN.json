@@ -96,5 +96,8 @@
   "dl.modal.notSure": "不确定？",
   "dl.modal.help.macOS": " → 关于本机 → 芯片",
   "dl.modal.help.windows": "设置 → 系统 → 关于 → 系统类型",
-  "dl.modal.help.linux": "在终端运行 <code>uname -m</code>"
+  "dl.modal.help.linux": "在终端运行 <code>uname -m</code>",
+  "theme.system": "跟随系统",
+  "theme.light": "浅色",
+  "theme.dark": "深色"
 }

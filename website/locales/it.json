@@ -96,5 +96,8 @@
   "dl.modal.notSure": "Non sei sicuro?",
   "dl.modal.help.macOS": " → Informazioni su questo Mac → Chip",
   "dl.modal.help.windows": "Impostazioni → Sistema → Informazioni → Tipo di sistema",
-  "dl.modal.help.linux": "Esegui <code>uname -m</code> nel terminale"
+  "dl.modal.help.linux": "Esegui <code>uname -m</code> nel terminale",
+  "theme.system": "Sistema",
+  "theme.light": "Chiaro",
+  "theme.dark": "Scuro"
 }

@@ -96,5 +96,8 @@
   "dl.modal.notSure": "わからない場合は？",
   "dl.modal.help.macOS": " → このMacについて → チップ",
   "dl.modal.help.windows": "設定 → システム → バージョン情報 → システムの種類",
-  "dl.modal.help.linux": "ターミナルで <code>uname -m</code> を実行"
+  "dl.modal.help.linux": "ターミナルで <code>uname -m</code> を実行",
+  "theme.system": "システム",
+  "theme.light": "ライト",
+  "theme.dark": "ダーク"
 }

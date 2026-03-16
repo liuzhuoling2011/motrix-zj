@@ -96,5 +96,8 @@
   "dl.modal.notSure": "Nie wiesz?",
   "dl.modal.help.macOS": " → Ten Mac — informacje → Układ",
   "dl.modal.help.windows": "Ustawienia → System → Informacje → Typ systemu",
-  "dl.modal.help.linux": "Uruchom <code>uname -m</code> w terminalu"
+  "dl.modal.help.linux": "Uruchom <code>uname -m</code> w terminalu",
+  "theme.system": "Systemowy",
+  "theme.light": "Jasny",
+  "theme.dark": "Ciemny"
 }
