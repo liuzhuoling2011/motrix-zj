@@ -220,7 +220,11 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
 
                     if let Some(state) = app_handle.try_state::<EngineState>() {
                         if let Ok(mut lock) = state.child.lock() {
-                            if lock.as_ref().map(|c| c.pid()) == Some(spawned_pid) {
+                            if lock
+                                .as_ref()
+                                .map(tauri_plugin_shell::process::CommandChild::pid)
+                                == Some(spawned_pid)
+                            {
                                 *lock = None;
                             }
                         }
@@ -397,7 +401,11 @@ pub fn restart_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Res
 
                     if let Some(state) = app_handle.try_state::<EngineState>() {
                         if let Ok(mut lock) = state.child.lock() {
-                            if lock.as_ref().map(|c| c.pid()) == Some(spawned_pid) {
+                            if lock
+                                .as_ref()
+                                .map(tauri_plugin_shell::process::CommandChild::pid)
+                                == Some(spawned_pid)
+                            {
                                 *lock = None;
                             }
                         }

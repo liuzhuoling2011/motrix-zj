@@ -195,7 +195,7 @@ pub fn run() {
 
             let app_handle = app.handle().clone();
             app.deep_link().on_open_url(move |event| {
-                let urls: Vec<String> = event.urls().iter().map(|u| u.to_string()).collect();
+                let urls: Vec<String> = event.urls().iter().map(ToString::to_string).collect();
                 let _ = app_handle.emit("deep-link-open", &urls);
             });
 
@@ -288,11 +288,11 @@ pub fn run() {
                     .map(|prefs| {
                         let auto_hide = prefs
                             .get("autoHideWindow")
-                            .and_then(|v| v.as_bool())
+                            .and_then(serde_json::Value::as_bool)
                             .unwrap_or(false);
                         let dock_hide = prefs
                             .get("hideDockOnMinimize")
-                            .and_then(|v| v.as_bool())
+                            .and_then(serde_json::Value::as_bool)
                             .unwrap_or(false);
                         auto_hide && dock_hide
                     })
