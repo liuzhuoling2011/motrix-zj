@@ -267,3 +267,32 @@ export interface HistoryRecord {
   /** JSON-encoded metadata (BT info hash, torrent source path, etc.). */
   meta?: string
 }
+
+/** Aria2 JSON-RPC client API surface consumed by the task store. */
+export interface TaskApi {
+  fetchTaskList: (params: { type: string }) => Promise<Aria2Task[]>
+  fetchTaskItem: (params: { gid: string }) => Promise<Aria2Task>
+  fetchTaskItemWithPeers: (params: { gid: string }) => Promise<Aria2Task & { peers: Aria2Peer[] }>
+  fetchActiveTaskList: () => Promise<Aria2Task[]>
+  addUri: (params: AddUriParams) => Promise<string[]>
+  addUriAtomic: (params: { uris: string[]; options: Record<string, string> }) => Promise<string>
+  addTorrent: (params: AddTorrentParams) => Promise<string>
+  addMetalink: (params: AddMetalinkParams) => Promise<string[]>
+  getOption: (params: { gid: string }) => Promise<Record<string, string>>
+  changeOption: (params: TaskOptionParams) => Promise<void>
+  getFiles: (params: { gid: string }) => Promise<Aria2File[]>
+  removeTask: (params: { gid: string }) => Promise<string>
+  forcePauseTask: (params: { gid: string }) => Promise<string>
+  pauseTask: (params: { gid: string }) => Promise<string>
+  resumeTask: (params: { gid: string }) => Promise<string>
+  pauseAllTask: () => Promise<string>
+  forcePauseAllTask: () => Promise<string>
+  resumeAllTask: () => Promise<string>
+  batchResumeTask: (params: { gids: string[] }) => Promise<unknown[][]>
+  batchPauseTask: (params: { gids: string[] }) => Promise<unknown[][]>
+  batchForcePauseTask: (params: { gids: string[] }) => Promise<unknown[][]>
+  batchRemoveTask: (params: { gids: string[] }) => Promise<unknown[][]>
+  removeTaskRecord: (params: { gid: string }) => Promise<string>
+  purgeTaskRecord: () => Promise<string>
+  saveSession: () => Promise<string>
+}

@@ -22,7 +22,6 @@ import * as path from 'node:path'
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..', '..')
 const MAIN_LAYOUT = path.join(PROJECT_ROOT, 'src', 'layouts', 'MainLayout.vue')
-const APP_EVENTS = path.join(PROJECT_ROOT, 'src', 'composables', 'useAppEvents.ts')
 const TRAY_RS = path.join(PROJECT_ROOT, 'src-tauri', 'src', 'tray.rs')
 
 // ═══════════════════════════════════════════════════════════════════
@@ -76,8 +75,9 @@ describe('MainLayout.vue — tray quit direct exit', () => {
   let quitCaseBlock: string | null
 
   beforeAll(() => {
-    // Tray-menu-action handlers extracted to useAppEvents composable
-    source = fs.readFileSync(APP_EVENTS, 'utf-8')
+    // Tray-menu-action handler extracted to appMenuHandlers module
+    const handlersPath = path.join(PROJECT_ROOT, 'src', 'composables', 'appMenuHandlers.ts')
+    source = fs.readFileSync(handlersPath, 'utf-8')
     quitCaseBlock = extractTrayQuitCase(source)
   })
 

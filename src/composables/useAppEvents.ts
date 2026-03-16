@@ -12,9 +12,10 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { useRouter } from 'vue-router'
 import { logger } from '@shared/logger'
-import { isEngineReady, setEngineReady } from '@/api/aria2'
+import { setEngineReady } from '@/api/aria2'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
 import { watch, type Ref } from 'vue'
+import { setupTrayListener as setupTrayListenerImpl } from './appMenuHandlers'
 
 interface AppEventsDeps {
   t: (key: string, params?: Record<string, unknown>) => string
@@ -75,8 +76,8 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
 
   const router = useRouter()
 
-  async function setupListeners() {
-    // Engine crash recovery — show full-screen overlay and drive auto-restart.
+  // ─── Engine lifecycle watchers ────────────────────────────────────
+  function setupEngineWatchers() {
     listen<{ code: number; signal?: number }>('engine-crashed', (event) => {
       if (isExiting.value) return
       const { code } = event.payload
@@ -86,8 +87,6 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       showEngineOverlay.value = true
     })
 
-    // Show feedback when the engine finishes initializing (or re-initializing
-    // after a hot-reload restart triggered from Advanced preferences).
     watch(
       () => appStore.engineInitializing,
       (initializing) => {
@@ -101,12 +100,13 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       },
     )
 
-    // Notify user when the engine is intentionally stopped
     listen('engine-stopped', () => {
       message.warning(t('app.engine-stopped'))
     })
+  }
 
-    // Navigation guard — unsaved preference changes
+  // ─── Navigation guard ─────────────────────────────────────────────
+  function setupNavGuard() {
     router.beforeEach((to, from) => {
       if (from.name === 'task' && to.name === 'task' && from.params.status !== to.params.status) {
         taskStore.taskList = []
@@ -150,24 +150,11 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       }
       return true
     })
+  }
 
-    // Drag & drop .torrent / .metalink files
-    const webview = getCurrentWebview()
-    const unlistenDragDrop = await webview.onDragDropEvent((event) => {
-      if (event.payload.type === 'drop') {
-        const paths = event.payload.paths
-        const validPaths =
-          paths?.filter((p: string) => p.endsWith('.torrent') || p.endsWith('.metalink') || p.endsWith('.meta4')) || []
-        if (validPaths.length > 0) {
-          const items = validPaths.map((p: string) => createBatchItem(detectKind(p), p))
-          const skipped = appStore.enqueueBatch(items)
-          if (skipped > 0) message.warning(t('task.duplicate-task'))
-        }
-      }
-    })
-
-    // Native menu events (macOS menu bar)
-    const unlistenMenuEvent = await listen<string>('menu-event', async (event) => {
+  // ─── Native menu events (macOS menu bar) ──────────────────────────
+  async function setupMenuListener() {
+    return listen<string>('menu-event', async (event) => {
       const action = event.payload
       switch (action) {
         case 'new-task':
@@ -210,94 +197,31 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
           break
       }
     })
+  }
 
-    // Tray menu actions (system tray right-click menu)
-    const unlistenTrayMenu = await listen<string>('tray-menu-action', async (event) => {
-      const action = event.payload
-      const mainWindow = getCurrentWindow()
-      switch (action) {
-        case 'show':
-          await mainWindow.show()
-          await mainWindow.setFocus()
-          break
-        case 'new-task':
-          await mainWindow.show()
-          await mainWindow.setFocus()
-          appStore.showAddTaskDialog()
-          break
-        case 'resume-all':
-          await mainWindow.show()
-          await mainWindow.setFocus()
-          if (!(await taskStore.hasPausedTasks())) {
-            message.info(t('task.no-paused-tasks'))
-            break
-          }
-          if (!isEngineReady()) {
-            message.warning(t('app.engine-not-ready'))
-          } else {
-            navDialog.warning({
-              title: t('task.resume-all-task'),
-              content: t('task.resume-all-task-confirm') || 'Resume all tasks?',
-              positiveText: t('app.yes'),
-              negativeText: t('app.no'),
-              onPositiveClick: () => {
-                taskStore
-                  .resumeAllTask()
-                  .then(() => message.success(t('task.resume-all-task-success')))
-                  .catch(() => message.error(t('task.resume-all-task-fail')))
-              },
-            })
-          }
-          break
-        case 'pause-all':
-          await mainWindow.show()
-          await mainWindow.setFocus()
-          if (!(await taskStore.hasActiveTasks())) {
-            message.info(t('task.no-active-tasks'))
-            break
-          }
-          if (!isEngineReady()) {
-            message.warning(t('app.engine-not-ready'))
-          } else {
-            const d = navDialog.warning({
-              title: t('task.pause-all-task'),
-              content: t('task.pause-all-task-confirm') || 'Pause all tasks?',
-              positiveText: t('app.yes'),
-              negativeText: t('app.no'),
-              onPositiveClick: () => {
-                d.loading = true
-                d.negativeButtonProps = { disabled: true }
-                d.closable = false
-                d.maskClosable = false
-                taskStore
-                  .pauseAllTask()
-                  .then(async () => {
-                    await new Promise((r) => setTimeout(r, 500))
-                    await taskStore.fetchList()
-                    message.success(t('task.pause-all-task-success'))
-                    d.destroy()
-                  })
-                  .catch(() => {
-                    message.error(t('task.pause-all-task-fail'))
-                    d.destroy()
-                  })
-                return false
-              },
-            })
-          }
-          break
-        case 'quit':
-          await handleExitConfirm()
-          break
+  // ─── Drag & drop .torrent / .metalink files ──────────────────────
+  async function setupDragDropListener() {
+    const webview = getCurrentWebview()
+    return webview.onDragDropEvent((event) => {
+      if (event.payload.type === 'drop') {
+        const paths = event.payload.paths
+        const validPaths =
+          paths?.filter((p: string) => p.endsWith('.torrent') || p.endsWith('.metalink') || p.endsWith('.meta4')) || []
+        if (validPaths.length > 0) {
+          const items = validPaths.map((p: string) => createBatchItem(detectKind(p), p))
+          const skipped = appStore.enqueueBatch(items)
+          if (skipped > 0) message.warning(t('task.duplicate-task'))
+        }
       }
     })
+  }
 
-    // Deep link URLs (motrix:// protocol handler)
+  // ─── Deep-link and single-instance listeners ─────────────────────
+  async function setupExternalInputListeners() {
     const unlistenDeepLink = await listen<string[]>('deep-link-open', (event) => {
       appStore.handleDeepLinkUrls(event.payload)
     })
 
-    // Single instance — another instance was opened with CLI args
     const unlistenSingleInstance = await listen<string[]>('single-instance-triggered', (event) => {
       const argv = event.payload
       const urls = argv.filter(
@@ -307,6 +231,20 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       )
       if (urls.length > 0) appStore.handleDeepLinkUrls(urls)
     })
+
+    return { unlistenDeepLink, unlistenSingleInstance }
+  }
+
+  // ─── Orchestrator ─────────────────────────────────────────────────
+  async function setupListeners() {
+    setupEngineWatchers()
+    setupNavGuard()
+
+    const unlistenDragDrop = await setupDragDropListener()
+    const unlistenMenuEvent = await setupMenuListener()
+    const trayDeps = { t, appStore, taskStore, message, navDialog, isExiting, handleExitConfirm }
+    const unlistenTrayMenu = await setupTrayListenerImpl(trayDeps)
+    const { unlistenDeepLink, unlistenSingleInstance } = await setupExternalInputListeners()
 
     return { unlistenDragDrop, unlistenMenuEvent, unlistenTrayMenu, unlistenDeepLink, unlistenSingleInstance }
   }

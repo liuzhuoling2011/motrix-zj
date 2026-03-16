@@ -1,55 +1,19 @@
 /** @fileoverview Pinia store for download task management: list, add, pause, resume, remove. */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { EMPTY_STRING, TASK_STATUS } from '@shared/constants'
-import { checkTaskIsBT, checkTaskIsSeeder, intersection } from '@shared/utils'
+import { EMPTY_STRING } from '@shared/constants'
+import { intersection } from '@shared/utils'
 import { logger } from '@shared/logger'
-import type {
-  Aria2Task,
-  Aria2File,
-  Aria2Peer,
-  Aria2EngineOptions,
-  AddUriParams,
-  AddTorrentParams,
-  AddMetalinkParams,
-  TaskOptionParams,
-} from '@shared/types'
+import type { Aria2Task, Aria2File, Aria2Peer, Aria2EngineOptions, AddMetalinkParams, TaskApi } from '@shared/types'
 
-import { historyRecordToTask, buildHistoryRecord } from '@/composables/useTaskLifecycle'
+import { historyRecordToTask } from '@/composables/useTaskLifecycle'
 import { shouldShowFileSelection } from '@/composables/useMagnetFlow'
 import { useHistoryStore } from '@/stores/history'
 import { createTaskNotifier } from './taskNotifications'
 import { restartTask as restartTaskImpl } from './taskRestart'
+import { createTaskOperations } from './taskOperations'
 
 export type { Aria2Task, Aria2File, Aria2Peer }
-
-interface TaskApi {
-  fetchTaskList: (params: { type: string }) => Promise<Aria2Task[]>
-  fetchTaskItem: (params: { gid: string }) => Promise<Aria2Task>
-  fetchTaskItemWithPeers: (params: { gid: string }) => Promise<Aria2Task & { peers: Aria2Peer[] }>
-  fetchActiveTaskList: () => Promise<Aria2Task[]>
-  addUri: (params: AddUriParams) => Promise<string[]>
-  addUriAtomic: (params: { uris: string[]; options: Record<string, string> }) => Promise<string>
-  addTorrent: (params: AddTorrentParams) => Promise<string>
-  addMetalink: (params: AddMetalinkParams) => Promise<string[]>
-  getOption: (params: { gid: string }) => Promise<Record<string, string>>
-  changeOption: (params: TaskOptionParams) => Promise<void>
-  getFiles: (params: { gid: string }) => Promise<Aria2File[]>
-  removeTask: (params: { gid: string }) => Promise<string>
-  forcePauseTask: (params: { gid: string }) => Promise<string>
-  pauseTask: (params: { gid: string }) => Promise<string>
-  resumeTask: (params: { gid: string }) => Promise<string>
-  pauseAllTask: () => Promise<string>
-  forcePauseAllTask: () => Promise<string>
-  resumeAllTask: () => Promise<string>
-  batchResumeTask: (params: { gids: string[] }) => Promise<unknown[][]>
-  batchPauseTask: (params: { gids: string[] }) => Promise<unknown[][]>
-  batchForcePauseTask: (params: { gids: string[] }) => Promise<unknown[][]>
-  batchRemoveTask: (params: { gids: string[] }) => Promise<unknown[][]>
-  removeTaskRecord: (params: { gid: string }) => Promise<string>
-  purgeTaskRecord: () => Promise<string>
-  saveSession: () => Promise<string>
-}
 
 export const useTaskStore = defineStore('task', () => {
   const currentList = ref('active')
@@ -79,6 +43,15 @@ export const useTaskStore = defineStore('task', () => {
 
   function setApi(a: TaskApi) {
     api = a
+    // Wire up task operations once API is available
+    const ops = createTaskOperations({
+      api,
+      taskList,
+      currentTaskGid,
+      hideTaskDetail,
+      fetchList,
+    })
+    Object.assign(taskOps, ops)
   }
 
   async function changeCurrentList(list: string) {
@@ -231,58 +204,18 @@ export const useTaskStore = defineStore('task', () => {
     return api.changeOption(payload)
   }
 
-  async function removeTask(task: Aria2Task) {
-    if (task.gid === currentTaskGid.value) hideTaskDetail()
-    try {
-      await api.removeTask({ gid: task.gid })
-    } finally {
-      await fetchList()
-      api.saveSession()
-    }
+  // Task CRUD operations are delegated to the taskOperations module.
+  // The ops object is populated when setApi() is called.
+  const taskOps = {} as ReturnType<typeof createTaskOperations>
+
+  async function batchResumeSelectedTasks() {
+    if (selectedGidList.value.length === 0) return
+    return api.batchResumeTask({ gids: selectedGidList.value })
   }
 
-  async function pauseTask(task: Aria2Task) {
-    const isBT = checkTaskIsBT(task)
-    const promise = isBT ? api.forcePauseTask({ gid: task.gid }) : api.pauseTask({ gid: task.gid })
-    try {
-      await promise
-    } finally {
-      await fetchList()
-      api.saveSession()
-    }
-  }
-
-  async function resumeTask(task: Aria2Task) {
-    try {
-      await api.resumeTask({ gid: task.gid })
-    } finally {
-      await fetchList()
-      api.saveSession()
-    }
-  }
-
-  async function pauseAllTask() {
-    try {
-      await api.forcePauseAllTask()
-    } finally {
-      await fetchList()
-      api.saveSession()
-    }
-  }
-
-  async function resumeAllTask() {
-    try {
-      await api.resumeAllTask()
-    } finally {
-      await fetchList()
-      api.saveSession()
-    }
-  }
-
-  async function toggleTask(task: Aria2Task) {
-    const { status } = task
-    if (status === TASK_STATUS.ACTIVE) return pauseTask(task)
-    if (status === TASK_STATUS.WAITING || status === TASK_STATUS.PAUSED) return resumeTask(task)
+  async function batchPauseSelectedTasks() {
+    if (selectedGidList.value.length === 0) return
+    return api.batchPauseTask({ gids: selectedGidList.value })
   }
 
   function addToSeedingList(gid: string) {
@@ -296,118 +229,9 @@ export const useTaskStore = defineStore('task', () => {
     seedingList.value = [...seedingList.value.slice(0, idx), ...seedingList.value.slice(idx + 1)]
   }
 
-  async function stopSeeding(task: Aria2Task) {
-    const { gid } = task
-    // Two-step flow for immediate seeding stop:
-    // 1. forcePause — halts seeding instantly (skips tracker unregistration)
-    // 2. removeTask (forceRemove) — transitions task to 'removed' in stopped list
-    await api.forcePauseTask({ gid })
-    await api.removeTask({ gid })
-    // DB-primary: persist record before it vanishes from aria2
-    const record = buildHistoryRecord(task)
-    record.status = 'complete'
-    const historyStore = useHistoryStore()
-    await historyStore.addRecord(record)
-  }
-
-  /** Stops ALL currently seeding tasks. Returns the count of seeding tasks found. */
-  async function stopAllSeeding(): Promise<number> {
-    const seeders = taskList.value.filter(checkTaskIsSeeder)
-    if (seeders.length === 0) return 0
-    await Promise.allSettled(seeders.map((t) => stopSeeding(t)))
-    return seeders.length
-  }
-
-  async function removeTaskRecord(task: Aria2Task) {
-    const { gid, status } = task
-    if (gid === currentTaskGid.value) hideTaskDetail()
-    const { ERROR, COMPLETE, REMOVED } = TASK_STATUS
-    if ([ERROR, COMPLETE, REMOVED].indexOf(status) === -1) return
-    // DB is primary — remove the persistent record first
-    const historyStore = useHistoryStore()
-    await historyStore.removeRecord(gid)
-    // Best-effort: clean aria2 session memory (may fail for DB-only records)
-    try {
-      await api.removeTaskRecord({ gid })
-    } catch (e) {
-      logger.debug('TaskStore.removeTaskRecord.aria2', e)
-    }
-    await fetchList()
-  }
-
-  async function purgeTaskRecord() {
-    // DB is primary — clear all persistent records
-    const historyStore = useHistoryStore()
-    await historyStore.clearRecords()
-    // Best-effort: clean aria2 session memory
-    try {
-      await api.purgeTaskRecord()
-    } catch (e) {
-      logger.debug('TaskStore.purgeTaskRecord.aria2', e)
-    }
-    await fetchList()
-  }
-
-  /**
-   * Restarts a stopped/errored/completed task by extracting its URI(s),
-   * re-submitting each as a new download, and removing the old record.
-   *
-   * Delegates to the extracted restartTask module for the heavy lifting.
-   */
   async function restartTask(task: Aria2Task) {
     const historyStore = useHistoryStore()
     await restartTaskImpl(task, { ...api, fetchList, saveSession: () => api.saveSession() }, historyStore)
-  }
-
-  /**
-   * Checks if there are any active or waiting tasks globally.
-   * Unlike taskList, this always queries aria2 directly — independent of
-   * which tab the UI is currently showing.
-   */
-  async function hasActiveTasks(): Promise<boolean> {
-    try {
-      const tasks = await api.fetchTaskList({ type: TASK_STATUS.ACTIVE })
-      return tasks.some((t) => t.status === TASK_STATUS.ACTIVE || t.status === TASK_STATUS.WAITING)
-    } catch {
-      return false
-    }
-  }
-
-  /**
-   * Checks if there are any paused tasks globally.
-   * Paused tasks are stored in aria2's waiting queue, so we query the
-   * active+waiting list and filter by status === 'paused'.
-   */
-  async function hasPausedTasks(): Promise<boolean> {
-    try {
-      const tasks = await api.fetchTaskList({ type: TASK_STATUS.ACTIVE })
-      return tasks.some((t) => t.status === TASK_STATUS.PAUSED)
-    } catch {
-      return false
-    }
-  }
-
-  function saveSession() {
-    api.saveSession()
-  }
-
-  async function batchResumeSelectedTasks() {
-    if (selectedGidList.value.length === 0) return
-    return api.batchResumeTask({ gids: selectedGidList.value })
-  }
-
-  async function batchPauseSelectedTasks() {
-    if (selectedGidList.value.length === 0) return
-    return api.batchPauseTask({ gids: selectedGidList.value })
-  }
-
-  async function batchRemoveTask(gids: string[]) {
-    try {
-      await api.batchRemoveTask({ gids })
-    } finally {
-      await fetchList()
-      api.saveSession()
-    }
   }
 
   return {
@@ -439,26 +263,26 @@ export const useTaskStore = defineStore('task', () => {
     fetchTaskStatus,
     getTaskOption,
     changeTaskOption,
-    removeTask,
-    pauseTask,
-    resumeTask,
-    pauseAllTask,
-    resumeAllTask,
-    toggleTask,
+    removeTask: (task: Aria2Task) => taskOps.removeTask(task),
+    pauseTask: (task: Aria2Task) => taskOps.pauseTask(task),
+    resumeTask: (task: Aria2Task) => taskOps.resumeTask(task),
+    pauseAllTask: () => taskOps.pauseAllTask(),
+    resumeAllTask: () => taskOps.resumeAllTask(),
+    toggleTask: (task: Aria2Task) => taskOps.toggleTask(task),
     addToSeedingList,
     removeFromSeedingList,
-    stopSeeding,
-    stopAllSeeding,
-    removeTaskRecord,
-    purgeTaskRecord,
-    saveSession,
+    stopSeeding: (task: Aria2Task) => taskOps.stopSeeding(task),
+    stopAllSeeding: () => taskOps.stopAllSeeding(),
+    removeTaskRecord: (task: Aria2Task) => taskOps.removeTaskRecord(task),
+    purgeTaskRecord: () => taskOps.purgeTaskRecord(),
+    saveSession: () => taskOps.saveSession(),
     batchResumeSelectedTasks,
     batchPauseSelectedTasks,
-    batchRemoveTask,
+    batchRemoveTask: (gids: string[]) => taskOps.batchRemoveTask(gids),
     restartTask,
     setOnTaskError,
     setOnTaskComplete,
-    hasActiveTasks,
-    hasPausedTasks,
+    hasActiveTasks: () => taskOps.hasActiveTasks(),
+    hasPausedTasks: () => taskOps.hasPausedTasks(),
   }
 })
