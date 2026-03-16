@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': '다운로드 경로 및 속도',
   'seeding': '시딩',
   'notification-and-confirm': '알림 및 확인',
-  'db-browse': '레코드 찾아보기',
+  'db-browse': '데이터베이스 보기',
   'db-browse-title': '데이터베이스 레코드',
   'db-record-count': '총 {count}개 레코드',
 }

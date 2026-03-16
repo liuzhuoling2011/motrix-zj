@@ -15,13 +15,14 @@ import {
   LinkOutline,
   InformationCircleOutline,
   FolderOpenOutline,
+  OpenOutline,
   SyncOutline,
 } from '@vicons/ionicons5'
 import { type Component } from 'vue'
 import type { Aria2Task } from '@shared/types'
 import { canRestart } from '@shared/utils'
 
-const props = defineProps<{ task: Aria2Task; status: string }>()
+const props = defineProps<{ task: Aria2Task; status: string; fileMissing?: boolean }>()
 const stoppingGids = inject<Ref<string[]>>('stoppingGids')
 const isStopping = computed(() => stoppingGids?.value.includes(props.task.gid) ?? false)
 const emit = defineEmits<{
@@ -32,14 +33,23 @@ const emit = defineEmits<{
   'copy-link': []
   'show-info': []
   folder: []
+  'open-file': []
   'stop-seeding': []
 }>()
 
 const { t } = useI18n()
 
-const actionsMap = computed<
-  Record<string, { key: string; icon: Component; label: string; event: string; tooltip?: string; cls?: string }[]>
->(() => ({
+interface ActionDef {
+  key: string
+  icon: Component
+  label: string
+  event: string
+  tooltip?: string
+  cls?: string
+  disabled?: boolean
+}
+
+const actionsMap = computed<Record<string, ActionDef[]>>(() => ({
   [TASK_STATUS.ACTIVE]: [
     { key: 'toggle', icon: PauseOutline, label: t('task.pause-task'), event: 'pause' },
     { key: 'delete', icon: CloseOutline, label: t('task.delete-task'), event: 'delete' },
@@ -53,21 +63,36 @@ const actionsMap = computed<
     { key: 'delete', icon: CloseOutline, label: t('task.delete-task'), event: 'delete' },
   ],
   [TASK_STATUS.ERROR]: [
-    ...(canRestart(props.task)
-      ? [{ key: 'restart', icon: RefreshOutline, label: t('task.resume-task'), event: 'resume' }]
-      : []),
+    { key: 'open', icon: OpenOutline, label: t('task.open-file'), event: 'open-file', disabled: props.fileMissing },
+    {
+      key: 'restart',
+      icon: RefreshOutline,
+      label: t('task.resume-task'),
+      event: 'resume',
+      disabled: !canRestart(props.task),
+    },
     { key: 'trash', icon: TrashOutline, label: t('task.remove-record'), event: 'delete-record' },
   ],
   [TASK_STATUS.COMPLETE]: [
-    ...(canRestart(props.task)
-      ? [{ key: 'restart', icon: RefreshOutline, label: t('task.restart-task'), event: 'resume' }]
-      : []),
+    { key: 'open', icon: OpenOutline, label: t('task.open-file'), event: 'open-file', disabled: props.fileMissing },
+    {
+      key: 'restart',
+      icon: RefreshOutline,
+      label: t('task.restart-task'),
+      event: 'resume',
+      disabled: !canRestart(props.task),
+    },
     { key: 'trash', icon: TrashOutline, label: t('task.remove-record'), event: 'delete-record' },
   ],
   [TASK_STATUS.REMOVED]: [
-    ...(canRestart(props.task)
-      ? [{ key: 'restart', icon: RefreshOutline, label: t('task.restart-task'), event: 'resume' }]
-      : []),
+    { key: 'open', icon: OpenOutline, label: t('task.open-file'), event: 'open-file', disabled: props.fileMissing },
+    {
+      key: 'restart',
+      icon: RefreshOutline,
+      label: t('task.restart-task'),
+      event: 'resume',
+      disabled: !canRestart(props.task),
+    },
     { key: 'trash', icon: TrashOutline, label: t('task.remove-record'), event: 'delete-record' },
   ],
   [TASK_STATUS.SEEDING]: [
@@ -87,8 +112,16 @@ const actionsMap = computed<
 
 const actions = computed(() => {
   const primary = actionsMap.value[props.status] || []
-  const common: { key: string; icon: Component; label: string; event: string; tooltip?: string; cls?: string }[] = [
-    { key: 'folder', icon: FolderOpenOutline, label: t('task.show-in-folder'), event: 'folder' },
+  const isStopped =
+    props.status === TASK_STATUS.COMPLETE || props.status === TASK_STATUS.ERROR || props.status === TASK_STATUS.REMOVED
+  const common: ActionDef[] = [
+    {
+      key: 'folder',
+      icon: FolderOpenOutline,
+      label: t('task.show-in-folder'),
+      event: 'folder',
+      disabled: isStopped && props.fileMissing,
+    },
     { key: 'link', icon: LinkOutline, label: t('task.copy-link'), event: 'copy-link' },
     { key: 'info', icon: InformationCircleOutline, label: t('task.task-detail-title'), event: 'show-info' },
   ]
@@ -117,6 +150,9 @@ function onAction(event: string) {
       break
     case 'folder':
       emit('folder')
+      break
+    case 'open-file':
+      emit('open-file')
       break
     case 'stop-seeding':
       emit('stop-seeding')
@@ -158,11 +194,17 @@ function onRelease(ev: PointerEvent) {
       v-for="action in actions"
       :key="action.key"
       class="task-item-action"
-      :class="[action.cls, { 'is-stopping': action.event === 'stop-seeding' && isStopping }]"
+      :class="[
+        action.cls,
+        {
+          'is-stopping': action.event === 'stop-seeding' && isStopping,
+          'is-disabled': action.disabled,
+        },
+      ]"
       @pointerdown="onPress"
       @pointerup="onRelease"
       @pointerleave="onRelease"
-      @click.stop="onAction(action.event)"
+      @click.stop="!action.disabled && onAction(action.event)"
     >
       <MTooltip :style="action.tooltip ? 'max-width: 220px' : ''">
         <template #trigger>
@@ -245,6 +287,11 @@ function onRelease(ev: PointerEvent) {
 .task-item-action.is-stopping {
   color: var(--m3-warning);
   pointer-events: none;
+}
+.task-item-action.is-disabled {
+  opacity: 0.3;
+  pointer-events: none;
+  cursor: not-allowed;
 }
 
 /* Icon crossfade wrapper */

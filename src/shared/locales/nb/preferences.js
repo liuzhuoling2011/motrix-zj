@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'Nedlastingssti og hastighet',
   'seeding': 'Deling',
   'notification-and-confirm': 'Varsler og bekreftelse',
-  'db-browse': 'Bla gjennom poster',
+  'db-browse': 'Vis database',
   'db-browse-title': 'Databaseposter',
   'db-record-count': '{count} poster totalt',
 }

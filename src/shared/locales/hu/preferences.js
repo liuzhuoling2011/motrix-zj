@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'Letöltési útvonal és sebesség',
   'seeding': 'Megosztás',
   'notification-and-confirm': 'Értesítések és megerősítés',
-  'db-browse': 'Rekordok böngészése',
+  'db-browse': 'Adatbázis megtekintése',
   'db-browse-title': 'Adatbázis-rekordok',
   'db-record-count': 'Összesen {count} rekord',
 }

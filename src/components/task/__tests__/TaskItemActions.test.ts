@@ -32,19 +32,22 @@ vi.mock('@vicons/ionicons5', () => ({
   LinkOutline: { template: '<i />' },
   InformationCircleOutline: { template: '<i />' },
   FolderOpenOutline: { template: '<i />' },
+  OpenOutline: { template: '<i />' },
   SyncOutline: { template: '<i />' },
 }))
 
 import TaskItemActions from '../TaskItemActions.vue'
 
-const createWrapper = (status: string, gid = 'abc123') => {
+/** Mount helper — `hasUri` controls rebuildable URIs, `fileMissing` controls file-exists state. */
+const createWrapper = (status: string, gid = 'abc123', { hasUri = true, fileMissing = false } = {}) => {
+  const files = hasUri
+    ? [{ index: '1', path: '/dl/file.zip', uris: [{ uri: 'http://example.com/file.zip', status: 'used' }] }]
+    : [{ index: '1', path: '/dl/file.zip', uris: [] }]
   return mount(TaskItemActions, {
     props: {
-      task: {
-        gid,
-        files: [{ index: '1', path: '/dl/file.zip', uris: [{ uri: 'http://example.com/file.zip', status: 'used' }] }],
-      } as never,
+      task: { gid, files } as never,
       status,
+      fileMissing,
     },
     global: {
       provide: {
@@ -69,16 +72,17 @@ describe('TaskItemActions', () => {
       expect(actions.length).toBeGreaterThanOrEqual(2 + 3)
     })
 
-    it('shows restart+trash for COMPLETE tasks', () => {
+    it('shows open+restart+trash for COMPLETE tasks', () => {
       const wrapper = createWrapper(TASK_STATUS.COMPLETE)
       const actions = wrapper.findAll('.task-item-action')
-      expect(actions.length).toBeGreaterThanOrEqual(2 + 3)
+      // open-file + restart + trash + 3 common = 6
+      expect(actions.length).toBeGreaterThanOrEqual(3 + 3)
     })
 
-    it('shows restart+trash for ERROR tasks', () => {
+    it('shows open+restart+trash for ERROR tasks', () => {
       const wrapper = createWrapper(TASK_STATUS.ERROR)
       const actions = wrapper.findAll('.task-item-action')
-      expect(actions.length).toBeGreaterThanOrEqual(2 + 3)
+      expect(actions.length).toBeGreaterThanOrEqual(3 + 3)
     })
 
     it('shows stop-seeding+delete for SEEDING tasks', () => {
@@ -115,10 +119,10 @@ describe('TaskItemActions', () => {
       expect(actions.length).toBeGreaterThanOrEqual(2 + 3)
     })
 
-    it('shows restart+trash for REMOVED tasks', () => {
+    it('shows open+restart+trash for REMOVED tasks', () => {
       const wrapper = createWrapper(TASK_STATUS.REMOVED)
       const actions = wrapper.findAll('.task-item-action')
-      expect(actions.length).toBeGreaterThanOrEqual(2 + 3)
+      expect(actions.length).toBeGreaterThanOrEqual(3 + 3)
     })
 
     it('non-seeder statuses do not have stop-seeding button', () => {
@@ -199,6 +203,112 @@ describe('TaskItemActions', () => {
       await action.trigger('pointerup')
       // Note: pressed class removal is timer-based (asynchronous), but the
       // pointerup handler schedules removal — we verify the class was added
+    })
+  })
+
+  describe('open-file action', () => {
+    it('includes open-file action for COMPLETE tasks', () => {
+      const wrapper = createWrapper(TASK_STATUS.COMPLETE)
+      const emitted = wrapper.findAll('.task-item-action')
+      // Click the last action (reversed order — open-file is at the end since it's first in primary)
+      // Verify we can find at least 6 actions (open + restart + trash + 3 common)
+      expect(emitted.length).toBe(6)
+    })
+
+    it('emits open-file when open action is clicked on COMPLETE task', async () => {
+      const wrapper = createWrapper(TASK_STATUS.COMPLETE)
+      const actions = wrapper.findAll('.task-item-action')
+      // open-file is first in primary array, reversed to last in rendered list
+      const openAction = actions[actions.length - 1]
+      await openAction.trigger('click')
+      expect(wrapper.emitted('open-file')).toBeTruthy()
+    })
+
+    it('includes open-file action for ERROR tasks', () => {
+      const wrapper = createWrapper(TASK_STATUS.ERROR)
+      const actions = wrapper.findAll('.task-item-action')
+      expect(actions.length).toBe(6)
+    })
+
+    it('includes open-file action for REMOVED tasks', () => {
+      const wrapper = createWrapper(TASK_STATUS.REMOVED)
+      const actions = wrapper.findAll('.task-item-action')
+      expect(actions.length).toBe(6)
+    })
+
+    it('does NOT include open-file action for ACTIVE tasks', () => {
+      const wrapper = createWrapper(TASK_STATUS.ACTIVE)
+      const actions = wrapper.findAll('.task-item-action')
+      // ACTIVE: pause + delete + 3 common = 5
+      expect(actions.length).toBe(5)
+    })
+  })
+
+  describe('disabled actions', () => {
+    it('applies is-disabled class to restart when task has no URIs (COMPLETE)', () => {
+      const wrapper = createWrapper(TASK_STATUS.COMPLETE, 'no-uri', { hasUri: false })
+      const actions = wrapper.findAll('.task-item-action')
+      const disabledActions = actions.filter((a) => a.classes().includes('is-disabled'))
+      expect(disabledActions.length).toBe(1) // only restart is disabled
+    })
+
+    it('does NOT apply is-disabled when task has URIs (COMPLETE)', () => {
+      const wrapper = createWrapper(TASK_STATUS.COMPLETE)
+      const disabledActions = wrapper.findAll('.task-item-action.is-disabled')
+      expect(disabledActions.length).toBe(0)
+    })
+
+    it('applies is-disabled to restart for ERROR tasks without URIs', () => {
+      const wrapper = createWrapper(TASK_STATUS.ERROR, 'no-uri', { hasUri: false })
+      const disabledActions = wrapper.findAll('.task-item-action.is-disabled')
+      expect(disabledActions.length).toBe(1)
+    })
+
+    it('disabled action does not emit event on click', async () => {
+      const wrapper = createWrapper(TASK_STATUS.COMPLETE, 'no-uri', { hasUri: false })
+      const disabledAction = wrapper.find('.task-item-action.is-disabled')
+      expect(disabledAction.exists()).toBe(true)
+      await disabledAction.trigger('click')
+      // resume/restart should NOT be emitted
+      expect(wrapper.emitted('resume')).toBeFalsy()
+    })
+  })
+
+  describe('fileMissing disables file-dependent actions', () => {
+    it('disables open-file and folder when fileMissing=true (COMPLETE)', () => {
+      const wrapper = createWrapper(TASK_STATUS.COMPLETE, 'fm', { fileMissing: true })
+      const disabledActions = wrapper.findAll('.task-item-action.is-disabled')
+      // open-file + folder = 2 disabled
+      expect(disabledActions.length).toBe(2)
+    })
+
+    it('does not disable open-file or folder when fileMissing=false', () => {
+      const wrapper = createWrapper(TASK_STATUS.COMPLETE)
+      const disabledActions = wrapper.findAll('.task-item-action.is-disabled')
+      expect(disabledActions.length).toBe(0)
+    })
+
+    it('disabled folder does not emit on click when fileMissing', async () => {
+      const wrapper = createWrapper(TASK_STATUS.COMPLETE, 'fm', { fileMissing: true })
+      const allActions = wrapper.findAll('.task-item-action')
+      // Click every action — folder + open-file should not emit
+      for (const action of allActions) {
+        await action.trigger('click')
+      }
+      expect(wrapper.emitted('folder')).toBeFalsy()
+      expect(wrapper.emitted('open-file')).toBeFalsy()
+    })
+
+    it('disables open-file and folder for ERROR tasks with fileMissing', () => {
+      const wrapper = createWrapper(TASK_STATUS.ERROR, 'fm', { fileMissing: true })
+      const disabledActions = wrapper.findAll('.task-item-action.is-disabled')
+      expect(disabledActions.length).toBe(2)
+    })
+
+    it('ACTIVE tasks are never affected by fileMissing', () => {
+      const wrapper = createWrapper(TASK_STATUS.ACTIVE, 'fm', { fileMissing: true })
+      const disabledActions = wrapper.findAll('.task-item-action.is-disabled')
+      expect(disabledActions.length).toBe(0)
     })
   })
 })

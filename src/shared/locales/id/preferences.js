@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'Jalur dan kecepatan',
   'seeding': 'Seeding',
   'notification-and-confirm': 'Notifikasi dan konfirmasi',
-  'db-browse': 'Telusuri Catatan',
+  'db-browse': 'Lihat Database',
   'db-browse-title': 'Catatan Database',
   'db-record-count': '{count} catatan total',
 }

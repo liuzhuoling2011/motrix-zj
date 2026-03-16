@@ -16,6 +16,7 @@ const emit = defineEmits<{
   'copy-link': [task: Aria2Task]
   'show-info': [task: Aria2Task]
   folder: [task: Aria2Task]
+  'open-file': [task: Aria2Task]
   'stop-seeding': [task: Aria2Task]
 }>()
 
@@ -82,6 +83,7 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
           @copy-link="emit('copy-link', item)"
           @show-info="emit('show-info', item)"
           @folder="emit('folder', item)"
+          @open-file="emit('open-file', item)"
           @stop-seeding="emit('stop-seeding', item)"
         />
       </div>

@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'Percorso e velocità',
   'seeding': 'Condivisione',
   'notification-and-confirm': 'Notifiche e conferma',
-  'db-browse': 'Sfoglia record',
+  'db-browse': 'Visualizza database',
   'db-browse-title': 'Record del database',
   'db-record-count': '{count} record in totale',
 }

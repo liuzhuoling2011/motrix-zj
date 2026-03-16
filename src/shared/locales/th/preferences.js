@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'เส้นทางและความเร็ว',
   'seeding': 'การแชร์',
   'notification-and-confirm': 'การแจ้งเตือนและการยืนยัน',
-  'db-browse': 'เรียกดูบันทึก',
+  'db-browse': 'ดูฐานข้อมูล',
   'db-browse-title': 'บันทึกฐานข้อมูล',
   'db-record-count': 'ทั้งหมด {count} รายการ',
 }

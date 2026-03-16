@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'Đường dẫn và tốc độ',
   'seeding': 'Chia sẻ',
   'notification-and-confirm': 'Thông báo và xác nhận',
-  'db-browse': 'Duyệt bản ghi',
+  'db-browse': 'Xem cơ sở dữ liệu',
   'db-browse-title': 'Bản ghi cơ sở dữ liệu',
   'db-record-count': 'Tổng cộng {count} bản ghi',
 }

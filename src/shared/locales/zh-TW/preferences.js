@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': '下載路徑與速度',
   'seeding': '做種',
   'notification-and-confirm': '通知與確認',
-  'db-browse': '瀏覽記錄',
+  'db-browse': '查看資料庫',
   'db-browse-title': '資料庫記錄',
   'db-record-count': '共 {count} 筆記錄',
 }

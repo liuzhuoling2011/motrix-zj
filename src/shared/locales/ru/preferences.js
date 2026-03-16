@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'Путь и скорость',
   'seeding': 'Раздача',
   'notification-and-confirm': 'Уведомления и подтверждение',
-  'db-browse': 'Обзор записей',
+  'db-browse': 'Просмотр базы данных',
   'db-browse-title': 'Записи базы данных',
   'db-record-count': 'Всего {count} записей',
 }

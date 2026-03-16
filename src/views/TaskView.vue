@@ -6,8 +6,9 @@ import { useTaskStore } from '@/stores/task'
 import { useAppStore } from '@/stores/app'
 import { usePreferenceStore } from '@/stores/preference'
 import { useHistoryStore } from '@/stores/history'
-import { getTaskUri, getTaskName } from '@shared/utils'
-import { revealItemInDir } from '@tauri-apps/plugin-opener'
+import { getTaskUri, getTaskName, resolveOpenTarget } from '@shared/utils'
+import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener'
+import { exists, stat } from '@tauri-apps/plugin-fs'
 import { isEngineReady } from '@/api/aria2'
 import { deleteTaskFiles } from '@/composables/useFileDelete'
 import { parseFilesForSelection, buildSelectFileOption } from '@/composables/useMagnetFlow'
@@ -350,10 +351,33 @@ async function handleShowInFolder(task: Aria2Task) {
   const files = task.files || []
   const filePath = files[0]?.path
   if (!filePath) return
+  const fileExists = await exists(filePath)
+  if (!fileExists) {
+    message.warning(t('task.file-not-exist'))
+    return
+  }
   try {
     await revealItemInDir(filePath)
+    message.success(t('task.open-folder-success'))
   } catch (e) {
-    logger.debug('TaskView.openFile', e)
+    logger.debug('TaskView.showInFolder', e)
+    message.warning(t('task.file-not-exist'))
+  }
+}
+async function handleOpenFile(task: Aria2Task) {
+  const target = resolveOpenTarget(task)
+  if (!target) return
+  const fileExists = await exists(target)
+  if (!fileExists) {
+    message.warning(t('task.file-not-exist'))
+    return
+  }
+  try {
+    const info = await stat(target)
+    await openPath(target)
+    message.success(t(info.isDirectory ? 'task.open-folder-success' : 'task.open-file-success'))
+  } catch (e) {
+    logger.debug('TaskView.openFile error', e)
     message.warning(t('task.file-not-exist'))
   }
 }
@@ -389,6 +413,7 @@ async function handleStopSeeding(task: Aria2Task) {
         @copy-link="handleCopyLink"
         @show-info="handleShowInfo"
         @folder="handleShowInFolder"
+        @open-file="handleOpenFile"
         @stop-seeding="handleStopSeeding"
       />
     </div>

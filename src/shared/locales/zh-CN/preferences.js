@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': '下载路径与速度',
   'seeding': '做种',
   'notification-and-confirm': '通知与确认',
-  'db-browse': '浏览记录',
+  'db-browse': '查看数据库',
   'db-browse-title': '数据库记录',
   'db-record-count': '共 {count} 条记录',
 }

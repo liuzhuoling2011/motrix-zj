@@ -145,4 +145,30 @@ export const mergeTaskResult = (response: unknown[][] = []): unknown[] => {
   return result
 }
 
+/**
+ * Resolves the filesystem target to open for a completed task.
+ *
+ * - BT multi-file: opens the torrent's root directory (`dir/torrentName`)
+ * - BT single-file / HTTP: opens the downloaded file directly
+ * - Fallback: opens the download directory when no file path is available
+ */
+export const resolveOpenTarget = (task: Aria2Task): string => {
+  const { files, bittorrent, dir } = task
+
+  // BT multi-file: the torrent creates a subdirectory under `dir`
+  if (bittorrent?.info?.name && files.length > 1) {
+    return `${dir}/${bittorrent.info.name}`
+  }
+
+  // Single file (BT or HTTP): prefer user-selected files
+  if (files.length > 0) {
+    const selected = files.filter((f) => f.selected === 'true')
+    const target = (selected.length > 0 ? selected[0] : files[0])?.path
+    if (target) return target
+  }
+
+  // Fallback: open the download directory
+  return dir
+}
+
 export { getFileNameFromFile }

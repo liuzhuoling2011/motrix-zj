@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'ダウンロードパスと速度',
   'seeding': 'シード',
   'notification-and-confirm': '通知と確認',
-  'db-browse': 'レコードを閲覧',
+  'db-browse': 'データベースを表示',
   'db-browse-title': 'データベースレコード',
   'db-record-count': '合計 {count} 件',
 }

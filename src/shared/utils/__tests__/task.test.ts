@@ -12,6 +12,7 @@ import {
   getTaskUri,
   checkTaskTitleIsEmpty,
   mergeTaskResult,
+  resolveOpenTarget,
 } from '../task'
 import type { Aria2Task, Aria2File } from '@shared/types'
 
@@ -369,5 +370,109 @@ describe('mergeTaskResult', () => {
 
   it('handles single nested array', () => {
     expect(mergeTaskResult([['x']])).toEqual(['x'])
+  })
+})
+
+describe('resolveOpenTarget', () => {
+  it('returns torrent root directory for BT multi-file tasks', () => {
+    const task = createMockTask({
+      dir: '/downloads',
+      bittorrent: { info: { name: 'MyTorrent' } },
+      files: [
+        {
+          index: '1',
+          path: '/downloads/MyTorrent/file1.mkv',
+          length: '1000',
+          completedLength: '1000',
+          selected: 'true',
+          uris: [],
+        },
+        {
+          index: '2',
+          path: '/downloads/MyTorrent/file2.srt',
+          length: '500',
+          completedLength: '500',
+          selected: 'true',
+          uris: [],
+        },
+      ],
+    })
+    expect(resolveOpenTarget(task)).toBe('/downloads/MyTorrent')
+  })
+
+  it('returns file path for BT single-file tasks', () => {
+    const task = createMockTask({
+      dir: '/downloads',
+      bittorrent: { info: { name: 'movie.mp4' } },
+      files: [
+        {
+          index: '1',
+          path: '/downloads/movie.mp4',
+          length: '1000',
+          completedLength: '1000',
+          selected: 'true',
+          uris: [],
+        },
+      ],
+    })
+    expect(resolveOpenTarget(task)).toBe('/downloads/movie.mp4')
+  })
+
+  it('returns file path for HTTP single-file tasks', () => {
+    const task = createMockTask({
+      dir: '/downloads',
+      files: [
+        {
+          index: '1',
+          path: '/downloads/file.zip',
+          length: '1000',
+          completedLength: '1000',
+          selected: 'true',
+          uris: [{ uri: 'http://example.com/file.zip', status: 'used' }],
+        },
+      ],
+    })
+    expect(resolveOpenTarget(task)).toBe('/downloads/file.zip')
+  })
+
+  it('prefers selected files over unselected', () => {
+    const task = createMockTask({
+      dir: '/downloads',
+      files: [
+        {
+          index: '1',
+          path: '/downloads/unwanted.txt',
+          length: '100',
+          completedLength: '100',
+          selected: 'false',
+          uris: [],
+        },
+        {
+          index: '2',
+          path: '/downloads/wanted.mkv',
+          length: '1000',
+          completedLength: '1000',
+          selected: 'true',
+          uris: [],
+        },
+      ],
+    })
+    expect(resolveOpenTarget(task)).toBe('/downloads/wanted.mkv')
+  })
+
+  it('falls back to task.dir when files array is empty', () => {
+    const task = createMockTask({
+      dir: '/downloads',
+      files: [],
+    })
+    expect(resolveOpenTarget(task)).toBe('/downloads')
+  })
+
+  it('falls back to task.dir when no file path available', () => {
+    const task = createMockTask({
+      dir: '/downloads',
+      files: [{ index: '1', path: '', length: '0', completedLength: '0', selected: 'true', uris: [] }],
+    })
+    expect(resolveOpenTarget(task)).toBe('/downloads')
   })
 })

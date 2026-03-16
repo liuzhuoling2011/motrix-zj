@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'Διαδρομή και ταχύτητα',
   'seeding': 'Διαμοιρασμός',
   'notification-and-confirm': 'Ειδοποιήσεις',
-  'db-browse': 'Περιήγηση εγγραφών',
+  'db-browse': 'Προβολή βάσης δεδομένων',
   'db-browse-title': 'Εγγραφές βάσης δεδομένων',
   'db-record-count': '{count} εγγραφές συνολικά',
 }

@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'مسیر و سرعت دانلود',
   'seeding': 'بذرپاشی',
   'notification-and-confirm': 'اعلان‌ها و تأیید',
-  'db-browse': 'مرور رکوردها',
+  'db-browse': 'مشاهده پایگاه داده',
   'db-browse-title': 'رکوردهای پایگاه داده',
   'db-record-count': '{count} رکورد در مجموع',
 }

@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'İndirme yolu ve hız',
   'seeding': 'Paylaşım',
   'notification-and-confirm': 'Bildirimler ve onay',
-  'db-browse': 'Kayıtlara göz at',
+  'db-browse': 'Veritabanını görüntüle',
   'db-browse-title': 'Veritabanı kayıtları',
   'db-record-count': 'Toplam {count} kayıt',
 }

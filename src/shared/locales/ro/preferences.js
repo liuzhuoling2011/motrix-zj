@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'Cale și viteză',
   'seeding': 'Distribuire',
   'notification-and-confirm': 'Notificări și confirmare',
-  'db-browse': 'Răsfoire înregistrări',
+  'db-browse': 'Vizualizare bază de date',
   'db-browse-title': 'Înregistrări baza de date',
   'db-record-count': '{count} înregistrări în total',
 }

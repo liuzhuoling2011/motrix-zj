@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'مسار التنزيل والسرعة',
   'seeding': 'البذر',
   'notification-and-confirm': 'الإشعارات والتأكيد',
-  'db-browse': 'تصفح السجلات',
+  'db-browse': 'عرض قاعدة البيانات',
   'db-browse-title': 'سجلات قاعدة البيانات',
   'db-record-count': '{count} سجل إجمالاً',
 }

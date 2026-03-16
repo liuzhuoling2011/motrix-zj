@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'Ruta i velocitat',
   'seeding': 'Compartició',
   'notification-and-confirm': 'Notificacions i confirmació',
-  'db-browse': 'Explorar registres',
+  'db-browse': 'Veure base de dades',
   'db-browse-title': 'Registres de la base de dades',
   'db-record-count': '{count} registres en total',
 }

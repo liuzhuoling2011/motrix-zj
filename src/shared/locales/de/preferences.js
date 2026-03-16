@@ -163,7 +163,7 @@ export default {
   'download-path-and-speed': 'Downloadpfad und Geschwindigkeit',
   'seeding': 'Seeding',
   'notification-and-confirm': 'Benachrichtigungen',
-  'db-browse': 'Einträge durchsuchen',
+  'db-browse': 'Datenbank anzeigen',
   'db-browse-title': 'Datenbankeinträge',
   'db-record-count': '{count} Einträge insgesamt',
 }
