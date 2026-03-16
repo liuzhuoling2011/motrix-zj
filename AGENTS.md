@@ -279,14 +279,11 @@ One-paragraph summary of the release scope and significance.
 
 ### 📦 Downloads
 
-| Platform | File |
-|----------|------|
-| macOS (Apple Silicon) | `.dmg` |
-| macOS (Intel)         | `.dmg` |
-| Windows (x64) | `-setup.exe` |
-| Windows (ARM64) | `-setup.exe` |
-| Linux (x64) | `.AppImage` / `.deb` |
-| Linux (ARM64) | `.AppImage` / `.deb` |
+| Platform | Architecture | File |
+|----------|-------------|------|
+| macOS | Apple Silicon · Intel | `.dmg` |
+| Windows | x64 · ARM64 | `-setup.exe` |
+| Linux | x64 · ARM64 | `.AppImage` `.deb` |
 ```
 
 **Guidelines:**
