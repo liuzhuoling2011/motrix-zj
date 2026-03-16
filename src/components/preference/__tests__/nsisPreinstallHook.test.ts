@@ -32,7 +32,7 @@ describe('NSIS PREINSTALL hook for aria2c cleanup', () => {
     expect(hooksSrc).toContain('NSIS_HOOK_PREINSTALL')
   })
 
-  it('PREINSTALL hook kills aria2c.exe via taskkill', () => {
+  it('PREINSTALL hook kills the Tauri-renamed sidecar via taskkill', () => {
     // Extract the PREINSTALL macro body
     const preinstallStart = hooksSrc.indexOf('NSIS_HOOK_PREINSTALL')
     expect(preinstallStart).toBeGreaterThanOrEqual(0)
@@ -43,7 +43,9 @@ describe('NSIS PREINSTALL hook for aria2c cleanup', () => {
 
     const macroBody = hooksSrc.slice(preinstallStart, macroEnd)
     expect(macroBody).toContain('taskkill')
-    expect(macroBody).toContain('aria2c')
+    // Tauri renames externalBin to motrixnext-aria2c.exe at bundle time.
+    // The hook must target the actual process name, not the original "aria2c".
+    expect(macroBody).toContain('motrixnext-aria2c')
   })
 
   it('still contains POSTINSTALL hook for icon cache flush', () => {

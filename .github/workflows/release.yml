@@ -19,8 +19,12 @@ jobs:
         include:
           - platform: macos-latest
             args: --target aarch64-apple-darwin
+          - platform: macos-latest
+            args: --target x86_64-apple-darwin
           - platform: windows-latest
             args: --target x86_64-pc-windows-msvc --bundles nsis
+          - platform: windows-latest
+            args: --target aarch64-pc-windows-msvc --bundles nsis
           - platform: ubuntu-latest
             args: --target x86_64-unknown-linux-gnu
           - platform: ubuntu-24.04-arm
@@ -39,6 +43,17 @@ jobs:
           cache: pnpm
 
       - uses: dtolnay/rust-toolchain@stable
+
+      # Cross-compilation: add the secondary Rust target when building for
+      # a different architecture on the same OS runner.
+      - name: Add cross-compilation target
+        if: |
+          contains(matrix.args, 'x86_64-apple-darwin') ||
+          contains(matrix.args, 'aarch64-pc-windows-msvc')
+        shell: bash
+        run: |
+          TARGET=$(echo '${{ matrix.args }}' | sed 's/.*--target \([^ ]*\).*/\1/')
+          rustup target add "$TARGET"
 
       - uses: swatinem/rust-cache@v2
 
@@ -112,7 +127,9 @@ jobs:
           read_sig() { [ -f "$1" ] && cat "$1" || echo ""; }
 
           DARWIN_SIG=$(read_sig "sigs/MotrixNext_aarch64.app.tar.gz.sig")
+          DARWIN_X64_SIG=$(read_sig "sigs/MotrixNext_x86_64.app.tar.gz.sig")
           WINDOWS_SIG=$(read_sig "sigs/MotrixNext_${VERSION}_x64-setup.exe.sig")
+          WINDOWS_ARM_SIG=$(read_sig "sigs/MotrixNext_${VERSION}_arm64-setup.exe.sig")
           LINUX_X64_SIG=$(read_sig "sigs/MotrixNext_${VERSION}_amd64.AppImage.sig")
           LINUX_ARM_SIG=$(read_sig "sigs/MotrixNext_${VERSION}_aarch64.AppImage.sig")
 
@@ -122,8 +139,12 @@ jobs:
             --arg notes "$NOTES" \
             --arg darwin_sig "$DARWIN_SIG" \
             --arg darwin_url "$BASE/MotrixNext_aarch64.app.tar.gz" \
+            --arg darwin_x64_sig "$DARWIN_X64_SIG" \
+            --arg darwin_x64_url "$BASE/MotrixNext_x86_64.app.tar.gz" \
             --arg win_sig "$WINDOWS_SIG" \
             --arg win_url "$BASE/MotrixNext_${VERSION}_x64-setup.exe" \
+            --arg wina_sig "$WINDOWS_ARM_SIG" \
+            --arg wina_url "$BASE/MotrixNext_${VERSION}_arm64-setup.exe" \
             --arg lx64_sig "$LINUX_X64_SIG" \
             --arg lx64_url "$BASE/MotrixNext_${VERSION}_amd64.AppImage" \
             --arg larm_sig "$LINUX_ARM_SIG" \
@@ -134,7 +155,9 @@ jobs:
               pub_date: $pub_date,
               platforms: {
                 "darwin-aarch64": { signature: $darwin_sig, url: $darwin_url },
+                "darwin-x86_64": { signature: $darwin_x64_sig, url: $darwin_x64_url },
                 "windows-x86_64": { signature: $win_sig, url: $win_url },
+                "windows-aarch64": { signature: $wina_sig, url: $wina_url },
                 "linux-x86_64": { signature: $lx64_sig, url: $lx64_url },
                 "linux-aarch64": { signature: $larm_sig, url: $larm_url }
               }

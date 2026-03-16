@@ -54,7 +54,7 @@ src-tauri/
 ├── PULL_REQUEST_TEMPLATE.md    # PR template with TypeScript + Rust checklist
 └── workflows/
     ├── ci.yml                  # Lint + type check + test (frontend & backend parallel jobs)
-    └── release.yml             # Build + sign + upload for 4 platforms + updater JSON
+    └── release.yml             # Build + sign + upload for 6 platforms + updater JSON
 ```
 
 ---
@@ -217,7 +217,7 @@ The user's channel preference is stored as `updateChannel` in the preference sto
    >
    > If a beta release is NOT marked as pre-release, the website will serve the beta version to all users.
 
-4. **Click Publish** — CI automatically builds for all 4 platforms and uploads the updater JSON.
+4. **Click Publish** — CI automatically builds for all 6 platforms and uploads the updater JSON.
 
 ### Updater Principles
 
@@ -282,7 +282,9 @@ One-paragraph summary of the release scope and significance.
 | Platform | File |
 |----------|------|
 | macOS (Apple Silicon) | `.dmg` |
+| macOS (Intel)         | `.dmg` |
 | Windows (x64) | `-setup.exe` |
+| Windows (ARM64) | `-setup.exe` |
 | Linux (x64) | `.AppImage` / `.deb` |
 | Linux (ARM64) | `.AppImage` / `.deb` |
 ```
@@ -309,8 +311,8 @@ Two parallel jobs:
 
 ### `release.yml` (Release Published)
 
-1. **Build job** — Matrix: `macos-latest`, `windows-latest`, `ubuntu-latest`, `ubuntu-24.04-arm`
-2. **merge-updater-json job** — Detects channel from tag name → generates `latest.json` or `beta.json` → uploads to `updater` tag
+1. **Build job** — Matrix: `macos-latest` (×2: aarch64 + x86_64 cross-compile), `windows-latest` (×2: x64 + aarch64 cross-compile), `ubuntu-latest`, `ubuntu-24.04-arm`
+2. **merge-updater-json job** — Detects channel from tag name → generates `latest.json` or `beta.json` with 6 platform keys → uploads to `updater` tag
 
 ---
 

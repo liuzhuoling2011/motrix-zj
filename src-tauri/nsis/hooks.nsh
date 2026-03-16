@@ -3,12 +3,12 @@
 ; fresh installs AND silent OTA (updater) installs.
 
 !macro NSIS_HOOK_PREINSTALL
-  ; Defense-in-depth: kill any lingering aria2c.exe before file copy.
-  ; The Rust backend should have already stopped the engine, but this
-  ; catches edge cases (app crash, stop timeout, etc.).
+  ; Defense-in-depth: kill any lingering sidecar before file copy.
+  ; Tauri bundles externalBin as motrixnext-aria2c.exe (renamed from aria2c).
+  ; aria2 is single-process — no child processes to worry about.
   ; On Windows, a running .exe is locked by the OS and cannot be overwritten.
   ; taskkill exits with code 128 if the process does not exist — harmless.
-  nsExec::ExecToLog 'taskkill /F /IM aria2c.exe'
+  nsExec::ExecToLog 'taskkill /F /IM motrixnext-aria2c.exe'
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
