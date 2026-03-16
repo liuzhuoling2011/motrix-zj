@@ -8,29 +8,98 @@
  */
 import { defineStore } from 'pinia'
 import Database from '@tauri-apps/plugin-sql'
+import { remove, exists } from '@tauri-apps/plugin-fs'
+import { appDataDir } from '@tauri-apps/api/path'
 import type { HistoryRecord } from '@shared/types'
+import { logger } from '@shared/logger'
 
 const DB_NAME = 'sqlite:history.db'
+
+/** Callbacks for database health events — allows UI layer to show toasts
+ *  without coupling the store to any specific UI framework. */
+export interface DbHealthCallbacks {
+  onCorrupt?: () => void
+  onError?: (error: unknown) => void
+  onRebuilt?: () => void
+  onRebuildFailed?: (error: unknown) => void
+}
 
 export const useHistoryStore = defineStore('history', () => {
   let db: Awaited<ReturnType<typeof Database.load>> | null = null
   let initPromise: Promise<void> | null = null
 
-  /** Initialize the database connection and apply PRAGMA optimizations.
-   *  Safe to call multiple times — subsequent calls are no-ops. */
-  async function init(): Promise<void> {
+  /** Apply SQLite PRAGMA optimizations to an open connection. */
+  async function applyPragmas(conn: NonNullable<typeof db>): Promise<void> {
+    await conn.execute('PRAGMA journal_mode = WAL', [])
+    await conn.execute('PRAGMA synchronous = NORMAL', [])
+    await conn.execute('PRAGMA busy_timeout = 5000', [])
+    await conn.execute('PRAGMA foreign_keys = ON', [])
+  }
+
+  /** Delete the database files from disk (db + WAL + SHM). */
+  async function deleteDbFiles(): Promise<void> {
+    try {
+      const dataDir = await appDataDir()
+      const suffixes = ['history.db', 'history.db-wal', 'history.db-shm']
+      for (const suffix of suffixes) {
+        const path = `${dataDir}/${suffix}`
+        if (await exists(path)) {
+          await remove(path)
+        }
+      }
+    } catch (e) {
+      logger.warn('HistoryDB', `deleteDbFiles failed: ${e}`)
+    }
+  }
+
+  /** Attempt to rebuild the database from scratch after corruption. */
+  async function rebuildDatabase(callbacks?: DbHealthCallbacks): Promise<void> {
+    try {
+      if (db) {
+        try {
+          await db.close()
+        } catch {
+          /* already broken */
+        }
+        db = null
+      }
+      await deleteDbFiles()
+      db = await Database.load(DB_NAME)
+      await applyPragmas(db)
+      logger.info('HistoryDB', 'Database rebuilt successfully')
+      callbacks?.onRebuilt?.()
+    } catch (e) {
+      logger.error('HistoryDB', `Rebuild failed: ${e}`)
+      db = null
+      callbacks?.onRebuildFailed?.(e)
+    }
+  }
+
+  /** Initialize the database connection, verify integrity, and auto-recover
+   *  from corruption. Safe to call multiple times — subsequent calls are no-ops.
+   *
+   *  @param callbacks Optional UI notification hooks for health events. */
+  async function init(callbacks?: DbHealthCallbacks): Promise<void> {
     if (db) return
     if (!initPromise) {
       initPromise = (async () => {
-        db = await Database.load(DB_NAME)
-        // SQLite best practices: WAL for crash resilience + concurrent reads,
-        // NORMAL sync for balanced durability/performance,
-        // busy_timeout to avoid "database is locked" errors,
-        // foreign_keys for referential integrity.
-        await db.execute('PRAGMA journal_mode = WAL', [])
-        await db.execute('PRAGMA synchronous = NORMAL', [])
-        await db.execute('PRAGMA busy_timeout = 5000', [])
-        await db.execute('PRAGMA foreign_keys = ON', [])
+        try {
+          db = await Database.load(DB_NAME)
+          await applyPragmas(db)
+
+          // Verify structural integrity on every cold start
+          const result = await db.select<{ integrity_check: string }[]>('PRAGMA integrity_check', [])
+          const status = result[0]?.integrity_check ?? 'unknown'
+          if (status !== 'ok') {
+            logger.warn('HistoryDB', `Integrity check failed: ${status}`)
+            callbacks?.onCorrupt?.()
+            await rebuildDatabase(callbacks)
+          }
+        } catch (e) {
+          logger.warn('HistoryDB', `Init failed: ${e}`)
+          callbacks?.onError?.(e)
+          await rebuildDatabase(callbacks)
+        }
       })()
     }
     await initPromise

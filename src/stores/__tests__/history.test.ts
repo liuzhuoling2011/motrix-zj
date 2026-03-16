@@ -108,6 +108,24 @@ vi.mock('@tauri-apps/plugin-sql', () => ({
   },
 }))
 
+vi.mock('@tauri-apps/plugin-fs', () => ({
+  exists: vi.fn().mockResolvedValue(false),
+  remove: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('@tauri-apps/api/path', () => ({
+  appDataDir: vi.fn().mockResolvedValue('/mock/data'),
+}))
+
+vi.mock('@shared/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+}))
+
 // Dynamic import AFTER mock is registered
 const { useHistoryStore } = await import('../history')
 

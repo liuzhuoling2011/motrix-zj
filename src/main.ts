@@ -289,7 +289,12 @@ window.addEventListener('unhandledrejection', (e) => {
 
     // Initialize download history database, then schedule stale record cleanup
     historyStore
-      .init()
+      .init({
+        onCorrupt: () => logger.warn('HistoryDB', 'Database corrupted, rebuilding…'),
+        onError: (e) => logger.warn('HistoryDB', `Load failed, rebuilding… ${e}`),
+        onRebuilt: () => logger.info('HistoryDB', 'Database rebuilt successfully'),
+        onRebuildFailed: (e) => logger.error('HistoryDB', `Rebuild failed: ${e}`),
+      })
       .then(() => {
         // Auto-delete stale records if enabled — delayed to avoid startup contention
         if (preferenceStore.config?.autoDeleteStaleRecords) {
