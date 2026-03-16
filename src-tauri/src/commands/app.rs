@@ -302,14 +302,16 @@ mod tests {
     #[test]
     fn test_probe_classifies_udp_as_unknown() {
         let urls = vec!["udp://tracker.example.com:6969".to_string()];
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        let result = rt.block_on(probe_trackers(urls)).unwrap();
-        let map = result.as_object().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("create tokio runtime");
+        let result = rt
+            .block_on(probe_trackers(urls))
+            .expect("probe_trackers returned Err");
+        let map = result.as_object().expect("result is not a JSON object");
         assert_eq!(
             map.get("udp://tracker.example.com:6969")
-                .unwrap()
+                .expect("UDP tracker key missing")
                 .as_str()
-                .unwrap(),
+                .expect("value is not a string"),
             "unknown"
         );
     }
@@ -317,14 +319,16 @@ mod tests {
     #[test]
     fn test_probe_classifies_wss_as_unknown() {
         let urls = vec!["wss://tracker.example.com/announce".to_string()];
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        let result = rt.block_on(probe_trackers(urls)).unwrap();
-        let map = result.as_object().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("create tokio runtime");
+        let result = rt
+            .block_on(probe_trackers(urls))
+            .expect("probe_trackers returned Err");
+        let map = result.as_object().expect("result is not a JSON object");
         assert_eq!(
             map.get("wss://tracker.example.com/announce")
-                .unwrap()
+                .expect("WSS tracker key missing")
                 .as_str()
-                .unwrap(),
+                .expect("value is not a string"),
             "unknown"
         );
     }
@@ -332,9 +336,11 @@ mod tests {
     #[test]
     fn test_probe_empty_list_returns_empty() {
         let urls: Vec<String> = vec![];
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        let result = rt.block_on(probe_trackers(urls)).unwrap();
-        let map = result.as_object().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("create tokio runtime");
+        let result = rt
+            .block_on(probe_trackers(urls))
+            .expect("probe_trackers returned Err");
+        let map = result.as_object().expect("result is not a JSON object");
         assert!(map.is_empty());
     }
 
@@ -342,14 +348,16 @@ mod tests {
     fn test_probe_unreachable_http_returns_offline() {
         // Use an invalid host that will fail to connect within the timeout
         let urls = vec!["http://192.0.2.1:1/announce".to_string()];
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        let result = rt.block_on(probe_trackers(urls)).unwrap();
-        let map = result.as_object().unwrap();
+        let rt = tokio::runtime::Runtime::new().expect("create tokio runtime");
+        let result = rt
+            .block_on(probe_trackers(urls))
+            .expect("probe_trackers returned Err");
+        let map = result.as_object().expect("result is not a JSON object");
         assert_eq!(
             map.get("http://192.0.2.1:1/announce")
-                .unwrap()
+                .expect("HTTP tracker key missing")
                 .as_str()
-                .unwrap(),
+                .expect("value is not a string"),
             "offline"
         );
     }

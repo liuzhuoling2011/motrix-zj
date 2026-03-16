@@ -2804,6 +2804,7 @@ dependencies = [
  "tauri-plugin-store",
  "tauri-plugin-updater",
  "tauri-plugin-window-state",
+ "thiserror 2.0.18",
  "tokio",
  "url",
  "windows-sys 0.59.0",

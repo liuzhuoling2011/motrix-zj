@@ -73,6 +73,14 @@ jobs:
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Rust format check
+        working-directory: src-tauri
+        run: cargo fmt -- --check
+
+      - name: Clippy lint
+        working-directory: src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
       - name: Cargo check
         working-directory: src-tauri
         run: cargo check --all-targets
@@ -80,3 +88,4 @@ jobs:
       - name: Cargo test
         working-directory: src-tauri
         run: cargo test --all-targets
+

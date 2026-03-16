@@ -255,15 +255,17 @@ pub fn run() {
                     DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE,
                 };
                 if let Some(w) = app.get_webview_window("main") {
-                    let hwnd = w.hwnd().unwrap().0 as *mut std::ffi::c_void;
-                    let preference: u32 = 1; // DWMWCP_DONOTROUND
-                    unsafe {
-                        DwmSetWindowAttribute(
-                            hwnd,
-                            DWMWA_WINDOW_CORNER_PREFERENCE as u32,
-                            &preference as *const u32 as *const _,
-                            std::mem::size_of::<u32>() as u32,
-                        );
+                    if let Ok(hwnd_handle) = w.hwnd() {
+                        let hwnd = hwnd_handle.0 as *mut std::ffi::c_void;
+                        let preference: u32 = 1; // DWMWCP_DONOTROUND
+                        unsafe {
+                            DwmSetWindowAttribute(
+                                hwnd,
+                                DWMWA_WINDOW_CORNER_PREFERENCE as u32,
+                                &preference as *const u32 as *const _,
+                                std::mem::size_of::<u32>() as u32,
+                            );
+                        }
                     }
                 }
             }

@@ -894,4 +894,91 @@ mod tests {
     fn strip_ansi_empty_string() {
         assert_eq!(strip_ansi(""), "");
     }
+
+    // ── Additional edge cases ───────────────────────────────────────────
+
+    #[test]
+    fn strip_ansi_multiple_sequences_in_one_line() {
+        let input = "\x1b[32m[NOTICE]\x1b[0m downloading \x1b[1mfile.zip\x1b[0m (100%)";
+        let clean = strip_ansi(input);
+        assert_eq!(clean, "[NOTICE] downloading file.zip (100%)");
+        assert!(!clean.contains('\x1b'));
+    }
+
+    #[test]
+    fn strip_ansi_partial_escape_at_eof() {
+        // Unterminated escape sequence: ESC [ but no closing alpha char
+        let input = "trailing\x1b[";
+        let clean = strip_ansi(input);
+        assert_eq!(clean, "trailing");
+    }
+
+    #[test]
+    fn build_args_keep_seeding_string_true() {
+        // Frontend sends String("true"), not Bool(true)
+        let config = json!({ "keep-seeding": "true", "seed-time": "30", "seed-ratio": "1.5" });
+        let args = build_start_args(&config, None, "/tmp/s", false);
+        assert!(!args.iter().any(|a| a.starts_with("--seed-time")));
+        assert!(args.iter().any(|a| a == "--seed-ratio=0"));
+    }
+
+    #[test]
+    fn build_args_keep_seeding_string_false_passes_seed_values() {
+        let config = json!({ "keep-seeding": "false", "seed-time": "30", "seed-ratio": "1.5" });
+        let args = build_start_args(&config, None, "/tmp/s", false);
+        assert!(args.iter().any(|a| a == "--seed-time=30"));
+        assert!(args.iter().any(|a| a == "--seed-ratio=1.5"));
+    }
+
+    #[test]
+    fn build_args_no_keep_seeding_passes_seed_values() {
+        // When keep-seeding is absent entirely, seed values should pass through
+        let config = json!({ "seed-time": "60", "seed-ratio": "2.0" });
+        let args = build_start_args(&config, None, "/tmp/s", false);
+        assert!(args.iter().any(|a| a == "--seed-time=60"));
+        assert!(args.iter().any(|a| a == "--seed-ratio=2.0"));
+    }
+
+    #[test]
+    fn build_args_boolean_true_value_coerced() {
+        let config = json!({ "continue": true });
+        let args = build_start_args(&config, None, "/tmp/s", false);
+        assert!(args.iter().any(|a| a == "--continue=true"));
+    }
+
+    #[test]
+    fn build_args_boolean_false_value_coerced() {
+        let config = json!({ "continue": false });
+        let args = build_start_args(&config, None, "/tmp/s", false);
+        assert!(args.iter().any(|a| a == "--continue=false"));
+    }
+
+    #[test]
+    fn build_args_numeric_value_coerced() {
+        let config = json!({ "max-concurrent-downloads": 5 });
+        let args = build_start_args(&config, None, "/tmp/s", false);
+        assert!(args.iter().any(|a| a == "--max-concurrent-downloads=5"));
+    }
+
+    #[test]
+    fn build_args_excludes_conf_path_when_none() {
+        let args = build_start_args(&json!({}), None, "/tmp/s", false);
+        assert!(!args.iter().any(|a| a.starts_with("--conf-path")));
+    }
+
+    #[test]
+    fn build_args_always_appends_rpc_listen_all_false() {
+        // Even with no config, security enforcement must be present
+        let args = build_start_args(&json!({}), None, "/tmp/s", false);
+        assert!(args.iter().any(|a| a == "--rpc-listen-all=false"));
+    }
+
+    #[test]
+    fn build_args_null_and_array_values_skipped() {
+        let config = json!({ "dir": null, "header": ["X-Custom: val"] });
+        let args = build_start_args(&config, None, "/tmp/s", false);
+        assert!(!args.iter().any(|a| a.contains("--dir=")));
+        // Arrays are not handled by the match — skipped via `_ => continue`
+        assert!(!args.iter().any(|a| a.contains("--header=")));
+    }
 }
