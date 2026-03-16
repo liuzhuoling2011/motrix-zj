@@ -12,13 +12,14 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
-const MAIN_LAYOUT = path.resolve(__dirname, '..', 'MainLayout.vue')
+const APP_EVENTS = path.resolve(__dirname, '..', '..', 'composables', 'useAppEvents.ts')
 
 describe('MainLayout resume/pause all guards', () => {
   let source: string
 
   beforeAll(() => {
-    source = fs.readFileSync(MAIN_LAYOUT, 'utf-8')
+    // Guard logic extracted to useAppEvents composable
+    source = fs.readFileSync(APP_EVENTS, 'utf-8')
   })
 
   it('does NOT use taskList.some for resume-all guard', () => {

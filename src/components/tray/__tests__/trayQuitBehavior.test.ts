@@ -22,6 +22,7 @@ import * as path from 'node:path'
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..', '..')
 const MAIN_LAYOUT = path.join(PROJECT_ROOT, 'src', 'layouts', 'MainLayout.vue')
+const APP_EVENTS = path.join(PROJECT_ROOT, 'src', 'composables', 'useAppEvents.ts')
 const TRAY_RS = path.join(PROJECT_ROOT, 'src-tauri', 'src', 'tray.rs')
 
 // ═══════════════════════════════════════════════════════════════════
@@ -75,7 +76,8 @@ describe('MainLayout.vue — tray quit direct exit', () => {
   let quitCaseBlock: string | null
 
   beforeAll(() => {
-    source = fs.readFileSync(MAIN_LAYOUT, 'utf-8')
+    // Tray-menu-action handlers extracted to useAppEvents composable
+    source = fs.readFileSync(APP_EVENTS, 'utf-8')
     quitCaseBlock = extractTrayQuitCase(source)
   })
 
@@ -104,7 +106,9 @@ describe('MainLayout.vue — tray quit direct exit', () => {
   })
 
   it('onCloseRequested still allows showExitDialog for window close', () => {
-    const closeHandler = extractCloseRequestedHandler(source)
+    // onCloseRequested stayed in MainLayout.vue (not extracted to composable)
+    const layoutSource = fs.readFileSync(MAIN_LAYOUT, 'utf-8')
+    const closeHandler = extractCloseRequestedHandler(layoutSource)
     expect(closeHandler).toBeTruthy()
     expect(closeHandler).toContain('showExitDialog')
   })

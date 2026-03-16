@@ -168,7 +168,8 @@ describe('MainLayout.vue — crash recovery integration', () => {
   let layoutSource: string
 
   beforeAll(() => {
-    const layoutPath = path.join(SRC_ROOT, 'src', 'layouts', 'MainLayout.vue')
+    // Engine event listeners extracted to useAppEvents composable
+    const layoutPath = path.join(SRC_ROOT, 'src', 'composables', 'useAppEvents.ts')
     layoutSource = fs.readFileSync(layoutPath, 'utf-8')
   })
 
@@ -197,16 +198,22 @@ describe('MainLayout.vue — crash recovery integration', () => {
   })
 
   describe('EngineOverlay integration', () => {
+    // EngineOverlay template rendering is still in MainLayout.vue
+    let mainLayoutSource: string
+    beforeAll(() => {
+      mainLayoutSource = fs.readFileSync(path.join(SRC_ROOT, 'src', 'layouts', 'MainLayout.vue'), 'utf-8')
+    })
+
     it('imports EngineOverlay component', () => {
-      expect(layoutSource).toContain('EngineOverlay')
+      expect(mainLayoutSource).toContain('EngineOverlay')
     })
 
     it('renders EngineOverlay in template', () => {
-      expect(layoutSource).toContain('<EngineOverlay')
+      expect(mainLayoutSource).toContain('<EngineOverlay')
     })
 
     it('binds show prop to showEngineOverlay ref', () => {
-      expect(layoutSource).toContain('showEngineOverlay')
+      expect(mainLayoutSource).toContain('showEngineOverlay')
     })
   })
 })

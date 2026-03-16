@@ -379,7 +379,8 @@ describe('MainLayout.vue — engine event listeners', () => {
   let layoutSource: string
 
   beforeAll(() => {
-    const layoutPath = path.join(SRC_ROOT, 'src', 'layouts', 'MainLayout.vue')
+    // Engine event listeners extracted to useAppEvents composable
+    const layoutPath = path.join(SRC_ROOT, 'src', 'composables', 'useAppEvents.ts')
     layoutSource = fs.readFileSync(layoutPath, 'utf-8')
   })
 
