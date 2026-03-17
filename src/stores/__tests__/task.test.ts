@@ -770,4 +770,36 @@ describe('TaskStore', () => {
       expect(onComplete).toHaveBeenCalledTimes(1)
     })
   })
+
+  // ── registerTorrentSource / consumeTorrentSource ────────────────────
+
+  describe('torrent source path tracking', () => {
+    it('registers and consumes a source path by infoHash', () => {
+      store.registerTorrentSource('abc123', '/downloads/movie.torrent')
+      expect(store.consumeTorrentSource('abc123')).toBe('/downloads/movie.torrent')
+    })
+
+    it('consumeTorrentSource returns undefined for unknown hash', () => {
+      expect(store.consumeTorrentSource('nonexistent')).toBeUndefined()
+    })
+
+    it('consumeTorrentSource deletes the entry after first consumption', () => {
+      store.registerTorrentSource('abc123', '/downloads/movie.torrent')
+      store.consumeTorrentSource('abc123')
+      expect(store.consumeTorrentSource('abc123')).toBeUndefined()
+    })
+
+    it('overwrites previous path when same hash is registered twice', () => {
+      store.registerTorrentSource('abc123', '/old/path.torrent')
+      store.registerTorrentSource('abc123', '/new/path.torrent')
+      expect(store.consumeTorrentSource('abc123')).toBe('/new/path.torrent')
+    })
+
+    it('tracks multiple hashes independently', () => {
+      store.registerTorrentSource('hash1', '/path/a.torrent')
+      store.registerTorrentSource('hash2', '/path/b.torrent')
+      expect(store.consumeTorrentSource('hash1')).toBe('/path/a.torrent')
+      expect(store.consumeTorrentSource('hash2')).toBe('/path/b.torrent')
+    })
+  })
 })

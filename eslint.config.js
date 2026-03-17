@@ -26,6 +26,8 @@ export default [
             'no-console': ['warn', { allow: ['warn', 'error'] }],
             'prefer-const': 'error',
             'no-var': 'error',
+            'max-lines': ['warn', { max: 350, skipBlankLines: true, skipComments: true }],
+            'max-lines-per-function': ['warn', { max: 80, skipBlankLines: true, skipComments: true }],
         },
     },
     ...pluginVue.configs['flat/recommended'],
@@ -53,6 +55,8 @@ export default [
             'vue/max-attributes-per-line': 'off',
             'vue/first-attribute-linebreak': 'off',
             'vue/html-closing-bracket-newline': 'off',
+            'max-lines': ['warn', { max: 350, skipBlankLines: true, skipComments: true }],
+            'max-lines-per-function': ['warn', { max: 80, skipBlankLines: true, skipComments: true }],
         },
     },
 ]

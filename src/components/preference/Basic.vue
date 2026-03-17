@@ -65,10 +65,35 @@ function buildForm() {
   return buildBasicForm(preferenceStore.config, defaultDownloadDir.value)
 }
 
+const CONNECTION_SAFE_LIMIT = 64
+
 const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } = usePreferenceForm({
   buildForm,
   buildSystemConfig: buildBasicSystemConfig,
   transformForStore: transformBasicForStore,
+  beforeSave: async (f) => {
+    // Gate save on user confirmation when connection count exceeds safe threshold.
+    // Modern HTTP/2 & HTTP/3 servers rarely benefit from >64 connections, and
+    // aggressive counts may trigger server-side rate limiting or IP bans.
+    if (f.maxConnectionPerServer > CONNECTION_SAFE_LIMIT) {
+      return new Promise<boolean>((resolve) => {
+        const revert = () => {
+          f.maxConnectionPerServer = CONNECTION_SAFE_LIMIT
+          resolve(false)
+        }
+        dialog.warning({
+          title: t('preferences.high-connection-warning-title'),
+          content: t('preferences.high-connection-warning'),
+          positiveText: t('preferences.high-connection-continue'),
+          negativeText: t('app.cancel'),
+          onPositiveClick: () => resolve(true),
+          onNegativeClick: revert,
+          onClose: revert,
+        })
+      })
+    }
+    return true
+  },
   afterSave: async (f, prevConfig) => {
     // Locale change → restart prompt
     const prevLocale = prevConfig.locale || 'en-US'
@@ -111,29 +136,6 @@ const stopLocaleSync = watch(
       form.value.locale = detected
       patchSnapshot({ locale: detected } as Partial<typeof form.value>)
       stopLocaleSync()
-    }
-  },
-)
-
-// Warn when max-connection-per-server exceeds the safe threshold (64).
-// Modern HTTP/2 & HTTP/3 servers rarely benefit from >64 connections, and
-// aggressive connection counts may trigger server-side rate limiting or IP bans.
-const CONNECTION_SAFE_LIMIT = 64
-watch(
-  () => form.value.maxConnectionPerServer,
-  (val, old) => {
-    if (val > CONNECTION_SAFE_LIMIT && (old ?? 0) <= CONNECTION_SAFE_LIMIT) {
-      const revert = () => {
-        form.value.maxConnectionPerServer = CONNECTION_SAFE_LIMIT
-      }
-      dialog.warning({
-        title: t('preferences.high-connection-warning-title'),
-        content: t('preferences.high-connection-warning'),
-        positiveText: t('preferences.high-connection-continue'),
-        negativeText: t('app.cancel'),
-        onNegativeClick: revert,
-        onClose: revert,
-      })
     }
   },
 )
