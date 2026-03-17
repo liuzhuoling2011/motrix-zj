@@ -44,7 +44,7 @@ import {
   useDialog,
 } from 'naive-ui'
 import { useAppMessage } from '@/composables/useAppMessage'
-import { SyncOutline, DiceOutline, DownloadOutline } from '@vicons/ionicons5'
+import { SyncOutline, DiceOutline, DownloadOutline, FolderOpenOutline, TrashOutline } from '@vicons/ionicons5'
 import { logger } from '@shared/logger'
 import PreferenceActionBar from './PreferenceActionBar.vue'
 import { trackerSourceOptions } from '@shared/constants/trackerSources'
@@ -260,6 +260,9 @@ const {
   handleDbBrowse,
   handleDbReset,
   handleExportLogs,
+  handleClearLog,
+  handleRevealPath,
+  handleOpenConfigFolder,
 } = useAdvancedActions({
   t,
   message,
@@ -434,15 +437,43 @@ onMounted(() => {
         </div>
       </NFormItem>
 
-      <NDivider title-placement="left">{{ t('preferences.developer') }}</NDivider>
+      <NDivider title-placement="left">{{ t('preferences.engine-section') }}</NDivider>
       <NFormItem :label="t('preferences.aria2-conf-path')">
-        <NInput :value="aria2ConfPath" readonly />
+        <NInputGroup>
+          <NInput :value="aria2ConfPath" readonly style="flex: 1" />
+          <NButton style="padding: 0 10px" @click="handleRevealPath(aria2ConfPath)">
+            <template #icon>
+              <NIcon :size="14"><FolderOpenOutline /></NIcon>
+            </template>
+          </NButton>
+        </NInputGroup>
       </NFormItem>
-      <NFormItem :label="t('preferences.download-session-path')">
-        <NInput :value="sessionPath" readonly />
+      <NFormItem :label="t('preferences.session-path')">
+        <NInputGroup>
+          <NInput :value="sessionPath" readonly style="flex: 1" />
+          <NButton style="padding: 0 10px" @click="handleRevealPath(sessionPath)">
+            <template #icon>
+              <NIcon :size="14"><FolderOpenOutline /></NIcon>
+            </template>
+          </NButton>
+        </NInputGroup>
       </NFormItem>
-      <NFormItem :label="t('preferences.app-log-path')">
-        <NInput :value="logPath" readonly />
+      <NFormItem :show-label="false">
+        <NButton class="session-reset-btn" ghost @click="handleSessionReset">
+          {{ t('preferences.clear-all-tasks') }}
+        </NButton>
+      </NFormItem>
+
+      <NDivider title-placement="left">{{ t('preferences.log-section') }}</NDivider>
+      <NFormItem :label="t('preferences.log-path')">
+        <NInputGroup>
+          <NInput :value="logPath" readonly style="flex: 1" />
+          <NButton style="padding: 0 10px" @click="handleRevealPath(logPath)">
+            <template #icon>
+              <NIcon :size="14"><FolderOpenOutline /></NIcon>
+            </template>
+          </NButton>
+        </NInputGroup>
       </NFormItem>
       <NFormItem :label="t('preferences.log-level')">
         <div class="log-level-row">
@@ -453,9 +484,16 @@ onMounted(() => {
             </template>
             {{ t('preferences.export-diagnostic-logs') }}
           </NButton>
+          <NButton class="clear-log-btn" ghost @click="handleClearLog">
+            <template #icon>
+              <NIcon><TrashOutline /></NIcon>
+            </template>
+            {{ t('preferences.clear-log') }}
+          </NButton>
         </div>
       </NFormItem>
-      <NDivider title-placement="left">{{ t('preferences.db-maintenance') }}</NDivider>
+
+      <NDivider title-placement="left">{{ t('preferences.history-section') }}</NDivider>
       <NFormItem :show-label="false">
         <NSpace>
           <NButton class="db-integrity-check-btn" @click="handleDbIntegrityCheck">
@@ -473,8 +511,11 @@ onMounted(() => {
       <NDivider title-placement="left">{{ t('preferences.reset') }}</NDivider>
       <NFormItem :show-label="false">
         <NSpace>
-          <NButton class="session-reset-btn" ghost @click="handleSessionReset">
-            {{ t('preferences.session-reset') }}
+          <NButton class="open-config-folder-btn" @click="handleOpenConfigFolder">
+            <template #icon>
+              <NIcon :size="14"><FolderOpenOutline /></NIcon>
+            </template>
+            {{ t('preferences.open-config-folder') }}
           </NButton>
           <NButton class="restore-defaults-btn" ghost @click="handleRestoreDefaults">
             {{ t('preferences.restore-defaults') }}
@@ -669,6 +710,28 @@ onMounted(() => {
   transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 .factory-reset-btn :deep(.n-button__state-border) {
+  border-color: var(--btn-error) !important;
+  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ── Clear Log — muted-rose ghost, matches destructive action buttons ── */
+.clear-log-btn {
+  --btn-error: #c97070;
+  color: var(--btn-error) !important;
+  border-color: var(--btn-error) !important;
+  transition:
+    color 0.35s cubic-bezier(0.2, 0, 0, 1),
+    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+.clear-log-btn:hover {
+  background-color: color-mix(in srgb, var(--btn-error) 12%, transparent) !important;
+}
+.clear-log-btn :deep(.n-button__border) {
+  border-color: var(--btn-error) !important;
+  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+.clear-log-btn :deep(.n-button__state-border) {
   border-color: var(--btn-error) !important;
   transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }

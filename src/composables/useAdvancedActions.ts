@@ -9,7 +9,7 @@
 import { ref, h, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { relaunch } from '@tauri-apps/plugin-process'
-import { downloadDir } from '@tauri-apps/api/path'
+import { downloadDir, appDataDir } from '@tauri-apps/api/path'
 import { save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { NTag, useDialog, type DataTableColumns } from 'naive-ui'
 import { logger } from '@shared/logger'
@@ -255,6 +255,46 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
     }
   }
 
+  function handleClearLog() {
+    dialog.warning({
+      title: t('preferences.clear-log'),
+      content: t('preferences.clear-log-confirm'),
+      positiveText: t('app.yes'),
+      negativeText: t('app.no'),
+      onPositiveClick: async () => {
+        try {
+          const { writeTextFile, BaseDirectory } = await import('@tauri-apps/plugin-fs')
+          await writeTextFile('motrix-next.log', '', { baseDir: BaseDirectory.AppData })
+          message.success(t('preferences.clear-log-success'))
+        } catch (e) {
+          logger.error('Advanced.clearLog', e)
+          message.error((e as Error).message)
+        }
+      },
+    })
+  }
+
+  async function handleRevealPath(filePath: string) {
+    try {
+      const { revealItemInDir } = await import('@tauri-apps/plugin-opener')
+      await revealItemInDir(filePath)
+    } catch (e) {
+      logger.error('Advanced.revealPath', e)
+      message.error((e as Error).message)
+    }
+  }
+
+  async function handleOpenConfigFolder() {
+    try {
+      const dir = await appDataDir()
+      const { openPath } = await import('@tauri-apps/plugin-opener')
+      await openPath(dir)
+    } catch (e) {
+      logger.error('Advanced.openConfigFolder', e)
+      message.error((e as Error).message)
+    }
+  }
+
   return {
     // State
     showDbBrowse,
@@ -271,5 +311,8 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
     handleDbBrowse,
     handleDbReset,
     handleExportLogs,
+    handleClearLog,
+    handleRevealPath,
+    handleOpenConfigFolder,
   }
 }
