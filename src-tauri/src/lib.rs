@@ -377,6 +377,7 @@ pub fn run() {
             commands::set_dock_visible,
             commands::probe_trackers,
             commands::is_autostart_launch,
+            commands::clear_log_file,
             commands::export_diagnostic_logs,
             commands::trash_file,
             commands::get_engine_conf_path,

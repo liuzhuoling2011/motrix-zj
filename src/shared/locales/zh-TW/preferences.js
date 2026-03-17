@@ -179,6 +179,7 @@ export default {
   'clear-log': '清空日誌',
   'clear-log-confirm': '確定要清空日誌檔案內容嗎？',
   'clear-log-success': '日誌已清空',
+  'clear-log-failed': '清空日誌失敗',
   'history-section': '下載紀錄',
   'open-config-folder': '開啟設定資料夾',
   'clear-all-tasks-success': '已清除所有下載任務',

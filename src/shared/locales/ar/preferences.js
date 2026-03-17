@@ -179,6 +179,7 @@ export default {
   'clear-log': 'مسح السجل',
   'clear-log-confirm': 'هل تريد مسح محتوى ملف السجل؟',
   'clear-log-success': 'تم مسح السجل',
+  'clear-log-failed': 'فشل في مسح السجل',
   'history-section': 'سجل التنزيل',
   'open-config-folder': 'فتح مجلد الإعدادات',
   'clear-all-tasks-success': 'تم مسح جميع مهام التنزيل',

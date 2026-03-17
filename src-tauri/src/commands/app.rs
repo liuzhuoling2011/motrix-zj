@@ -454,6 +454,23 @@ pub fn is_autostart_launch() -> bool {
     std::env::args().any(|a| a == "--autostart")
 }
 
+/// Truncates the application log file to zero bytes.
+/// Uses `app_log_dir()` to locate the log — no frontend FS permission required.
+#[tauri::command]
+pub fn clear_log_file(app: AppHandle) -> Result<(), AppError> {
+    let log_dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|e| AppError::Io(e.to_string()))?;
+    let log_path = log_dir.join("motrix-next.log");
+    if log_path.exists() {
+        std::fs::write(&log_path, "")
+            .map_err(|e| AppError::Io(format!("Failed to clear log: {}", e)))?;
+        log::info!("log file cleared: {}", log_path.display());
+    }
+    Ok(())
+}
+
 /// Collects all log files from the app log directory and compresses them
 /// into a ZIP archive at the user-specified path (chosen via a save dialog
 /// on the frontend). Includes a `system-info.json` with OS, architecture,

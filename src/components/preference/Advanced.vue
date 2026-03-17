@@ -84,7 +84,10 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
       message.error(t(error))
       return false
     }
-    if (!f.rpcSecret) {
+    // Only warn when user actively clears the secret (non-empty → empty).
+    // If it was already empty before this edit session, no need to re-warn.
+    const prevSecret = preferenceStore.config.rpcSecret
+    if (!f.rpcSecret && !!prevSecret) {
       return new Promise<boolean>((resolve) => {
         dialog.warning({
           title: t('preferences.rpc-secret-empty-title'),

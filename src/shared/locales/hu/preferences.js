@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Napló törlése',
   'clear-log-confirm': 'Biztosan törölni szeretné a naplófájl tartalmát?',
   'clear-log-success': 'Napló törölve',
+  'clear-log-failed': 'A napló törlése sikertelen',
   'history-section': 'Letöltési előzmények',
   'open-config-folder': 'Konfigurációs mappa megnyitása',
   'clear-all-tasks-success': 'Minden letöltési feladat törölve',

@@ -179,6 +179,7 @@ export default {
   'clear-log': '로그 지우기',
   'clear-log-confirm': '로그 파일 내용을 지우시겠습니까?',
   'clear-log-success': '로그가 삭제되었습니다',
+  'clear-log-failed': '로그 지우기 실패',
   'history-section': '다운로드 기록',
   'open-config-folder': '설정 폴더 열기',
   'clear-all-tasks-success': '모든 다운로드 작업이 삭제되었습니다',

@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Xóa nhật ký',
   'clear-log-confirm': 'Bạn có chắc chắn muốn xóa nội dung tập tin nhật ký?',
   'clear-log-success': 'Đã xóa nhật ký',
+  'clear-log-failed': 'Xóa nhật ký thất bại',
   'history-section': 'Lịch sử tải xuống',
   'open-config-folder': 'Mở thư mục cấu hình',
   'clear-all-tasks-success': 'Đã xóa tất cả tác vụ tải xuống',

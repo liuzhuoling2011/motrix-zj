@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Günlüğü Temizle',
   'clear-log-confirm': 'Günlük dosyasının içeriğini silmek istediğinizden emin misiniz?',
   'clear-log-success': 'Günlük temizlendi',
+  'clear-log-failed': 'Günlük temizlenemedi',
   'history-section': 'İndirme Geçmişi',
   'open-config-folder': 'Yapılandırma Klasörünü Aç',
   'clear-all-tasks-success': 'Tüm indirme görevleri silindi',

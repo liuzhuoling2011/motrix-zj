@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Șterge jurnalul',
   'clear-log-confirm': 'Sigur doriți să ștergeți conținutul fișierului jurnal?',
   'clear-log-success': 'Jurnal șters',
+  'clear-log-failed': 'Ștergerea jurnalului a eșuat',
   'history-section': 'Istoric descărcări',
   'open-config-folder': 'Deschide dosarul de configurare',
   'clear-all-tasks-success': 'Toate sarcinile de descărcare au fost șterse',

@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Log wissen',
   'clear-log-confirm': 'Weet u zeker dat u het logbestand wilt wissen?',
   'clear-log-success': 'Log gewist',
+  'clear-log-failed': 'Logbestand wissen mislukt',
   'history-section': 'Downloadgeschiedenis',
   'open-config-folder': 'Configuratiemap openen',
   'clear-all-tasks-success': 'Alle downloadtaken zijn verwijderd',

@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Изчисти дневника',
   'clear-log-confirm': 'Сигурни ли сте, че искате да изчистите файла на дневника?',
   'clear-log-success': 'Дневникът е изчистен',
+  'clear-log-failed': 'Неуспешно изчистване на журнала',
   'history-section': 'История на изтеглянията',
   'open-config-folder': 'Отвори папката с настройки',
   'clear-all-tasks-success': 'Всички задачи за изтегляне бяха изчистени',

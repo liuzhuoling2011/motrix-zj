@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Clear Log',
   'clear-log-confirm': 'Are you sure you want to clear the log file?',
   'clear-log-success': 'Log cleared',
+  'clear-log-failed': 'Failed to clear log',
   'history-section': 'Download History',
   'open-config-folder': 'Open Config Folder',
   'clear-all-tasks-success': 'All download tasks cleared',

@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Limpar log',
   'clear-log-confirm': 'Tem certeza de que deseja limpar o arquivo de log?',
   'clear-log-success': 'Log limpo',
+  'clear-log-failed': 'Falha ao limpar o log',
   'history-section': 'Histórico de downloads',
   'open-config-folder': 'Abrir pasta de configuração',
   'clear-all-tasks-success': 'Todas as tarefas de download foram removidas',

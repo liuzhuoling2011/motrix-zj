@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Protokoll löschen',
   'clear-log-confirm': 'Möchten Sie den Inhalt der Protokolldatei wirklich löschen?',
   'clear-log-success': 'Protokoll gelöscht',
+  'clear-log-failed': 'Protokoll konnte nicht gelöscht werden',
   'history-section': 'Download-Verlauf',
   'open-config-folder': 'Konfigurationsordner öffnen',
   'clear-all-tasks-success': 'Alle Download-Aufgaben wurden gelöscht',

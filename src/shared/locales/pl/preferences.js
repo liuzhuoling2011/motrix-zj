@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Wyczyść dziennik',
   'clear-log-confirm': 'Czy na pewno chcesz wyczyścić plik dziennika?',
   'clear-log-success': 'Dziennik wyczyszczony',
+  'clear-log-failed': 'Nie udało się wyczyścić dziennika',
   'history-section': 'Historia pobierania',
   'open-config-folder': 'Otwórz folder konfiguracji',
   'clear-all-tasks-success': 'Wszystkie zadania pobierania zostały usunięte',

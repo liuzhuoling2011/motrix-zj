@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Tøm logg',
   'clear-log-confirm': 'Er du sikker på at du vil tømme loggfilen?',
   'clear-log-success': 'Loggen er tømt',
+  'clear-log-failed': 'Kunne ikke tømme loggen',
   'history-section': 'Nedlastingshistorikk',
   'open-config-folder': 'Åpne konfigurasjonsmappe',
   'clear-all-tasks-success': 'Alle nedlastingsoppgaver er fjernet',

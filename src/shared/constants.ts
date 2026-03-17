@@ -70,7 +70,7 @@ export const UPDATE_CHANNELS = ['stable', 'beta'] as const
  * Dynamic values handled at runtime:
  * - `locale: ''`    → OS locale detection in main.ts
  * - `dir: ''`       → system Downloads directory via Tauri API
- * - `rpcSecret: ''` → random 16-char secret generated in main.ts / resetToDefaults()
+ * - `rpcSecret`     → ABSENT from defaults; auto-generated on first launch in main.ts
  */
 export const DEFAULT_APP_CONFIG = {
   // ── Appearance ──────────────────────────────────────────────────
@@ -121,7 +121,10 @@ export const DEFAULT_APP_CONFIG = {
   // ── Network & Security ────────────────────────────────────────
   enableUpnp: false, // security consensus: UPnP has zero-auth design, default OFF
   rpcListenPort: ENGINE_RPC_PORT,
-  rpcSecret: '', // generated dynamically at runtime (main.ts / resetToDefaults)
+  // rpcSecret is intentionally ABSENT from defaults.
+  // undefined → main.ts auto-generates on first launch.
+  // '' → user intentionally cleared (respected, not regenerated).
+  // 'abc' → user-set or auto-generated secret (kept as-is).
   listenPort: 21301,
   dhtListenPort: 26701,
   proxy: { enable: false, server: '', bypass: '', scope: [] as string[] },

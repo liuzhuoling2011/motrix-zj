@@ -179,6 +179,7 @@ export default {
   'clear-log': '清空日志',
   'clear-log-confirm': '确定要清空日志文件内容吗？',
   'clear-log-success': '日志已清空',
+  'clear-log-failed': '清空日志失败',
   'history-section': '下载历史',
   'open-config-folder': '打开配置文件夹',
   'clear-all-tasks-success': '已清除所有下载任务',

@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Εκκαθάριση αρχείου',
   'clear-log-confirm': 'Θέλετε σίγουρα να εκκαθαρίσετε το αρχείο καταγραφής;',
   'clear-log-success': 'Το αρχείο εκκαθαρίστηκε',
+  'clear-log-failed': 'Αποτυχία εκκαθάρισης αρχείου καταγραφής',
   'history-section': 'Ιστορικό λήψεων',
   'open-config-folder': 'Άνοιγμα φακέλου ρυθμίσεων',
   'clear-all-tasks-success': 'Όλες οι εργασίες λήψης εκκαθαρίστηκαν',

@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Effacer le journal',
   'clear-log-confirm': 'Voulez-vous vraiment effacer le fichier journal ?',
   'clear-log-success': 'Journal effacé',
+  'clear-log-failed': 'Échec de la suppression du journal',
   'history-section': 'Historique des téléchargements',
   'open-config-folder': 'Ouvrir le dossier de configuration',
   'clear-all-tasks-success': 'Toutes les tâches de téléchargement ont été supprimées',

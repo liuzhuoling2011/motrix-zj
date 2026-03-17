@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Cancella registro',
   'clear-log-confirm': 'Vuoi davvero svuotare il file di registro?',
   'clear-log-success': 'Registro cancellato',
+  'clear-log-failed': 'Impossibile cancellare il registro',
   'history-section': 'Cronologia download',
   'open-config-folder': 'Apri cartella configurazione',
   'clear-all-tasks-success': 'Tutte le attività di download sono state cancellate',

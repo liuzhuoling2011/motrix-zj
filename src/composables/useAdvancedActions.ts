@@ -264,12 +264,11 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
       negativeText: t('app.no'),
       onPositiveClick: async () => {
         try {
-          const { writeTextFile, BaseDirectory } = await import('@tauri-apps/plugin-fs')
-          await writeTextFile('motrix-next.log', '', { baseDir: BaseDirectory.AppLog })
+          await invoke('clear_log_file')
           message.success(t('preferences.clear-log-success'))
         } catch (e) {
           logger.error('Advanced.clearLog', e)
-          message.error(String(e))
+          message.error(t('preferences.clear-log-failed'))
         }
       },
     })

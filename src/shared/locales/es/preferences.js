@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Borrar registro',
   'clear-log-confirm': '¿Está seguro de que desea borrar el archivo de registro?',
   'clear-log-success': 'Registro borrado',
+  'clear-log-failed': 'Error al borrar el registro',
   'history-section': 'Historial de descargas',
   'open-config-folder': 'Abrir carpeta de configuración',
   'clear-all-tasks-success': 'Se han borrado todas las tareas de descarga',

@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Esborra el registre',
   'clear-log-confirm': 'Segur que voleu esborrar el contingut del fitxer de registre?',
   'clear-log-success': 'Registre esborrat',
+  'clear-log-failed': 'No s\'ha pogut esborrar el registre',
   'history-section': 'Historial de descàrregues',
   'open-config-folder': 'Obrir carpeta de configuració',
   'clear-all-tasks-success': 'Totes les tasques de descàrrega han estat esborrades',

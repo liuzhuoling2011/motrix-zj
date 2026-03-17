@@ -179,6 +179,7 @@ export default {
   'clear-log': 'Очистить журнал',
   'clear-log-confirm': 'Вы уверены, что хотите очистить файл журнала?',
   'clear-log-success': 'Журнал очищен',
+  'clear-log-failed': 'Не удалось очистить журнал',
   'history-section': 'История загрузок',
   'open-config-folder': 'Открыть папку конфигурации',
   'clear-all-tasks-success': 'Все задачи загрузки очищены',

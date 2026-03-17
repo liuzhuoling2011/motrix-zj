@@ -179,6 +179,7 @@ export default {
   'clear-log': 'ログを消去',
   'clear-log-confirm': 'ログファイルの内容を消去しますか？',
   'clear-log-success': 'ログを消去しました',
+  'clear-log-failed': 'ログのクリアに失敗しました',
   'history-section': 'ダウンロード履歴',
   'open-config-folder': '設定フォルダーを開く',
   'clear-all-tasks-success': 'すべてのダウンロードタスクを消去しました',

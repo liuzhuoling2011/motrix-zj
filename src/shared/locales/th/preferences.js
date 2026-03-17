@@ -179,6 +179,7 @@ export default {
   'clear-log': 'ล้างบันทึก',
   'clear-log-confirm': 'คุณแน่ใจหรือไม่ว่าต้องการล้างไฟล์บันทึก?',
   'clear-log-success': 'ล้างบันทึกแล้ว',
+  'clear-log-failed': 'ล้างบันทึกล้มเหลว',
   'history-section': 'ประวัติการดาวน์โหลด',
   'open-config-folder': 'เปิดโฟลเดอร์การตั้งค่า',
   'clear-all-tasks-success': 'ล้างงานดาวน์โหลดทั้งหมดแล้ว',
