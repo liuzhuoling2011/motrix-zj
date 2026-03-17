@@ -47,6 +47,7 @@ const defaultDownloadDir = ref('')
 const currentPlatform = ref('')
 const isMac = computed(() => currentPlatform.value === 'macos')
 const isMacOrWin = computed(() => currentPlatform.value === 'macos' || currentPlatform.value === 'windows')
+const isMacOrLinux = computed(() => currentPlatform.value === 'macos' || currentPlatform.value === 'linux')
 const platformLabel = computed(() => {
   const map: Record<string, string> = { macos: 'macOS', windows: 'Windows', linux: 'Linux' }
   return map[currentPlatform.value] || currentPlatform.value
@@ -365,7 +366,7 @@ onMounted(async () => {
       <NFormItem v-if="isMac" :label="t('preferences.hide-dock-on-minimize')">
         <NSwitch v-model:value="form.hideDockOnMinimize" />
       </NFormItem>
-      <NFormItem v-if="isMac" :label="t('preferences.tray-speedometer')">
+      <NFormItem v-if="isMacOrLinux" :label="t('preferences.tray-speedometer')">
         <NSwitch v-model:value="form.traySpeedometer" />
       </NFormItem>
 

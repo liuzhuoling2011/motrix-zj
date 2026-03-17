@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'Standard',
   'run-mode-tray': 'Systemkurv',
   'run-mode-hide-tray': 'Skjul systemkurv',
-  'tray-speedometer': 'Vis sanntidshastighet i systemkurven (macOS)',
+  'tray-speedometer': 'Vis sanntidshastighet i systemkurven',
   'dock-badge-speed': 'Vis hastighet på Dock-ikonet (macOS)',
   'show-progress-bar': 'Vis fremdriftslinje',
   'language': 'Språk',

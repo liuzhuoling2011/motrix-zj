@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'Szabványos',
   'run-mode-tray': 'Tálca',
   'run-mode-hide-tray': 'Tálca elrejtése',
-  'tray-speedometer': 'Valós idejű sebesség megjelenítése a tálcán (macOS)',
+  'tray-speedometer': 'Valós idejű sebesség megjelenítése a tálcán',
   'dock-badge-speed': 'Sebesség a Dock ikonon (macOS)',
   'show-progress-bar': 'Folyamatjelző megjelenítése',
   'language': 'Nyelv',

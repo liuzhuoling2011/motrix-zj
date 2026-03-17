@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'Standaard',
   'run-mode-tray': 'Systeemvak',
   'run-mode-hide-tray': 'Systeemvak verbergen',
-  'tray-speedometer': 'Realtime snelheid in systeemvak tonen (macOS)',
+  'tray-speedometer': 'Realtime snelheid in systeemvak tonen',
   'dock-badge-speed': 'Snelheid op Dock-pictogram (macOS)',
   'show-progress-bar': 'Voortgangsbalk tonen',
   'language': 'Taal',

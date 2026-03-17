@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'Стандартный',
   'run-mode-tray': 'Системный лоток',
   'run-mode-hide-tray': 'Скрыть системный лоток',
-  'tray-speedometer': 'Показывать скорость в реальном времени в лотке (macOS)',
+  'tray-speedometer': 'Показывать скорость в реальном времени в лотке',
   'dock-badge-speed': 'Скорость на значке Dock (macOS)',
   'show-progress-bar': 'Показывать индикатор прогресса',
   'language': 'Язык',

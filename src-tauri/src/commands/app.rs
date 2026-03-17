@@ -153,15 +153,24 @@ pub fn get_engine_conf_path() -> Result<String, AppError> {
     Ok(conf_path.to_string_lossy().to_string())
 }
 
-/// Updates the system tray title text (macOS menu bar display).
+/// Updates the system tray title text.
+///
+/// Supported platforms:
+/// - **macOS**: renders in the menu bar next to the tray icon
+/// - **Linux**: renders as an appindicator label next to the icon
+/// - **Windows**: no-op (Windows system tray has no title API)
 #[tauri::command]
 pub fn update_tray_title(app: AppHandle, title: String) -> Result<(), AppError> {
     if let Some(tray) = app.tray_by_id("main") {
         tray.set_title(Some(&title))
             .map_err(|e| AppError::Io(e.to_string()))?;
-        // Workaround: re-set icon after set_title to prevent macOS icon disappearing (Tauri/tao bug)
-        if let Some(icon) = app.default_window_icon() {
-            let _ = tray.set_icon(Some(icon.clone()));
+        // Workaround: re-set icon after set_title to prevent macOS icon disappearing (Tauri/tao bug).
+        // Only needed on macOS — Linux appindicator does not have this issue.
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(icon) = app.default_window_icon() {
+                let _ = tray.set_icon(Some(icon.clone()));
+            }
         }
     }
     Ok(())

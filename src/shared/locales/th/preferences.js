@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'มาตรฐาน',
   'run-mode-tray': 'ถาดระบบ',
   'run-mode-hide-tray': 'ซ่อนถาดระบบ',
-  'tray-speedometer': 'แสดงความเร็วแบบเรียลไทม์ในถาด (macOS)',
+  'tray-speedometer': 'แสดงความเร็วแบบเรียลไทม์ในถาด',
   'dock-badge-speed': 'แสดงความเร็วบนไอคอน Dock (macOS)',
   'show-progress-bar': 'แสดงแถบความคืบหน้า',
   'language': 'ภาษา',

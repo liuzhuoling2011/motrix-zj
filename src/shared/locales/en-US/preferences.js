@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'Standard',
   'run-mode-tray': 'Tray',
   'run-mode-hide-tray': 'Hidden Tray',
-  'tray-speedometer': 'Show real-time speed in tray (macOS)',
+  'tray-speedometer': 'Show real-time speed in tray',
   'dock-badge-speed': 'Show speed badge on Dock icon (macOS)',
   'show-progress-bar': 'Show download progress bar',
   'language': 'Language',

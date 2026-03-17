@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'Standart',
   'run-mode-tray': 'Sistem tepsisi',
   'run-mode-hide-tray': 'Tepsiyi gizle',
-  'tray-speedometer': 'Tepside gerçek zamanlı hız göster (macOS)',
+  'tray-speedometer': 'Tepside gerçek zamanlı hız göster',
   'dock-badge-speed': 'Dock simgesinde hız göster (macOS)',
   'show-progress-bar': 'İlerleme çubuğu göster',
   'language': 'Dil',

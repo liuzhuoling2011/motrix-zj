@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'Standard',
   'run-mode-tray': 'Bara de sistem',
   'run-mode-hide-tray': 'Ascunde bara de sistem',
-  'tray-speedometer': 'Arată viteza în timp real în bară (macOS)',
+  'tray-speedometer': 'Arată viteza în timp real în bară',
   'dock-badge-speed': 'Viteza pe pictograma Dock (macOS)',
   'show-progress-bar': 'Arată bara de progres',
   'language': 'Limbă',

@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'قياسي',
   'run-mode-tray': 'شريط النظام',
   'run-mode-hide-tray': 'إخفاء شريط النظام',
-  'tray-speedometer': 'إظهار السرعة الفورية في الشريط (macOS)',
+  'tray-speedometer': 'إظهار السرعة الفورية في الشريط',
   'dock-badge-speed': 'عرض السرعة على أيقونة Dock (macOS)',
   'show-progress-bar': 'إظهار شريط التقدم',
   'language': 'اللغة',

@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'Estàndard',
   'run-mode-tray': 'Safata',
   'run-mode-hide-tray': 'Safata amagada',
-  'tray-speedometer': 'Mostrar velocitat en temps real a la safata (macOS)',
+  'tray-speedometer': 'Mostrar velocitat en temps real a la safata',
   'dock-badge-speed': 'Mostra la velocitat al Dock (macOS)',
   'show-progress-bar': 'Mostrar barra de progrés',
   'language': 'Idioma',

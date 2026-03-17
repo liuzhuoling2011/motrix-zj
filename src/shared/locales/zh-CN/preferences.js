@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': '标准应用',
   'run-mode-tray': '托盘应用',
   'run-mode-hide-tray': '隐藏托盘',
-  'tray-speedometer': '托盘显示实时速度（macOS）',
+  'tray-speedometer': '托盘显示实时速度',
   'dock-badge-speed': 'Dock 图标显示下载速度（macOS）',
   'show-progress-bar': '显示下载进度条',
   'language': '语言',

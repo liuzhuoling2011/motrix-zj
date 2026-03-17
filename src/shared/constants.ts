@@ -105,7 +105,7 @@ export const DEFAULT_APP_CONFIG = {
   minimizeToTrayOnClose: false, // close=quit is default UX
   hideDockOnMinimize: false, // macOS: hide Dock icon when minimized to tray
   showProgressBar: true,
-  traySpeedometer: true, // Motrix signature feature
+  traySpeedometer: false, // opt-in: supported on macOS menu bar + Linux appindicator
   dockBadgeSpeed: true, // macOS Dock badge on by default
   taskNotification: true, // users expect download-complete notifications
   newTaskShowDownloading: true, // auto-navigate to downloads after adding task

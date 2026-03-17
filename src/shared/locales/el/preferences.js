@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'Τυπική',
   'run-mode-tray': 'Γραμμή εργασιών',
   'run-mode-hide-tray': 'Απόκρυψη γραμμής εργασιών',
-  'tray-speedometer': 'Εμφάνιση ταχύτητας σε πραγματικό χρόνο (macOS)',
+  'tray-speedometer': 'Εμφάνιση ταχύτητας σε πραγματικό χρόνο',
   'dock-badge-speed': 'Εμφάνιση ταχύτητας στο Dock (macOS)',
   'show-progress-bar': 'Εμφάνιση γραμμής προόδου',
   'language': 'Γλώσσα',

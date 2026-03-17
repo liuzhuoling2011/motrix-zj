@@ -7,6 +7,10 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }))
 
+vi.mock('@tauri-apps/plugin-os', () => ({
+  platform: vi.fn(() => 'macos'),
+}))
+
 vi.mock('@/stores/preference', () => ({
   usePreferenceStore: () => ({
     config: { traySpeedometer: false, dockBadgeSpeed: false, showProgressBar: false },
@@ -226,6 +230,90 @@ describe('useAppStore', () => {
         getGlobalStat: vi.fn().mockRejectedValue(new Error('network')),
       }
       await expect(store.fetchGlobalStat(api)).resolves.toBeUndefined()
+    })
+
+    it('calls update_tray_title with speed when traySpeedometer enabled and downloading', async () => {
+      // Override preference mock to enable tray speedometer
+      const prefMod = await import('@/stores/preference')
+      vi.spyOn(prefMod, 'usePreferenceStore').mockReturnValue({
+        config: { traySpeedometer: true, dockBadgeSpeed: false, showProgressBar: false },
+      } as ReturnType<typeof prefMod.usePreferenceStore>)
+
+      const { invoke } = await import('@tauri-apps/api/core')
+      const store = useAppStore()
+      const api = {
+        getGlobalStat: vi.fn().mockResolvedValue({
+          downloadSpeed: '1048576',
+          uploadSpeed: '0',
+          numActive: '1',
+          numWaiting: '0',
+          numStopped: '0',
+        }),
+      }
+      await store.fetchGlobalStat(api)
+
+      // Should have called update_tray_title with a speed string (↓...)
+      const trayCalls = (invoke as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c: unknown[]) => c[0] === 'update_tray_title',
+      )
+      expect(trayCalls.length).toBeGreaterThan(0)
+      const titleArg = trayCalls[trayCalls.length - 1][1] as { title: string }
+      expect(titleArg.title).toMatch(/↓/)
+      expect(titleArg.title.length).toBeGreaterThan(1)
+    })
+
+    it('clears tray title when traySpeedometer enabled but no download speed', async () => {
+      const prefMod = await import('@/stores/preference')
+      vi.spyOn(prefMod, 'usePreferenceStore').mockReturnValue({
+        config: { traySpeedometer: true, dockBadgeSpeed: false, showProgressBar: false },
+      } as ReturnType<typeof prefMod.usePreferenceStore>)
+
+      const { invoke } = await import('@tauri-apps/api/core')
+      const store = useAppStore()
+      const api = {
+        getGlobalStat: vi.fn().mockResolvedValue({
+          downloadSpeed: '0',
+          uploadSpeed: '0',
+          numActive: '0',
+          numWaiting: '0',
+          numStopped: '2',
+        }),
+      }
+      await store.fetchGlobalStat(api)
+
+      const trayCalls = (invoke as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c: unknown[]) => c[0] === 'update_tray_title',
+      )
+      expect(trayCalls.length).toBeGreaterThan(0)
+      const titleArg = trayCalls[trayCalls.length - 1][1] as { title: string }
+      expect(titleArg.title).toBe('')
+    })
+
+    it('shows upload speed in tray when uploading but not downloading', async () => {
+      const prefMod = await import('@/stores/preference')
+      vi.spyOn(prefMod, 'usePreferenceStore').mockReturnValue({
+        config: { traySpeedometer: true, dockBadgeSpeed: false, showProgressBar: false },
+      } as ReturnType<typeof prefMod.usePreferenceStore>)
+
+      const { invoke } = await import('@tauri-apps/api/core')
+      const store = useAppStore()
+      const api = {
+        getGlobalStat: vi.fn().mockResolvedValue({
+          downloadSpeed: '0',
+          uploadSpeed: '524288',
+          numActive: '1',
+          numWaiting: '0',
+          numStopped: '0',
+        }),
+      }
+      await store.fetchGlobalStat(api)
+
+      const trayCalls = (invoke as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c: unknown[]) => c[0] === 'update_tray_title',
+      )
+      expect(trayCalls.length).toBeGreaterThan(0)
+      const titleArg = trayCalls[trayCalls.length - 1][1] as { title: string }
+      expect(titleArg.title).toMatch(/↑/)
     })
   })
 

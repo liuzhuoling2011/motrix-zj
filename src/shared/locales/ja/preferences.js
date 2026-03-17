@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': '標準',
   'run-mode-tray': 'トレイ',
   'run-mode-hide-tray': 'トレイを非表示',
-  'tray-speedometer': 'トレイにリアルタイム速度を表示 (macOS)',
+  'tray-speedometer': 'トレイにリアルタイム速度を表示',
   'dock-badge-speed': 'Dockアイコンに速度を表示 (macOS)',
   'show-progress-bar': 'ダウンロード進捗バーを表示',
   'language': '言語',

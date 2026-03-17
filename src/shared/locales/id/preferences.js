@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'Standar',
   'run-mode-tray': 'Baki sistem',
   'run-mode-hide-tray': 'Sembunyikan baki',
-  'tray-speedometer': 'Tampilkan kecepatan real-time di baki (macOS)',
+  'tray-speedometer': 'Tampilkan kecepatan real-time di baki',
   'dock-badge-speed': 'Tampilkan kecepatan di ikon Dock (macOS)',
   'show-progress-bar': 'Tampilkan bilah kemajuan',
   'language': 'Bahasa',

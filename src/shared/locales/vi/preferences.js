@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'Tiêu chuẩn',
   'run-mode-tray': 'Khay hệ thống',
   'run-mode-hide-tray': 'Ẩn khay hệ thống',
-  'tray-speedometer': 'Hiện tốc độ thời gian thực trên khay (macOS)',
+  'tray-speedometer': 'Hiện tốc độ thời gian thực trên khay',
   'dock-badge-speed': 'Tốc độ trên biểu tượng Dock (macOS)',
   'show-progress-bar': 'Hiện thanh tiến trình',
   'language': 'Ngôn ngữ',

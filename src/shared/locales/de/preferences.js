@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'Standard',
   'run-mode-tray': 'Taskleiste',
   'run-mode-hide-tray': 'Taskleiste ausblenden',
-  'tray-speedometer': 'Echtzeit-Geschwindigkeit in Taskleiste anzeigen (macOS)',
+  'tray-speedometer': 'Echtzeit-Geschwindigkeit in Taskleiste anzeigen',
   'dock-badge-speed': 'Geschwindigkeit im Dock anzeigen (macOS)',
   'show-progress-bar': 'Fortschrittsbalken anzeigen',
   'language': 'Sprache',

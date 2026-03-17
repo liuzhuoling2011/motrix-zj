@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'Padrão',
   'run-mode-tray': 'Bandeja',
   'run-mode-hide-tray': 'Bandeja oculta',
-  'tray-speedometer': 'Mostrar velocidade em tempo real na bandeja (macOS)',
+  'tray-speedometer': 'Mostrar velocidade em tempo real na bandeja',
   'dock-badge-speed': 'Exibir velocidade no ícone do Dock (macOS)',
   'show-progress-bar': 'Mostrar barra de progresso',
   'language': 'Idioma',

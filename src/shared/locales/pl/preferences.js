@@ -49,7 +49,7 @@ export default {
   'run-mode-standard': 'Standardowy',
   'run-mode-tray': 'Zasobnik',
   'run-mode-hide-tray': 'Ukryj zasobnik',
-  'tray-speedometer': 'Pokaż prędkość w czasie rzeczywistym w zasobniku (macOS)',
+  'tray-speedometer': 'Pokaż prędkość w czasie rzeczywistym w zasobniku',
   'dock-badge-speed': 'Pokaż prędkość na ikonie Docka (macOS)',
   'show-progress-bar': 'Pokaż pasek postępu',
   'language': 'Język',

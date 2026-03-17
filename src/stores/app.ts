@@ -5,6 +5,7 @@ import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { decodeThunderLink } from '@shared/utils'
 import { logger } from '@shared/logger'
+import { platform } from '@tauri-apps/plugin-os'
 import { STAT_BASE_INTERVAL, STAT_PER_TASK_INTERVAL, STAT_MIN_INTERVAL, STAT_MAX_INTERVAL } from '@shared/timing'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
 import type {
@@ -15,6 +16,17 @@ import type {
   AppConfig,
   BatchItem,
 } from '@shared/types'
+
+// Tray title (speed display) is supported on macOS (menu bar) and Linux (appindicator).
+// Windows system tray has no title API — set_title() is a no-op.
+const supportsTrayTitle = (() => {
+  try {
+    const p = platform()
+    return p === 'macos' || p === 'linux'
+  } catch {
+    return false
+  }
+})()
 
 export const useAppStore = defineStore('app', () => {
   const systemTheme = ref('light')
@@ -131,13 +143,15 @@ export const useAppStore = defineStore('app', () => {
       try {
         const prefStore = (await import('@/stores/preference')).usePreferenceStore()
 
-        // Tray speed display (macOS menu bar)
-        if (prefStore.config?.traySpeedometer && (parsed.downloadSpeed > 0 || parsed.uploadSpeed > 0)) {
-          const title =
-            parsed.downloadSpeed > 0 ? `↓${compactSize(parsed.downloadSpeed)}` : `↑${compactSize(parsed.uploadSpeed)}`
-          await invoke('update_tray_title', { title })
-        } else {
-          await invoke('update_tray_title', { title: '' })
+        // Tray speed display (macOS menu bar / Linux appindicator label)
+        if (supportsTrayTitle) {
+          if (prefStore.config?.traySpeedometer && (parsed.downloadSpeed > 0 || parsed.uploadSpeed > 0)) {
+            const title =
+              parsed.downloadSpeed > 0 ? `↓${compactSize(parsed.downloadSpeed)}` : `↑${compactSize(parsed.uploadSpeed)}`
+            await invoke('update_tray_title', { title })
+          } else {
+            await invoke('update_tray_title', { title: '' })
+          }
         }
 
         // Dock badge speed (macOS)
