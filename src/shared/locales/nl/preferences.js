@@ -173,4 +173,7 @@ export default {
   'db-browse': 'Database bekijken',
   'db-browse-title': 'Databaserecords',
   'db-record-count': '{count} records totaal',
+  'high-connection-warning-title': 'Hoog aantal verbindingen',
+  'high-connection-warning': 'Het instellen van meer dan 64 verbindingen per server kan snelheidslimieten of IP-blokkades veroorzaken op sommige servers en verbetert zelden de snelheid op moderne HTTP/2- en HTTP/3-servers.',
+  'high-connection-continue': 'Toch gebruiken',
 }

@@ -173,4 +173,7 @@ export default {
   'db-browse': 'عرض قاعدة البيانات',
   'db-browse-title': 'سجلات قاعدة البيانات',
   'db-record-count': '{count} سجل إجمالاً',
+  'high-connection-warning-title': 'عدد اتصالات مرتفع',
+  'high-connection-warning': 'قد يؤدي تعيين أكثر من 64 اتصالاً لكل خادم إلى تقييد السرعة أو حظر IP على بعض الخوادم، ونادراً ما يحسّن السرعة على خوادم HTTP/2 و HTTP/3 الحديثة.',
+  'high-connection-continue': 'متابعة على أي حال',
 }

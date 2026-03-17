@@ -173,4 +173,7 @@ export default {
   'db-browse': '查看資料庫',
   'db-browse-title': '資料庫記錄',
   'db-record-count': '共 {count} 筆記錄',
+  'high-connection-warning-title': '連線數過高',
+  'high-connection-warning': '單伺服器超過 64 個連線可能觸發部分伺服器的限速或 IP 封鎖，且在現代 HTTP/2 和 HTTP/3 伺服器上幾乎無法提升下載速度。請謹慎使用。',
+  'high-connection-continue': '仍然使用',
 }

@@ -173,4 +173,7 @@ export default {
   'db-browse': 'Xem cơ sở dữ liệu',
   'db-browse-title': 'Bản ghi cơ sở dữ liệu',
   'db-record-count': 'Tổng cộng {count} bản ghi',
+  'high-connection-warning-title': 'Số kết nối cao',
+  'high-connection-warning': 'Đặt hơn 64 kết nối mỗi máy chủ có thể gây giới hạn tốc độ hoặc chặn IP trên một số máy chủ và hiếm khi cải thiện tốc độ trên các máy chủ HTTP/2 & HTTP/3 hiện đại.',
+  'high-connection-continue': 'Vẫn sử dụng',
 }

@@ -173,4 +173,7 @@ export default {
   'db-browse': 'ดูฐานข้อมูล',
   'db-browse-title': 'บันทึกฐานข้อมูล',
   'db-record-count': 'ทั้งหมด {count} รายการ',
+  'high-connection-warning-title': 'จำนวนการเชื่อมต่อสูง',
+  'high-connection-warning': 'การตั้งค่ามากกว่า 64 การเชื่อมต่อต่อเซิร์ฟเวอร์อาจทำให้เกิดการจำกัดความเร็วหรือการบล็อก IP บนเซิร์ฟเวอร์บางแห่ง และแทบไม่ช่วยเพิ่มความเร็วบนเซิร์ฟเวอร์ HTTP/2 และ HTTP/3 สมัยใหม่',
+  'high-connection-continue': 'ใช้ต่อไป',
 }

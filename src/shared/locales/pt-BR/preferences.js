@@ -173,4 +173,7 @@ export default {
   'db-browse': 'Ver banco de dados',
   'db-browse-title': 'Registros do banco de dados',
   'db-record-count': '{count} registros no total',
+  'high-connection-warning-title': 'Número elevado de conexões',
+  'high-connection-warning': 'Definir mais de 64 conexões por servidor pode causar limitação de velocidade ou bloqueio de IP em alguns servidores e raramente melhora a velocidade em servidores HTTP/2 e HTTP/3 modernos.',
+  'high-connection-continue': 'Usar mesmo assim',
 }

@@ -173,4 +173,7 @@ export default {
   'db-browse': 'Adatbázis megtekintése',
   'db-browse-title': 'Adatbázis-rekordok',
   'db-record-count': 'Összesen {count} rekord',
+  'high-connection-warning-title': 'Magas kapcsolatszám',
+  'high-connection-warning': 'A szerverenként 64-nél több kapcsolat beállítása sebességkorlátozást vagy IP-tiltást válthat ki egyes szervereken, és ritkán javítja a sebességet modern HTTP/2 és HTTP/3 szervereken.',
+  'high-connection-continue': 'Használat mindenképp',
 }

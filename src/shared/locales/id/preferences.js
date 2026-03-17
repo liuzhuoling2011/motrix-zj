@@ -173,4 +173,7 @@ export default {
   'db-browse': 'Lihat Database',
   'db-browse-title': 'Catatan Database',
   'db-record-count': '{count} catatan total',
+  'high-connection-warning-title': 'Jumlah Koneksi Tinggi',
+  'high-connection-warning': 'Mengatur lebih dari 64 koneksi per server dapat memicu pembatasan kecepatan atau pemblokiran IP di beberapa server dan jarang meningkatkan kecepatan pada server HTTP/2 & HTTP/3 modern.',
+  'high-connection-continue': 'Tetap Gunakan',
 }

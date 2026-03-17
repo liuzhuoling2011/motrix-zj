@@ -173,4 +173,7 @@ export default {
   'db-browse': '데이터베이스 보기',
   'db-browse-title': '데이터베이스 레코드',
   'db-record-count': '총 {count}개 레코드',
+  'high-connection-warning-title': '높은 연결 수',
+  'high-connection-warning': '서버당 64개 이상의 연결을 설정하면 일부 서버에서 속도 제한이나 IP 차단이 발생할 수 있으며, 최신 HTTP/2 및 HTTP/3 서버에서는 속도 향상 효과가 거의 없습니다.',
+  'high-connection-continue': '그래도 사용',
 }

@@ -173,4 +173,7 @@ export default {
   'db-browse': 'View Database',
   'db-browse-title': 'Database Records',
   'db-record-count': '{count} records total',
+  'high-connection-warning-title': 'High Connection Count',
+  'high-connection-warning': 'Setting more than 64 connections per server may trigger rate limiting or IP bans on some servers and rarely improves speed on modern HTTP/2 & HTTP/3 servers. Use with caution.',
+  'high-connection-continue': 'Use Anyway',
 }

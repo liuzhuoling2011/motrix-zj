@@ -173,4 +173,7 @@ export default {
   'db-browse': 'Wyświetl bazę danych',
   'db-browse-title': 'Rekordy bazy danych',
   'db-record-count': '{count} rekordów łącznie',
+  'high-connection-warning-title': 'Wysoka liczba połączeń',
+  'high-connection-warning': 'Ustawienie ponad 64 połączeń na serwer może wywołać ograniczenie prędkości lub blokadę IP na niektórych serwerach i rzadko poprawia prędkość na nowoczesnych serwerach HTTP/2 i HTTP/3.',
+  'high-connection-continue': 'Użyj mimo to',
 }

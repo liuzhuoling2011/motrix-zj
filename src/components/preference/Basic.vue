@@ -115,6 +115,29 @@ const stopLocaleSync = watch(
   },
 )
 
+// Warn when max-connection-per-server exceeds the safe threshold (64).
+// Modern HTTP/2 & HTTP/3 servers rarely benefit from >64 connections, and
+// aggressive connection counts may trigger server-side rate limiting or IP bans.
+const CONNECTION_SAFE_LIMIT = 64
+watch(
+  () => form.value.maxConnectionPerServer,
+  (val, old) => {
+    if (val > CONNECTION_SAFE_LIMIT && (old ?? 0) <= CONNECTION_SAFE_LIMIT) {
+      const revert = () => {
+        form.value.maxConnectionPerServer = CONNECTION_SAFE_LIMIT
+      }
+      dialog.warning({
+        title: t('preferences.high-connection-warning-title'),
+        content: t('preferences.high-connection-warning'),
+        positiveText: t('preferences.high-connection-continue'),
+        negativeText: t('app.cancel'),
+        onNegativeClick: revert,
+        onClose: revert,
+      })
+    }
+  },
+)
+
 const uploadSpeedValue = ref(0)
 const uploadUnit = ref('K')
 const downloadSpeedValue = ref(0)

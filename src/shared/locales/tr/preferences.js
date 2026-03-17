@@ -173,4 +173,7 @@ export default {
   'db-browse': 'Veritabanını görüntüle',
   'db-browse-title': 'Veritabanı kayıtları',
   'db-record-count': 'Toplam {count} kayıt',
+  'high-connection-warning-title': 'Yüksek Bağlantı Sayısı',
+  'high-connection-warning': 'Sunucu başına 64\'den fazla bağlantı ayarlamak bazı sunucularda hız sınırlaması veya IP engellemesine neden olabilir ve modern HTTP/2 ve HTTP/3 sunucularında hızı nadiren artırır.',
+  'high-connection-continue': 'Yine de kullan',
 }

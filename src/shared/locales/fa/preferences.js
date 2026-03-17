@@ -173,4 +173,7 @@ export default {
   'db-browse': 'مشاهده پایگاه داده',
   'db-browse-title': 'رکوردهای پایگاه داده',
   'db-record-count': '{count} رکورد در مجموع',
+  'high-connection-warning-title': 'تعداد اتصالات بالا',
+  'high-connection-warning': 'تنظیم بیش از 64 اتصال برای هر سرور ممکن است باعث محدودیت سرعت یا مسدودسازی IP در برخی سرورها شود و به ندرت سرعت را در سرورهای مدرن HTTP/2 و HTTP/3 بهبود می‌بخشد.',
+  'high-connection-continue': 'ادامه در هر صورت',
 }

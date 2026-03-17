@@ -173,4 +173,7 @@ export default {
   'db-browse': 'データベースを表示',
   'db-browse-title': 'データベースレコード',
   'db-record-count': '合計 {count} 件',
+  'high-connection-warning-title': '接続数が多すぎます',
+  'high-connection-warning': 'サーバーあたり64を超える接続を設定すると、一部のサーバーで速度制限やIPブロックが発生する可能性があり、最新のHTTP/2・HTTP/3サーバーでは速度向上にほとんど寄与しません。',
+  'high-connection-continue': 'このまま使用',
 }

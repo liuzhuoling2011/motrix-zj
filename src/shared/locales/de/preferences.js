@@ -173,4 +173,7 @@ export default {
   'db-browse': 'Datenbank anzeigen',
   'db-browse-title': 'Datenbankeinträge',
   'db-record-count': '{count} Einträge insgesamt',
+  'high-connection-warning-title': 'Hohe Verbindungsanzahl',
+  'high-connection-warning': 'Mehr als 64 Verbindungen pro Server können auf manchen Servern zu Geschwindigkeitsbegrenzungen oder IP-Sperren führen und bringen bei modernen HTTP/2- und HTTP/3-Servern selten Vorteile.',
+  'high-connection-continue': 'Trotzdem verwenden',
 }

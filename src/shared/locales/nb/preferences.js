@@ -173,4 +173,7 @@ export default {
   'db-browse': 'Vis database',
   'db-browse-title': 'Databaseposter',
   'db-record-count': '{count} poster totalt',
+  'high-connection-warning-title': 'Høyt antall tilkoblinger',
+  'high-connection-warning': 'Å sette mer enn 64 tilkoblinger per server kan utløse hastighetsbegrensning eller IP-blokkering på noen servere og forbedrer sjelden hastigheten på moderne HTTP/2- og HTTP/3-servere.',
+  'high-connection-continue': 'Bruk likevel',
 }

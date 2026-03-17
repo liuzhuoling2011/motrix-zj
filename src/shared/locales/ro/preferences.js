@@ -173,4 +173,7 @@ export default {
   'db-browse': 'Vizualizare bază de date',
   'db-browse-title': 'Înregistrări baza de date',
   'db-record-count': '{count} înregistrări în total',
+  'high-connection-warning-title': 'Număr ridicat de conexiuni',
+  'high-connection-warning': 'Setarea a mai mult de 64 conexiuni per server poate declanșa limitarea vitezei sau blocarea IP pe unele servere și rareori îmbunătățește viteza pe serverele moderne HTTP/2 și HTTP/3.',
+  'high-connection-continue': 'Utilizează oricum',
 }
