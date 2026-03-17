@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager,
+    AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder,
 };
 
 /// Holds references to tray menu items for dynamic label updates (i18n).
@@ -11,6 +11,45 @@ use tauri::{
 /// at runtime without rebuilding the menu.
 pub struct TrayMenuState {
     pub items: Mutex<HashMap<String, MenuItem<tauri::Wry>>>,
+}
+
+/// Returns the existing main window, or recreates it if it was destroyed.
+///
+/// On Linux/Wayland + `decorations: false`, the compositor can destroy
+/// the window without emitting `CloseRequested`.  When the user later
+/// clicks the tray icon or triggers macOS Reopen, the original window
+/// handle is gone.  This function detects that and rebuilds the window
+/// using the same config as `tauri.conf.json`.
+///
+/// The newly created window is visible by default — the caller can
+/// `.show()` + `.set_focus()` as usual.
+pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
+    if let Some(window) = app.get_webview_window("main") {
+        return Some(window);
+    }
+
+    // Window was destroyed — recreate from config.
+    log::warn!("tray:window-not-found label=main — recreating after compositor force-close");
+
+    match WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+        .title("Motrix Next")
+        .inner_size(1068.0, 680.0)
+        .min_inner_size(970.0, 560.0)
+        .transparent(true)
+        .decorations(false)
+        .center()
+        .visible(false)
+        .build()
+    {
+        Ok(w) => {
+            log::info!("tray:window-recreated label=main");
+            Some(w)
+        }
+        Err(e) => {
+            log::error!("tray:window-recreate-failed error={}", e);
+            None
+        }
+    }
 }
 
 pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::Error>> {
@@ -63,12 +102,13 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
             } = event
             {
                 let app = tray.app_handle();
+                log::info!("tray:left-click — showing main window");
                 #[cfg(target_os = "macos")]
                 {
                     use tauri::ActivationPolicy;
                     let _ = app.set_activation_policy(ActivationPolicy::Regular);
                 }
-                if let Some(window) = app.get_webview_window("main") {
+                if let Some(window) = get_or_create_main_window(app) {
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -78,12 +118,13 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
             let id = event.id.as_ref();
             match id {
                 "show" => {
+                    log::info!("tray:menu-show — showing main window");
                     #[cfg(target_os = "macos")]
                     {
                         use tauri::ActivationPolicy;
                         let _ = app.set_activation_policy(ActivationPolicy::Regular);
                     }
-                    if let Some(window) = app.get_webview_window("main") {
+                    if let Some(window) = get_or_create_main_window(app) {
                         let _ = window.show();
                         let _ = window.set_focus();
                     }

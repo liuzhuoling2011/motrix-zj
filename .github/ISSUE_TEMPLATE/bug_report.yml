@@ -68,7 +68,7 @@ body:
     attributes:
       label: Diagnostic Logs
       description: |
-        **Required.** Please export logs via **Advanced Settings → Export Diagnostic Logs** and keep the log level at the default `info`. We may follow up to request `debug`-level logs for further diagnosis.
+        **Required.** Please export logs via **Advanced Settings → Export Diagnostic Logs** and keep the log level at the default `debug`.
         Attach the exported `.zip` file or paste the relevant log content below.
     validations:
       required: true

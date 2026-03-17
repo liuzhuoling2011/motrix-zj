@@ -16,7 +16,8 @@ use upnp::UpnpState;
 /// Pre-reads the user's log-level preference from the raw config.json file.
 ///
 /// `tauri-plugin-store` isn't available until after `Builder.build()`, so we
-/// read the raw JSON file directly.  Falls back to `Info` if absent.
+/// read the raw JSON file directly.  Falls back to `Debug` if absent so that
+/// first-run users get full diagnostic output for bug reports.
 fn read_log_level() -> log::LevelFilter {
     (|| -> Option<log::LevelFilter> {
         let data_dir = dirs::data_dir()?.join("com.motrix.next");
@@ -32,7 +33,7 @@ fn read_log_level() -> log::LevelFilter {
             _ => None,
         }
     })()
-    .unwrap_or(log::LevelFilter::Info)
+    .unwrap_or(log::LevelFilter::Debug)
 }
 
 /// Initialises menus, tray, deep links, window state, and platform-specific
@@ -180,19 +181,53 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Handles Tauri `RunEvent`s: cleanup on exit and Dock icon restore on
-/// macOS reopen.
+/// Handles Tauri `RunEvent`s: process-exit prevention, cleanup, and
+/// macOS Dock icon restore.
 ///
-/// **Note:** `CloseRequested` is handled by `Builder::on_window_event()`
-/// (registered in [`run()`]), NOT here.  `on_window_event` fires as the
-/// *first* hook in Tauri's event lifecycle, before the JS webview IPC and
-/// before this `RunEvent` callback.  This guarantees `api.prevent_close()`
-/// executes before the compositor can destroy the window — critical for
-/// Linux/Wayland + `decorations: false` where the RunEvent hook fires too
-/// late to prevent the native close.
+/// ## Event responsibilities
+///
+/// | Event | Handler |
+/// |-------|--------|
+/// | `CloseRequested` | `Builder::on_window_event()` (see [`run()`]) |
+/// | `ExitRequested` | Here — prevents process death on Wayland force-close |
+/// | `Exit` | Here — engine + UPnP cleanup |
+/// | `Reopen` | Here — macOS Dock icon restore |
+///
+/// ### Wayland force-close safety net
+///
+/// On Linux/Wayland + `decorations: false`, the compositor can destroy the
+/// window without emitting `CloseRequested`.  When the last window is
+/// destroyed, Tauri fires `ExitRequested` with `code: None`.  We intercept
+/// this and call `api.prevent_exit()` when minimize-to-tray is enabled,
+/// keeping the process alive so the tray can recreate the window later.
 fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
     match event {
+        // ── Wayland safety net ────────────────────────────────────────
+        //
+        // `code.is_none()` = implicit exit triggered by the last window
+        // closing (NOT an explicit `app.exit()` call).  When the user
+        // has minimize-to-tray enabled, keep the process alive.
+        tauri::RunEvent::ExitRequested { ref api, code, .. } => {
+            log::info!("app:exit-requested code={:?}", code);
+
+            if code.is_none() {
+                let should_hide = app
+                    .store("config.json")
+                    .ok()
+                    .and_then(|s| s.get("preferences"))
+                    .and_then(|p| p.get("minimizeToTrayOnClose")?.as_bool())
+                    .unwrap_or(false);
+
+                log::debug!("app:exit-requested minimizeToTrayOnClose={}", should_hide);
+
+                if should_hide {
+                    api.prevent_exit();
+                    log::info!("app:exit-prevented reason=minimize-to-tray");
+                }
+            }
+        }
         tauri::RunEvent::Exit => {
+            log::info!("app:exit — stopping engine and UPnP");
             let _ = engine::stop_engine(app);
             // Clean up UPnP port mappings on exit.
             if let Some(state) = app.try_state::<UpnpState>() {
@@ -201,10 +236,11 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
         }
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen { .. } => {
+            log::info!("app:reopen — restoring main window");
             // Restore Dock icon before showing the window.
             use tauri::ActivationPolicy;
             let _ = app.set_activation_policy(ActivationPolicy::Regular);
-            if let Some(window) = app.get_webview_window("main") {
+            if let Some(window) = tray::get_or_create_main_window(app) {
                 let _ = window.show();
                 let _ = window.set_focus();
             }
@@ -345,22 +381,27 @@ pub fn run() {
             commands::trash_file,
             commands::get_engine_conf_path,
         ])
-        // ── Window close interception ──────────────────────────────────
+        // ── Window event interception ─────────────────────────────────
         //
         // Registered via `on_window_event` — the FIRST hook in Tauri's
-        // event lifecycle.  This fires before the JS webview IPC
-        // (`onCloseRequested`) and before the `app.run()` `RunEvent`
-        // callback.  `api.prevent_close()` is guaranteed to execute
-        // before the compositor can destroy the window.
+        // event lifecycle.  Handles two events:
         //
-        // This is critical on Linux/Wayland + `decorations: false`,
-        // where the later `RunEvent::WindowEvent::CloseRequested` hook
-        // fires too late — the compositor has already begun destroying
-        // the window by that point.
+        // 1. `CloseRequested` — prevents native close, routes to
+        //    minimize-to-tray or exit dialog.  Fires on macOS/Windows
+        //    and Linux/X11, but may NOT fire on Linux/Wayland +
+        //    `decorations: false` (tao upstream limitation).
+        //
+        // 2. `Destroyed` — logs window destruction for diagnostics.
+        //    On Wayland force-close, this is the ONLY event that fires
+        //    (CloseRequested is skipped entirely).  The process stays
+        //    alive via `ExitRequested { api.prevent_exit() }` in
+        //    `handle_run_event`.
         //
         // Ref: https://docs.rs/tauri/latest/tauri/struct.Builder.html#method.on_window_event
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
+                log::info!("window:close-requested label={}", window.label());
+
                 // Only intercept the main window; let other windows close freely.
                 if window.label() != "main" {
                     return;
@@ -369,6 +410,7 @@ pub fn run() {
                 // ALWAYS prevent native close — the app owns the exit flow
                 // (exit confirmation dialog / minimize-to-tray).
                 api.prevent_close();
+                log::info!("window:close-prevented label=main");
 
                 let app = window.app_handle();
 
@@ -384,7 +426,10 @@ pub fn run() {
                     .and_then(|p| p.get("minimizeToTrayOnClose")?.as_bool())
                     .unwrap_or(false);
 
+                log::debug!("window:prefs minimizeToTrayOnClose={}", should_hide);
+
                 if should_hide {
+                    log::info!("window:hide-to-tray label=main");
                     let _ = window.hide();
 
                     #[cfg(target_os = "macos")]
@@ -393,12 +438,14 @@ pub fn run() {
                             .as_ref()
                             .and_then(|p| p.get("hideDockOnMinimize")?.as_bool())
                             .unwrap_or(false);
+                        log::debug!("window:prefs hideDockOnMinimize={}", hide_dock);
                         if hide_dock {
                             use tauri::ActivationPolicy;
                             let _ = app.set_activation_policy(ActivationPolicy::Accessory);
                         }
                     }
                 } else {
+                    log::info!("window:show-exit-dialog label=main");
                     // Emit event for the frontend to show the exit dialog.
                     // More reliable than the JS onCloseRequested listener
                     // which may not fire for certain close paths on
@@ -406,6 +453,10 @@ pub fn run() {
                     let _ = app.emit("show-exit-dialog", ());
                 }
             }
+            tauri::WindowEvent::Destroyed => {
+                log::info!("window:destroyed label={}", window.label());
+            }
+            _ => {}
         })
         .setup(|app| setup_app(app))
         .build(tauri::generate_context!())

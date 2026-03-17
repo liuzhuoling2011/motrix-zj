@@ -127,7 +127,7 @@ export const DEFAULT_APP_CONFIG = {
   proxy: { enable: false, server: '', bypass: '', scope: [] as string[] },
   protocols: { magnet: false, thunder: false },
   userAgent: '',
-  logLevel: 'info', // industry standard: captures significant ops without debug verbosity
+  logLevel: 'debug', // captures full diagnostic output for bug reports out of the box
   cookie: '',
   runMode: '',
   engineBinPath: '',

@@ -309,7 +309,7 @@ describe('lib.rs — on_window_event close interception', () => {
     it('documents that CloseRequested is handled by on_window_event', () => {
       // The doc comment above handle_run_event should reference on_window_event
       const fnStart = source.indexOf('fn handle_run_event')
-      const docBlock = source.slice(Math.max(0, fnStart - 600), fnStart)
+      const docBlock = source.slice(Math.max(0, fnStart - 1200), fnStart)
       expect(docBlock).toContain('on_window_event')
     })
 
@@ -334,6 +334,7 @@ describe('lib.rs — on_window_event close interception', () => {
     it('shows and focuses the main window on Reopen', () => {
       const reopenIdx = source.indexOf('RunEvent::Reopen')
       const reopenBlock = source.slice(reopenIdx, source.indexOf('}', reopenIdx + 200))
+      expect(reopenBlock).toContain('get_or_create_main_window')
       expect(reopenBlock).toContain('window.show()')
       expect(reopenBlock).toContain('window.set_focus()')
     })

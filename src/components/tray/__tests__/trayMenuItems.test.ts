@@ -87,9 +87,9 @@ describe('tray.rs — native menu attached to TrayIconBuilder', () => {
     expect(source).toContain('show_menu_on_left_click(false)')
   })
 
-  it('does NOT use WebviewWindowBuilder for tray popup', () => {
-    // The custom popup approach is removed — no WebviewWindow for tray menu
-    expect(source).not.toContain('WebviewWindowBuilder')
+  it('does NOT use WebviewWindowBuilder for a tray popup window', () => {
+    // WebviewWindowBuilder IS used for get_or_create_main_window (Wayland
+    // force-close recovery), but the tray popup approach is removed.
     expect(source).not.toContain('ensure_tray_popup')
     expect(source).not.toContain('show_tray_popup')
     expect(source).not.toContain('POPUP_WIDTH')
