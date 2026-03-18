@@ -260,20 +260,6 @@ pub fn run() {
 
     let log_level = read_log_level();
 
-    // ── Linux/Wayland: disable DMA-BUF renderer ──────────────────────
-    // WebKitGTK's DMA-BUF renderer can trigger an IPC busy-loop on
-    // certain Wayland compositors (ppoll/recvmsg spin → single-core
-    // 100% CPU).  Disabling it falls back to the SHM renderer, which
-    // is universally compatible.
-    // Must be set BEFORE Builder::default() — WebKitGTK reads this
-    // env var during webview initialization.
-    #[cfg(target_os = "linux")]
-    {
-        if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
-            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-        }
-    }
-
     let mut builder = tauri::Builder::default()
         .plugin(
             tauri_plugin_log::Builder::new()
