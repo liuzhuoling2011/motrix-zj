@@ -12,7 +12,6 @@ import {
   parseFilesForSelection,
   buildSelectFileOption,
   buildStatusAwareConfirmAction,
-  shouldRestartMagnetPoll,
 } from '@/composables/useMagnetFlow'
 import { buildHistoryRecord, isMetadataTask } from '@/composables/useTaskLifecycle'
 import { shouldDeleteTorrent, trashTorrentFile, cleanupTorrentMetadataFiles } from '@/composables/useDownloadCleanup'
@@ -167,12 +166,24 @@ onBeforeUnmount(() => {
  * magnet metadata resolves. With pause-metadata=true, this follow-up task
  * starts paused. We poll the metadata GID for followedBy, then call getFiles
  * on the follow-up GID to show the file selection dialog.
+ *
+ * When multiple magnets are added concurrently, only one dialog is shown at
+ * a time. The poll pauses while a dialog is open and resumes after the user
+ * confirms or cancels — preventing dialog state from being overwritten.
  */
 function startMagnetPoll() {
   if (magnetPollTimer) clearTimeout(magnetPollTimer)
 
   async function tick() {
     const gids = appStore.pendingMagnetGids
+
+    // Don't overwrite an open dialog — pause polling and let
+    // confirm/cancel handler restart it for remaining GIDs.
+    if (magnetSelectVisible.value) {
+      magnetPollTimer = null
+      return
+    }
+
     if (gids.length === 0) {
       magnetPollTimer = null
       return
@@ -244,7 +255,7 @@ async function handleMagnetConfirm(selectedIndices: number[]) {
   }
 
   // Resume polling for any remaining pending magnet GIDs
-  if (shouldRestartMagnetPoll(appStore.pendingMagnetGids)) {
+  if (appStore.pendingMagnetGids.length > 0) {
     startMagnetPoll()
   }
 }
@@ -265,7 +276,7 @@ async function handleMagnetCancel() {
   }
 
   // Resume polling for any remaining pending magnet GIDs
-  if (shouldRestartMagnetPoll(appStore.pendingMagnetGids)) {
+  if (appStore.pendingMagnetGids.length > 0) {
     startMagnetPoll()
   }
 }
