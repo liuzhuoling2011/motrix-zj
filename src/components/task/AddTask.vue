@@ -114,14 +114,18 @@ watch(
   },
 )
 
-// Sync download dir with latest preference every time the dialog opens.
-// AddTask is kept mounted (`:show` not `v-if`), so form.dir would otherwise
-// be stale if the user changes the default dir in preferences.
+// Sync download dir and split with latest preference every time the dialog
+// opens. AddTask is kept mounted (`:show` not `v-if`), so form values would
+// otherwise be stale if the user changes defaults in preferences.
 watch(
   () => props.show,
   (visible) => {
     if (visible) {
       form.value.dir = preferenceStore.config.dir || form.value.dir
+      // Sync split — prefer config.split, fall back to maxConnectionPerServer
+      // for stores that predate the split sync fix.
+      form.value.split =
+        preferenceStore.config.split ?? preferenceStore.config.maxConnectionPerServer ?? form.value.split
     }
   },
 )

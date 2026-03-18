@@ -123,10 +123,15 @@ export function buildBasicSystemConfig(f: BasicForm): Record<string, string> {
 /**
  * Transforms the basic form for store persistence.
  * Expands btAutoDownloadContent back into followTorrent/followMetalink/pauseMetadata.
+ * Syncs split and engineMaxConnectionPerServer to maxConnectionPerServer so that
+ * AddTask.vue and the engine startup args always use the user's chosen value.
  */
 export function transformBasicForStore(f: BasicForm): Partial<AppConfig> {
   const data = { ...f } as Partial<AppConfig> & Record<string, unknown>
   delete data.btAutoDownloadContent
+  // Keep split and engineMaxConnectionPerServer in sync with the user-facing value
+  data.split = f.maxConnectionPerServer
+  data.engineMaxConnectionPerServer = f.maxConnectionPerServer
   if (f.btAutoDownloadContent) {
     data.followTorrent = true
     data.followMetalink = true

@@ -245,4 +245,14 @@ describe('transformBasicForStore', () => {
     const result = transformBasicForStore(baseForm)
     expect('btAutoDownloadContent' in result).toBe(false)
   })
+
+  it('syncs split to maxConnectionPerServer', () => {
+    const result = transformBasicForStore({ ...baseForm, maxConnectionPerServer: 32 })
+    expect(result.split).toBe(32)
+  })
+
+  it('syncs engineMaxConnectionPerServer to maxConnectionPerServer', () => {
+    const result = transformBasicForStore({ ...baseForm, maxConnectionPerServer: 32 })
+    expect(result.engineMaxConnectionPerServer).toBe(32)
+  })
 })
