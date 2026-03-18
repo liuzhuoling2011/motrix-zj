@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': '「{taskName}」の記録の削除に失敗しました',
   'show-in-folder': 'フォルダーで表示',
   'file-not-exist': 'ファイルが存在しないか、削除されました',
-  'open-file-success': 'ファイルを実行しました',
+  'open-file-success': 'システムに引き渡しました',
   'open-folder-success': 'フォルダを開きました',
   'file-path-error': 'ファイルパスエラー',
   'opening-task-message': '「{taskName}」を開いています...',

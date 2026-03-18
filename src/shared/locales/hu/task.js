@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': '„{taskName}" bejegyzés eltávolítása sikertelen',
   'show-in-folder': 'Megjelenítés a mappában',
   'file-not-exist': 'A fájl nem létezik vagy törölve lett',
-  'open-file-success': 'Fájl elindítva',
+  'open-file-success': 'Átadva a rendszernek',
   'open-folder-success': 'Mappa megnyitva',
   'file-path-error': 'Fájlútvonal hiba',
   'opening-task-message': '„{taskName}" megnyitása...',

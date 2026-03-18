@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': 'Falha ao remover registro de "{taskName}"',
   'show-in-folder': 'Mostrar na pasta',
   'file-not-exist': 'Arquivo não existe ou foi excluído',
-  'open-file-success': 'Arquivo executado',
+  'open-file-success': 'Entregue ao sistema',
   'open-folder-success': 'Pasta aberta',
   'file-path-error': 'Erro no caminho do arquivo',
   'opening-task-message': 'Abrindo "{taskName}"...',

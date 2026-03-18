@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': 'Gagal menghapus catatan "{taskName}"',
   'show-in-folder': 'Tampilkan di folder',
   'file-not-exist': 'File tidak ada atau telah dihapus',
-  'open-file-success': 'File dijalankan',
+  'open-file-success': 'Diserahkan ke sistem',
   'open-folder-success': 'Folder dibuka',
   'file-path-error': 'Kesalahan jalur file',
   'opening-task-message': 'Membuka "{taskName}"...',

@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': 'فشل إزالة سجل "{taskName}"',
   'show-in-folder': 'إظهار في المجلد',
   'file-not-exist': 'الملف غير موجود أو تم حذفه',
-  'open-file-success': 'تم تشغيل الملف',
+  'open-file-success': 'تم تمرير الملف للنظام',
   'open-folder-success': 'تم فتح المجلد',
   'file-path-error': 'خطأ في مسار الملف',
   'opening-task-message': 'جارٍ فتح "{taskName}"...',

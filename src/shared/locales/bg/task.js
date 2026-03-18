@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': 'Неуспешно премахване на записа на „{taskName}"',
   'show-in-folder': 'Покажи в папката',
   'file-not-exist': 'Файлът не съществува или е изтрит',
-  'open-file-success': 'Файлът е стартиран',
+  'open-file-success': 'Предадено на системата',
   'open-folder-success': 'Папката е отворена',
   'file-path-error': 'Грешка в пътя на файла',
   'opening-task-message': 'Отваряне на „{taskName}"...',

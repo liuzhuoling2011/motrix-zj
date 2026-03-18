@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': 'Αποτυχία αφαίρεσης εγγραφής «{taskName}»',
   'show-in-folder': 'Εμφάνιση στον φάκελο',
   'file-not-exist': 'Το αρχείο δεν υπάρχει ή διαγράφηκε',
-  'open-file-success': 'Το αρχείο εκτελέστηκε',
+  'open-file-success': 'Παραδόθηκε στο σύστημα',
   'open-folder-success': 'Ο φάκελος άνοιξε',
   'file-path-error': 'Σφάλμα διαδρομής αρχείου',
   'opening-task-message': 'Άνοιγμα «{taskName}»...',

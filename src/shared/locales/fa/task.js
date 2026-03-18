@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': 'حذف رکورد "{taskName}" ناموفق بود',
   'show-in-folder': 'نمایش در پوشه',
   'file-not-exist': 'فایل وجود ندارد یا حذف شده',
-  'open-file-success': 'فایل اجرا شد',
+  'open-file-success': 'به سیستم واگذار شد',
   'open-folder-success': 'پوشه باز شد',
   'file-path-error': 'خطای مسیر فایل',
   'opening-task-message': 'در حال باز کردن "{taskName}"...',

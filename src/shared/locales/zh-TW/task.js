@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': '移除「{taskName}」記錄失敗',
   'show-in-folder': '在資料夾中顯示',
   'file-not-exist': '檔案不存在或已刪除',
-  'open-file-success': '檔案已執行',
+  'open-file-success': '已交由系統開啟',
   'open-folder-success': '資料夾已開啟',
   'file-path-error': '檔案路徑異常',
   'opening-task-message': '正在開啟「{taskName}」...',

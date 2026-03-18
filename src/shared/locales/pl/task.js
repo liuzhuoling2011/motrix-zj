@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': 'Nie udało się usunąć wpisu „{taskName}"',
   'show-in-folder': 'Pokaż w folderze',
   'file-not-exist': 'Plik nie istnieje lub został usunięty',
-  'open-file-success': 'Plik uruchomiony',
+  'open-file-success': 'Przekazano do systemu',
   'open-folder-success': 'Folder otwarty',
   'file-path-error': 'Błąd ścieżki pliku',
   'opening-task-message': 'Otwieranie „{taskName}"...',

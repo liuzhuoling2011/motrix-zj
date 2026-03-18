@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': 'Không thể xóa bản ghi "{taskName}"',
   'show-in-folder': 'Hiện trong thư mục',
   'file-not-exist': 'Tệp không tồn tại hoặc đã bị xóa',
-  'open-file-success': 'Đã chạy tệp',
+  'open-file-success': 'Đã chuyển cho hệ thống',
   'open-folder-success': 'Đã mở thư mục',
   'file-path-error': 'Lỗi đường dẫn tệp',
   'opening-task-message': 'Đang mở "{taskName}"...',

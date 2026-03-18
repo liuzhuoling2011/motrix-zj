@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': 'Error en eliminar el registre de «{taskName}»',
   'show-in-folder': 'Mostra a la carpeta',
   'file-not-exist': 'El fitxer no existeix o ha estat eliminat',
-  'open-file-success': 'Fitxer executat',
+  'open-file-success': 'Lliurat al sistema',
   'open-folder-success': 'Carpeta oberta',
   'file-path-error': 'Error del camí del fitxer',
   'opening-task-message': 'Obrint «{taskName}»...',

@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': 'Record van "{taskName}" verwijderen mislukt',
   'show-in-folder': 'Tonen in map',
   'file-not-exist': 'Bestand bestaat niet of is verwijderd',
-  'open-file-success': 'Bestand gestart',
+  'open-file-success': 'Overgedragen aan systeem',
   'open-folder-success': 'Map geopend',
   'file-path-error': 'Bestandspadfout',
   'opening-task-message': '"{taskName}" openen...',

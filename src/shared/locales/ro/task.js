@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': 'Eliminarea înregistrării „{taskName}" a eșuat',
   'show-in-folder': 'Arată în dosar',
   'file-not-exist': 'Fișierul nu există sau a fost șters',
-  'open-file-success': 'Fișier lansat',
+  'open-file-success': 'Transmis către sistem',
   'open-folder-success': 'Folder deschis',
   'file-path-error': 'Eroare cale fișier',
   'opening-task-message': 'Se deschide „{taskName}"...',

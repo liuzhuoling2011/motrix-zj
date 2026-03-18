@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': 'Échec de la suppression de l\'enregistrement de « {taskName} »',
   'show-in-folder': 'Afficher dans le dossier',
   'file-not-exist': 'Le fichier n\'existe pas ou a été supprimé',
-  'open-file-success': 'Fichier lancé',
+  'open-file-success': 'Transmis au système',
   'open-folder-success': 'Dossier ouvert',
   'file-path-error': 'Erreur de chemin de fichier',
   'opening-task-message': 'Ouverture de « {taskName} »...',

@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': '"{taskName}" kaydı kaldırılamadı',
   'show-in-folder': 'Klasörde göster',
   'file-not-exist': 'Dosya mevcut değil veya silindi',
-  'open-file-success': 'Dosya çalıştırıldı',
+  'open-file-success': 'Sisteme iletildi',
   'open-folder-success': 'Klasör açıldı',
   'file-path-error': 'Dosya yolu hatası',
   'opening-task-message': '"{taskName}" açılıyor...',

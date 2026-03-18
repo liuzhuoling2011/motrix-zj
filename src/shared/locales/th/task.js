@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': 'ลบรายการ "{taskName}" ไม่ได้',
   'show-in-folder': 'แสดงในโฟลเดอร์',
   'file-not-exist': 'ไฟล์ไม่มีอยู่หรือถูกลบแล้ว',
-  'open-file-success': 'เปิดไฟล์แล้ว',
+  'open-file-success': 'ส่งต่อให้ระบบแล้ว',
   'open-folder-success': 'เปิดโฟลเดอร์แล้ว',
   'file-path-error': 'เส้นทางไฟล์ผิดพลาด',
   'opening-task-message': 'กำลังเปิด "{taskName}"...',

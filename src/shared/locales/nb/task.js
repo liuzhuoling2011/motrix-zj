@@ -162,7 +162,7 @@ export default {
   'remove-record-fail': 'Kunne ikke fjerne oppføringen for «{taskName}»',
   'show-in-folder': 'Vis i mappe',
   'file-not-exist': 'Filen eksisterer ikke eller er slettet',
-  'open-file-success': 'Fil startet',
+  'open-file-success': 'Overlevert til systemet',
   'open-folder-success': 'Mappe åpnet',
   'file-path-error': 'Feil i filsti',
   'opening-task-message': 'Åpner «{taskName}»...',
