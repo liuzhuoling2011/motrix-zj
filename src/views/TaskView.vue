@@ -217,7 +217,7 @@ function startMagnetPoll() {
     magnetPollTimer = setTimeout(tick, 2000)
   }
 
-  magnetPollTimer = setTimeout(tick, 1500)
+  void tick()
 }
 
 watch(
@@ -254,9 +254,10 @@ async function handleMagnetConfirm(selectedIndices: number[]) {
     message.error(t('task.magnet-select-fail') || 'Failed to configure download')
   }
 
-  // Resume polling for any remaining pending magnet GIDs
+  // Resume polling for any remaining pending magnet GIDs.
+  // Delay to let the modal close animation finish before showing the next dialog.
   if (appStore.pendingMagnetGids.length > 0) {
-    startMagnetPoll()
+    setTimeout(startMagnetPoll, 350)
   }
 }
 
@@ -275,9 +276,10 @@ async function handleMagnetCancel() {
     logger.error('TaskView.magnetCancel', e)
   }
 
-  // Resume polling for any remaining pending magnet GIDs
+  // Resume polling for any remaining pending magnet GIDs.
+  // Delay to let the modal close animation finish before showing the next dialog.
   if (appStore.pendingMagnetGids.length > 0) {
-    startMagnetPoll()
+    setTimeout(startMagnetPoll, 350)
   }
 }
 
