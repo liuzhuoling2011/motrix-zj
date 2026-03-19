@@ -211,7 +211,7 @@ All code changes must be finalized before starting. Execute these three steps in
 
 3. **Generate Release Title and Notes:**
 
-   Based on the commits included in this release, generate an English title and release notes following the Release Notes Conventions below. Output them in a markdown code block so the user can copy-paste directly into the GitHub Release page.
+   Based on the commits included in this release, generate an English title and release notes following the Release Notes Conventions below. Output them in **two separate markdown code blocks** — one for the title, one for the body — so the user can copy-paste each directly into the GitHub Release page.
 
 4. **User publishes on GitHub** — CI automatically builds for all 6 platforms and uploads the updater JSON.
 
