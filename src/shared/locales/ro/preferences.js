@@ -9,6 +9,7 @@ export default {
   'startup': 'Pornire',
   'open-at-login': 'Deschide la autentificare',
   'keep-window-state': 'Restaurează dimensiunea și poziția ferestrei la pornire',
+  'mac-style-controls': 'Butoane stil macOS (semafor)',
   'auto-resume-all': 'Reia automat sarcinile neterminate',
   'default-dir': 'Dosar implicit',
   'mas-default-dir-tips': 'Din cauza restricțiilor sandbox App Store, dosarul implicit ar trebui să fie ~/Downloads',

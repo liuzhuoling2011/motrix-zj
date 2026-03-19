@@ -1,5 +1,15 @@
 <script setup lang="ts">
-/** @fileoverview Custom window control buttons (minimize, maximize/restore, close). */
+/**
+ * @fileoverview Platform-aware window control buttons.
+ *
+ * Renders macOS-style traffic light buttons (close → minimize → fullscreen, left)
+ * or Windows-style icon buttons (minimize → maximize → close, right) based on the
+ * user's `macStyleControls` preference.
+ *
+ * Traffic light design follows Apple HIG: 12 px circles, standard colours,
+ * group-hover reveals inline SVG icons, window blur dims all three to grey.
+ */
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { NIcon } from 'naive-ui'
 import { RemoveOutline, CopyOutline, SquareOutline, CloseOutline } from '@vicons/ionicons5'
@@ -17,6 +27,24 @@ const emit = defineEmits<{
 const appWindow = getCurrentWindow()
 const preferenceStore = usePreferenceStore()
 
+const macStyle = computed(() => !!preferenceStore.config.macStyleControls)
+
+// ── Window focus state (traffic-light blur dimming) ─────────────────
+const isFocused = ref(true)
+let unlistenFocus: (() => void) | null = null
+
+onMounted(async () => {
+  unlistenFocus = await appWindow.onFocusChanged(({ payload }) => {
+    isFocused.value = payload
+  })
+})
+
+onUnmounted(() => {
+  unlistenFocus?.()
+})
+
+// ── Window actions ──────────────────────────────────────────────────
+
 function minimize() {
   appWindow.minimize()
 }
@@ -28,43 +56,68 @@ function toggleMaximize() {
 
 async function close() {
   if (preferenceStore.config.minimizeToTrayOnClose) {
-    // Signal Rust to hide the Dock icon if the user opted in.
-    // The Rust command reads the preference from the persistent store.
     const { invoke } = await import('@tauri-apps/api/core')
     await invoke('set_dock_visible', { visible: false })
-
     appWindow.hide()
   } else {
-    // Emit to parent instead of triggering the native window close.
-    // On macOS, the native close → onCloseRequested → preventDefault()
-    // flow freezes the webview (known Tauri v2 bug).  The parent
-    // (MainLayout) handles showing the exit confirmation dialog.
     emit('close')
   }
 }
 </script>
 
 <template>
-  <div class="window-controls">
-    <button class="ctrl-btn" title="Minimize" @click="minimize">
-      <NIcon :size="14"><RemoveOutline /></NIcon>
-    </button>
-    <button class="ctrl-btn" :title="isMaximized ? 'Restore' : 'Maximize'" @click="toggleMaximize">
-      <NIcon :size="14">
-        <Transition name="icon-swap" mode="out-in">
-          <CopyOutline v-if="isMaximized" key="restore" />
-          <SquareOutline v-else key="maximize" />
-        </Transition>
-      </NIcon>
-    </button>
-    <button class="ctrl-btn close" title="Close" @click="close">
-      <NIcon :size="14"><CloseOutline /></NIcon>
-    </button>
+  <div class="window-controls" :class="{ 'mac-style': macStyle }">
+    <!-- macOS traffic light: close → minimize → fullscreen -->
+    <template v-if="macStyle">
+      <div class="traffic-lights" :class="{ blurred: !isFocused }">
+        <button class="tl tl-close" title="Close" @click="close">
+          <svg class="tl-icon" viewBox="0 0 12 12">
+            <line x1="3.5" y1="3.5" x2="8.5" y2="8.5" />
+            <line x1="8.5" y1="3.5" x2="3.5" y2="8.5" />
+          </svg>
+        </button>
+        <button class="tl tl-minimize" title="Minimize" @click="minimize">
+          <svg class="tl-icon" viewBox="0 0 12 12">
+            <line x1="2.5" y1="6" x2="9.5" y2="6" />
+          </svg>
+        </button>
+        <button class="tl tl-maximize" :title="isMaximized ? 'Restore' : 'Maximize'" @click="toggleMaximize">
+          <!-- Fullscreen arrows or restore arrows -->
+          <svg v-if="!isMaximized" class="tl-icon" viewBox="0 0 12 12">
+            <path d="M2.5 9L5 6.5M9.5 3L7 5.5" />
+            <path d="M3 5.5V9H6.5M9 6.5V3H5.5" />
+          </svg>
+          <svg v-else class="tl-icon" viewBox="0 0 12 12">
+            <path d="M5 9.5L7.5 7M7 2.5L4.5 5" />
+            <path d="M7.5 10V7H10.5M4.5 2V5H1.5" />
+          </svg>
+        </button>
+      </div>
+    </template>
+
+    <!-- Windows / Linux: original icon buttons -->
+    <template v-else>
+      <button class="ctrl-btn" title="Minimize" @click="minimize">
+        <NIcon :size="14"><RemoveOutline /></NIcon>
+      </button>
+      <button class="ctrl-btn" :title="isMaximized ? 'Restore' : 'Maximize'" @click="toggleMaximize">
+        <NIcon :size="14">
+          <Transition name="icon-swap" mode="out-in">
+            <CopyOutline v-if="isMaximized" key="restore" />
+            <SquareOutline v-else key="maximize" />
+          </Transition>
+        </NIcon>
+      </button>
+      <button class="ctrl-btn close" title="Close" @click="close">
+        <NIcon :size="14"><CloseOutline /></NIcon>
+      </button>
+    </template>
   </div>
 </template>
 
 <style scoped>
-.window-controls {
+/* ── Windows / Linux buttons ─────────────────────────────────────── */
+.window-controls:not(.mac-style) {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -109,5 +162,68 @@ async function close() {
 .icon-swap-leave-to {
   opacity: 0;
   transform: scale(0.75);
+}
+
+/* ── macOS traffic-light buttons ─────────────────────────────────── */
+.traffic-lights {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tl {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  outline: none;
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease;
+}
+.tl-close {
+  background-color: #ff5f57;
+}
+.tl-minimize {
+  background-color: #febc2e;
+}
+.tl-maximize {
+  background-color: #28c840;
+}
+
+/* SVG icons — hidden by default, revealed on group hover */
+.tl-icon {
+  position: absolute;
+  inset: 0;
+  width: 12px;
+  height: 12px;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.5);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.traffic-lights:hover .tl-icon {
+  opacity: 1;
+}
+
+/* Individual button press feedback */
+.tl:active {
+  opacity: 0.7;
+}
+
+/* Window blur state — all buttons dim to grey */
+.traffic-lights.blurred .tl {
+  background-color: var(--tl-inactive, #d4d4d4);
+}
+.traffic-lights.blurred .tl-icon {
+  opacity: 0;
+}
+.traffic-lights.blurred:hover .tl-icon {
+  opacity: 0;
 }
 </style>

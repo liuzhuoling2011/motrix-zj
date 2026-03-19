@@ -9,6 +9,7 @@ export default {
   'startup': 'Startup',
   'open-at-login': 'Open at login',
   'keep-window-state': 'Restore window size and position on startup',
+  'mac-style-controls': 'macOS-style controls (traffic light)',
   'auto-resume-all': 'Automatically resume unfinished tasks',
   'default-dir': 'Default Path',
   'mas-default-dir-tips': 'Due to App Store sandbox restrictions, the default download directory should be set to ~/Downloads',

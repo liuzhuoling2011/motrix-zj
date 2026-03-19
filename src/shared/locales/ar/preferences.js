@@ -9,6 +9,7 @@ export default {
   'startup': 'بدء التشغيل',
   'open-at-login': 'فتح عند تسجيل الدخول',
   'keep-window-state': 'استعادة حجم وموضع النافذة عند البدء',
+  'mac-style-controls': 'أزرار نمط macOS (إشارة المرور)',
   'auto-resume-all': 'استئناف المهام غير المكتملة تلقائيًا',
   'default-dir': 'المجلد الافتراضي',
   'mas-default-dir-tips': 'بسبب قيود sandbox في App Store، يجب أن يكون المجلد الافتراضي ~/Downloads',

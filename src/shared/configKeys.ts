@@ -18,6 +18,7 @@ const userKeys = [
   'last-sync-tracker-time',
   'locale',
   'log-level',
+  'mac-style-controls',
   'minimize-to-tray-on-close',
   'new-task-show-downloading',
   'no-confirm-before-delete-task',

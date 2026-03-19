@@ -9,6 +9,7 @@ export default {
   'startup': 'Khởi động',
   'open-at-login': 'Mở khi đăng nhập',
   'keep-window-state': 'Khôi phục kích thước và vị trí cửa sổ khi khởi động',
+  'mac-style-controls': 'Nút kiểu macOS (đèn giao thông)',
   'auto-resume-all': 'Tự động tiếp tục các tác vụ chưa hoàn thành',
   'default-dir': 'Thư mục mặc định',
   'mas-default-dir-tips': 'Do hạn chế sandbox của App Store, thư mục mặc định nên là ~/Downloads',

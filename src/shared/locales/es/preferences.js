@@ -9,6 +9,7 @@ export default {
   'startup': 'Inicio',
   'open-at-login': 'Abrir al iniciar sesión',
   'keep-window-state': 'Restaurar tamaño y posición de ventana al iniciar',
+  'mac-style-controls': 'Controles estilo macOS (semáforo)',
   'auto-resume-all': 'Reanudar tareas incompletas automáticamente',
   'default-dir': 'Ruta predeterminada',
   'mas-default-dir-tips': 'Debido a restricciones del sandbox de App Store, la ruta predeterminada debería ser ~/Downloads',

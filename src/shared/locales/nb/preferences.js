@@ -9,6 +9,7 @@ export default {
   'startup': 'Oppstart',
   'open-at-login': 'Åpne ved innlogging',
   'keep-window-state': 'Gjenopprett vindusstørrelse og -posisjon ved oppstart',
+  'mac-style-controls': 'macOS-stil knapper (trafikklys)',
   'auto-resume-all': 'Gjenoppta ufullendte oppgaver automatisk',
   'default-dir': 'Standardmappe',
   'mas-default-dir-tips': 'På grunn av App Store sandbox-begrensninger bør standardmappen være ~/Downloads',

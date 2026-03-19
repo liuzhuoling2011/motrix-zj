@@ -9,6 +9,7 @@ export default {
   'startup': '起動',
   'open-at-login': 'ログイン時に起動',
   'keep-window-state': '起動時にウィンドウのサイズと位置を復元',
+  'mac-style-controls': 'macOS スタイルのボタン（信号機）',
   'auto-resume-all': '未完了のタスクを自動再開',
   'default-dir': 'デフォルト保存先',
   'mas-default-dir-tips': 'App Storeのサンドボックス制限により、デフォルトのダウンロード先は ~/Downloads に設定することをお勧めします',

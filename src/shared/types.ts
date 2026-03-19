@@ -136,6 +136,7 @@ export interface AppConfig {
   autoSyncTracker: boolean
   keepSeeding: boolean
   keepWindowState: boolean
+  macStyleControls: boolean
   newTaskShowDownloading: boolean
   noConfirmBeforeDeleteTask: boolean
   resumeAllWhenAppLaunched: boolean

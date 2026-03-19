@@ -9,6 +9,7 @@ export default {
   'startup': '시작',
   'open-at-login': '로그인 시 자동 시작',
   'keep-window-state': '시작 시 창 크기와 위치 복원',
+  'mac-style-controls': 'macOS 스타일 버튼 (신호등)',
   'auto-resume-all': '미완료 작업 자동 재개',
   'default-dir': '기본 다운로드 경로',
   'mas-default-dir-tips': 'App Store 샌드박스 제한으로 기본 다운로드 경로를 ~/Downloads로 설정하는 것을 권장합니다',

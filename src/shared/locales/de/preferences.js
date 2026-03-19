@@ -9,6 +9,7 @@ export default {
   'startup': 'Start',
   'open-at-login': 'Bei Anmeldung starten',
   'keep-window-state': 'Fenstergröße und -position beim Start wiederherstellen',
+  'mac-style-controls': 'macOS-Stil Steuerung (Ampel)',
   'auto-resume-all': 'Unvollständige Aufgaben automatisch fortsetzen',
   'default-dir': 'Standard-Speicherort',
   'mas-default-dir-tips': 'Wegen App Store Sandbox-Einschränkungen sollte ~/Downloads als Standard gewählt werden',

@@ -9,6 +9,7 @@ export default {
   'startup': 'Başlangıç',
   'open-at-login': 'Oturum açıldığında başlat',
   'keep-window-state': 'Başlangıçta pencere boyutunu ve konumunu geri yükle',
+  'mac-style-controls': 'macOS tarzı düğmeler (trafik ışığı)',
   'auto-resume-all': 'Tamamlanmamış görevleri otomatik devam ettir',
   'default-dir': 'Varsayılan klasör',
   'mas-default-dir-tips': 'App Store sandbox kısıtlamaları nedeniyle varsayılan klasör ~/Downloads olmalıdır',

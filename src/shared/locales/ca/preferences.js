@@ -9,6 +9,7 @@ export default {
   'startup': 'Inici',
   'open-at-login': 'Obrir en iniciar sessió',
   'keep-window-state': 'Restaurar la mida i posició de la finestra en iniciar',
+  'mac-style-controls': 'Botons estil macOS (semàfor)',
   'auto-resume-all': 'Reprendre automàticament les tasques inacabades',
   'default-dir': 'Camí per defecte',
   'mas-default-dir-tips': 'Per les restriccions del sandbox de l\'App Store, el camí per defecte hauria de ser ~/Downloads',

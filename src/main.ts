@@ -253,6 +253,21 @@ window.addEventListener('unhandledrejection', (e) => {
 
     const config = preferenceStore.config
 
+    // macOS traffic-light controls: auto-enable on first launch for macOS users.
+    // The default is false (for Win/Linux). On first launch, macOS users get it
+    // set to true automatically. Once persisted, user preference is respected.
+    if (!config.macStyleControls) {
+      try {
+        const { platform } = await import('@tauri-apps/plugin-os')
+        if (platform() === 'macos') {
+          preferenceStore.updatePreference({ macStyleControls: true })
+          preferenceStore.savePreference()
+        }
+      } catch (e) {
+        logger.debug('main.macStyleControls', e)
+      }
+    }
+
     // ── Phase 2: engine startup (non-blocking) ────────────────────────────
     const port = config.rpcListenPort || ENGINE_RPC_PORT
     // Distinguish "never set" (undefined/null → auto-generate) from

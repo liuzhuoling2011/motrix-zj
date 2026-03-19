@@ -9,6 +9,7 @@ export default {
   'startup': 'Εκκίνηση',
   'open-at-login': 'Άνοιγμα κατά τη σύνδεση',
   'keep-window-state': 'Επαναφορά μεγέθους και θέσης παραθύρου κατά την εκκίνηση',
+  'mac-style-controls': 'Κουμπιά στυλ macOS (φανάρι)',
   'auto-resume-all': 'Αυτόματη συνέχιση ημιτελών εργασιών',
   'default-dir': 'Προεπιλεγμένος φάκελος',
   'mas-default-dir-tips': 'Λόγω περιορισμών sandbox του App Store, ο προεπιλεγμένος φάκελος πρέπει να είναι ~/Downloads',

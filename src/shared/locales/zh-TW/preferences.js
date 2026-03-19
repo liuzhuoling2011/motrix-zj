@@ -9,6 +9,7 @@ export default {
   'startup': '啟動',
   'open-at-login': '登入時自動啟動',
   'keep-window-state': '啟動時還原上次視窗大小與位置',
+  'mac-style-controls': 'macOS 風格控制按鈕（紅綠燈）',
   'auto-resume-all': '自動恢復未完成的任務',
   'default-dir': '預設下載路徑',
   'mas-default-dir-tips': '因 App Store 沙箱限制，建議將預設下載路徑設為「下載項目」目錄',

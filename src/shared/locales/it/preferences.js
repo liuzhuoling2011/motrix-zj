@@ -9,6 +9,7 @@ export default {
   'startup': 'Avvio',
   'open-at-login': 'Apri al login',
   'keep-window-state': 'Ripristina dimensione e posizione della finestra all\'avvio',
+  'mac-style-controls': 'Controlli stile macOS (semaforo)',
   'auto-resume-all': 'Riprendi automaticamente le attività incomplete',
   'default-dir': 'Percorso predefinito',
   'mas-default-dir-tips': 'Per le restrizioni sandbox dell\'App Store, il percorso predefinito dovrebbe essere ~/Downloads',

@@ -9,6 +9,7 @@ export default {
   'startup': 'Indítás',
   'open-at-login': 'Megnyitás bejelentkezéskor',
   'keep-window-state': 'Ablakméret és -pozíció visszaállítása indításkor',
+  'mac-style-controls': 'macOS stílusú gombok (közlekedési lámpa)',
   'auto-resume-all': 'Befejezetlen feladatok automatikus folytatása',
   'default-dir': 'Alapértelmezett mappa',
   'mas-default-dir-tips': 'Az App Store sandbox korlátozásai miatt az alapértelmezett mappa ~/Downloads legyen',

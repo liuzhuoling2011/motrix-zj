@@ -9,6 +9,7 @@ export default {
   'startup': 'Pengaktifan',
   'open-at-login': 'Buka saat masuk',
   'keep-window-state': 'Pulihkan ukuran dan posisi jendela saat memulai',
+  'mac-style-controls': 'Tombol gaya macOS (lampu lalu lintas)',
   'auto-resume-all': 'Lanjutkan tugas yang belum selesai secara otomatis',
   'default-dir': 'Folder default',
   'mas-default-dir-tips': 'Karena batasan sandbox App Store, folder default sebaiknya ~/Downloads',

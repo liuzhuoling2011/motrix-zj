@@ -9,6 +9,7 @@ export default {
   'startup': 'Запуск',
   'open-at-login': 'Відкривати при вході в систему',
   'keep-window-state': 'Відновлювати розмір і положення вікна при запуску',
+  'mac-style-controls': 'Кнопки у стилі macOS (світлофор)',
   'auto-resume-all': 'Автоматично відновлювати незавершені завдання',
   'default-dir': 'Типова тека',
   'mas-default-dir-tips': 'Через обмеження пісочниці App Store типовою текою має бути ~/Downloads',

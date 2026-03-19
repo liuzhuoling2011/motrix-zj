@@ -431,6 +431,11 @@ onUnmounted(() => {
   right: 12px;
   z-index: 100;
 }
+.window-controls.mac-style {
+  right: auto;
+  left: 13px;
+  top: 12px;
+}
 .exit-dialog-body {
   display: flex;
   align-items: center;

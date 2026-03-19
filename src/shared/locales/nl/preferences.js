@@ -9,6 +9,7 @@ export default {
   'startup': 'Opstarten',
   'open-at-login': 'Openen bij inloggen',
   'keep-window-state': 'Venstergrootte en -positie herstellen bij opstarten',
+  'mac-style-controls': 'macOS-stijl knoppen (stoplicht)',
   'auto-resume-all': 'Onvoltooide taken automatisch hervatten',
   'default-dir': 'Standaardmap',
   'mas-default-dir-tips': 'Vanwege App Store sandbox-beperkingen moet de standaardmap ~/Downloads zijn',

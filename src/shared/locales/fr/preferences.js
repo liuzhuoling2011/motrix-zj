@@ -9,6 +9,7 @@ export default {
   'startup': 'Démarrage',
   'open-at-login': 'Ouvrir au démarrage',
   'keep-window-state': 'Restaurer la taille et la position de la fenêtre',
+  'mac-style-controls': 'Boutons style macOS (feux tricolores)',
   'auto-resume-all': 'Reprendre automatiquement les tâches inachevées',
   'default-dir': 'Dossier par défaut',
   'mas-default-dir-tips': 'En raison des restrictions du bac à sable de l\'App Store, le dossier par défaut devrait être ~/Downloads',

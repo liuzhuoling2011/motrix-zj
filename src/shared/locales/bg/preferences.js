@@ -9,6 +9,7 @@ export default {
   'startup': 'Стартиране',
   'open-at-login': 'Отваряй при влизане',
   'keep-window-state': 'Възстанови размер и позиция на прозореца при стартиране',
+  'mac-style-controls': 'macOS стил бутони (светофар)',
   'auto-resume-all': 'Автоматично продължи незавършените задачи',
   'default-dir': 'Папка по подразбиране',
   'mas-default-dir-tips': 'Поради ограниченията на App Store sandbox, папката по подразбиране трябва да е ~/Downloads',

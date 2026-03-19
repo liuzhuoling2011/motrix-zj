@@ -103,6 +103,7 @@ export const DEFAULT_APP_CONFIG = {
   // ── Interface & Behavior ──────────────────────────────────────
   openAtLogin: false, // never auto-start on first install
   keepWindowState: false, // first launch has no saved state
+  macStyleControls: false, // runtime init: set true on macOS at first mount
   autoHideWindow: false,
   minimizeToTrayOnClose: false, // close=quit is default UX
   hideDockOnMinimize: false, // macOS: hide Dock icon when minimized to tray

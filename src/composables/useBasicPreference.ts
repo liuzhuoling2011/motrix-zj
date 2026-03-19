@@ -20,6 +20,7 @@ export interface BasicForm {
   theme: string
   openAtLogin: boolean
   keepWindowState: boolean
+  macStyleControls: boolean
   resumeAllWhenAppLaunched: boolean
   autoHideWindow: boolean
   minimizeToTrayOnClose: boolean
@@ -66,6 +67,7 @@ export function buildBasicForm(config: AppConfig, defaultDir: string = ''): Basi
     theme: config.theme ?? D.theme,
     openAtLogin: config.openAtLogin ?? D.openAtLogin,
     keepWindowState: config.keepWindowState ?? D.keepWindowState,
+    macStyleControls: config.macStyleControls ?? D.macStyleControls,
     resumeAllWhenAppLaunched: config.resumeAllWhenAppLaunched ?? D.resumeAllWhenAppLaunched,
     autoHideWindow: config.autoHideWindow ?? D.autoHideWindow,
     minimizeToTrayOnClose: config.minimizeToTrayOnClose ?? D.minimizeToTrayOnClose,

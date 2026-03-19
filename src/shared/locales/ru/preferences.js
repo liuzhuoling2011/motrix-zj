@@ -9,6 +9,7 @@ export default {
   'startup': 'Запуск',
   'open-at-login': 'Открывать при входе в систему',
   'keep-window-state': 'Восстанавливать размер и положение окна при запуске',
+  'mac-style-controls': 'Кнопки в стиле macOS (светофор)',
   'auto-resume-all': 'Автоматически возобновлять незавершённые задачи',
   'default-dir': 'Папка по умолчанию',
   'mas-default-dir-tips': 'Из-за ограничений песочницы App Store папкой по умолчанию должна быть ~/Downloads',

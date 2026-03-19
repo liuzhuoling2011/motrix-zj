@@ -9,6 +9,7 @@ export default {
   'startup': 'การเริ่มต้น',
   'open-at-login': 'เปิดเมื่อเข้าสู่ระบบ',
   'keep-window-state': 'กู้คืนขนาดและตำแหน่งหน้าต่างเมื่อเริ่มต้น',
+  'mac-style-controls': 'ปุ่มสไตล์ macOS (ไฟจราจร)',
   'auto-resume-all': 'ดำเนินการงานที่ยังไม่เสร็จต่อโดยอัตโนมัติ',
   'default-dir': 'โฟลเดอร์เริ่มต้น',
   'mas-default-dir-tips': 'เนื่องจากข้อจำกัด sandbox ของ App Store โฟลเดอร์เริ่มต้นควรเป็น ~/Downloads',

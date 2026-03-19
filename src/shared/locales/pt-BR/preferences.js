@@ -9,6 +9,7 @@ export default {
   'startup': 'Inicialização',
   'open-at-login': 'Abrir ao fazer login',
   'keep-window-state': 'Restaurar tamanho e posição da janela ao iniciar',
+  'mac-style-controls': 'Botões estilo macOS (semáforo)',
   'auto-resume-all': 'Retomar tarefas incompletas automaticamente',
   'default-dir': 'Pasta padrão',
   'mas-default-dir-tips': 'Devido às restrições do sandbox da App Store, a pasta padrão deve ser ~/Downloads',

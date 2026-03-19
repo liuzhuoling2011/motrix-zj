@@ -9,6 +9,7 @@ export default {
   'startup': 'راه‌اندازی',
   'open-at-login': 'باز شدن هنگام ورود',
   'keep-window-state': 'بازیابی اندازه و موقعیت پنجره هنگام شروع',
+  'mac-style-controls': 'دکمه‌های سبک macOS (چراغ‌راهنما)',
   'auto-resume-all': 'ادامه خودکار وظایف ناتمام',
   'default-dir': 'پوشه پیش‌فرض',
   'mas-default-dir-tips': 'به دلیل محدودیت‌های sandbox اپ استور، پوشه پیش‌فرض باید ~/Downloads باشد',

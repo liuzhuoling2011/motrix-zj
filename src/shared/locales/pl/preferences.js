@@ -9,6 +9,7 @@ export default {
   'startup': 'Uruchamianie',
   'open-at-login': 'Otwieraj przy logowaniu',
   'keep-window-state': 'Przywróć rozmiar i pozycję okna przy uruchamianiu',
+  'mac-style-controls': 'Przyciski w stylu macOS (sygnalizacja)',
   'auto-resume-all': 'Automatycznie wznawiaj nieukończone zadania',
   'default-dir': 'Domyślny folder',
   'mas-default-dir-tips': 'Z powodu ograniczeń sandbox App Store domyślny folder powinien być ~/Downloads',
