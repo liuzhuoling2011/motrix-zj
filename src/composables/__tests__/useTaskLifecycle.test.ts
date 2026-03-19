@@ -190,6 +190,42 @@ describe('buildHistoryRecord', () => {
     const record = buildHistoryRecord(task)
     expect(record.name).toBe('中文.txt')
   })
+
+  it('returns original path segment when percent sequence is malformed', () => {
+    const task = makeTask({
+      files: [
+        {
+          index: '1',
+          path: '/downloads/bad%ZZfile.txt',
+          length: '100',
+          completedLength: '100',
+          selected: 'true',
+          uris: [],
+        },
+      ],
+    })
+    const record = buildHistoryRecord(task)
+    expect(record.name).toBe('bad%ZZfile.txt')
+  })
+
+  it('uses bittorrent info name as-is without decode (BT names are not URL-encoded)', () => {
+    const task = makeTask({
+      bittorrent: { info: { name: 'Ubuntu%2024.04' } },
+      files: [
+        {
+          index: '1',
+          path: '/downloads/Ubuntu%2024.04/file.iso',
+          length: '100',
+          completedLength: '100',
+          selected: 'true',
+          uris: [],
+        },
+      ],
+    })
+    const record = buildHistoryRecord(task)
+    // btName takes priority and is NOT decoded — it's the literal torrent name
+    expect(record.name).toBe('Ubuntu%2024.04')
+  })
 })
 
 // ── shouldRunStaleCleanup ────────────────────────────────────────────

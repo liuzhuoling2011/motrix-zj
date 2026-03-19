@@ -148,6 +148,15 @@ describe('decodePathSegment', () => {
   it('returns unencoded strings unchanged', () => {
     expect(decodePathSegment('normal.txt')).toBe('normal.txt')
   })
+
+  it('returns empty string for empty input', () => {
+    expect(decodePathSegment('')).toBe('')
+  })
+
+  it('handles string with only a percent sign', () => {
+    // '%' alone is malformed, decodeURIComponent throws → returns original
+    expect(decodePathSegment('%')).toBe('%')
+  })
 })
 
 // ── extractDecodedFilename ────────────────────────────────────────────
@@ -199,5 +208,41 @@ describe('extractDecodedFilename', () => {
 
   it('returns original segment for malformed percent sequence', () => {
     expect(extractDecodedFilename('http://example.com/bad%ZZname.txt')).toBe('bad%ZZname.txt')
+  })
+
+  it('handles FTP URIs', () => {
+    expect(extractDecodedFilename('ftp://ftp.example.com/pub/file%20name.tar.gz')).toBe('file name.tar.gz')
+  })
+
+  it('returns empty string for blob URIs', () => {
+    expect(extractDecodedFilename('blob:http://example.com/abc-123')).toBe('')
+  })
+
+  it('preserves plus signs (not decoded as spaces in path segments)', () => {
+    // Plus in URL path is a literal +, not a space (RFC 3986)
+    expect(extractDecodedFilename('http://example.com/file+name.zip')).toBe('file+name.zip')
+  })
+
+  it('handles double-encoded sequences by decoding only once', () => {
+    // %2520 → first decode → %20 (the literal string %20, not a space)
+    expect(extractDecodedFilename('http://example.com/file%2520name.zip')).toBe('file%20name.zip')
+  })
+
+  it('handles HTTPS with port number', () => {
+    expect(extractDecodedFilename('https://cdn.example.com:8443/path/file%20name.zip')).toBe('file name.zip')
+  })
+
+  it('handles already-decoded filenames without re-encoding', () => {
+    expect(extractDecodedFilename('http://example.com/already decoded.zip')).toBe('already decoded.zip')
+  })
+
+  it('rejects filenames that are only dots', () => {
+    expect(extractDecodedFilename('http://example.com/..')).toBe('')
+    expect(extractDecodedFilename('http://example.com/.')).toBe('')
+  })
+
+  it('sanitizes backslash in decoded filename', () => {
+    // %5C = backslash
+    expect(extractDecodedFilename('http://example.com/path%5Cfile.txt')).toBe('path_file.txt')
   })
 })

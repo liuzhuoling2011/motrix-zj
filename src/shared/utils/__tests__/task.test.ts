@@ -191,6 +191,27 @@ describe('getTaskDisplayName', () => {
     })
     expect(getTaskDisplayName(task)).toBe('bad%ZZname.txt')
   })
+
+  it('handles already-decoded path (post-Layer-1 fix) without double-decoding', () => {
+    // After Layer 1, aria2 reports decoded file.path — decoding again should be a no-op
+    const task = createMockTask({
+      files: [createMockFile({ path: '/downloads/AAA BBB.mp3' })],
+    })
+    expect(getTaskDisplayName(task)).toBe('AAA BBB.mp3')
+  })
+
+  it('handles literal percent sign in filename safely', () => {
+    // A file literally named "100%.pdf" — decodeURIComponent throws → catch returns original
+    const task = createMockTask({
+      files: [createMockFile({ path: '/downloads/100%.pdf' })],
+    })
+    expect(getTaskDisplayName(task)).toBe('100%.pdf')
+  })
+
+  it('returns empty string for task with empty files array', () => {
+    const task = createMockTask({ files: [] })
+    expect(getTaskDisplayName(task)).toBe('')
+  })
 })
 
 describe('isMagnetTask', () => {
