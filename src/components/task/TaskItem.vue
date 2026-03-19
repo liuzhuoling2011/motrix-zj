@@ -271,7 +271,10 @@ function onCardRelease() {
             <span v-if="Number(task.totalLength) > 0"> / {{ totalSize }}</span>
           </span>
         </div>
-        <div v-if="isActive" class="progress-right">
+        <div class="progress-right" :class="{ 'info-hidden': !isActive }">
+          <span class="speed-text" :class="{ 'info-hidden': remaining <= 0 }">
+            <span>{{ remainingText }}</span>
+          </span>
           <span v-if="isBT" class="speed-text">
             <NIcon :size="10"><ArrowUpOutline /></NIcon>
             <span>{{ uploadSpeed }}/s</span>
@@ -279,9 +282,6 @@ function onCardRelease() {
           <span class="speed-text">
             <NIcon :size="10"><ArrowDownOutline /></NIcon>
             <span>{{ downloadSpeed }}/s</span>
-          </span>
-          <span v-if="remaining > 0" class="speed-text">
-            <span>{{ remainingText }}</span>
           </span>
           <span v-if="isBT" class="speed-text">
             <NIcon :size="10"><MagnetOutline /></NIcon>
@@ -292,7 +292,7 @@ function onCardRelease() {
             <span>{{ task.connections }}</span>
           </span>
         </div>
-        <div v-if="task.errorMessage" class="error-message">{{ task.errorMessage }}</div>
+        <div class="error-message" :class="{ 'info-hidden': !task.errorMessage }">{{ task.errorMessage }}</div>
       </div>
     </div>
   </div>
@@ -425,6 +425,7 @@ function onCardRelease() {
   min-height: 14px;
   color: var(--m3-on-surface-variant);
   margin-top: 8px;
+  font-variant-numeric: tabular-nums;
 }
 .progress-left {
   white-space: nowrap;
@@ -434,6 +435,7 @@ function onCardRelease() {
   gap: 8px;
   text-align: right;
   align-items: center;
+  transition: opacity 0.4s cubic-bezier(0.2, 0, 0, 1);
 }
 .speed-text {
   display: inline-flex;
@@ -442,6 +444,15 @@ function onCardRelease() {
   font-size: 12px;
   line-height: 14px;
   white-space: nowrap;
+  transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ── Pure CSS show/hide (polling-safe) ────────────────────────────── */
+/* Bypasses Vue <Transition> to avoid leave-animation loss when       */
+/* reactive polling updates child content in the same render tick.    */
+.info-hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 .task-tags {
   display: flex;
