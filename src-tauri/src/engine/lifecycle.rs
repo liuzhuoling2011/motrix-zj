@@ -31,10 +31,13 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
         .unwrap_or("16800");
     cleanup_port(port);
 
-    // aria2.conf sits next to the aria2c binary in binaries/
-    let exe_dir = std::env::current_exe().map_err(|e| format!("Failed to get exe path: {}", e))?;
-    let exe_dir = exe_dir.parent().ok_or("Failed to get exe dir")?;
-    let conf_path = exe_dir.join("binaries").join("aria2.conf");
+    // Resolve aria2.conf via Tauri's resource directory — correct for all
+    // platforms, including macOS .app bundles where resources live in
+    // Contents/Resources/ rather than next to the executable.
+    let conf_path = app
+        .path()
+        .resolve("binaries/aria2.conf", tauri::path::BaseDirectory::Resource)
+        .map_err(|e| format!("Failed to resolve conf path: {}", e))?;
     let conf_str = conf_path.to_string_lossy().to_string();
 
     // Session file for persisting active/paused downloads across restarts
@@ -53,8 +56,13 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
     let args = build_start_args(
         config,
         if conf_path.exists() {
+            log::info!("loading engine config: {}", conf_str);
             Some(&conf_str)
         } else {
+            log::warn!(
+                "engine config not found: {}, starting with defaults",
+                conf_str
+            );
             None
         },
         &session_str,
@@ -213,9 +221,10 @@ pub fn restart_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Res
             .map_err(|e| format!("Failed to create download directory '{}': {}", dir, e))?;
     }
 
-    let exe_dir = std::env::current_exe().map_err(|e| format!("Failed to get exe path: {}", e))?;
-    let exe_dir = exe_dir.parent().ok_or("Failed to get exe dir")?;
-    let conf_path = exe_dir.join("binaries").join("aria2.conf");
+    let conf_path = app
+        .path()
+        .resolve("binaries/aria2.conf", tauri::path::BaseDirectory::Resource)
+        .map_err(|e| format!("Failed to resolve conf path: {}", e))?;
     let conf_str = conf_path.to_string_lossy().to_string();
 
     let session_path = app
@@ -232,8 +241,13 @@ pub fn restart_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Res
     let args = build_start_args(
         config,
         if conf_path.exists() {
+            log::info!("restart: loading engine config: {}", conf_str);
             Some(&conf_str)
         } else {
+            log::warn!(
+                "restart: engine config not found: {}, starting with defaults",
+                conf_str
+            );
             None
         },
         &session_str,
