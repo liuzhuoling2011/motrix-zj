@@ -604,18 +604,18 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
 /* ── Torrent panel enter/leave ────────────────────────────────────── */
 .torrent-panel-enter-active {
   transition:
-    opacity 0.3s cubic-bezier(0.05, 0.7, 0.1, 1),
-    transform 0.3s cubic-bezier(0.05, 0.7, 0.1, 1);
+    opacity 0.2s ease-out,
+    transform 0.2s ease-out;
 }
 .torrent-panel-leave-active {
   transition:
-    opacity 0.2s cubic-bezier(0.3, 0, 0.8, 0.15),
-    transform 0.2s cubic-bezier(0.3, 0, 0.8, 0.15);
+    opacity 0.15s ease-out,
+    transform 0.15s ease-out;
 }
 .torrent-panel-enter-from,
 .torrent-panel-leave-to {
   opacity: 0;
-  transform: translateY(12px);
+  transform: translateY(8px);
 }
 
 /* ── Batch item base styles ───────────────────────────────────────── */
