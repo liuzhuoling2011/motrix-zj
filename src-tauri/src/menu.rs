@@ -64,14 +64,26 @@ pub fn build_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
         "Window",
         true,
         &[
-            &PredefinedMenuItem::minimize(app, None)?,
-            &PredefinedMenuItem::maximize(app, None)?,
+            // Custom items instead of PredefinedMenuItem variants — the
+            // predefined versions call native macOS APIs (miniaturize:,
+            // zoom:, performClose:) which bypass Tauri's event system,
+            // making shortcuts unresponsive in frameless windows.
+            &MenuItem::with_id(
+                app,
+                "minimize-window",
+                "Minimize",
+                true,
+                Some("CmdOrCtrl+M"),
+            )?,
+            &MenuItem::with_id(app, "zoom-window", "Zoom", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
-            // Custom item instead of PredefinedMenuItem::close_window — the
-            // predefined variant calls macOS's native performClose: which
-            // bypasses Tauri's on_window_event handler, preventing the
-            // minimize-to-tray / exit-dialog flow from running.
-            &MenuItem::with_id(app, "close-window", "Close Window", true, Some("CmdOrCtrl+W"))?,
+            &MenuItem::with_id(
+                app,
+                "close-window",
+                "Close Window",
+                true,
+                Some("CmdOrCtrl+W"),
+            )?,
         ],
     )?;
 

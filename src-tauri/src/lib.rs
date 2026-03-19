@@ -50,12 +50,28 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(target_os = "macos")]
     app.on_menu_event(|app, event| match event.id().as_ref() {
-        // ── Cmd+W close: replicate the on_window_event CloseRequested flow ──
+        // ── Window menu: custom handlers for frameless window ────────
         //
-        // PredefinedMenuItem::close_window calls macOS performClose: which
-        // bypasses Tauri's on_window_event handler.  This custom handler
-        // reads the same preference store and applies the same hide-or-dialog
-        // logic to ensure Cmd+W behaves identically to clicking the × button.
+        // PredefinedMenuItem variants call native macOS selectors
+        // (miniaturize:, zoom:, performClose:) which are no-ops on
+        // frameless (decorations: false) windows.  Custom items route
+        // through Tauri's window API, which works correctly.
+        "minimize-window" => {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.minimize();
+            }
+        }
+        "zoom-window" => {
+            if let Some(window) = app.get_webview_window("main") {
+                let is_max = window.is_maximized().unwrap_or(false);
+                if is_max {
+                    let _ = window.unmaximize();
+                } else {
+                    let _ = window.maximize();
+                }
+            }
+        }
+        // ── Cmd+W: replicate CloseRequested hide-or-dialog logic ──
         "close-window" => {
             log::info!("menu:close-window — handling Cmd+W");
 
