@@ -157,25 +157,6 @@ vi.mock('naive-ui', async () => {
   }
 })
 
-const TorrentUploadStub = defineComponent({
-  name: 'TorrentUpload',
-  props: {
-    loaded: { type: Boolean, default: false },
-  },
-  emits: ['choose'],
-  setup(props, { slots, emit }) {
-    return () =>
-      h('div', [
-        props.loaded
-          ? slots['file-list']
-            ? slots['file-list']()
-            : []
-          : h('button', { onClick: () => emit('choose') }, 'choose-file'),
-        slots.placeholder ? slots.placeholder() : [],
-      ])
-  },
-})
-
 const AdvancedOptionsStub = defineComponent({
   name: 'AdvancedOptions',
   setup() {
@@ -188,7 +169,6 @@ function mountDialog() {
     props: { show: false },
     global: {
       stubs: {
-        TorrentUpload: TorrentUploadStub,
         AdvancedOptions: AdvancedOptionsStub,
       },
     },
@@ -267,9 +247,9 @@ describe('AddTask batch URI integration', () => {
     await wrapper.setProps({ show: true })
     await flushPromises()
 
-    // Batch list should be visible when there are file items
-    const batchListBeforeClose = wrapper.find('.batch-list')
-    expect(batchListBeforeClose.exists()).toBe(true)
+    // Torrent panel should be visible when there are file items
+    const torrentPanel = wrapper.find('.torrent-panel')
+    expect(torrentPanel.exists()).toBe(true)
 
     // Simulate close: clear batch and hide dialog
     appStore.pendingBatch = []
@@ -372,5 +352,132 @@ describe('AddTask split preference sync', () => {
     })
     expect(splitInput).toBeDefined()
     expect(Number((splitInput!.element as HTMLInputElement).value)).toBe(16)
+  })
+})
+
+describe('AddTask redesigned layout and animation structure', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    resetBatchIdCounter()
+  })
+
+  // ── Layout: dual-tab with NTabs ────────────────────────────────────
+
+  it('uses NTabs dual-tab layout with URI and Torrent tabs', async () => {
+    const source = (await import('@/components/task/AddTask.vue?raw')).default
+    expect(source).toContain('NTabs')
+    expect(source).toContain('NTabPane')
+    expect(source).toContain('ADD_TASK_TYPE.URI')
+    expect(source).toContain('ADD_TASK_TYPE.TORRENT')
+  })
+
+  it('does not import TorrentUpload — functionality merged inline', async () => {
+    const source = (await import('@/components/task/AddTask.vue?raw')).default
+    expect(source).not.toContain('TorrentUpload')
+  })
+
+  it('renders a textarea for URI input in the URI tab', async () => {
+    const appStore = useAppStore()
+    appStore.pendingBatch = []
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+
+    expect(getTextarea(wrapper).exists()).toBe(true)
+  })
+
+  // ── Torrent panel: conditional rendering ───────────────────────────
+
+  it('shows the torrent panel (.torrent-panel) when fileItems exist', async () => {
+    const appStore = useAppStore()
+    appStore.pendingBatch = [createBatchItem('torrent', '/tmp/a.torrent')]
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+
+    expect(wrapper.find('.torrent-panel').exists()).toBe(true)
+  })
+
+  it('hides the torrent panel when no fileItems exist', async () => {
+    const appStore = useAppStore()
+    appStore.pendingBatch = []
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+
+    expect(wrapper.find('.torrent-panel').exists()).toBe(false)
+  })
+
+  it('renders batch items inside the torrent panel', async () => {
+    const appStore = useAppStore()
+    appStore.pendingBatch = [createBatchItem('torrent', '/tmp/a.torrent'), createBatchItem('torrent', '/tmp/b.torrent')]
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+
+    expect(wrapper.findAll('.batch-item').length).toBe(2)
+  })
+
+  // ── Animation: WAAPI TransitionGroup ───────────────────────────────
+
+  it('uses TransitionGroup with name="blist" for WAAPI + CSS move hybrid', async () => {
+    const source = (await import('@/components/task/AddTask.vue?raw')).default
+    // name="blist" enables Vue's built-in sibling FLIP via .blist-move CSS
+    expect(source).toContain('name="blist"')
+    // Must NOT use old names that caused CSS cascade conflicts
+    expect(source).not.toContain('name="bitem"')
+    expect(source).not.toContain('name="batch-item"')
+    // Must have .blist-move CSS for sibling FLIP and .blist-leave-active for position:absolute
+    expect(source).toContain('.blist-move')
+    expect(source).toContain('.blist-leave-active')
+  })
+
+  it('defines onItemEnter and onItemLeave WAAPI hooks in script', async () => {
+    const source = (await import('@/components/task/AddTask.vue?raw')).default
+    expect(source).toContain('onItemEnter')
+    expect(source).toContain('onItemLeave')
+    // Must use Element.animate() — the WAAPI call
+    expect(source).toContain('.animate(')
+    // Must call done() callback for Vue to know when animation finishes
+    expect(source).toContain('.onfinish')
+  })
+
+  it('wires @enter and @leave hooks on the TransitionGroup', async () => {
+    const source = (await import('@/components/task/AddTask.vue?raw')).default
+    expect(source).toContain('@enter="onItemEnter"')
+    expect(source).toContain('@leave="onItemLeave"')
+  })
+
+  // ── Animation: torrent panel transition ────────────────────────────
+
+  it('wraps the torrent panel in a <Transition> for smooth enter/leave', async () => {
+    const source = (await import('@/components/task/AddTask.vue?raw')).default
+    expect(source).toContain('name="torrent-panel"')
+  })
+
+  // ── Animation: content-fade retained ───────────────────────────────
+
+  it('retains content-fade transition for file detail switching', async () => {
+    const source = (await import('@/components/task/AddTask.vue?raw')).default
+    expect(source).toContain('name="content-fade"')
+  })
+
+  // ── No CSS transition class pollution ──────────────────────────────
+
+  it('does not define bitem-* CSS classes (WAAPI replaces CSS transitions)', async () => {
+    const source = (await import('@/components/task/AddTask.vue?raw')).default
+    expect(source).not.toContain('.bitem-enter-active')
+    expect(source).not.toContain('.bitem-leave-active')
+    expect(source).not.toContain('.bitem-enter-from')
+    expect(source).not.toContain('.bitem-leave-to')
+  })
+
+  it('does not use the old useAddTaskAnimations composable', async () => {
+    const source = (await import('@/components/task/AddTask.vue?raw')).default
+    expect(source).not.toContain('useAddTaskAnimations')
   })
 })
