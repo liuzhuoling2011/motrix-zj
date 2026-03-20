@@ -972,11 +972,17 @@ fn reveal_in_explorer(path: &str) -> Result<(), AppError> {
         UI::Shell::{ILCreateFromPathW, ILFree, SHOpenFolderAndSelectItems},
     };
 
-    // Step 1: Canonicalize to resolve symlinks and normalize the path.
-    // `dunce::canonicalize` strips `\\?\` for local drives (C:, D:, etc.)
-    // but for mapped network drives, it may produce `\\?\UNC\server\share\...`.
-    let canonical = dunce::canonicalize(path)
-        .map_err(|e| AppError::Io(format!("Failed to canonicalize {path:?}: {e}")))?;
+    // Step 1: Best-effort canonicalization.
+    // `dunce::canonicalize` resolves symlinks and strips `\\?\` for local drives.
+    // However, some virtual file system drivers (RAM disks like ImDisk, 软媒魔方)
+    // do not support `GetFinalPathNameByHandleW` — the API that `canonicalize()`
+    // relies on — and return ERROR_FILE_NOT_FOUND even though the file exists.
+    // See: https://github.com/rust-lang/rust/issues/99608
+    // Fallback: use the already-normalized path from `normalize_path()`.
+    let canonical = dunce::canonicalize(path).unwrap_or_else(|e| {
+        log::debug!("canonicalize failed (virtual FS?), using normalized path: {e}");
+        PathBuf::from(path)
+    });
 
     // Step 2: Strip `\\?\UNC\` prefix for mapped drives.
     // `\\?\UNC\server\share\file` → `\\server\share\file`
