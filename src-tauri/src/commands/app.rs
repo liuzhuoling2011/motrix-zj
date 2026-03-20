@@ -472,6 +472,100 @@ mod tests {
             "probeable"
         );
     }
+
+    // ── path_exists ─────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn path_exists_returns_true_for_existing_file() {
+        use std::io::Write;
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        writeln!(tmp, "test content").unwrap();
+        let path = tmp.path().to_string_lossy().to_string();
+
+        let result = path_exists(path).await.unwrap();
+        assert!(result, "should return true for an existing file");
+    }
+
+    #[tokio::test]
+    async fn path_exists_returns_true_for_existing_directory() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let path = tmp_dir.path().to_string_lossy().to_string();
+
+        let result = path_exists(path).await.unwrap();
+        assert!(result, "should return true for an existing directory");
+    }
+
+    #[tokio::test]
+    async fn path_exists_returns_false_for_nonexistent_path() {
+        let result = path_exists("/nonexistent/path/to/file.txt".into())
+            .await
+            .unwrap();
+        assert!(!result, "should return false for a nonexistent path");
+    }
+
+    #[tokio::test]
+    async fn path_exists_returns_false_for_empty_string() {
+        let result = path_exists(String::new()).await.unwrap();
+        assert!(!result, "should return false for an empty path");
+    }
+
+    #[tokio::test]
+    async fn path_exists_returns_false_for_garbage_path() {
+        let result = path_exists("\0\x01\x02invalid".into()).await.unwrap();
+        assert!(
+            !result,
+            "should return false for a path with invalid characters"
+        );
+    }
+
+    // ── path_is_dir ─────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn path_is_dir_returns_true_for_directory() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let path = tmp_dir.path().to_string_lossy().to_string();
+
+        let result = path_is_dir(path).await.unwrap();
+        assert!(result, "should return true for a directory");
+    }
+
+    #[tokio::test]
+    async fn path_is_dir_returns_false_for_file() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let path = tmp.path().to_string_lossy().to_string();
+
+        let result = path_is_dir(path).await.unwrap();
+        assert!(!result, "should return false for a regular file");
+    }
+
+    #[tokio::test]
+    async fn path_is_dir_returns_false_for_nonexistent_path() {
+        let result = path_is_dir("/nonexistent/directory".into()).await.unwrap();
+        assert!(
+            !result,
+            "should return false for a nonexistent path, not error"
+        );
+    }
+
+    #[tokio::test]
+    async fn path_is_dir_returns_false_for_empty_string() {
+        let result = path_is_dir(String::new()).await.unwrap();
+        assert!(!result, "should return false for an empty path");
+    }
+
+    #[tokio::test]
+    async fn path_exists_detects_file_in_deeply_nested_directory() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let nested = tmp_dir.path().join("a").join("b").join("c");
+        std::fs::create_dir_all(&nested).unwrap();
+        let file_path = nested.join("deep.txt");
+        std::fs::write(&file_path, "deep content").unwrap();
+
+        let result = path_exists(file_path.to_string_lossy().to_string())
+            .await
+            .unwrap();
+        assert!(result, "should find files in deeply nested directories");
+    }
 }
 
 /// Returns `true` when the current process was launched by the OS
@@ -607,3 +701,31 @@ pub fn is_dmabuf_renderer_disabled() -> bool {
         false
     }
 }
+
+/// Checks whether a path exists on the filesystem.
+///
+/// Uses `tokio::fs` directly — bypasses the frontend `fs:scope` security
+/// sandbox so it works for **any** absolute path, including RAM disks (Z:\),
+/// network shares (\\server\share), and non-standard mount points.
+///
+/// This is the Tauri-recommended approach for applications (like download
+/// managers) that must verify file existence on user-chosen arbitrary paths.
+/// See: <https://tauri.app/security/scope/>
+#[tauri::command]
+pub async fn path_exists(path: String) -> Result<bool, AppError> {
+    Ok(tokio::fs::try_exists(&path).await.unwrap_or(false))
+}
+
+/// Checks whether a path refers to a directory.
+///
+/// Returns `false` for non-existent paths instead of erroring, matching the
+/// behaviour expected by the frontend (which only needs a boolean to decide
+/// between "Open File" vs "Open Folder" toast messages).
+#[tauri::command]
+pub async fn path_is_dir(path: String) -> Result<bool, AppError> {
+    match tokio::fs::metadata(&path).await {
+        Ok(m) => Ok(m.is_dir()),
+        Err(_) => Ok(false),
+    }
+}
+
