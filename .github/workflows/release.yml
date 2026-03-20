@@ -202,15 +202,18 @@ jobs:
           # Get current file SHA if it exists (required for updates)
           SHA=$(gh api "repos/$REPO/contents/$JSON_FILE?ref=data" --jq '.sha' 2>/dev/null || echo "")
 
-          SHA_ARG=""
           if [ -n "$SHA" ]; then
-            SHA_ARG="--field sha=$SHA"
+            gh api "repos/$REPO/contents/$JSON_FILE" \
+              --method PUT \
+              --field message="ci: update $JSON_FILE" \
+              --field content="$CONTENT" \
+              --field branch="data" \
+              --field sha="$SHA"
+          else
+            gh api "repos/$REPO/contents/$JSON_FILE" \
+              --method PUT \
+              --field message="ci: update $JSON_FILE" \
+              --field content="$CONTENT" \
+              --field branch="data"
           fi
-
-          gh api "repos/$REPO/contents/$JSON_FILE" \
-            --method PUT \
-            --field message="ci: update $JSON_FILE" \
-            --field content="$CONTENT" \
-            --field branch="data" \
-            $SHA_ARG
           echo "Pushed $JSON_FILE to 'data' branch"
