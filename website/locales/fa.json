@@ -99,5 +99,7 @@
   "dl.modal.help.linux": "دستور <code>uname -m</code> را در ترمینال اجرا کنید",
   "theme.system": "سیستم",
   "theme.light": "روشن",
-  "theme.dark": "تاریک"
+  "theme.dark": "تاریک",
+  "dl.channel.stable": "پایدار",
+  "dl.channel.beta": "بتا"
 }

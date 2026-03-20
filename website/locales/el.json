@@ -99,5 +99,7 @@
   "dl.modal.help.linux": "Εκτελέστε <code>uname -m</code> στο τερματικό",
   "theme.system": "Σύστημα",
   "theme.light": "Φωτεινό",
-  "theme.dark": "Σκοτεινό"
+  "theme.dark": "Σκοτεινό",
+  "dl.channel.stable": "Σταθερό",
+  "dl.channel.beta": "Beta"
 }
