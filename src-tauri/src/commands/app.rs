@@ -969,11 +969,7 @@ fn reveal_in_explorer(path: &str) -> Result<(), AppError> {
     use windows_sys::Win32::{
         Foundation::ERROR_FILE_NOT_FOUND,
         System::Com::CoInitializeEx,
-        UI::Shell::{
-            ILCreateFromPathW, ILFree, SHOpenFolderAndSelectItems, ShellExecuteExW,
-            SHELLEXECUTEINFOW,
-        },
-        UI::WindowsAndMessaging::SW_SHOWNORMAL,
+        UI::Shell::{ILCreateFromPathW, ILFree, SHOpenFolderAndSelectItems},
     };
 
     // Step 1: Canonicalize to resolve symlinks and normalize the path.
@@ -1025,10 +1021,10 @@ fn reveal_in_explorer(path: &str) -> Result<(), AppError> {
         }
 
         // Open folder and select the file.
-        let items = [file_pidl];
+        let items: [*const _; 1] = [file_pidl as *const _];
         let result = SHOpenFolderAndSelectItems(parent_pidl, 1, items.as_ptr(), 0);
 
-        // Electron-style fallback: on ERROR_FILE_NOT_FOUND, use ShellExecuteExW.
+        // Electron-style fallback: on ERROR_FILE_NOT_FOUND, use ShellExecuteW.
         // "On some systems, the above call mysteriously fails with 'file not found'
         //  even though the file is there." — Electron source
         if result != 0 && (result as u32) == ERROR_FILE_NOT_FOUND {
@@ -1050,25 +1046,28 @@ fn reveal_in_explorer(path: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Fallback: open a directory with `ShellExecuteExW("explore")`.
+/// Fallback: open a directory with `ShellExecuteW("explore")`.
 #[cfg(windows)]
 fn shell_execute_open(dir: &str) -> Result<(), AppError> {
-    use windows_sys::Win32::UI::{
-        Shell::ShellExecuteExW, Shell::SHELLEXECUTEINFOW, WindowsAndMessaging::SW_SHOWNORMAL,
-    };
+    use windows_sys::Win32::UI::Shell::ShellExecuteW;
+    use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
     let dir_wide = to_wide(dir);
     let verb_wide = to_wide("explore");
 
-    let mut info: SHELLEXECUTEINFOW = unsafe { std::mem::zeroed() };
-    info.cbSize = std::mem::size_of::<SHELLEXECUTEINFOW>() as u32;
-    info.nShow = SW_SHOWNORMAL;
-    info.lpFile = dir_wide.as_ptr();
-    info.lpVerb = verb_wide.as_ptr();
-
-    let ok = unsafe { ShellExecuteExW(&mut info) };
-    if ok == 0 {
-        Err(AppError::Io(format!("ShellExecuteExW failed for {dir:?}")))
+    let result = unsafe {
+        ShellExecuteW(
+            std::ptr::null_mut(), // hwnd
+            verb_wide.as_ptr(),   // lpOperation: "explore"
+            dir_wide.as_ptr(),    // lpFile: directory path
+            std::ptr::null(),     // lpParameters
+            std::ptr::null(),     // lpDirectory
+            SW_SHOWNORMAL,        // nShowCmd
+        )
+    };
+    // ShellExecuteW returns HINSTANCE > 32 on success.
+    if (result as isize) <= 32 {
+        Err(AppError::Io(format!("ShellExecuteW failed for {dir:?}")))
     } else {
         Ok(())
     }
