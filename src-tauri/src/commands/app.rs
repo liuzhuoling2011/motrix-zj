@@ -478,20 +478,20 @@ mod tests {
     #[tokio::test]
     async fn path_exists_returns_true_for_existing_file() {
         use std::io::Write;
-        let mut tmp = tempfile::NamedTempFile::new().unwrap();
-        writeln!(tmp, "test content").unwrap();
+        let mut tmp = tempfile::NamedTempFile::new().expect("create temp file");
+        writeln!(tmp, "test content").expect("write to temp file");
         let path = tmp.path().to_string_lossy().to_string();
 
-        let result = path_exists(path).await.unwrap();
+        let result = path_exists(path).await.expect("path_exists returned Err");
         assert!(result, "should return true for an existing file");
     }
 
     #[tokio::test]
     async fn path_exists_returns_true_for_existing_directory() {
-        let tmp_dir = tempfile::tempdir().unwrap();
+        let tmp_dir = tempfile::tempdir().expect("create temp dir");
         let path = tmp_dir.path().to_string_lossy().to_string();
 
-        let result = path_exists(path).await.unwrap();
+        let result = path_exists(path).await.expect("path_exists returned Err");
         assert!(result, "should return true for an existing directory");
     }
 
@@ -499,19 +499,23 @@ mod tests {
     async fn path_exists_returns_false_for_nonexistent_path() {
         let result = path_exists("/nonexistent/path/to/file.txt".into())
             .await
-            .unwrap();
+            .expect("path_exists returned Err");
         assert!(!result, "should return false for a nonexistent path");
     }
 
     #[tokio::test]
     async fn path_exists_returns_false_for_empty_string() {
-        let result = path_exists(String::new()).await.unwrap();
+        let result = path_exists(String::new())
+            .await
+            .expect("path_exists returned Err");
         assert!(!result, "should return false for an empty path");
     }
 
     #[tokio::test]
     async fn path_exists_returns_false_for_garbage_path() {
-        let result = path_exists("\0\x01\x02invalid".into()).await.unwrap();
+        let result = path_exists("\0\x01\x02invalid".into())
+            .await
+            .expect("path_exists returned Err");
         assert!(
             !result,
             "should return false for a path with invalid characters"
@@ -522,25 +526,27 @@ mod tests {
 
     #[tokio::test]
     async fn path_is_dir_returns_true_for_directory() {
-        let tmp_dir = tempfile::tempdir().unwrap();
+        let tmp_dir = tempfile::tempdir().expect("create temp dir");
         let path = tmp_dir.path().to_string_lossy().to_string();
 
-        let result = path_is_dir(path).await.unwrap();
+        let result = path_is_dir(path).await.expect("path_is_dir returned Err");
         assert!(result, "should return true for a directory");
     }
 
     #[tokio::test]
     async fn path_is_dir_returns_false_for_file() {
-        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let tmp = tempfile::NamedTempFile::new().expect("create temp file");
         let path = tmp.path().to_string_lossy().to_string();
 
-        let result = path_is_dir(path).await.unwrap();
+        let result = path_is_dir(path).await.expect("path_is_dir returned Err");
         assert!(!result, "should return false for a regular file");
     }
 
     #[tokio::test]
     async fn path_is_dir_returns_false_for_nonexistent_path() {
-        let result = path_is_dir("/nonexistent/directory".into()).await.unwrap();
+        let result = path_is_dir("/nonexistent/directory".into())
+            .await
+            .expect("path_is_dir returned Err");
         assert!(
             !result,
             "should return false for a nonexistent path, not error"
@@ -549,21 +555,23 @@ mod tests {
 
     #[tokio::test]
     async fn path_is_dir_returns_false_for_empty_string() {
-        let result = path_is_dir(String::new()).await.unwrap();
+        let result = path_is_dir(String::new())
+            .await
+            .expect("path_is_dir returned Err");
         assert!(!result, "should return false for an empty path");
     }
 
     #[tokio::test]
     async fn path_exists_detects_file_in_deeply_nested_directory() {
-        let tmp_dir = tempfile::tempdir().unwrap();
+        let tmp_dir = tempfile::tempdir().expect("create temp dir");
         let nested = tmp_dir.path().join("a").join("b").join("c");
-        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::create_dir_all(&nested).expect("create nested dirs");
         let file_path = nested.join("deep.txt");
-        std::fs::write(&file_path, "deep content").unwrap();
+        std::fs::write(&file_path, "deep content").expect("write deep file");
 
         let result = path_exists(file_path.to_string_lossy().to_string())
             .await
-            .unwrap();
+            .expect("path_exists returned Err");
         assert!(result, "should find files in deeply nested directories");
     }
 }
