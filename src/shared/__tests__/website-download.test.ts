@@ -10,6 +10,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import type { Platform } from '@website/download.js'
 import { channelJsonUrl, PLATFORMS, resolveDownloadUrls, UPDATER_BASE_URL } from '@website/download.js'
 
 // ─── channelJsonUrl ──────────────────────────────────────────────────────────
@@ -176,7 +177,7 @@ describe('PLATFORMS matchers', () => {
   })
 
   it('all platform keys are unique', () => {
-    const keys = PLATFORMS.map((p) => p.key)
+    const keys = PLATFORMS.map((p: Platform) => p.key)
     expect(new Set(keys).size).toBe(keys.length)
   })
 
@@ -203,8 +204,8 @@ describe('PLATFORMS matchers', () => {
   ]
 
   it.each(matchCases)('platform %s matcher returns %s for filename "%s"', (key, filename, expected) => {
-    const platform = PLATFORMS.find((p) => p.key === key)
+    const platform = PLATFORMS.find((p: Platform) => p.key === key)
     expect(platform).toBeDefined()
-    expect(platform.match(filename)).toBe(expected)
+    expect(platform!.match(filename as string)).toBe(expected)
   })
 })
