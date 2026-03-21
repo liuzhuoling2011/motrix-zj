@@ -112,7 +112,7 @@ We provide **NSIS installers** for Windows — lightweight (~20 MB), fast to ins
 ### Prerequisites
 
 - [Rust](https://rustup.rs/) (latest stable)
-- [Node.js](https://nodejs.org/) >= 18
+- [Node.js](https://nodejs.org/) >= 22
 - [pnpm](https://pnpm.io/)
 
 ### Setup

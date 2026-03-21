@@ -45,7 +45,7 @@ src-tauri/
 │   │   ├── ui.rs               # Tray, menu, dock, progress bar commands
 │   │   ├── tracker.rs          # Tracker probing and protocol classification
 │   │   ├── fs.rs               # File system ops, diagnostics, platform code
-│   │   ├── updater.rs          # check_for_update, install_update commands
+│   │   ├── updater.rs          # check_for_update, download_update, apply_update, cancel_update
 │   │   └── upnp.rs             # UPnP port mapping commands
 │   ├── engine/
 │   │   ├── mod.rs              # Module re-exports
@@ -184,8 +184,10 @@ The CI creates this Release automatically if it doesn't exist, and uses `--clobb
 
 The Tauri JS `check()` API does **not** support runtime endpoint override. Channel switching is implemented via Rust commands:
 
-- `check_for_update(channel: String)` → dynamically builds updater with correct endpoint
-- `install_update(channel: String)` → downloads, installs, emits progress events
+- `check_for_update(channel, proxy)` → dynamically builds updater with correct endpoint
+- `download_update(channel, proxy)` → downloads update binary, emits progress events
+- `apply_update(channel)` → stops engine, installs downloaded update
+- `cancel_update()` → cancels in-progress download
 
 The user's channel preference is stored as `updateChannel` in the preference store.
 
