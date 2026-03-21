@@ -187,7 +187,15 @@ pub fn save_session_rpc(port: &str, secret: &str) {
     let addr = format!("127.0.0.1:{}", port);
     let timeout = std::time::Duration::from_millis(500);
 
-    match TcpStream::connect_timeout(&addr.parse().unwrap(), timeout) {
+    let sock_addr: std::net::SocketAddr = match addr.parse() {
+        Ok(a) => a,
+        Err(e) => {
+            log::debug!("save_session_rpc: bad address {}: {}", addr, e);
+            return;
+        }
+    };
+
+    match TcpStream::connect_timeout(&sock_addr, timeout) {
         Ok(mut stream) => {
             let _ = stream.set_write_timeout(Some(timeout));
             let _ = stream.set_read_timeout(Some(timeout));
