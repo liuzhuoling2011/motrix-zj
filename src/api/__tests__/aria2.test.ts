@@ -362,6 +362,52 @@ describe('aria2 API', () => {
       const result = await addMetalink({ metalink: 'base64ml', options: {} })
       expect(result).toEqual(['gid-ml1'])
     })
+
+    // ── force-save per-download isolation ──────────────────────────
+    // aria2's SessionSerializer.cc:288 only persists FINISHED tasks when
+    // the task's per-download force-save=true.  Setting it globally causes
+    // completed HTTP downloads to persist in the session file, making aria2
+    // re-download them on restart (infinite loop).
+    //
+    // Solution: inject force-save=true ONLY on BT/metalink tasks that need
+    // session persistence for seeding resumption.
+
+    it('addTorrent injects force-save=true into per-download options', async () => {
+      mockCall.mockResolvedValueOnce('gid-torrent')
+      await addTorrent({ torrent: 'base64data', options: {} })
+      const engineOpts = mockCall.mock.calls[0][3] as Record<string, string>
+      expect(engineOpts['force-save']).toBe('true')
+    })
+
+    it('addTorrent preserves caller-supplied options alongside force-save', async () => {
+      mockCall.mockResolvedValueOnce('gid-torrent')
+      await addTorrent({ torrent: 'data', options: { dir: '/custom', split: '4' } })
+      const engineOpts = mockCall.mock.calls[0][3] as Record<string, string>
+      expect(engineOpts['force-save']).toBe('true')
+      expect(engineOpts.dir).toBe('/custom')
+      expect(engineOpts.split).toBe('4')
+    })
+
+    it('addMetalink injects force-save=true into per-download options', async () => {
+      mockCall.mockResolvedValueOnce(['gid-ml1'])
+      await addMetalink({ metalink: 'base64ml', options: {} })
+      const engineOpts = mockCall.mock.calls[0][2] as Record<string, string>
+      expect(engineOpts['force-save']).toBe('true')
+    })
+
+    it('addUri does NOT inject force-save (HTTP downloads must not persist)', async () => {
+      mockCall.mockResolvedValue('gid-http')
+      await addUri({ uris: ['http://example.com/file.zip'], outs: [], options: {} })
+      const engineOpts = mockCall.mock.calls[0][2] as Record<string, string>
+      expect(engineOpts).not.toHaveProperty('force-save')
+    })
+
+    it('addUriAtomic does NOT inject force-save', async () => {
+      mockCall.mockResolvedValueOnce('gid-atomic')
+      await addUriAtomic({ uris: ['http://example.com/f.zip'], options: {} })
+      const engineOpts = mockCall.mock.calls[0][2] as Record<string, string>
+      expect(engineOpts).not.toHaveProperty('force-save')
+    })
   })
 
   // ── Task Control ────────────────────────────────────────────────

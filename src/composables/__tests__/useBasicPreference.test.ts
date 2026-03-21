@@ -188,6 +188,27 @@ describe('buildBasicSystemConfig', () => {
     expect(config['bt-save-metadata']).toBe('true')
     expect(config['bt-load-saved-metadata']).toBe('true')
   })
+
+  // ── force-save isolation: global config must NOT include force-save ──
+  // aria2's SessionSerializer.cc:288 saves FINISHED tasks to the session file
+  // ONLY when the per-download option force-save=true is set. Setting it
+  // globally causes ALL completed downloads (HTTP + BT) to persist in the
+  // session, making aria2 re-download them on restart.
+  //
+  // force-save must be a per-download option injected only on BT tasks
+  // (addTorrent / addMetalink), never as a global option.
+
+  it('does NOT include force-save in global system config', () => {
+    const config = buildBasicSystemConfig(baseForm)
+    expect(config).not.toHaveProperty('force-save')
+  })
+
+  it('does NOT include force-save regardless of keepSeeding value', () => {
+    const withSeeding = buildBasicSystemConfig({ ...baseForm, keepSeeding: true })
+    const withoutSeeding = buildBasicSystemConfig({ ...baseForm, keepSeeding: false })
+    expect(withSeeding).not.toHaveProperty('force-save')
+    expect(withoutSeeding).not.toHaveProperty('force-save')
+  })
 })
 
 // ── transformBasicForStore ──────────────────────────────────────────

@@ -211,12 +211,17 @@ export async function addUriAtomic(params: { uris: string[]; options: Record<str
 /** Adds a torrent download from a base64-encoded .torrent file. */
 export async function addTorrent(params: { torrent: string; options: Aria2EngineOptions }): Promise<string> {
   const engineOptions = formatOptionsForEngine(params.options)
+  // BT downloads need force-save=true for session persistence (seeding resumption).
+  // HTTP downloads must NOT have this — see SessionSerializer.cc:288.
+  engineOptions['force-save'] = 'true'
   return getClient().call<string>('addTorrent', params.torrent, [], engineOptions)
 }
 
 /** Adds a metalink download from a base64-encoded .metalink file. */
 export async function addMetalink(params: { metalink: string; options: Aria2EngineOptions }): Promise<string[]> {
   const engineOptions = formatOptionsForEngine(params.options)
+  // Metalink downloads may contain BT sources — persist for seeding resumption.
+  engineOptions['force-save'] = 'true'
   return getClient().call<string[]>('addMetalink', params.metalink, engineOptions)
 }
 

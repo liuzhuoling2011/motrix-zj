@@ -166,10 +166,13 @@ export const useTaskStore = defineStore('task', () => {
    * Directly registers the GID for monitoring to avoid caller-chain breaks.
    */
   async function addMagnetUri(data: { uri: string; options: Aria2EngineOptions }): Promise<string> {
+    // Magnet URIs are BT downloads — need force-save=true for session
+    // persistence (seeding resumption). HTTP downloads must NOT have this.
+    const magnetOptions: Aria2EngineOptions = { ...data.options, 'force-save': 'true' }
     const gids = await api.addUri({
       uris: [data.uri],
       outs: [],
-      options: data.options,
+      options: magnetOptions,
     })
     const gid = gids[0]
 
