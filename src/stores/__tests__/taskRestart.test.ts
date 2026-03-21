@@ -45,7 +45,7 @@ function createMockApi() {
     removeTask: vi.fn().mockResolvedValue('OK'),
     removeTaskRecord: vi.fn().mockResolvedValue('OK'),
     fetchList: vi.fn().mockResolvedValue(undefined),
-    saveSession: vi.fn(),
+    saveSession: vi.fn().mockResolvedValue('OK'),
   }
 }
 

@@ -165,7 +165,7 @@ describe('PreferenceStore', () => {
 
   it('save calls savePreference API and session saver', async () => {
     const savePreference = vi.fn().mockResolvedValue(undefined)
-    const saveSession = vi.fn()
+    const saveSession = vi.fn().mockResolvedValue('OK')
     const cfg = { theme: 'light' as const }
     await store.save(cfg, { savePreference }, saveSession)
     expect(saveSession).toHaveBeenCalledOnce()

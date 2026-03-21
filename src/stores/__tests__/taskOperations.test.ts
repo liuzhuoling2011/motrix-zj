@@ -327,6 +327,28 @@ describe('stopSeeding', () => {
     expect(record.status).toBe('complete')
     expect(record.gid).toBe('seed-2')
   })
+
+  it('saves session after stopping seeding to persist removal to disk', async () => {
+    const task = makeTask({ gid: 'seed-3' })
+    await ops.stopSeeding(task)
+    expect(api.saveSession).toHaveBeenCalledOnce()
+  })
+
+  it('awaits saveSession before returning (not fire-and-forget)', async () => {
+    let sessionSaved = false
+    ;(api.saveSession as Mock).mockImplementation(
+      () =>
+        new Promise<string>((resolve) =>
+          setTimeout(() => {
+            sessionSaved = true
+            resolve('OK')
+          }, 10),
+        ),
+    )
+    const task = makeTask({ gid: 'seed-4' })
+    await ops.stopSeeding(task)
+    expect(sessionSaved).toBe(true)
+  })
 })
 
 // ═══════════════════════════════════════════════════════════════════
@@ -574,11 +596,19 @@ describe('hasPausedTasks', () => {
 // ═══════════════════════════════════════════════════════════════════
 
 describe('saveSession', () => {
-  it('delegates to api.saveSession', () => {
+  it('delegates to api.saveSession', async () => {
     const api = createMockApi()
     const deps = createDeps(api)
     const ops = createTaskOperations(deps)
-    ops.saveSession()
+    await ops.saveSession()
     expect(api.saveSession).toHaveBeenCalledOnce()
+  })
+
+  it('returns a Promise (is async, not fire-and-forget)', () => {
+    const api = createMockApi()
+    const deps = createDeps(api)
+    const ops = createTaskOperations(deps)
+    const result = ops.saveSession()
+    expect(result).toBeInstanceOf(Promise)
   })
 })

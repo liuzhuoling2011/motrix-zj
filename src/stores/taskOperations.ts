@@ -33,7 +33,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       await api.removeTask({ gid: task.gid })
     } finally {
       await fetchList()
-      api.saveSession()
+      await api.saveSession()
     }
   }
 
@@ -44,7 +44,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       await promise
     } finally {
       await fetchList()
-      api.saveSession()
+      await api.saveSession()
     }
   }
 
@@ -53,7 +53,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       await api.resumeTask({ gid: task.gid })
     } finally {
       await fetchList()
-      api.saveSession()
+      await api.saveSession()
     }
   }
 
@@ -62,7 +62,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       await api.forcePauseAllTask()
     } finally {
       await fetchList()
-      api.saveSession()
+      await api.saveSession()
     }
   }
 
@@ -71,7 +71,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       await api.resumeAllTask()
     } finally {
       await fetchList()
-      api.saveSession()
+      await api.saveSession()
     }
   }
 
@@ -89,6 +89,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
     record.status = 'complete'
     const historyStore = useHistoryStore()
     await historyStore.addRecord(record)
+    await api.saveSession()
   }
 
   async function stopAllSeeding(): Promise<number> {
@@ -129,7 +130,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       await api.batchRemoveTask({ gids })
     } finally {
       await fetchList()
-      api.saveSession()
+      await api.saveSession()
     }
   }
 
@@ -151,8 +152,8 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
     }
   }
 
-  function saveSession() {
-    api.saveSession()
+  async function saveSession() {
+    await api.saveSession()
   }
 
   return {

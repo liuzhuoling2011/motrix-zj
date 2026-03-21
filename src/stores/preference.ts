@@ -77,9 +77,9 @@ export const usePreferenceStore = defineStore('preference', () => {
   async function save(
     cfg: Partial<AppConfig>,
     api: { savePreference: (c: Partial<AppConfig>) => Promise<void> },
-    saveSession: () => void,
+    saveSession: () => Promise<string>,
   ) {
-    saveSession()
+    await saveSession()
     if (isEmpty(cfg)) return
     updatePreference(cfg)
     return api.savePreference(cfg)

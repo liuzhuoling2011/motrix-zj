@@ -18,7 +18,7 @@ export interface RestartTaskApi {
   removeTask: (params: { gid: string }) => Promise<string>
   removeTaskRecord: (params: { gid: string }) => Promise<string>
   fetchList: () => Promise<unknown>
-  saveSession: () => void
+  saveSession: () => Promise<string>
 }
 
 /** Minimal history API needed for cleanup. */
@@ -106,5 +106,5 @@ export async function restartTask(task: Aria2Task, api: RestartTaskApi, historyA
   }
 
   await api.fetchList()
-  api.saveSession()
+  await api.saveSession()
 }
