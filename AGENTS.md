@@ -40,7 +40,11 @@ src-tauri/
 ├── src/
 │   ├── lib.rs                  # Tauri builder, plugin registration, invoke_handler
 │   ├── commands/
-│   │   ├── app.rs              # Config, tray, menu, engine commands
+│   │   ├── config.rs           # Config CRUD, session, factory reset commands
+│   │   ├── engine.rs           # Engine start/stop/restart commands
+│   │   ├── ui.rs               # Tray, menu, dock, progress bar commands
+│   │   ├── tracker.rs          # Tracker probing and protocol classification
+│   │   ├── fs.rs               # File system ops, diagnostics, platform code
 │   │   ├── updater.rs          # check_for_update, install_update commands
 │   │   └── upnp.rs             # UPnP port mapping commands
 │   ├── engine/

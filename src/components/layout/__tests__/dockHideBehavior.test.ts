@@ -159,15 +159,15 @@ describe('MainLayout.vue — Dock hide on window close paths', () => {
 })
 
 // ═══════════════════════════════════════════════════════════════════
-// Group 3: commands/app.rs — Rust set_dock_visible command
+// Group 3: commands/ui.rs — Rust set_dock_visible command
 // ═══════════════════════════════════════════════════════════════════
 
-describe('commands/app.rs — set_dock_visible Rust command', () => {
+describe('commands/ui.rs — set_dock_visible Rust command', () => {
   let source: string
   let fnBody: string
 
   beforeAll(() => {
-    source = fs.readFileSync(path.join(TAURI_ROOT, 'src', 'commands', 'app.rs'), 'utf-8')
+    source = fs.readFileSync(path.join(TAURI_ROOT, 'src', 'commands', 'ui.rs'), 'utf-8')
     fnBody = extractFunctionBody(source, 'pub fn set_dock_visible')!
   })
 

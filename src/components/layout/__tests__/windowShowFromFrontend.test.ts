@@ -19,7 +19,7 @@ import * as path from 'node:path'
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..', '..')
 const TAURI_ROOT = path.resolve(PROJECT_ROOT, 'src-tauri')
 const MAIN_LAYOUT = path.join(PROJECT_ROOT, 'src', 'layouts', 'MainLayout.vue')
-const APP_RS = path.join(TAURI_ROOT, 'src', 'commands', 'app.rs')
+const APP_RS = path.join(TAURI_ROOT, 'src', 'commands', 'fs.rs')
 const LIB_RS = path.join(TAURI_ROOT, 'src', 'lib.rs')
 
 // ═══════════════════════════════════════════════════════════════════
@@ -75,7 +75,7 @@ describe('lib.rs — window show deferred to frontend', () => {
 // Group 2: Rust is_autostart_launch command
 // ═══════════════════════════════════════════════════════════════════
 
-describe('commands/app.rs — is_autostart_launch command', () => {
+describe('commands/fs.rs — is_autostart_launch command', () => {
   let source: string
 
   beforeAll(() => {

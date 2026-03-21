@@ -323,7 +323,7 @@ pub fn run() {
     // kernel module on load — its presence is a reliable, zero-dependency
     // indicator that the NVIDIA proprietary driver is in use.
     //
-    // The existing `is_dmabuf_renderer_disabled()` command in app.rs reads
+    // The existing `is_dmabuf_renderer_disabled()` command in fs.rs reads
     // this same env var at runtime, so the frontend's border-radius
     // workaround (MainLayout.vue) activates automatically.
     //

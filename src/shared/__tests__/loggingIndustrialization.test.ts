@@ -96,7 +96,7 @@ describe('P0.4: Diagnostic export includes enriched system info', () => {
   let exportFnSource: string
 
   beforeAll(() => {
-    exportFnSource = readRustFn(path.join(TAURI_SRC, 'commands', 'app.rs'), 'export_diagnostic_logs')
+    exportFnSource = readRustFn(path.join(TAURI_SRC, 'commands', 'fs.rs'), 'export_diagnostic_logs')
   })
 
   // Existing fields (must not regress)
@@ -146,7 +146,7 @@ describe('P0.5: Diagnostic ZIP includes config.json snapshot', () => {
   let exportFnSource: string
 
   beforeAll(() => {
-    exportFnSource = readRustFn(path.join(TAURI_SRC, 'commands', 'app.rs'), 'export_diagnostic_logs')
+    exportFnSource = readRustFn(path.join(TAURI_SRC, 'commands', 'fs.rs'), 'export_diagnostic_logs')
   })
 
   it('reads the config.json from app data directory', () => {

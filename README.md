@@ -157,7 +157,7 @@ motrix-next/
 │   └── views/                  # Page-level route views
 ├── src-tauri/                  # Backend (Rust + Tauri 2)
 │   ├── src/
-│   │   ├── commands/           #   app.rs, updater.rs, upnp.rs
+│   │   ├── commands/           #   config, engine, ui, tracker, fs, updater, upnp
 │   │   ├── engine/             #   Aria2 sidecar lifecycle (args, state, cleanup)
 │   │   ├── error.rs            #   AppError enum
 │   │   ├── menu.rs             #   Native menu builder

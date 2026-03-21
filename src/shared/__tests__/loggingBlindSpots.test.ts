@@ -7,11 +7,11 @@
  *
  * Blind spots identified by full codebase audit:
  *   P0.1 — updater.rs: 4 commands, 0 log statements
- *   P0.2 — app.rs: critical state-changing commands are silent
+ *   P0.2 — config/engine/fs: critical state-changing commands are silent
  *   P0.3 — UpdateDialog.vue: 3 catch blocks don't call logger
  *   P1.1 — commands/upnp.rs: 2 commands, 0 log statements
  *   P1.2 — upnp.rs module: missing lifecycle logging
- *   P1.3 — app.rs: path operations and probe_trackers silent
+ *   P1.3 — tracker/fs: path operations and probe_trackers silent
  */
 import { describe, it, expect, beforeAll } from 'vitest'
 import * as fs from 'node:fs'
@@ -123,16 +123,17 @@ describe('P0.1: updater.rs lifecycle logging', () => {
 })
 
 // =====================================================================
-// P0.2 — app.rs: Critical state-changing commands must log
+// P0.2 — config/engine/fs: Critical state-changing commands must log
 // =====================================================================
 
-describe('P0.2: app.rs critical command logging', () => {
-  const appPath = path.join(TAURI_SRC, 'commands', 'app.rs')
+describe('P0.2: config/engine/fs critical command logging', () => {
+  const configPath = path.join(TAURI_SRC, 'commands', 'config.rs')
+  const enginePath = path.join(TAURI_SRC, 'commands', 'engine.rs')
 
   describe('factory_reset — destructive, must leave audit trail', () => {
     let fnBody: string
     beforeAll(() => {
-      fnBody = readRustFnBlock(appPath, 'factory_reset')
+      fnBody = readRustFnBlock(configPath, 'factory_reset')
     })
 
     it('logs a warning for this destructive operation', () => {
@@ -143,7 +144,7 @@ describe('P0.2: app.rs critical command logging', () => {
   describe('save_preference — config change tracking', () => {
     let fnBody: string
     beforeAll(() => {
-      fnBody = readRustFnBlock(appPath, 'save_preference')
+      fnBody = readRustFnBlock(configPath, 'save_preference')
     })
 
     it('logs the save operation at debug level', () => {
@@ -154,7 +155,7 @@ describe('P0.2: app.rs critical command logging', () => {
   describe('save_system_config — system config change tracking', () => {
     let fnBody: string
     beforeAll(() => {
-      fnBody = readRustFnBlock(appPath, 'save_system_config')
+      fnBody = readRustFnBlock(configPath, 'save_system_config')
     })
 
     it('logs the system config save at debug level', () => {
@@ -165,7 +166,7 @@ describe('P0.2: app.rs critical command logging', () => {
   describe('start_engine_command — engine lifecycle from frontend', () => {
     let fnBody: string
     beforeAll(() => {
-      fnBody = readRustFnBlock(appPath, 'start_engine_command')
+      fnBody = readRustFnBlock(enginePath, 'start_engine_command')
     })
 
     it('logs the engine start command entry', () => {
@@ -176,7 +177,7 @@ describe('P0.2: app.rs critical command logging', () => {
   describe('stop_engine_command — engine lifecycle from frontend', () => {
     let fnBody: string
     beforeAll(() => {
-      fnBody = readRustFnBlock(appPath, 'stop_engine_command')
+      fnBody = readRustFnBlock(enginePath, 'stop_engine_command')
     })
 
     it('logs the engine stop command entry', () => {
@@ -187,7 +188,7 @@ describe('P0.2: app.rs critical command logging', () => {
   describe('restart_engine_command — engine lifecycle from frontend', () => {
     let fnBody: string
     beforeAll(() => {
-      fnBody = readRustFnBlock(appPath, 'restart_engine_command')
+      fnBody = readRustFnBlock(enginePath, 'restart_engine_command')
     })
 
     it('logs the engine restart command entry', () => {
@@ -198,12 +199,12 @@ describe('P0.2: app.rs critical command logging', () => {
   describe('clear_session_file — session data deletion', () => {
     let fnBody: string
     beforeAll(() => {
-      fnBody = readRustFnBlock(appPath, 'clear_session_file')
+      fnBody = readRustFnBlock(configPath, 'clear_session_file')
     })
 
     it('logs the session file clear operation', () => {
       // Either in the command itself or in the _inner helper it calls
-      const innerBody = readRustFnBlock(appPath, 'clear_session_file_inner')
+      const innerBody = readRustFnBlock(configPath, 'clear_session_file_inner')
       const combined = fnBody + innerBody
       expect(combined).toMatch(/log::(info|debug)!/)
     })
@@ -309,16 +310,17 @@ describe('P1.2: upnp.rs module lifecycle logging', () => {
 })
 
 // =====================================================================
-// P1.3 — app.rs: path operations and probe_trackers
+// P1.3 — tracker/fs: path operations and probe_trackers
 // =====================================================================
 
-describe('P1.3: app.rs path operation logging', () => {
-  const appPath = path.join(TAURI_SRC, 'commands', 'app.rs')
+describe('P1.3: tracker/fs path operation logging', () => {
+  const trackerPath = path.join(TAURI_SRC, 'commands', 'tracker.rs')
+  const fsPath = path.join(TAURI_SRC, 'commands', 'fs.rs')
 
   describe('probe_trackers — network operation', () => {
     let fnBody: string
     beforeAll(() => {
-      fnBody = readRustFnBlock(appPath, 'probe_trackers')
+      fnBody = readRustFnBlock(trackerPath, 'probe_trackers')
     })
 
     it('logs tracker probe operation with count', () => {
@@ -329,7 +331,7 @@ describe('P1.3: app.rs path operation logging', () => {
   describe('open_path_normalized — file system operation', () => {
     let fnBody: string
     beforeAll(() => {
-      fnBody = readRustFnBlock(appPath, 'open_path_normalized')
+      fnBody = readRustFnBlock(fsPath, 'open_path_normalized')
     })
 
     it('logs the path being opened', () => {
@@ -340,7 +342,7 @@ describe('P1.3: app.rs path operation logging', () => {
   describe('trash_file — destructive file operation', () => {
     let fnBody: string
     beforeAll(() => {
-      fnBody = readRustFnBlock(appPath, 'trash_file')
+      fnBody = readRustFnBlock(fsPath, 'trash_file')
     })
 
     it('logs the file being trashed', () => {
