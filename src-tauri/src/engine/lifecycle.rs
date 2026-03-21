@@ -53,6 +53,16 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
         let _ = std::fs::create_dir_all(parent);
     }
 
+    // DEBUG: dump session before start
+    if session_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&session_path) {
+            eprintln!("\n=== SESSION BEFORE START ({} lines, force-save={}) ===", content.lines().count(), content.contains("force-save=true"));
+            for line in content.lines() { eprintln!("  {}", line); }
+            eprintln!("=== END ===\n");
+        }
+    } else { eprintln!("DEBUG: no session file"); }
+
+
     let args = build_start_args(
         config,
         if conf_path.exists() {
@@ -160,6 +170,47 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
 
 /// Kills the running aria2c child process and releases the lock.
 /// Waits briefly after kill to let the OS reclaim the process.
+/// Sends a blocking `aria2.saveSession` RPC call before killing the engine.
+///
+/// Uses raw HTTP with a short timeout so it never blocks app exit.
+/// Best-effort: failures are logged and silently ignored.
+pub fn save_session_rpc(port: &str, secret: &str) {
+    use std::io::{Read, Write};
+    use std::net::TcpStream;
+
+    let token = if secret.is_empty() {
+        String::new()
+    } else {
+        format!("\"token:{}\"", secret)
+    };
+    let body = format!(
+        r#"{{"jsonrpc":"2.0","id":"exit","method":"aria2.saveSession","params":[{}]}}"#,
+        token
+    );
+    let request = format!(
+        "POST /jsonrpc HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        port,
+        body.len(),
+        body
+    );
+
+    let addr = format!("127.0.0.1:{}", port);
+    let timeout = std::time::Duration::from_millis(500);
+
+    match TcpStream::connect_timeout(&addr.parse().unwrap(), timeout) {
+        Ok(mut stream) => {
+            let _ = stream.set_write_timeout(Some(timeout));
+            let _ = stream.set_read_timeout(Some(timeout));
+            if stream.write_all(request.as_bytes()).is_ok() {
+                let mut buf = [0u8; 256];
+                let _ = stream.read(&mut buf);
+                log::info!("saved aria2 session before exit");
+            }
+        }
+        Err(e) => log::debug!("save_session_rpc: connect failed (engine may be down): {}", e),
+    }
+}
+
 pub fn stop_engine(app: &tauri::AppHandle) -> Result<(), String> {
     let state = app.state::<EngineState>();
     // Signal intentional stop BEFORE kill so the Terminated handler

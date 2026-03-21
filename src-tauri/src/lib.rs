@@ -284,7 +284,35 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
             }
         }
         tauri::RunEvent::Exit => {
-            log::info!("app:exit — stopping engine and UPnP");
+            log::info!("app:exit — saving session, stopping engine and UPnP");
+            // Save aria2 session before killing the engine so in-progress
+            // downloads survive across restarts.  Best-effort with 500ms
+            // timeout — never blocks app exit.
+            {
+                let port = app
+                    .store("config.json")
+                    .ok()
+                    .and_then(|s| s.get("preferences"))
+                    .and_then(|p| p.get("rpcListenPort").and_then(|v| {
+                        v.as_u64().map(|n| n.to_string()).or_else(|| v.as_str().map(String::from))
+                    }))
+                    .unwrap_or_else(|| "16800".to_string());
+                let secret = app
+                    .store("config.json")
+                    .ok()
+                    .and_then(|s| s.get("preferences"))
+                    .and_then(|p| p.get("rpcSecret")?.as_str().map(String::from))
+                    .unwrap_or_default();
+                engine::save_session_rpc(&port, &secret);
+            }
+            // DEBUG: dump session after save
+            if let Ok(path) = app.path().app_data_dir().map(|d| d.join("download.session")) {
+                if let Ok(content) = std::fs::read_to_string(&path) {
+                    eprintln!("\n=== SESSION AFTER SAVE ({} lines, force-save={}, empty={}) ===", content.lines().count(), content.contains("force-save=true"), content.trim().is_empty());
+                    for line in content.lines() { eprintln!("  {}", line); }
+                    eprintln!("=== END ===\n");
+                }
+            }
             let _ = engine::stop_engine(app);
             // Clean up UPnP port mappings on exit.
             if let Some(state) = app.try_state::<UpnpState>() {
