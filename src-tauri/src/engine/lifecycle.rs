@@ -53,16 +53,6 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
         let _ = std::fs::create_dir_all(parent);
     }
 
-    // DEBUG: dump session before start
-    if session_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&session_path) {
-            eprintln!("\n=== SESSION BEFORE START ({} lines, force-save={}) ===", content.lines().count(), content.contains("force-save=true"));
-            for line in content.lines() { eprintln!("  {}", line); }
-            eprintln!("=== END ===\n");
-        }
-    } else { eprintln!("DEBUG: no session file"); }
-
-
     let args = build_start_args(
         config,
         if conf_path.exists() {
@@ -207,7 +197,12 @@ pub fn save_session_rpc(port: &str, secret: &str) {
                 log::info!("saved aria2 session before exit");
             }
         }
-        Err(e) => log::debug!("save_session_rpc: connect failed (engine may be down): {}", e),
+        Err(e) => {
+            log::debug!(
+                "save_session_rpc: connect failed (engine may be down): {}",
+                e
+            )
+        }
     }
 }
 
