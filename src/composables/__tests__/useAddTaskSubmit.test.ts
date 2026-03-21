@@ -291,12 +291,12 @@ describe('submitManualUris', () => {
     expect(mockTaskStore.addUri).not.toHaveBeenCalled()
   })
 
-  it('submits single URI with auto-decoded outs when out is not specified', async () => {
+  it('submits single URI with empty outs to let aria2 handle filename natively', async () => {
     await submitManualUris({ ...baseForm, uris: 'http://example.com/file.zip' }, { dir: '/dl' }, mockTaskStore)
 
     expect(mockTaskStore.addUri).toHaveBeenCalledWith({
       uris: ['http://example.com/file.zip'],
-      outs: ['file.zip'],
+      outs: [],
       options: { dir: '/dl' },
     })
   })
@@ -314,22 +314,27 @@ describe('submitManualUris', () => {
     expect(call.outs.length).toBeGreaterThan(0)
   })
 
-  it('auto-decodes filenames from URIs when user has not specified out', async () => {
+  it('does not auto-set outs for percent-encoded URIs — aria2 handles decode natively', async () => {
     await submitManualUris({ ...baseForm, uris: 'http://example.com/AAA%20BBB.mp3' }, { dir: '/dl' }, mockTaskStore)
 
     const call = (mockTaskStore.addUri as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    expect(call.outs).toEqual(['AAA BBB.mp3'])
+    // aria2 internally calls percentDecode() in determineFilename()
+    // and checks Content-Disposition first — no need to force out
+    expect(call.outs).toEqual([])
   })
 
-  it('auto-decodes filenames for each URI in multi-URI mode without user-specified out', async () => {
+  it('does not auto-set outs for redirect/API endpoint URLs — aria2 uses Content-Disposition', async () => {
+    // This is the exact scenario from the bug report:
+    // https://datashop.cboe.com/download/sample/215 redirects and uses C-D header
     await submitManualUris(
-      { ...baseForm, uris: 'http://a.com/file%20one.zip\nhttp://b.com/file%E4%B8%AD.zip' },
+      { ...baseForm, uris: 'https://datashop.cboe.com/download/sample/215' },
       { dir: '/dl' },
       mockTaskStore,
     )
 
     const call = (mockTaskStore.addUri as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    expect(call.outs).toEqual(['file one.zip', 'file中.zip'])
+    // outs must be empty so aria2 can use Content-Disposition: filename="OptionQuotes_Sample.zip"
+    expect(call.outs).toEqual([])
   })
 
   it('does not include magnet URIs in regular addUri call (they use separate addMagnetUri path)', async () => {
@@ -340,9 +345,9 @@ describe('submitManualUris', () => {
     )
 
     const call = (mockTaskStore.addUri as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    // Only the regular URI should be in the addUri call, with decoded outs
+    // Only the regular URI should be in the addUri call
     expect(call.uris).toEqual(['http://example.com/file%20name.zip'])
-    expect(call.outs).toEqual(['file name.zip'])
+    expect(call.outs).toEqual([])
   })
 
   it('does not auto-generate outs when user has specified out', async () => {

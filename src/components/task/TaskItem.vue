@@ -178,6 +178,25 @@ watch(isSeeder, (now, was) => {
   }
 })
 
+// ── Filename resolution crossfade ─────────────────────────────────
+// When aria2 resolves the real filename (via Content-Disposition or
+// redirected URL), the task name snaps from placeholder "Getting task
+// name..." to the resolved name. This watcher triggers a CSS fade-in
+// to smooth the transition. Uses @keyframes (not CSS transition)
+// because polling replaces task objects — same rationale as seeding
+// entrance animation above.
+const nameResolved = ref(false)
+let previousName = ''
+
+watch(taskFullName, (newName) => {
+  // Only animate when transitioning from a different name (placeholder → resolved).
+  // Skip identical updates from polling and initial mount.
+  if (previousName && previousName !== newName) {
+    nameResolved.value = true
+  }
+  previousName = newName
+})
+
 // ── Card press-hold interaction ─────────────────────────────────────
 // Mirrors the pointerdown/pointerup pattern from TaskItemActions.
 // Card stays pressed (scale down) while pointer is held, then springs
@@ -219,7 +238,9 @@ function onCardRelease() {
     @animationend="seedingEnter = false"
   >
     <div class="task-name" :title="taskFullName">
-      <span>{{ taskFullName }}</span>
+      <span :class="{ 'name-resolved': nameResolved }" @animationend="nameResolved = false">
+        {{ taskFullName }}
+      </span>
       <div class="tags-wrapper" :class="{ 'has-tags': isSeeder || finishedTag || fileMissing }">
         <div class="tags-inner">
           <div v-if="isSeeder || finishedTag || fileMissing" class="task-tags">
@@ -387,6 +408,22 @@ function onCardRelease() {
   overflow: hidden;
   text-overflow: ellipsis;
   word-break: break-all;
+}
+/* ── Filename resolution crossfade ─────────────────────────────────── */
+/* When task name transitions from placeholder to resolved filename,    */
+/* fade in smoothly. Uses @keyframes (polling-safe, same as seeding).   */
+@keyframes name-resolve-enter {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.task-name > span.name-resolved {
+  animation: name-resolve-enter 0.4s cubic-bezier(0.05, 0.7, 0.1, 1);
 }
 .file-missing-tag {
   display: inline-flex;

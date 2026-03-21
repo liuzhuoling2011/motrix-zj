@@ -23,14 +23,28 @@ export const calcRatio = (totalLength: string | number, uploadLength: string | n
 
 const getFileNameFromFile = (file?: Aria2File): string => {
   if (!file) return ''
-  let { path } = file
-  if (!path && file.uris && file.uris.length > 0) {
-    path = decodeURI(file.uris[0]?.uri || '')
+  const { path } = file
+  if (path) {
+    // Path is set — aria2 has resolved the filename (from Content-Disposition or URL).
+    const idx = path.lastIndexOf('/')
+    if (idx <= 0 || idx === path.length) return path
+    return path.substring(idx + 1)
   }
-  if (!path) return ''
-  const index = path.lastIndexOf('/')
-  if (index <= 0 || index === path.length) return path
-  return path.substring(index + 1)
+  // Path is empty: aria2 hasn't received the HTTP response yet.
+  // Fall back to extracting from URI, but only for segments that look like filenames
+  // (i.e., contain a dot/extension). Extensionless segments like "/download/sample/215"
+  // are typically redirect stubs or API endpoints — return '' so the UI shows a
+  // placeholder instead of a misleading name. aria2 will update the real filename
+  // after receiving Content-Disposition or the final redirected URL.
+  const uri = file.uris?.[0]?.uri
+  if (!uri) return ''
+  try {
+    const segment = new URL(uri).pathname.split('/').filter(Boolean).pop() ?? ''
+    if (!segment || !segment.includes('.')) return ''
+    return decodeURIComponent(segment)
+  } catch {
+    return ''
+  }
 }
 
 /** Resolves a human-readable task name from BT info or file path. */

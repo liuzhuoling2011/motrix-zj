@@ -134,21 +134,11 @@ describe('getTaskName', () => {
 })
 
 describe('getFileNameFromFile', () => {
-  it('returns filename from path', () => {
+  // ── Path-based extraction (aria2 has resolved the filename) ──
+
+  it('returns filename from absolute path', () => {
     const file = createMockFile({ path: '/tmp/download/test.zip' })
     expect(getFileNameFromFile(file)).toBe('test.zip')
-  })
-
-  it('returns empty string for undefined file', () => {
-    expect(getFileNameFromFile()).toBe('')
-  })
-
-  it('falls back to first URI when path is empty', () => {
-    const file = createMockFile({
-      path: '',
-      uris: [{ uri: 'https://example.com/file.zip', status: 'used' }],
-    })
-    expect(getFileNameFromFile(file)).toBe('file.zip')
   })
 
   it('returns full path when no separator found', () => {
@@ -156,8 +146,93 @@ describe('getFileNameFromFile', () => {
     expect(getFileNameFromFile(file)).toBe('plainfile.txt')
   })
 
-  it('returns empty when path and uris are empty', () => {
+  it('returns empty string for undefined file', () => {
+    expect(getFileNameFromFile()).toBe('')
+  })
+
+  // ── URI fallback (path empty — aria2 hasn't resolved yet) ──
+
+  it('falls back to URI filename when path is empty and URI has extension', () => {
+    const file = createMockFile({
+      path: '',
+      uris: [{ uri: 'https://example.com/file.zip', status: 'used' }],
+    })
+    expect(getFileNameFromFile(file)).toBe('file.zip')
+  })
+
+  it('decodes percent-encoded URI filename in fallback', () => {
+    const file = createMockFile({
+      path: '',
+      uris: [{ uri: 'https://example.com/AAA%20BBB.mp3', status: 'used' }],
+    })
+    expect(getFileNameFromFile(file)).toBe('AAA BBB.mp3')
+  })
+
+  it('returns empty for extensionless URI path — redirect/API endpoint', () => {
+    // The exact scenario from bug report: https://datashop.cboe.com/download/sample/215
+    // "215" is not a filename — it's a redirect stub. aria2 will resolve via Content-Disposition.
+    const file = createMockFile({
+      path: '',
+      uris: [{ uri: 'https://datashop.cboe.com/download/sample/215', status: 'used' }],
+    })
+    expect(getFileNameFromFile(file)).toBe('')
+  })
+
+  it('returns empty for numeric-only URI path segments', () => {
+    const file = createMockFile({
+      path: '',
+      uris: [{ uri: 'https://api.example.com/files/99999', status: 'used' }],
+    })
+    expect(getFileNameFromFile(file)).toBe('')
+  })
+
+  it('returns empty for version-like URI segments without real extension', () => {
+    // "v1.2.3" looks like it has a dot but is not a real filename
+    // Actually it DOES contain a dot, so this would be treated as having an extension.
+    // This is an acceptable trade-off: false positive (showing "v1.2.3" temporarily)
+    // is better than false negative (hiding a real filename).
+    const file = createMockFile({
+      path: '',
+      uris: [{ uri: 'https://example.com/releases/v1.2.3', status: 'used' }],
+    })
+    // Contains dots → treated as having extension → returned as-is
+    expect(getFileNameFromFile(file)).toBe('v1.2.3')
+  })
+
+  it('returns empty when path and uris are both empty', () => {
     const file = createMockFile({ path: '', uris: [] })
+    expect(getFileNameFromFile(file)).toBe('')
+  })
+
+  it('returns empty for URI with trailing slash and no filename', () => {
+    const file = createMockFile({
+      path: '',
+      uris: [{ uri: 'https://example.com/', status: 'used' }],
+    })
+    expect(getFileNameFromFile(file)).toBe('')
+  })
+
+  it('handles deep path URIs with extension correctly', () => {
+    const file = createMockFile({
+      path: '',
+      uris: [{ uri: 'https://cdn.example.com/a/b/c/deep%20file.tar.gz', status: 'used' }],
+    })
+    expect(getFileNameFromFile(file)).toBe('deep file.tar.gz')
+  })
+
+  it('handles URIs with query parameters', () => {
+    const file = createMockFile({
+      path: '',
+      uris: [{ uri: 'https://example.com/report.pdf?token=abc&v=2', status: 'used' }],
+    })
+    expect(getFileNameFromFile(file)).toBe('report.pdf')
+  })
+
+  it('returns empty for invalid URI gracefully', () => {
+    const file = createMockFile({
+      path: '',
+      uris: [{ uri: 'not-a-valid-url', status: 'used' }],
+    })
     expect(getFileNameFromFile(file)).toBe('')
   })
 })

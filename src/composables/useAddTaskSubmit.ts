@@ -16,7 +16,7 @@ import { useTaskStore } from '@/stores/task'
 import { usePreferenceStore } from '@/stores/preference'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { isEngineReady } from '@/api/aria2'
-import { normalizeUriLines, extractDecodedFilename } from '@shared/utils/batchHelpers'
+import { normalizeUriLines } from '@shared/utils/batchHelpers'
 import { buildOuts } from '@shared/utils/rename'
 import { logger } from '@shared/logger'
 import type { Aria2EngineOptions, BatchItem } from '@shared/types'
@@ -153,9 +153,12 @@ export async function submitManualUris(
       }
       await taskStore.addUri({ uris: regularUris, outs, options: regularOptions })
     } else {
-      // Auto-decode filenames from URIs when user hasn't specified a custom name
-      const decodedOuts = form.out ? [] : regularUris.map(extractDecodedFilename)
-      await taskStore.addUri({ uris: regularUris, outs: decodedOuts, options })
+      // Let aria2 handle filename resolution natively:
+      // 1. Content-Disposition header (highest priority)
+      // 2. Redirected URL filename
+      // 3. URL path segment with built-in percentDecode
+      // See: aria2 HttpResponse.cc:determineFilename()
+      await taskStore.addUri({ uris: regularUris, outs: [], options })
     }
   }
 
