@@ -55,6 +55,7 @@ const isActive = computed(() => props.task.status === TASK_STATUS.ACTIVE)
 const percent = computed(() => calcProgress(props.task.totalLength, props.task.completedLength))
 const completedSize = computed(() => bytesToSize(props.task.completedLength, 2))
 const totalSize = computed(() => bytesToSize(props.task.totalLength, 2))
+const hasSizeInfo = computed(() => Number(props.task.completedLength) > 0 || Number(props.task.totalLength) > 0)
 const downloadSpeed = computed(() => bytesToSize(props.task.downloadSpeed))
 const uploadSpeed = computed(() => bytesToSize(props.task.uploadSpeed))
 
@@ -178,25 +179,6 @@ watch(isSeeder, (now, was) => {
   }
 })
 
-// ── Filename resolution crossfade ─────────────────────────────────
-// When aria2 resolves the real filename (via Content-Disposition or
-// redirected URL), the task name snaps from placeholder "Getting task
-// name..." to the resolved name. This watcher triggers a CSS fade-in
-// to smooth the transition. Uses @keyframes (not CSS transition)
-// because polling replaces task objects — same rationale as seeding
-// entrance animation above.
-const nameResolved = ref(false)
-let previousName = ''
-
-watch(taskFullName, (newName) => {
-  // Only animate when transitioning from a different name (placeholder → resolved).
-  // Skip identical updates from polling and initial mount.
-  if (previousName && previousName !== newName) {
-    nameResolved.value = true
-  }
-  previousName = newName
-})
-
 // ── Card press-hold interaction ─────────────────────────────────────
 // Mirrors the pointerdown/pointerup pattern from TaskItemActions.
 // Card stays pressed (scale down) while pointer is held, then springs
@@ -238,9 +220,12 @@ function onCardRelease() {
     @animationend="seedingEnter = false"
   >
     <div class="task-name" :title="taskFullName">
-      <span :class="{ 'name-resolved': nameResolved }" @animationend="nameResolved = false">
-        {{ taskFullName }}
-      </span>
+      <!-- Crossfade: old name fades out, then new name fades in.
+           :key ensures transition only fires when the text actually changes.
+           Polling-safe: computed returns the same string each cycle → no key change. -->
+      <Transition name="name-crossfade" mode="out-in">
+        <span :key="taskFullName">{{ taskFullName }}</span>
+      </Transition>
       <div class="tags-wrapper" :class="{ 'has-tags': isSeeder || finishedTag || fileMissing }">
         <div class="tags-inner">
           <div v-if="isSeeder || finishedTag || fileMissing" class="task-tags">
@@ -286,8 +271,8 @@ function onCardRelease() {
         :processing="isActive"
       />
       <div class="task-progress-info">
-        <div class="progress-left">
-          <span v-if="Number(task.completedLength) > 0 || Number(task.totalLength) > 0">
+        <div class="progress-left" :class="{ 'info-hidden': !hasSizeInfo }">
+          <span>
             {{ completedSize }}
             <span v-if="Number(task.totalLength) > 0"> / {{ totalSize }}</span>
           </span>
@@ -409,21 +394,24 @@ function onCardRelease() {
   text-overflow: ellipsis;
   word-break: break-all;
 }
-/* ── Filename resolution crossfade ─────────────────────────────────── */
-/* When task name transitions from placeholder to resolved filename,    */
-/* fade in smoothly. Uses @keyframes (polling-safe, same as seeding).   */
-@keyframes name-resolve-enter {
-  from {
-    opacity: 0;
-    transform: translateY(2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* ── Filename resolution crossfade (Vue <Transition mode="out-in">) ── */
+/* Old text fades out → new text fades in. No flash because Vue applies  */
+/* enter-from (opacity:0) BEFORE inserting the new element.              */
+/* Polling-safe: :key is the string value — same string = no transition. */
+.name-crossfade-enter-active {
+  transition:
+    opacity 0.25s cubic-bezier(0.05, 0.7, 0.1, 1),
+    transform 0.25s cubic-bezier(0.05, 0.7, 0.1, 1);
 }
-.task-name > span.name-resolved {
-  animation: name-resolve-enter 0.4s cubic-bezier(0.05, 0.7, 0.1, 1);
+.name-crossfade-leave-active {
+  transition: opacity 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+.name-crossfade-enter-from {
+  opacity: 0;
+  transform: translateY(3px);
+}
+.name-crossfade-leave-to {
+  opacity: 0;
 }
 .file-missing-tag {
   display: inline-flex;
@@ -466,6 +454,7 @@ function onCardRelease() {
 }
 .progress-left {
   white-space: nowrap;
+  transition: opacity 0.4s cubic-bezier(0.2, 0, 0, 1);
 }
 .progress-right {
   display: flex;
