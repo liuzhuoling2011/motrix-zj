@@ -125,7 +125,10 @@ function resumeAll() {
       taskStore
         .resumeAllTask()
         .then(() => message.success(t('task.resume-all-task-success')))
-        .catch(() => message.error(t('task.resume-all-task-fail')))
+        .catch((e) => {
+          logger.warn('TaskActions.resumeAll', e)
+          message.error(t('task.resume-all-task-fail'))
+        })
     },
   })
 }
@@ -155,7 +158,8 @@ function pauseAll() {
           message.success(t('task.pause-all-task-success'))
           d.destroy()
         })
-        .catch(() => {
+        .catch((e) => {
+          logger.warn('TaskActions.pauseAll', e)
           message.error(t('task.pause-all-task-fail'))
           d.destroy()
         })
@@ -194,7 +198,10 @@ function stopAllSeeding() {
       taskStore
         .stopAllSeeding()
         .then(() => message.success(t('task.stop-all-seeding-success')))
-        .catch(() => message.error(t('task.stop-all-seeding-fail')))
+        .catch((e) => {
+          logger.warn('TaskActions.stopAllSeeding', e)
+          message.error(t('task.stop-all-seeding-fail'))
+        })
 
       // 5. Watch taskList — spin stops when ALL target gids exit seeding
       cleanupStopSeedingWatcher()
@@ -283,7 +290,10 @@ function purgeRecord() {
           }
           message.success(t('task.purge-record-success'))
         })
-        .catch(() => message.error(t('task.purge-record-fail')))
+        .catch((e) => {
+          logger.warn('TaskActions.purgeRecord', e)
+          message.error(t('task.purge-record-fail'))
+        })
     },
   })
 }

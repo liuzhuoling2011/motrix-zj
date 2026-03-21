@@ -1,6 +1,7 @@
 /** @fileoverview Composable for probing BitTorrent tracker reachability via Rust backend. */
 import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { logger } from '@shared/logger'
 
 export type TrackerStatus = 'checking' | 'online' | 'offline' | 'unknown'
 
@@ -70,7 +71,8 @@ export function useTrackerProbe() {
       for (const [url, status] of Object.entries(result)) {
         statuses.value[url] = status as TrackerStatus
       }
-    } catch {
+    } catch (e) {
+      logger.debug('TrackerProbe', e)
       if (gen !== probeGeneration) return
       for (const url of urls) {
         if (statuses.value[url] === 'checking') {

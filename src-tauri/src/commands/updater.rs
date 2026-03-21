@@ -147,14 +147,20 @@ pub async fn check_for_update(
         .await
         .map_err(|e| AppError::Updater(e.to_string()))?;
 
-    Ok(update.map(|u| {
-        log::info!("updater:check result=found version={}", u.version);
-        UpdateMetadata {
-            version: u.version.clone(),
-            body: u.body.clone(),
-            date: u.date.map(|d| d.to_string()),
+    Ok(match update {
+        Some(u) => {
+            log::info!("updater:check result=found version={}", u.version);
+            Some(UpdateMetadata {
+                version: u.version.clone(),
+                body: u.body.clone(),
+                date: u.date.map(|d| d.to_string()),
+            })
         }
-    }))
+        None => {
+            log::info!("updater:check result=up-to-date");
+            None
+        }
+    })
 }
 
 /// Downloads the latest update on the specified channel WITHOUT installing.

@@ -133,7 +133,10 @@ pub async fn start_mapping(
             internal: bt_port,
             protocol: PortMappingProtocol::TCP,
         }),
-        Err(e) => errors.push(e),
+        Err(e) => {
+            log::warn!("upnp:map-failed port={bt_port} proto=TCP err={e}");
+            errors.push(e);
+        }
     }
 
     match dht_result {
@@ -141,7 +144,10 @@ pub async fn start_mapping(
             internal: dht_port,
             protocol: PortMappingProtocol::UDP,
         }),
-        Err(e) => errors.push(e),
+        Err(e) => {
+            log::warn!("upnp:map-failed port={dht_port} proto=UDP err={e}");
+            errors.push(e);
+        }
     }
 
     if mapped.is_empty() {

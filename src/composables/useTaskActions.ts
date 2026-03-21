@@ -45,7 +45,10 @@ export function useTaskActions(deps: TaskActionsDeps) {
     taskStore
       .pauseTask(task)
       .then(() => message.success(t('task.pause-task-success', { taskName })))
-      .catch(() => message.error(t('task.pause-task-fail', { taskName })))
+      .catch((e) => {
+        logger.warn('TaskView.pauseTask', e)
+        message.error(t('task.pause-task-fail', { taskName }))
+      })
   }
 
   function handleResumeTask(task: Aria2Task) {
@@ -59,12 +62,18 @@ export function useTaskActions(deps: TaskActionsDeps) {
       taskStore
         .restartTask(task)
         .then(() => message.success(t('task.restart-task-success', { taskName })))
-        .catch(() => message.error(t('task.restart-task-fail', { taskName })))
+        .catch((e) => {
+          logger.warn('TaskView.restartTask', e)
+          message.error(t('task.restart-task-fail', { taskName }))
+        })
     } else {
       taskStore
         .resumeTask(task)
         .then(() => message.success(t('task.resume-task-success', { taskName })))
-        .catch(() => message.error(t('task.resume-task-fail', { taskName })))
+        .catch((e) => {
+          logger.warn('TaskView.resumeTask', e)
+          message.error(t('task.resume-task-fail', { taskName }))
+        })
     }
   }
 

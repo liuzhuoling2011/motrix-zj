@@ -348,3 +348,84 @@ describe('P1.3: app.rs path operation logging', () => {
     })
   })
 })
+
+// =====================================================================
+// Round 2 — Self-audit delta fixes
+// =====================================================================
+
+describe('Delta: check_for_update up-to-date result logging', () => {
+  const updaterPath = path.join(TAURI_SRC, 'commands', 'updater.rs')
+
+  it('logs result=up-to-date when no update is available', () => {
+    const fnBody = readRustFnBlock(updaterPath, 'check_for_update')
+    expect(fnBody).toContain('up-to-date')
+  })
+})
+
+describe('Delta: upnp.rs per-port map failure logging', () => {
+  const upnpModPath = path.join(TAURI_SRC, 'upnp.rs')
+
+  it('logs a warning when a port mapping fails', () => {
+    const fnBody = readRustFnBlock(upnpModPath, 'start_mapping')
+    expect(fnBody).toContain('log::warn!')
+  })
+})
+
+describe('Delta: useTrackerProbe.ts catch block logging', () => {
+  it('imports logger and logs IPC failures', () => {
+    const source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'composables', 'useTrackerProbe.ts'), 'utf-8')
+    expect(source).toContain("from '@shared/logger'")
+    // The probeAll catch block must call logger
+    const probeAll = source.slice(source.indexOf('async function probeAll'))
+    expect(probeAll).toMatch(/logger\.(debug|warn|error)/)
+  })
+})
+
+describe('Delta: useTaskActions.ts pause/resume/restart catch logging', () => {
+  let source: string
+  beforeAll(() => {
+    source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'composables', 'useTaskActions.ts'), 'utf-8')
+  })
+
+  it('handlePauseTask catch calls logger', () => {
+    const fn = source.slice(source.indexOf('function handlePauseTask'), source.indexOf('function handleResumeTask'))
+    expect(fn).toMatch(/logger\.(warn|error)/)
+  })
+
+  it('handleResumeTask restart catch calls logger', () => {
+    const fn = source.slice(source.indexOf('function handleResumeTask'), source.indexOf('function handleDeleteTask'))
+    // Both restartTask and resumeTask catches should have logger
+    const logCount = countOccurrences(fn, 'logger.')
+    expect(logCount).toBeGreaterThanOrEqual(2)
+  })
+})
+
+describe('Delta: TaskActions.vue batch operation catch logging', () => {
+  let source: string
+  beforeAll(() => {
+    source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'components', 'task', 'TaskActions.vue'), 'utf-8')
+  })
+
+  it('resumeAll catch calls logger', () => {
+    const fn = source.slice(source.indexOf('function resumeAll'), source.indexOf('function pauseAll'))
+    expect(fn).toMatch(/logger\.(warn|error)/)
+  })
+
+  it('pauseAll catch calls logger', () => {
+    const fn = source.slice(source.indexOf('function pauseAll'), source.indexOf('function stopAllSeeding'))
+    expect(fn).toMatch(/logger\.(warn|error)/)
+  })
+
+  it('stopAllSeeding catch calls logger', () => {
+    const fn = source.slice(
+      source.indexOf('function stopAllSeeding'),
+      source.indexOf('function cleanupStopSeedingWatcher'),
+    )
+    expect(fn).toMatch(/logger\.(warn|error)/)
+  })
+
+  it('purgeRecord catch calls logger', () => {
+    const fn = source.slice(source.indexOf('function purgeRecord'))
+    expect(fn).toMatch(/logger\.(warn|error)/)
+  })
+})
