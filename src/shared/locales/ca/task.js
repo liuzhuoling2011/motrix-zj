@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'Error en descarregar {taskName}',
   'download-complete-message': '{taskName} completat',
   'download-complete-notify': 'Descàrrega completada',
-  'bt-download-complete-message': '{taskName} completat, compartint...',
+  'bt-download-complete-message': '{taskName} — descàrrega completada, compartint...',
   'bt-download-complete-notify': 'Descàrrega BT completada, compartint...',
   'bt-download-complete-tips': 'Nota: atureu la tasca per finalitzar la compartició',
   'stop-all-seeding': 'Aturar tot el seedling',

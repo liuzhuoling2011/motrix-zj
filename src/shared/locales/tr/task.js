@@ -177,7 +177,7 @@ export default {
   'download-error-message': '{taskName} indirme hatası',
   'download-complete-message': '{taskName} tamamlandı',
   'download-complete-notify': 'İndirme tamamlandı',
-  'bt-download-complete-message': '{taskName} tamamlandı, paylaşılıyor...',
+  'bt-download-complete-message': '{taskName} — indirme tamamlandı, paylaşılıyor...',
   'bt-download-complete-notify': 'BT indirmesi tamamlandı, paylaşılıyor...',
   'bt-download-complete-tips': 'İpucu: paylaşımı sonlandırmak için görevi durdurun',
   'stop-all-seeding': 'Tüm seedlemeyi durdur',

@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'Помилка завантаження {taskName}',
   'download-complete-message': '{taskName} завершено',
   'download-complete-notify': 'Завантаження завершено',
-  'bt-download-complete-message': '{taskName} завершено, роздача...',
+  'bt-download-complete-message': '{taskName} — завантаження завершено, роздача...',
   'bt-download-complete-notify': 'BT-завантаження завершено, роздача...',
   'bt-download-complete-tips': 'Підказка: зупиніть завдання для припинення роздачі',
   'stop-all-seeding': 'Зупинити всі роздачі',

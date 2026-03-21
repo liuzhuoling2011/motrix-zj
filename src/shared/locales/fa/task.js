@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'خطا در دانلود {taskName}',
   'download-complete-message': '{taskName} تکمیل شد',
   'download-complete-notify': 'دانلود تکمیل شد',
-  'bt-download-complete-message': '{taskName} تکمیل شد، در حال اشتراک‌گذاری...',
+  'bt-download-complete-message': '{taskName} — دانلود کامل شد، در حال اشتراک‌گذاری...',
   'bt-download-complete-notify': 'دانلود BT تکمیل شد، در حال اشتراک‌گذاری...',
   'bt-download-complete-tips': 'نکته: وظیفه را متوقف کنید تا اشتراک‌گذاری پایان یابد',
   'stop-all-seeding': 'توقف همه سیدها',

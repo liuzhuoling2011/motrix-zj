@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'Erreur lors du téléchargement de {taskName}',
   'download-complete-message': '{taskName} terminé',
   'download-complete-notify': 'Téléchargement terminé',
-  'bt-download-complete-message': '{taskName} terminé, partage en cours...',
+  'bt-download-complete-message': '{taskName} — téléchargement terminé, partage en cours...',
   'bt-download-complete-notify': 'Téléchargement BT terminé, partage en cours...',
   'bt-download-complete-tips': 'Astuce : arrêtez la tâche pour cesser le partage',
   'stop-all-seeding': 'Arrêter tous les seeds',

@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'Lỗi khi tải {taskName}',
   'download-complete-message': '{taskName} hoàn thành',
   'download-complete-notify': 'Tải xuống hoàn thành',
-  'bt-download-complete-message': '{taskName} hoàn thành, đang chia sẻ...',
+  'bt-download-complete-message': '{taskName} — tải xong, đang chia sẻ...',
   'bt-download-complete-notify': 'Tải BT hoàn thành, đang chia sẻ...',
   'bt-download-complete-tips': 'Lưu ý: dừng tác vụ để kết thúc chia sẻ',
   'stop-all-seeding': 'Dừng tất cả seeding',

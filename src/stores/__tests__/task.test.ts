@@ -769,6 +769,60 @@ describe('TaskStore', () => {
       await store.fetchList()
       expect(onComplete).toHaveBeenCalledTimes(1)
     })
+
+    it('does NOT run lifecycle scanner when viewing the stopped tab (DB records are not live events)', async () => {
+      const onComplete = vi.fn()
+      const onError = vi.fn()
+      store.setOnTaskComplete(onComplete)
+      store.setOnTaskError(onError)
+      store.setApi(mockApi)
+
+      // Initial scan on active tab — sets initialScanDone
+      mockApi.fetchTaskList.mockResolvedValue([])
+      await store.changeCurrentList('active')
+
+      // Switch to stopped tab — data comes from DB history records
+      const historyRecords = [
+        {
+          gid: 'h1',
+          name: 'file1.zip',
+          status: 'complete' as const,
+          dir: '/dl',
+          total_length: 100,
+          task_type: 'uri' as const,
+          completed_at: '2026-01-01',
+        },
+        {
+          gid: 'h2',
+          name: 'file2.zip',
+          status: 'complete' as const,
+          dir: '/dl',
+          total_length: 200,
+          task_type: 'uri' as const,
+          completed_at: '2026-01-02',
+        },
+        {
+          gid: 'h3',
+          name: 'file3.zip',
+          status: 'error' as const,
+          dir: '/dl',
+          total_length: 300,
+          task_type: 'uri' as const,
+          completed_at: '2026-01-03',
+        },
+      ]
+      mockHistoryFns.getRecords.mockResolvedValue(historyRecords)
+      await store.changeCurrentList('stopped')
+
+      // MUST NOT fire onTaskComplete for DB history records — they are historical, not live
+      expect(onComplete).not.toHaveBeenCalled()
+      expect(onError).not.toHaveBeenCalled()
+
+      // Subsequent polls on stopped tab must also not fire
+      await store.fetchList()
+      expect(onComplete).not.toHaveBeenCalled()
+      expect(onError).not.toHaveBeenCalled()
+    })
   })
 
   // ── registerTorrentSource / consumeTorrentSource ────────────────────

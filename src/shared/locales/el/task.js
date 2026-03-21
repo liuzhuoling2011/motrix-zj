@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'Σφάλμα λήψης {taskName}',
   'download-complete-message': '{taskName} ολοκληρώθηκε',
   'download-complete-notify': 'Η λήψη ολοκληρώθηκε',
-  'bt-download-complete-message': '{taskName} ολοκληρώθηκε, διαμοιρασμός...',
+  'bt-download-complete-message': '{taskName} — λήψη ολοκληρώθηκε, διαμοιρασμός...',
   'bt-download-complete-notify': 'Η BT λήψη ολοκληρώθηκε, διαμοιρασμός...',
   'bt-download-complete-tips': 'Σημείωση: σταματήστε την εργασία για να τερματίσετε τον διαμοιρασμό',
   'stop-all-seeding': 'Διακοπή όλων των seeds',

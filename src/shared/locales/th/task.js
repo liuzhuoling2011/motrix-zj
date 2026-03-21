@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'ดาวน์โหลด {taskName} ผิดพลาด',
   'download-complete-message': '{taskName} เสร็จสิ้น',
   'download-complete-notify': 'ดาวน์โหลดเสร็จสิ้น',
-  'bt-download-complete-message': '{taskName} เสร็จ กำลังแชร์...',
+  'bt-download-complete-message': '{taskName} — ดาวน์โหลดเสร็จ กำลังแชร์...',
   'bt-download-complete-notify': 'ดาวน์โหลด BT เสร็จ กำลังแชร์...',
   'bt-download-complete-tips': 'หมายเหตุ: หยุดงานเพื่อหยุดการแชร์',
   'stop-all-seeding': 'หยุดการแชร์ทั้งหมด',

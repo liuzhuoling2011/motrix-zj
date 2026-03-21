@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'Erro ao baixar {taskName}',
   'download-complete-message': '{taskName} concluído',
   'download-complete-notify': 'Download concluído',
-  'bt-download-complete-message': '{taskName} concluído, semeando...',
+  'bt-download-complete-message': '{taskName} — download concluído, semeando...',
   'bt-download-complete-notify': 'Download BT concluído, semeando...',
   'bt-download-complete-tips': 'Dica: pare a tarefa para finalizar a semeadura',
   'stop-all-seeding': 'Parar todos os seeds',

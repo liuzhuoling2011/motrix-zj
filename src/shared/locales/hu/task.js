@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'Hiba a(z) {taskName} letöltésénél',
   'download-complete-message': '{taskName} befejezve',
   'download-complete-notify': 'Letöltés befejezve',
-  'bt-download-complete-message': '{taskName} befejezve, megosztás...',
+  'bt-download-complete-message': '{taskName} — letöltés kész, megosztás...',
   'bt-download-complete-notify': 'BT letöltés befejezve, megosztás...',
   'bt-download-complete-tips': 'Tipp: állítsa le a feladatot a megosztás befejezéséhez',
   'stop-all-seeding': 'Minden seed leállítása',

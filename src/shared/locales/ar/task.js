@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'خطأ في تنزيل {taskName}',
   'download-complete-message': 'اكتمل تنزيل {taskName}',
   'download-complete-notify': 'اكتمل التنزيل',
-  'bt-download-complete-message': 'اكتمل {taskName}، جارٍ المشاركة...',
+  'bt-download-complete-message': '{taskName} — اكتملت التنزيل، بدأت المشاركة...',
   'bt-download-complete-notify': 'اكتمل تنزيل BT، جارٍ المشاركة...',
   'bt-download-complete-tips': 'ملاحظة: أوقف المهمة لإنهاء المشاركة',
   'stop-all-seeding': 'إيقاف جميع البذر',

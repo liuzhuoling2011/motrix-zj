@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'Eroare la descărcarea {taskName}',
   'download-complete-message': '{taskName} finalizat',
   'download-complete-notify': 'Descărcare finalizată',
-  'bt-download-complete-message': '{taskName} finalizat, se distribuie...',
+  'bt-download-complete-message': '{taskName} — descărcare finalizată, distribuire...',
   'bt-download-complete-notify': 'Descărcare BT finalizată, se distribuie...',
   'bt-download-complete-tips': 'Sfat: opriți sarcina pentru a înceta distribuirea',
   'stop-all-seeding': 'Oprire toate seed-urile',

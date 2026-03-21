@@ -101,7 +101,11 @@ export const useTaskStore = defineStore('task', () => {
         }
       }
       // Scan for error + completion + BT-seeding lifecycle events.
-      if (onTaskError || onTaskComplete || onBtComplete) {
+      // IMPORTANT: Only scan on the active tab. When currentList === 'stopped',
+      // `data` comes from the history DB — those are historical records, not live
+      // events. Scanning them would fire onTaskComplete for every past download,
+      // causing a notification flood on tab switch or app restart.
+      if (currentList.value !== 'stopped' && (onTaskError || onTaskComplete || onBtComplete)) {
         const stoppedTasks = (await api.fetchTaskList({ type: 'stopped' })).slice(0, 20)
         notifier.scanTasks([...data, ...stoppedTasks], { onTaskError, onTaskComplete, onBtComplete })
       }

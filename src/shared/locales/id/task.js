@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'Kesalahan mengunduh {taskName}',
   'download-complete-message': '{taskName} selesai',
   'download-complete-notify': 'Unduhan selesai',
-  'bt-download-complete-message': '{taskName} selesai, berbagi...',
+  'bt-download-complete-message': '{taskName} — unduhan selesai, berbagi...',
   'bt-download-complete-notify': 'Unduhan BT selesai, berbagi...',
   'bt-download-complete-tips': 'Catatan: hentikan tugas untuk mengakhiri berbagi',
   'stop-all-seeding': 'Hentikan Semua Seeding',

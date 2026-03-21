@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'Błąd pobierania {taskName}',
   'download-complete-message': '{taskName} ukończone',
   'download-complete-notify': 'Pobieranie ukończone',
-  'bt-download-complete-message': '{taskName} ukończone, udostępnianie...',
+  'bt-download-complete-message': '{taskName} — pobieranie ukończone, udostępnianie...',
   'bt-download-complete-notify': 'Pobieranie BT ukończone, udostępnianie...',
   'bt-download-complete-tips': 'Wskazówka: zatrzymaj zadanie, aby zakończyć udostępnianie',
   'stop-all-seeding': 'Zatrzymaj seedowanie',

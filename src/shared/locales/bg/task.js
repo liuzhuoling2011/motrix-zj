@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'Грешка при изтегляне на {taskName}',
   'download-complete-message': '{taskName} завършено',
   'download-complete-notify': 'Изтеглянето е завършено',
-  'bt-download-complete-message': '{taskName} завършено, споделяне...',
+  'bt-download-complete-message': '{taskName} — изтеглянето завърши, споделяне...',
   'bt-download-complete-notify': 'BT изтеглянето е завършено, споделяне...',
   'bt-download-complete-tips': 'Съвет: спрете задачата, за да прекратите споделянето',
   'stop-all-seeding': 'Спиране на всички сийдове',

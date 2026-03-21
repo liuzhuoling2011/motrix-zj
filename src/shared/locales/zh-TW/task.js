@@ -177,7 +177,7 @@ export default {
   'download-error-message': '{taskName} 下載發生錯誤',
   'download-complete-message': '{taskName} 下載完成',
   'download-complete-notify': '下載完成',
-  'bt-download-complete-message': '{taskName} 下載完成，正在做種...',
+  'bt-download-complete-message': '{taskName} 已下載完成，開始做種...',
   'bt-download-complete-notify': 'BT 下載完成，正在做種...',
   'bt-download-complete-tips': '提示：可停止任務以結束做種',
   'stop-all-seeding': '停止所有做種',

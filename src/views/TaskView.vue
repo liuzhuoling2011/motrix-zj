@@ -14,6 +14,7 @@ import {
   buildStatusAwareConfirmAction,
 } from '@/composables/useMagnetFlow'
 import { buildHistoryRecord, isMetadataTask } from '@/composables/useTaskLifecycle'
+import { handleTaskComplete, handleBtComplete, handleTaskError } from '@/composables/useTaskNotifyHandlers'
 import { shouldDeleteTorrent, trashTorrentFile, cleanupTorrentMetadataFiles } from '@/composables/useDownloadCleanup'
 import type { MagnetFileItem } from '@/composables/useMagnetFlow'
 import { getTaskDisplayName } from '@shared/utils'
@@ -116,17 +117,38 @@ onMounted(() => {
     const taskName = getTaskDisplayName(task, { defaultName: 'Unknown' })
     const errorText = i18nKey ? t(i18nKey) : task.errorMessage || t('task.error-unknown')
     message.error(`${taskName}: ${errorText}`, { duration: 8000, closable: true })
+    // OS notification for errors (already past the taskNotification guard above)
+    handleTaskError(task, `${taskName}: ${errorText}`, {
+      messageSuccess: message.success,
+      messageError: message.error,
+      t,
+      taskNotification: true,
+    })
   })
-  // Wire task completion lifecycle: history recording.
+  // Wire task completion lifecycle: history recording + notifications.
   taskStore.setOnTaskComplete((task) => {
     // Skip BT metadata-only downloads — they are intermediate steps
     if (isMetadataTask(task)) return
     // Record to history DB (fire-and-forget)
     const record = buildHistoryRecord(task)
     historyStore.addRecord(record).catch((e) => logger.debug('TaskView.historyRecord', e))
+    // In-app toast + OS notification (gated by taskNotification preference)
+    handleTaskComplete(task, {
+      messageSuccess: message.success,
+      messageError: message.error,
+      t,
+      taskNotification: preferenceStore.config?.taskNotification !== false,
+    })
   })
-  // Wire BT completion lifecycle: trash original .torrent source file + clean aria2 metadata.
+  // Wire BT completion lifecycle: notification + trash original .torrent source file + clean aria2 metadata.
   taskStore.setOnBtComplete(async (task) => {
+    // In-app toast + OS notification (gated by taskNotification preference)
+    handleBtComplete(task, {
+      messageSuccess: message.success,
+      messageError: message.error,
+      t,
+      taskNotification: preferenceStore.config?.taskNotification !== false,
+    })
     if (!shouldDeleteTorrent(preferenceStore.config)) return
     // Trash the original .torrent file the user added (keyed by infoHash to avoid race)
     const sourcePath = task.infoHash ? taskStore.consumeTorrentSource(task.infoHash) : undefined

@@ -177,7 +177,7 @@ export default {
   'download-error-message': '{taskName} のダウンロードでエラーが発生',
   'download-complete-message': '{taskName} のダウンロードが完了',
   'download-complete-notify': 'ダウンロード完了',
-  'bt-download-complete-message': '{taskName} のダウンロードが完了、シード中...',
+  'bt-download-complete-message': '{taskName} ダウンロード完了、シード中...',
   'bt-download-complete-notify': 'BT ダウンロード完了、シード中...',
   'bt-download-complete-tips': 'ヒント：タスクを停止するとシードが終了します',
   'stop-all-seeding': '全シードを停止',

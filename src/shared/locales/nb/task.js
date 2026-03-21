@@ -177,7 +177,7 @@ export default {
   'download-error-message': 'Feil ved nedlasting av {taskName}',
   'download-complete-message': '{taskName} fullført',
   'download-complete-notify': 'Nedlasting fullført',
-  'bt-download-complete-message': '{taskName} fullført, deler...',
+  'bt-download-complete-message': '{taskName} — nedlasting fullført, deling...',
   'bt-download-complete-notify': 'BT-nedlasting fullført, deler...',
   'bt-download-complete-tips': 'Tips: stopp oppgaven for å avslutte delingen',
   'stop-all-seeding': 'Stopp all seeding',
