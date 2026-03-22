@@ -31,6 +31,13 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
     if (task.gid === currentTaskGid.value) hideTaskDetail()
     try {
       await api.removeTask({ gid: task.gid })
+      // Purge from aria2's stopped-result list so force-save=true (BT/magnet)
+      // won't persist the entry in the session file on exit.
+      try {
+        await api.removeTaskRecord({ gid: task.gid })
+      } catch {
+        /* best-effort: task may already be gone */
+      }
     } finally {
       await fetchList()
       await api.saveSession()
@@ -120,6 +127,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       logger.debug('TaskStore.removeTaskRecord.aria2', e)
     }
     await fetchList()
+    await api.saveSession()
   }
 
   async function purgeTaskRecord() {
@@ -131,11 +139,21 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       logger.debug('TaskStore.purgeTaskRecord.aria2', e)
     }
     await fetchList()
+    await api.saveSession()
   }
 
   async function batchRemoveTask(gids: string[]) {
     try {
       await api.batchRemoveTask({ gids })
+      // Purge each gid from aria2's stopped-result list so force-save=true
+      // (BT/magnet) won't persist entries in the session file on exit.
+      for (const gid of gids) {
+        try {
+          await api.removeTaskRecord({ gid })
+        } catch {
+          /* best-effort: task may already be gone */
+        }
+      }
     } finally {
       await fetchList()
       await api.saveSession()

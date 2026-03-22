@@ -468,6 +468,12 @@ describe('removeTaskRecord', () => {
     // Should NOT throw — error is caught and logged
     expect(deps.fetchList).toHaveBeenCalledOnce()
   })
+
+  it('saves session after removing a record', async () => {
+    const task = makeTask({ gid: 'rec-save', status: TASK_STATUS.COMPLETE })
+    await ops.removeTaskRecord(task)
+    expect(api.saveSession).toHaveBeenCalledOnce()
+  })
 })
 
 // ═══════════════════════════════════════════════════════════════════
@@ -483,6 +489,14 @@ describe('purgeTaskRecord', () => {
     expect(mockClearRecords).toHaveBeenCalledOnce()
     expect(api.purgeTaskRecord).toHaveBeenCalledOnce()
     expect(deps.fetchList).toHaveBeenCalledOnce()
+  })
+
+  it('saves session after purging all records', async () => {
+    const api = createMockApi()
+    const deps = createDeps(api)
+    const ops = createTaskOperations(deps)
+    await ops.purgeTaskRecord()
+    expect(api.saveSession).toHaveBeenCalledOnce()
   })
 
   it('still refreshes list even if aria2 purge fails', async () => {
@@ -508,6 +522,26 @@ describe('batchRemoveTask', () => {
     await ops.batchRemoveTask(['a', 'b', 'c'])
     expect(api.batchRemoveTask).toHaveBeenCalledWith({ gids: ['a', 'b', 'c'] })
     expect(deps.fetchList).toHaveBeenCalledOnce()
+    expect(api.saveSession).toHaveBeenCalledOnce()
+  })
+
+  it('purges each gid from stopped-result list via removeTaskRecord', async () => {
+    const api = createMockApi()
+    const deps = createDeps(api)
+    const ops = createTaskOperations(deps)
+    await ops.batchRemoveTask(['a', 'b'])
+    expect(api.removeTaskRecord).toHaveBeenCalledWith({ gid: 'a' })
+    expect(api.removeTaskRecord).toHaveBeenCalledWith({ gid: 'b' })
+  })
+
+  it('tolerates removeTaskRecord failure for individual gids', async () => {
+    const api = createMockApi()
+    ;(api.removeTaskRecord as Mock).mockRejectedValue(new Error('not found'))
+    const deps = createDeps(api)
+    const ops = createTaskOperations(deps)
+    // Should NOT throw — removeTaskRecord errors are swallowed per-gid
+    await ops.batchRemoveTask(['a', 'b'])
+    expect(api.batchRemoveTask).toHaveBeenCalledWith({ gids: ['a', 'b'] })
     expect(api.saveSession).toHaveBeenCalledOnce()
   })
 
