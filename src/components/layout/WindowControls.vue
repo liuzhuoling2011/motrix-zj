@@ -2,12 +2,12 @@
 /**
  * @fileoverview Platform-aware window control buttons.
  *
- * Renders macOS-style traffic light buttons (close → minimize → fullscreen, left)
- * or Windows-style icon buttons (minimize → maximize → close, right) based on the
- * user's `macStyleControls` preference.
+ * On macOS, native traffic lights are provided by the OS via
+ * `titleBarStyle: "Overlay"` in tauri.macos.conf.json — this component
+ * renders nothing.
  *
- * Traffic light design follows Apple HIG: 12 px circles, standard colours,
- * group-hover reveals inline SVG icons, window blur dims all three to grey.
+ * On Windows/Linux, renders icon-style buttons (minimize → maximize → close,
+ * right-aligned) since those platforms use `decorations: false`.
  */
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
@@ -15,8 +15,10 @@ import { NIcon } from 'naive-ui'
 import { RemoveOutline, CopyOutline, SquareOutline, CloseOutline } from '@vicons/ionicons5'
 import { usePreferenceStore } from '@/stores/preference'
 
-defineProps<{
+const props = defineProps<{
   isMaximized: boolean
+  /** Current OS platform identifier (e.g. 'macos', 'windows', 'linux'). */
+  platform: string
 }>()
 
 const emit = defineEmits<{
@@ -27,16 +29,19 @@ const emit = defineEmits<{
 const appWindow = getCurrentWindow()
 const preferenceStore = usePreferenceStore()
 
-const macStyle = computed(() => !!preferenceStore.config.macStyleControls)
+/** macOS uses native traffic lights — hide custom controls entirely. */
+const isMac = computed(() => props.platform === 'macos')
 
-// ── Window focus state (traffic-light blur dimming) ─────────────────
+// ── Window focus state ──────────────────────────────────────────────
 const isFocused = ref(true)
 let unlistenFocus: (() => void) | null = null
 
 onMounted(async () => {
-  unlistenFocus = await appWindow.onFocusChanged(({ payload }) => {
-    isFocused.value = payload
-  })
+  if (!isMac.value) {
+    unlistenFocus = await appWindow.onFocusChanged(({ payload }) => {
+      isFocused.value = payload
+    })
+  }
 })
 
 onUnmounted(() => {
@@ -66,77 +71,28 @@ async function close() {
 </script>
 
 <template>
-  <div class="window-controls" :class="{ 'mac-style': macStyle }">
-    <Transition name="ctrl-swap" mode="out-in">
-      <!-- macOS traffic light: close → minimize → fullscreen -->
-      <div v-if="macStyle" key="mac" class="traffic-lights" :class="{ blurred: !isFocused }">
-        <button class="tl tl-close" title="Close" @click="close">
-          <svg class="tl-icon" viewBox="0 0 12 12">
-            <line x1="3.5" y1="3.5" x2="8.5" y2="8.5" />
-            <line x1="8.5" y1="3.5" x2="3.5" y2="8.5" />
-          </svg>
-        </button>
-        <button class="tl tl-minimize" title="Minimize" @click="minimize">
-          <svg class="tl-icon" viewBox="0 0 12 12">
-            <line x1="2.5" y1="6" x2="9.5" y2="6" />
-          </svg>
-        </button>
-        <button class="tl tl-maximize" :title="isMaximized ? 'Restore' : 'Maximize'" @click="toggleMaximize">
-          <!-- Fullscreen: two filled triangles pointing to opposite corners -->
-          <svg v-if="!isMaximized" class="tl-icon tl-icon--filled" viewBox="0 0 12 12">
-            <polygon points="2.5,9.5 2.5,5 7,9.5" />
-            <polygon points="9.5,2.5 9.5,7 5,2.5" />
-          </svg>
-          <!-- Restore: two filled triangles pointing inward -->
-          <svg v-else class="tl-icon tl-icon--filled" viewBox="0 0 12 12">
-            <polygon points="5.5,6.5 5.5,10.5 1.5,6.5" />
-            <polygon points="6.5,5.5 6.5,1.5 10.5,5.5" />
-          </svg>
-        </button>
-      </div>
-
-      <!-- Windows / Linux: original icon buttons -->
-      <div v-else key="win" class="win-buttons">
-        <button class="ctrl-btn" title="Minimize" @click="minimize">
-          <NIcon :size="14"><RemoveOutline /></NIcon>
-        </button>
-        <button class="ctrl-btn" :title="isMaximized ? 'Restore' : 'Maximize'" @click="toggleMaximize">
-          <NIcon :size="14">
-            <Transition name="icon-swap" mode="out-in">
-              <CopyOutline v-if="isMaximized" key="restore" />
-              <SquareOutline v-else key="maximize" />
-            </Transition>
-          </NIcon>
-        </button>
-        <button class="ctrl-btn close" title="Close" @click="close">
-          <NIcon :size="14"><CloseOutline /></NIcon>
-        </button>
-      </div>
-    </Transition>
+  <!-- macOS: native traffic lights provided by OS, render nothing -->
+  <div v-if="!isMac" class="window-controls">
+    <div class="win-buttons">
+      <button class="ctrl-btn" title="Minimize" @click="minimize">
+        <NIcon :size="14"><RemoveOutline /></NIcon>
+      </button>
+      <button class="ctrl-btn" :title="isMaximized ? 'Restore' : 'Maximize'" @click="toggleMaximize">
+        <NIcon :size="14">
+          <Transition name="icon-swap" mode="out-in">
+            <CopyOutline v-if="isMaximized" key="restore" />
+            <SquareOutline v-else key="maximize" />
+          </Transition>
+        </NIcon>
+      </button>
+      <button class="ctrl-btn close" title="Close" @click="close">
+        <NIcon :size="14"><CloseOutline /></NIcon>
+      </button>
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* ── Style-switch cross-fade (M3 asymmetric timing) ──────────────── */
-.ctrl-swap-enter-active {
-  transition:
-    opacity 0.2s cubic-bezier(0.2, 0, 0, 1),
-    transform 0.2s cubic-bezier(0.2, 0, 0, 1);
-}
-.ctrl-swap-leave-active {
-  transition:
-    opacity 0.15s cubic-bezier(0.3, 0, 0.8, 0.15),
-    transform 0.15s cubic-bezier(0.3, 0, 0.8, 0.15);
-}
-.ctrl-swap-enter-from {
-  opacity: 0;
-  transform: scale(0.85);
-}
-.ctrl-swap-leave-to {
-  opacity: 0;
-  transform: scale(0.85);
-}
-
 /* ── Windows / Linux buttons ─────────────────────────────────────── */
 .win-buttons {
   position: fixed;
@@ -186,79 +142,5 @@ async function close() {
 .icon-swap-leave-to {
   opacity: 0;
   transform: scale(0.75);
-}
-
-/* ── macOS traffic-light buttons ─────────────────────────────────── */
-.traffic-lights {
-  position: fixed;
-  top: 12px;
-  left: 13px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.tl {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  position: relative;
-  outline: none;
-  transition:
-    background-color 0.15s ease,
-    opacity 0.15s ease;
-}
-.tl-close {
-  background-color: #ff5f57;
-}
-.tl-minimize {
-  background-color: #febc2e;
-}
-.tl-maximize {
-  background-color: #28c840;
-}
-
-/* SVG icons — hidden by default, pop-in on group hover */
-.tl-icon {
-  position: absolute;
-  inset: 0;
-  width: 12px;
-  height: 12px;
-  opacity: 0;
-  transform: scale(0);
-  transition:
-    opacity 0.2s ease-out,
-    transform 0.2s cubic-bezier(0.34, 1.4, 0.64, 1);
-  fill: none;
-  stroke: rgba(0, 0, 0, 0.5);
-  stroke-width: 1.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.traffic-lights:hover .tl-icon {
-  opacity: 1;
-  transform: scale(1);
-}
-.tl-icon--filled {
-  fill: rgba(0, 0, 0, 0.5);
-  stroke: none;
-}
-
-/* Individual button press feedback */
-.tl:active {
-  opacity: 0.7;
-}
-
-/* Window blur state — all buttons dim to grey */
-.traffic-lights.blurred .tl {
-  background-color: var(--tl-inactive, #d4d4d4);
-}
-.traffic-lights.blurred .tl-icon {
-  opacity: 0;
-}
-.traffic-lights.blurred:hover .tl-icon {
-  opacity: 0;
 }
 </style>

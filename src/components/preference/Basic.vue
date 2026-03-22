@@ -380,9 +380,7 @@ onMounted(async () => {
       <NFormItem v-if="isMacOrWin" :label="t('preferences.show-progress-bar')">
         <NSwitch v-model:value="form.showProgressBar" />
       </NFormItem>
-      <NFormItem :label="t('preferences.mac-style-controls')">
-        <NSwitch v-model:value="form.macStyleControls" />
-      </NFormItem>
+
       <NFormItem v-if="isMac" :label="t('preferences.dock-badge-speed')">
         <NSwitch v-model:value="form.dockBadgeSpeed" />
       </NFormItem>

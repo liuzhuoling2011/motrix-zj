@@ -42,6 +42,7 @@ const isExiting = ref(false)
 const rememberChoice = ref(false)
 const pendingTrayHide = ref(false)
 const isMaximized = ref(false)
+const currentPlatform = ref('')
 const showEngineOverlay = ref(false)
 
 const updateDialogRef = ref<InstanceType<typeof UpdateDialog> | null>(null)
@@ -120,11 +121,21 @@ async function handleExitConfirm() {
     preferenceStore.config.minimizeToTrayOnClose = true
     await preferenceStore.savePreference()
   }
-  isExiting.value = true
+
+  // macOS native frame: hide the entire window first so traffic lights
+  // and content disappear together.  The native hide animation is smooth.
+  // On Win/Linux (frameless), use the CSS fade-out animation instead.
+  if (currentPlatform.value === 'macos') {
+    const appWindow = getCurrentWindow()
+    await appWindow.hide()
+  } else {
+    isExiting.value = true
+    appReady.value = false
+    await new Promise((r) => setTimeout(r, 250))
+  }
+
   showExitDialog.value = false
   rememberChoice.value = false
-  appReady.value = false
-  await new Promise((r) => setTimeout(r, 250))
   // exit(0) sends an IPC call to Rust — if we destroy() first,
   // the webview is gone and the IPC silently fails.
   // Session cleanup (purge completed tasks + save) is handled by the
@@ -166,6 +177,15 @@ function handleExitCancel() {
 }
 
 onMounted(async () => {
+  // Detect platform once for conditional rendering (native traffic lights,
+  // border-radius, etc.).
+  try {
+    const { platform } = await import('@tauri-apps/plugin-os')
+    currentPlatform.value = platform()
+  } catch (e) {
+    logger.debug('MainLayout.platform', e)
+  }
+
   // Show the main window now that the frontend has mounted and the
   // webview has renderable content.  This prevents the transparent-frame
   // flash on Windows where DWM renders a native shadow before WebView2
@@ -179,15 +199,24 @@ onMounted(async () => {
     const isAutostart: boolean = await invoke('is_autostart_launch')
     const shouldHide = isAutostart && !!preferenceStore.config.autoHideWindow
     if (!shouldHide) {
+      // macOS native frame: set content visible BEFORE showing the window
+      // so traffic lights and content appear simultaneously.  The native
+      // window show animation handles the visual entrance.
+      // Win/Linux (frameless): show first, then fade-in via CSS transition.
+      if (currentPlatform.value === 'macos') {
+        appReady.value = true
+      }
       const appWindow = getCurrentWindow()
       await appWindow.show()
       await appWindow.setFocus()
     }
   }
 
-  setTimeout(() => {
-    appReady.value = true
-  }, 120)
+  if (currentPlatform.value !== 'macos') {
+    setTimeout(() => {
+      appReady.value = true
+    }, 120)
+  }
   startGlobalPolling()
 
   // Track maximize state to remove border-radius when maximized.
@@ -235,16 +264,14 @@ onMounted(async () => {
   unlistenSingleInstance = listeners.unlistenSingleInstance
 
   const appWindow = getCurrentWindow()
-  // Close prevention is handled by Rust Builder::on_window_event() — the
-  // FIRST hook in Tauri's event lifecycle, which reliably calls
-  // api.prevent_close() before the compositor can destroy the window.
-  // This JS handler fires SECOND (async IPC) and acts as a redundant
-  // fallback for the custom close button in WindowControls.vue.
-  //
-  // Do NOT call event.preventDefault() here — it is redundant with the
-  // Rust hook and causes a webview freeze on macOS (Tauri v2 bug).
+  // Close prevention: both JS event.preventDefault() and Rust
+  // api.prevent_close() are needed for reliable interception across
+  // all close paths (native traffic light, Cmd+W, taskbar close).
   unlistenCloseRequested = await appWindow.onCloseRequested(async (event) => {
-    void event
+    // With native decorations (macOS overlay), the JS handler MUST call
+    // preventDefault() to prevent the native close.  The Rust on_window_event
+    // handler calls api.prevent_close() as a parallel safeguard.
+    event.preventDefault()
     if (preferenceStore.config.minimizeToTrayOnClose) {
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('set_dock_visible', { visible: false })
@@ -331,7 +358,15 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div id="container" :class="{ 'app-ready': appReady, 'app-closing': isExiting, maximized: isMaximized }">
+  <div
+    id="container"
+    :class="{
+      'app-ready': appReady,
+      'app-closing': isExiting,
+      maximized: isMaximized,
+      'native-frame': currentPlatform === 'macos',
+    }"
+  >
     <!-- Minimal progress bar during engine initialization / restart -->
     <Transition name="init-slide">
       <div v-if="appStore.engineInitializing" class="init-banner">
@@ -355,6 +390,7 @@ onUnmounted(() => {
     <WindowControls
       class="window-controls"
       :is-maximized="isMaximized"
+      :platform="currentPlatform"
       @close="showExitDialog = true"
       @maximize-toggled="onMaximizeToggled"
     />
@@ -430,6 +466,16 @@ onUnmounted(() => {
 }
 #container.maximized {
   border-radius: 0;
+}
+/* macOS: native window provides its own rounding via titleBarStyle: Overlay.
+   Skip the scale transform so content appears in sync with native traffic lights.
+   The scale(0.96→1) pop-in was designed for frameless transparent windows. */
+#container.native-frame {
+  border-radius: 0;
+  transform: scale(1);
+  transition:
+    opacity 300ms cubic-bezier(0.05, 0.7, 0.1, 1),
+    border-radius 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 #container.app-ready {
   opacity: 1;
