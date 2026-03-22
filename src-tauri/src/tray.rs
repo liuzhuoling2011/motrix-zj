@@ -31,13 +31,12 @@ pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::WebviewWindow
     // Window was destroyed — recreate from config.
     log::warn!("tray:window-not-found label=main — recreating after compositor force-close");
 
-    let mut builder =
-        WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-            .title("Motrix Next")
-            .inner_size(1068.0, 680.0)
-            .min_inner_size(970.0, 560.0)
-            .center()
-            .visible(false);
+    let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+        .title("Motrix Next")
+        .inner_size(1068.0, 680.0)
+        .min_inner_size(970.0, 560.0)
+        .center()
+        .visible(false);
 
     // macOS: native traffic lights via overlay title bar (matches tauri.macos.conf.json).
     // Windows/Linux: transparent frameless window with custom controls.
@@ -56,8 +55,7 @@ pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::WebviewWindow
         builder = builder.transparent(true).decorations(false);
     }
 
-    match builder.build()
-    {
+    match builder.build() {
         Ok(w) => {
             log::info!("tray:window-recreated label=main");
             Some(w)
