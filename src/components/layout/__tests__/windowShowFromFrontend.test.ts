@@ -153,16 +153,16 @@ describe('MainLayout.vue — show window from frontend on mount', () => {
     expect(mountedBody).toContain('autoHideWindow')
   })
 
-  it('calls both show and appReady in onMounted', () => {
-    // Win/Linux: show → appReady (CSS fade-in plays on visible window).
-    // macOS: appReady → show (content ready before traffic lights appear).
-    // Ordering is platform-conditional — we verify both exist.
+  it('show + focus happens BEFORE appReady transition', () => {
+    // The window must be visible before the CSS opacity transition
+    // starts, otherwise the animation plays invisibly.
     const mountedBody = extractOnMountedBody(source)
     expect(mountedBody).toBeTruthy()
     const showIdx = mountedBody!.indexOf('.show()')
     const readyIdx = mountedBody!.indexOf('appReady')
     expect(showIdx).toBeGreaterThanOrEqual(0)
     expect(readyIdx).toBeGreaterThanOrEqual(0)
+    expect(showIdx).toBeLessThan(readyIdx)
   })
 })
 

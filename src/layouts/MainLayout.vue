@@ -121,21 +121,25 @@ async function handleExitConfirm() {
     preferenceStore.config.minimizeToTrayOnClose = true
     await preferenceStore.savePreference()
   }
-
-  // macOS native frame: hide the entire window first so traffic lights
-  // and content disappear together.  The native hide animation is smooth.
-  // On Win/Linux (frameless), use the CSS fade-out animation instead.
-  if (currentPlatform.value === 'macos') {
-    const appWindow = getCurrentWindow()
-    await appWindow.hide()
-  } else {
-    isExiting.value = true
-    appReady.value = false
-    await new Promise((r) => setTimeout(r, 250))
-  }
-
+  isExiting.value = true
   showExitDialog.value = false
   rememberChoice.value = false
+  appReady.value = false
+
+  // Fade the entire native window (including macOS traffic lights) in sync
+  // with the CSS container animation.  CSS only affects the webview content,
+  // leaving OS-rendered elements (traffic lights, shadow) to vanish abruptly.
+  // The Rust set_window_alpha command calls NSWindow.setAlphaValue() on
+  // macOS; no-op on other platforms where CSS animation suffices.
+  const { invoke } = await import('@tauri-apps/api/core')
+  const steps = 10
+  const duration = 200
+  const interval = duration / steps
+  for (let i = 1; i <= steps; i++) {
+    await new Promise((r) => setTimeout(r, interval))
+    await invoke('set_window_alpha', { alpha: 1 - i / steps })
+  }
+
   // exit(0) sends an IPC call to Rust — if we destroy() first,
   // the webview is gone and the IPC silently fails.
   // Session cleanup (purge completed tasks + save) is handled by the
@@ -199,24 +203,15 @@ onMounted(async () => {
     const isAutostart: boolean = await invoke('is_autostart_launch')
     const shouldHide = isAutostart && !!preferenceStore.config.autoHideWindow
     if (!shouldHide) {
-      // macOS native frame: set content visible BEFORE showing the window
-      // so traffic lights and content appear simultaneously.  The native
-      // window show animation handles the visual entrance.
-      // Win/Linux (frameless): show first, then fade-in via CSS transition.
-      if (currentPlatform.value === 'macos') {
-        appReady.value = true
-      }
       const appWindow = getCurrentWindow()
       await appWindow.show()
       await appWindow.setFocus()
     }
   }
 
-  if (currentPlatform.value !== 'macos') {
-    setTimeout(() => {
-      appReady.value = true
-    }, 120)
-  }
+  setTimeout(() => {
+    appReady.value = true
+  }, 120)
   startGlobalPolling()
 
   // Track maximize state to remove border-radius when maximized.
@@ -467,15 +462,9 @@ onUnmounted(() => {
 #container.maximized {
   border-radius: 0;
 }
-/* macOS: native window provides its own rounding via titleBarStyle: Overlay.
-   Skip the scale transform so content appears in sync with native traffic lights.
-   The scale(0.96→1) pop-in was designed for frameless transparent windows. */
+/* macOS: native window provides its own rounding via titleBarStyle: Overlay */
 #container.native-frame {
   border-radius: 0;
-  transform: scale(1);
-  transition:
-    opacity 300ms cubic-bezier(0.05, 0.7, 0.1, 1),
-    border-radius 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 #container.app-ready {
   opacity: 1;

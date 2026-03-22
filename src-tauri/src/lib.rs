@@ -522,6 +522,7 @@ pub fn run() {
             commands::trash_file,
             commands::get_engine_conf_path,
             commands::is_dmabuf_renderer_disabled,
+            commands::set_window_alpha,
         ])
         // ── Window event interception ─────────────────────────────────
         //
