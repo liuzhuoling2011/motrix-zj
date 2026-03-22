@@ -184,7 +184,7 @@ pub fn set_window_alpha(app: AppHandle, alpha: f64) -> Result<(), AppError> {
                 unsafe {
                     let ns_win: &objc2::runtime::AnyObject =
                         &*(ns_window as *const objc2::runtime::AnyObject);
-                    let _: () = objc2::msg_send![ns_win, setAlphaValue: alpha as f64];
+                    let _: () = objc2::msg_send![ns_win, setAlphaValue: alpha];
                 }
             }
         }
