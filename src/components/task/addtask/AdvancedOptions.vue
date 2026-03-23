@@ -41,29 +41,31 @@ function cleanUserAgent() {
   <NCollapseTransition :show="show">
     <div>
       <NFormItem :label="t('task.task-user-agent') + ':'">
-        <NInput
-          :value="userAgent"
-          type="textarea"
-          :autosize="{ minRows: 2, maxRows: 3 }"
-          @update:value="$emit('update:userAgent', $event)"
-        />
-      </NFormItem>
-      <!-- UA sanitization hint — slides in via CSS Grid 0fr→1fr -->
-      <div class="ua-warn-collapse" :class="{ 'ua-warn-collapse--open': uaHasIssue }">
-        <div class="ua-warn-collapse__inner">
-          <div class="ua-warn-bar">
-            <span class="ua-warn-text">⚠ {{ t('preferences.ua-unsafe-chars-detected') }}</span>
-            <NButton size="tiny" type="warning" ghost @click="cleanUserAgent">
-              {{ t('preferences.ua-sanitize') }}
-            </NButton>
+        <div class="ua-field-wrapper">
+          <NInput
+            :value="userAgent"
+            type="textarea"
+            :autosize="{ minRows: 1, maxRows: 3 }"
+            @update:value="$emit('update:userAgent', $event)"
+          />
+          <!-- UA sanitization hint — slides in via CSS Grid 0fr→1fr -->
+          <div class="ua-warn-collapse" :class="{ 'ua-warn-collapse--open': uaHasIssue }">
+            <div class="ua-warn-collapse__inner">
+              <div class="ua-warn-bar">
+                <span class="ua-warn-text">⚠ {{ t('preferences.ua-unsafe-chars-detected') }}</span>
+                <NButton size="tiny" type="warning" ghost @click="cleanUserAgent">
+                  {{ t('preferences.ua-sanitize') }}
+                </NButton>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </NFormItem>
       <NFormItem :label="t('task.task-authorization') + ':'">
         <NInput
           :value="authorization"
           type="textarea"
-          :autosize="{ minRows: 2, maxRows: 3 }"
+          :autosize="{ minRows: 1, maxRows: 3 }"
           @update:value="$emit('update:authorization', $event)"
         />
       </NFormItem>
@@ -71,7 +73,7 @@ function cleanUserAgent() {
         <NInput
           :value="referer"
           type="textarea"
-          :autosize="{ minRows: 2, maxRows: 3 }"
+          :autosize="{ minRows: 1, maxRows: 3 }"
           @update:value="$emit('update:referer', $event)"
         />
       </NFormItem>
@@ -79,7 +81,7 @@ function cleanUserAgent() {
         <NInput
           :value="cookie"
           type="textarea"
-          :autosize="{ minRows: 2, maxRows: 3 }"
+          :autosize="{ minRows: 1, maxRows: 3 }"
           @update:value="$emit('update:cookie', $event)"
         />
       </NFormItem>
@@ -87,7 +89,7 @@ function cleanUserAgent() {
         <NInput
           :value="allProxy"
           type="textarea"
-          :autosize="{ minRows: 2, maxRows: 3 }"
+          :autosize="{ minRows: 1, maxRows: 3 }"
           placeholder="[http://][USER:PASSWORD@]HOST[:PORT]"
           @update:value="$emit('update:allProxy', $event)"
         />
@@ -97,6 +99,13 @@ function cleanUserAgent() {
 </template>
 
 <style scoped>
+/* ── UA field wrapper — stacks textarea + warning ────────────────── */
+.ua-field-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
 /* ── UA warning — CSS Grid 0fr→1fr slide-in ──────────────────────── */
 .ua-warn-collapse {
   display: grid;
@@ -114,7 +123,7 @@ function cleanUserAgent() {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  margin: 0 0 8px 0;
+  margin-top: 6px;
   border-radius: var(--border-radius);
   background: var(--m3-error-container-bg);
   opacity: 0;
@@ -124,7 +133,7 @@ function cleanUserAgent() {
   opacity: 1;
 }
 .ua-warn-text {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--m3-error);
   flex: 1;
 }
