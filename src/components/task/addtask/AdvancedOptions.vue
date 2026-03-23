@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /** @fileoverview Advanced task options panel (UA, auth, referer, cookie, proxy). */
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NFormItem, NInput, NCheckbox, NCollapseTransition } from 'naive-ui'
+import { NFormItem, NInput, NCheckbox, NCollapseTransition, NButton } from 'naive-ui'
+import { hasUnsafeHeaderChars, sanitizeHeaderValue } from '@shared/utils/headerSanitize'
 
 const { t } = useI18n()
 
-defineProps<{
+const props = defineProps<{
   show: boolean
   userAgent: string
   authorization: string
@@ -14,7 +16,7 @@ defineProps<{
   allProxy: string
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   'update:show': [value: boolean]
   'update:userAgent': [value: string]
   'update:authorization': [value: string]
@@ -22,6 +24,12 @@ defineEmits<{
   'update:cookie': [value: string]
   'update:allProxy': [value: string]
 }>()
+
+const uaHasIssue = computed(() => !!props.userAgent && hasUnsafeHeaderChars(props.userAgent))
+
+function cleanUserAgent() {
+  emit('update:userAgent', sanitizeHeaderValue(props.userAgent))
+}
 </script>
 
 <template>
@@ -40,6 +48,17 @@ defineEmits<{
           @update:value="$emit('update:userAgent', $event)"
         />
       </NFormItem>
+      <!-- UA sanitization hint — slides in via CSS Grid 0fr→1fr -->
+      <div class="ua-warn-collapse" :class="{ 'ua-warn-collapse--open': uaHasIssue }">
+        <div class="ua-warn-collapse__inner">
+          <div class="ua-warn-bar">
+            <span class="ua-warn-text">⚠ {{ t('preferences.ua-unsafe-chars-detected') }}</span>
+            <NButton size="tiny" type="warning" ghost @click="cleanUserAgent">
+              {{ t('preferences.ua-sanitize') }}
+            </NButton>
+          </div>
+        </div>
+      </div>
       <NFormItem :label="t('task.task-authorization') + ':'">
         <NInput
           :value="authorization"
@@ -76,3 +95,37 @@ defineEmits<{
     </div>
   </NCollapseTransition>
 </template>
+
+<style scoped>
+/* ── UA warning — CSS Grid 0fr→1fr slide-in ──────────────────────── */
+.ua-warn-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+.ua-warn-collapse--open {
+  grid-template-rows: 1fr;
+}
+.ua-warn-collapse__inner {
+  overflow: hidden;
+}
+.ua-warn-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 0 0 8px 0;
+  border-radius: var(--border-radius);
+  background: var(--m3-error-container-bg);
+  opacity: 0;
+  transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+.ua-warn-collapse--open .ua-warn-bar {
+  opacity: 1;
+}
+.ua-warn-text {
+  font-size: var(--font-size-xs);
+  color: var(--m3-error);
+  flex: 1;
+}
+</style>

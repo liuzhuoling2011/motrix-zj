@@ -189,4 +189,6 @@ export default {
   'history-section': 'ประวัติการดาวน์โหลด',
   'open-config-folder': 'เปิดโฟลเดอร์การตั้งค่า',
   'clear-all-tasks-success': 'ล้างงานดาวน์โหลดทั้งหมดแล้ว',
+  'ua-unsafe-chars-detected': 'ตรวจพบอักขระควบคุม (ขึ้นบรรทัดใหม่) — อาจทำให้ดาวน์โหลดล้มเหลว',
+  'ua-sanitize': 'ล้าง',
 }

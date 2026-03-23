@@ -189,4 +189,6 @@ export default {
   'history-section': 'Cronologia download',
   'open-config-folder': 'Apri cartella configurazione',
   'clear-all-tasks-success': 'Tutte le attività di download sono state cancellate',
+  'ua-unsafe-chars-detected': 'Rilevati caratteri di controllo (a capo) — potrebbe causare errori di download',
+  'ua-sanitize': 'Pulisci',
 }

@@ -189,4 +189,6 @@ export default {
   'history-section': 'Download-Verlauf',
   'open-config-folder': 'Konfigurationsordner öffnen',
   'clear-all-tasks-success': 'Alle Download-Aufgaben wurden gelöscht',
+  'ua-unsafe-chars-detected': 'Steuerzeichen (Zeilenumbrüche) erkannt — kann Download-Fehler verursachen',
+  'ua-sanitize': 'Bereinigen',
 }

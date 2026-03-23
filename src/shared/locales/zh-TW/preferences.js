@@ -189,4 +189,6 @@ export default {
   'history-section': '下載紀錄',
   'open-config-folder': '開啟設定資料夾',
   'clear-all-tasks-success': '已清除所有下載任務',
+  'ua-unsafe-chars-detected': '偵測到換行符 — 可能導致下載失敗',
+  'ua-sanitize': '清洗',
 }

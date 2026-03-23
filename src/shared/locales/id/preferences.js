@@ -189,4 +189,6 @@ export default {
   'history-section': 'Riwayat Unduhan',
   'open-config-folder': 'Buka Folder Konfigurasi',
   'clear-all-tasks-success': 'Semua tugas unduhan telah dihapus',
+  'ua-unsafe-chars-detected': 'Karakter kontrol (baris baru) terdeteksi — dapat menyebabkan kegagalan unduhan',
+  'ua-sanitize': 'Bersihkan',
 }

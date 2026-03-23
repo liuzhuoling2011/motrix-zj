@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** @fileoverview Advanced preference form: proxy, tracker, RPC, port, and user-agent settings. */
-import { ref, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
@@ -25,6 +25,7 @@ import {
   randomDhtPort,
 } from '@/composables/useAdvancedPreference'
 import userAgentMap from '@shared/ua'
+import { hasUnsafeHeaderChars, sanitizeHeaderValue } from '@shared/utils/headerSanitize'
 import {
   NForm,
   NFormItem,
@@ -252,6 +253,12 @@ function changeUA(type: string) {
   if (ua) form.value.userAgent = ua
 }
 
+const uaHasIssue = computed(() => !!form.value.userAgent && hasUnsafeHeaderChars(form.value.userAgent))
+
+function cleanUserAgent() {
+  form.value.userAgent = sanitizeHeaderValue(form.value.userAgent)
+}
+
 // ─── Advanced Actions (delegated to composable) ─────────────────────
 
 const {
@@ -426,12 +433,25 @@ onMounted(() => {
 
       <NDivider title-placement="left">{{ t('preferences.user-agent') }}</NDivider>
       <NFormItem :label="t('preferences.mock-user-agent')">
-        <NInput
-          v-model:value="form.userAgent"
-          type="textarea"
-          :autosize="{ minRows: 2, maxRows: 4 }"
-          placeholder="User-Agent"
-        />
+        <div class="ua-field-wrapper">
+          <NInput
+            v-model:value="form.userAgent"
+            type="textarea"
+            :autosize="{ minRows: 2, maxRows: 4 }"
+            placeholder="User-Agent"
+          />
+          <!-- UA sanitization hint — slides in via CSS Grid 0fr→1fr -->
+          <div class="ua-warn-collapse" :class="{ 'ua-warn-collapse--open': uaHasIssue }">
+            <div class="ua-warn-collapse__inner">
+              <div class="ua-warn-bar">
+                <span class="ua-warn-text">⚠ {{ t('preferences.ua-unsafe-chars-detected') }}</span>
+                <NButton size="tiny" type="warning" ghost @click="cleanUserAgent">
+                  {{ t('preferences.ua-sanitize') }}
+                </NButton>
+              </div>
+            </div>
+          </div>
+        </div>
       </NFormItem>
       <NFormItem :show-label="false">
         <div class="ua-preset-row">
@@ -751,6 +771,45 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* ── UA field wrapper — stacks textarea + warning within same NFormItem ── */
+.ua-field-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* ── UA warning — CSS Grid 0fr→1fr slide-in, matches proxy-collapse ── */
+.ua-warn-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+.ua-warn-collapse--open {
+  grid-template-rows: 1fr;
+}
+.ua-warn-collapse__inner {
+  overflow: hidden;
+}
+.ua-warn-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-top: 6px;
+  border-radius: var(--border-radius);
+  background: var(--m3-error-container-bg);
+  opacity: 0;
+  transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+.ua-warn-collapse--open .ua-warn-bar {
+  opacity: 1;
+}
+.ua-warn-text {
+  font-size: var(--font-size-sm);
+  color: var(--m3-error);
+  flex: 1;
 }
 
 /* ── UA Reset — muted-rose ghost that highlights on hover ─────────── */

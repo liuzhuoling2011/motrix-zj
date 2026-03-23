@@ -189,4 +189,6 @@ export default {
   'history-section': 'Історія завантажень',
   'open-config-folder': 'Відкрити теку конфігурації',
   'clear-all-tasks-success': 'Усі завдання завантаження очищено',
+  'ua-unsafe-chars-detected': 'Виявлено керуючі символи (переноси рядків) — може спричинити помилки завантаження',
+  'ua-sanitize': 'Очистити',
 }

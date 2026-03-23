@@ -189,4 +189,6 @@ export default {
   'history-section': 'Historia pobierania',
   'open-config-folder': 'Otwórz folder konfiguracji',
   'clear-all-tasks-success': 'Wszystkie zadania pobierania zostały usunięte',
+  'ua-unsafe-chars-detected': 'Wykryto znaki sterujące (znaki nowej linii) — może powodować błędy pobierania',
+  'ua-sanitize': 'Wyczyść',
 }

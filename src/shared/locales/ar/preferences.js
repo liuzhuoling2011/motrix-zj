@@ -189,4 +189,6 @@ export default {
   'history-section': 'سجل التنزيل',
   'open-config-folder': 'فتح مجلد الإعدادات',
   'clear-all-tasks-success': 'تم مسح جميع مهام التنزيل',
+  'ua-unsafe-chars-detected': 'تم اكتشاف أحرف تحكم (أسطر جديدة) — قد يتسبب في فشل التنزيل',
+  'ua-sanitize': 'تنظيف',
 }

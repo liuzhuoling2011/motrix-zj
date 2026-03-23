@@ -189,4 +189,6 @@ export default {
   'history-section': 'Letöltési előzmények',
   'open-config-folder': 'Konfigurációs mappa megnyitása',
   'clear-all-tasks-success': 'Minden letöltési feladat törölve',
+  'ua-unsafe-chars-detected': 'Vezérlőkarakterek (sortörések) észlelve — letöltési hibákat okozhat',
+  'ua-sanitize': 'Tisztítás',
 }

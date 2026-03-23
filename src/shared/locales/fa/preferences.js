@@ -189,4 +189,6 @@ export default {
   'history-section': 'تاریخچه دانلود',
   'open-config-folder': 'باز کردن پوشه تنظیمات',
   'clear-all-tasks-success': 'همه وظایف دانلود پاک شدند',
+  'ua-unsafe-chars-detected': 'کاراکترهای کنترلی (خطوط جدید) شناسایی شد — ممکن است باعث خطای دانلود شود',
+  'ua-sanitize': 'پاکسازی',
 }

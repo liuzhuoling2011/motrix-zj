@@ -189,4 +189,6 @@ export default {
   'history-section': 'Historique des téléchargements',
   'open-config-folder': 'Ouvrir le dossier de configuration',
   'clear-all-tasks-success': 'Toutes les tâches de téléchargement ont été supprimées',
+  'ua-unsafe-chars-detected': 'Caractères de contrôle (sauts de ligne) détectés — peut provoquer des échecs de téléchargement',
+  'ua-sanitize': 'Nettoyer',
 }

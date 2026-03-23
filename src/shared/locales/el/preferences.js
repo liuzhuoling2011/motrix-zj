@@ -189,4 +189,6 @@ export default {
   'history-section': 'Ιστορικό λήψεων',
   'open-config-folder': 'Άνοιγμα φακέλου ρυθμίσεων',
   'clear-all-tasks-success': 'Όλες οι εργασίες λήψης εκκαθαρίστηκαν',
+  'ua-unsafe-chars-detected': 'Εντοπίστηκαν χαρακτήρες ελέγχου (αλλαγές γραμμής) — μπορεί να προκαλέσει αποτυχία λήψης',
+  'ua-sanitize': 'Καθαρισμός',
 }

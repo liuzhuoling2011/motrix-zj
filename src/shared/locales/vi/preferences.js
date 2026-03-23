@@ -189,4 +189,6 @@ export default {
   'history-section': 'Lịch sử tải xuống',
   'open-config-folder': 'Mở thư mục cấu hình',
   'clear-all-tasks-success': 'Đã xóa tất cả tác vụ tải xuống',
+  'ua-unsafe-chars-detected': 'Phát hiện ký tự điều khiển (ngắt dòng) — có thể gây lỗi tải xuống',
+  'ua-sanitize': 'Làm sạch',
 }

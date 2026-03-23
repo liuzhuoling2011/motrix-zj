@@ -189,4 +189,6 @@ export default {
   'history-section': 'İndirme Geçmişi',
   'open-config-folder': 'Yapılandırma Klasörünü Aç',
   'clear-all-tasks-success': 'Tüm indirme görevleri silindi',
+  'ua-unsafe-chars-detected': 'Kontrol karakterleri (satır sonları) algılandı — indirme hatalarına neden olabilir',
+  'ua-sanitize': 'Temizle',
 }

@@ -189,4 +189,6 @@ export default {
   'history-section': 'Nedlastingshistorikk',
   'open-config-folder': 'Åpne konfigurasjonsmappe',
   'clear-all-tasks-success': 'Alle nedlastingsoppgaver er fjernet',
+  'ua-unsafe-chars-detected': 'Kontrolltegn (linjeskift) oppdaget — kan forårsake nedlastingsfeil',
+  'ua-sanitize': 'Rens',
 }

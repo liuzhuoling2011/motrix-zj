@@ -189,4 +189,6 @@ export default {
   'history-section': 'Downloadgeschiedenis',
   'open-config-folder': 'Configuratiemap openen',
   'clear-all-tasks-success': 'Alle downloadtaken zijn verwijderd',
+  'ua-unsafe-chars-detected': 'Controle-tekens (regeleinden) gedetecteerd — kan downloadfouten veroorzaken',
+  'ua-sanitize': 'Opschonen',
 }

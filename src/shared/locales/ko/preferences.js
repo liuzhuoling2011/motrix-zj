@@ -189,4 +189,6 @@ export default {
   'history-section': '다운로드 기록',
   'open-config-folder': '설정 폴더 열기',
   'clear-all-tasks-success': '모든 다운로드 작업이 삭제되었습니다',
+  'ua-unsafe-chars-detected': '제어 문자(줄바꿈)가 감지됨 — 다운로드 실패를 유발할 수 있습니다',
+  'ua-sanitize': '정리',
 }

@@ -189,4 +189,6 @@ export default {
   'history-section': 'История загрузок',
   'open-config-folder': 'Открыть папку конфигурации',
   'clear-all-tasks-success': 'Все задачи загрузки очищены',
+  'ua-unsafe-chars-detected': 'Обнаружены управляющие символы (переводы строк) — может вызвать ошибки загрузки',
+  'ua-sanitize': 'Очистить',
 }

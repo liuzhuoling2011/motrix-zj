@@ -189,4 +189,6 @@ export default {
   'history-section': 'Istoric descărcări',
   'open-config-folder': 'Deschide dosarul de configurare',
   'clear-all-tasks-success': 'Toate sarcinile de descărcare au fost șterse',
+  'ua-unsafe-chars-detected': 'Caractere de control (linii noi) detectate — poate cauza erori de descărcare',
+  'ua-sanitize': 'Curăță',
 }

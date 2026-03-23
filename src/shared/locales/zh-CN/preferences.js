@@ -189,4 +189,6 @@ export default {
   'history-section': '下载历史',
   'open-config-folder': '打开配置文件夹',
   'clear-all-tasks-success': '已清除所有下载任务',
+  'ua-unsafe-chars-detected': '检测到换行符 — 可能导致下载失败',
+  'ua-sanitize': '清洗',
 }

@@ -189,4 +189,6 @@ export default {
   'history-section': 'История на изтеглянията',
   'open-config-folder': 'Отвори папката с настройки',
   'clear-all-tasks-success': 'Всички задачи за изтегляне бяха изчистени',
+  'ua-unsafe-chars-detected': 'Открити са контролни символи (нови редове) — може да причини грешки при изтегляне',
+  'ua-sanitize': 'Почисти',
 }

@@ -189,4 +189,6 @@ export default {
   'history-section': 'Historial de descàrregues',
   'open-config-folder': 'Obrir carpeta de configuració',
   'clear-all-tasks-success': 'Totes les tasques de descàrrega han estat esborrades',
+  'ua-unsafe-chars-detected': 'S\'han detectat caràcters de control (salts de línia) — pot causar errors de descàrrega',
+  'ua-sanitize': 'Neteja',
 }
