@@ -308,7 +308,7 @@ onMounted(() => {
         <NSwitch v-model:value="form.proxy.enable" />
       </NFormItem>
       <div class="proxy-collapse" :class="{ 'proxy-collapse--open': form.proxy.enable }">
-        <div class="proxy-collapse__inner">
+        <div class="proxy-collapse__inner collapse-indent">
           <NFormItem :label="t('preferences.proxy-server')">
             <NInput v-model:value="form.proxy.server" placeholder="[http://][USER:PASSWORD@]HOST[:PORT]" />
           </NFormItem>
@@ -768,5 +768,10 @@ onMounted(() => {
 }
 .proxy-collapse__inner {
   overflow: hidden;
+}
+
+/* ── Collapse indent: subordinate toggle hierarchy ────────────────── */
+.form-preference :deep(.collapse-indent) {
+  margin-left: 16px;
 }
 </style>

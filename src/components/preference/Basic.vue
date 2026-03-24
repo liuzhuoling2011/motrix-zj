@@ -411,12 +411,12 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.auto-check-update')">
         <NSwitch v-model:value="form.autoCheckUpdate" />
       </NFormItem>
-      <NCollapseTransition :show="form.autoCheckUpdate">
+      <NCollapseTransition :show="form.autoCheckUpdate" class="collapse-indent">
         <NFormItem :label="t('preferences.check-frequency')">
           <NSelect v-model:value="form.autoCheckUpdateInterval" :options="checkIntervalOptions" style="width: 180px" />
         </NFormItem>
       </NCollapseTransition>
-      <NCollapseTransition :show="form.autoCheckUpdate">
+      <NCollapseTransition :show="form.autoCheckUpdate" class="collapse-indent">
         <NFormItem :label="t('preferences.update-channel')">
           <NRadioGroup
             v-model:value="form.updateChannel"
@@ -480,7 +480,7 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.open-at-login')">
         <NSwitch v-model:value="form.openAtLogin" />
       </NFormItem>
-      <NCollapseTransition :show="form.openAtLogin">
+      <NCollapseTransition :show="form.openAtLogin" class="collapse-indent">
         <NFormItem :label="t('preferences.auto-hide-window')">
           <NSwitch v-model:value="form.autoHideWindow" />
         </NFormItem>
@@ -551,8 +551,7 @@ onMounted(async () => {
         <NSwitch v-model:value="form.keepSeeding" @update:value="onKeepSeedingChange" />
       </NFormItem>
 
-      <NCollapseTransition :show="!form.keepSeeding">
-        <NDivider title-placement="left">{{ t('preferences.seeding') }}</NDivider>
+      <NCollapseTransition :show="!form.keepSeeding" class="collapse-indent">
         <NFormItem :label="t('preferences.seed-ratio')">
           <NInputNumber v-model:value="form.seedRatio" :min="1" :max="100" :step="0.1" style="width: 120px" />
         </NFormItem>
@@ -595,7 +594,7 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.clipboard-auto-detect')">
         <NSwitch v-model:value="form.clipboardEnable" />
       </NFormItem>
-      <NCollapseTransition :show="form.clipboardEnable">
+      <NCollapseTransition :show="form.clipboardEnable" class="collapse-indent">
         <NFormItem :label="t('preferences.clipboard-http')">
           <NSwitch v-model:value="form.clipboardHttp" />
         </NFormItem>
@@ -685,5 +684,11 @@ onMounted(async () => {
   font-weight: 500;
   color: var(--m3-outline, rgba(255, 255, 255, 0.38));
   letter-spacing: 0.3px;
+}
+
+/* ── Collapse indent: subordinate toggle hierarchy indicator ──────── */
+.form-preference :deep(.collapse-indent) {
+  position: relative;
+  margin-left: 16px;
 }
 </style>
