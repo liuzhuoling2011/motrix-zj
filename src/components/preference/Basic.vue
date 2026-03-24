@@ -638,9 +638,8 @@ onMounted(async () => {
 .sysinfo-ver-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
   height: 30px;
-  min-width: 120px;
   padding: 0 10px;
   border: 1px solid var(--m3-outline-variant, rgba(255, 255, 255, 0.08));
   border-radius: 8px;
@@ -661,7 +660,7 @@ onMounted(async () => {
 }
 .sysinfo-ver-value {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 520;
   color: var(--m3-on-surface, rgba(255, 255, 255, 0.9));
   letter-spacing: 0.3px;
 }
