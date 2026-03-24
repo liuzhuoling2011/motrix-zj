@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'Всички задачи за изтегляне бяха изчистени',
   'ua-unsafe-chars-detected': 'Открити са контролни символи (нови редове) — може да причини грешки при изтегляне',
   'ua-sanitize': 'Почисти',
+  'system-info': 'Системна информация',
+  'system-arch': 'Архитектура',
+  'system-runtime': 'Среда за изпълнение',
 }

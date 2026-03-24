@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'Alle downloadtaken zijn verwijderd',
   'ua-unsafe-chars-detected': 'Controle-tekens (regeleinden) gedetecteerd — kan downloadfouten veroorzaken',
   'ua-sanitize': 'Opschonen',
+  'system-info': 'Systeeminformatie',
+  'system-arch': 'Architectuur',
+  'system-runtime': 'Runtime',
 }

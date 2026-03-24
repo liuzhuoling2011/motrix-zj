@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'تم مسح جميع مهام التنزيل',
   'ua-unsafe-chars-detected': 'تم اكتشاف أحرف تحكم (أسطر جديدة) — قد يتسبب في فشل التنزيل',
   'ua-sanitize': 'تنظيف',
+  'system-info': 'معلومات النظام',
+  'system-arch': 'البنية',
+  'system-runtime': 'بيئة التشغيل',
 }

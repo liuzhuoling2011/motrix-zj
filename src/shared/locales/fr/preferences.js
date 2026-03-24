@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'Toutes les tâches de téléchargement ont été supprimées',
   'ua-unsafe-chars-detected': 'Caractères de contrôle (sauts de ligne) détectés — peut provoquer des échecs de téléchargement',
   'ua-sanitize': 'Nettoyer',
+  'system-info': 'Informations système',
+  'system-arch': 'Architecture',
+  'system-runtime': 'Environnement d\'exécution',
 }

@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'Wszystkie zadania pobierania zostały usunięte',
   'ua-unsafe-chars-detected': 'Wykryto znaki sterujące (znaki nowej linii) — może powodować błędy pobierania',
   'ua-sanitize': 'Wyczyść',
+  'system-info': 'Informacje o systemie',
+  'system-arch': 'Architektura',
+  'system-runtime': 'Środowisko uruchomieniowe',
 }

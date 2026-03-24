@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'Se han borrado todas las tareas de descarga',
   'ua-unsafe-chars-detected': 'Se detectaron caracteres de control (saltos de línea) — puede causar errores de descarga',
   'ua-sanitize': 'Limpiar',
+  'system-info': 'Información del sistema',
+  'system-arch': 'Arquitectura',
+  'system-runtime': 'Entorno de ejecución',
 }

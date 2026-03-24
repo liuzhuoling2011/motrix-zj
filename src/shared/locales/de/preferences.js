@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'Alle Download-Aufgaben wurden gelöscht',
   'ua-unsafe-chars-detected': 'Steuerzeichen (Zeilenumbrüche) erkannt — kann Download-Fehler verursachen',
   'ua-sanitize': 'Bereinigen',
+  'system-info': 'Systeminformationen',
+  'system-arch': 'Architektur',
+  'system-runtime': 'Laufzeitumgebung',
 }

@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'Đã xóa tất cả tác vụ tải xuống',
   'ua-unsafe-chars-detected': 'Phát hiện ký tự điều khiển (ngắt dòng) — có thể gây lỗi tải xuống',
   'ua-sanitize': 'Làm sạch',
+  'system-info': 'Thông tin hệ thống',
+  'system-arch': 'Kiến trúc',
+  'system-runtime': 'Môi trường chạy',
 }

@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'Alle nedlastingsoppgaver er fjernet',
   'ua-unsafe-chars-detected': 'Kontrolltegn (linjeskift) oppdaget — kan forårsake nedlastingsfeil',
   'ua-sanitize': 'Rens',
+  'system-info': 'Systeminformasjon',
+  'system-arch': 'Arkitektur',
+  'system-runtime': 'Kjøretidsmiljø',
 }

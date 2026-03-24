@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'Totes les tasques de descàrrega han estat esborrades',
   'ua-unsafe-chars-detected': 'S\'han detectat caràcters de control (salts de línia) — pot causar errors de descàrrega',
   'ua-sanitize': 'Neteja',
+  'system-info': 'Informació del sistema',
+  'system-arch': 'Arquitectura',
+  'system-runtime': 'Entorn d\'execució',
 }

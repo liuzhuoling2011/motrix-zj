@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'ล้างงานดาวน์โหลดทั้งหมดแล้ว',
   'ua-unsafe-chars-detected': 'ตรวจพบอักขระควบคุม (ขึ้นบรรทัดใหม่) — อาจทำให้ดาวน์โหลดล้มเหลว',
   'ua-sanitize': 'ล้าง',
+  'system-info': 'ข้อมูลระบบ',
+  'system-arch': 'สถาปัตยกรรม',
+  'system-runtime': 'รันไทม์',
 }

@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'すべてのダウンロードタスクを消去しました',
   'ua-unsafe-chars-detected': '制御文字（改行）が検出されました — ダウンロード失敗の原因になる可能性があります',
   'ua-sanitize': 'クリーン',
+  'system-info': 'システム情報',
+  'system-arch': 'アーキテクチャ',
+  'system-runtime': 'ランタイム',
 }

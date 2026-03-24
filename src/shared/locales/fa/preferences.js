@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'همه وظایف دانلود پاک شدند',
   'ua-unsafe-chars-detected': 'کاراکترهای کنترلی (خطوط جدید) شناسایی شد — ممکن است باعث خطای دانلود شود',
   'ua-sanitize': 'پاکسازی',
+  'system-info': 'اطلاعات سیستم',
+  'system-arch': 'معماری',
+  'system-runtime': 'محیط اجرا',
 }

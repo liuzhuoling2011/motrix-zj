@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'Todas as tarefas de download foram removidas',
   'ua-unsafe-chars-detected': 'Caracteres de controle (quebras de linha) detectados — pode causar falhas no download',
   'ua-sanitize': 'Limpar',
+  'system-info': 'Informações do sistema',
+  'system-arch': 'Arquitetura',
+  'system-runtime': 'Runtime',
 }

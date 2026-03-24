@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': '已清除所有下載任務',
   'ua-unsafe-chars-detected': '偵測到換行符 — 可能導致下載失敗',
   'ua-sanitize': '清洗',
+  'system-info': '系統資訊',
+  'system-arch': '架構',
+  'system-runtime': '執行環境',
 }

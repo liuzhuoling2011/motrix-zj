@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'Semua tugas unduhan telah dihapus',
   'ua-unsafe-chars-detected': 'Karakter kontrol (baris baru) terdeteksi — dapat menyebabkan kegagalan unduhan',
   'ua-sanitize': 'Bersihkan',
+  'system-info': 'Informasi Sistem',
+  'system-arch': 'Arsitektur',
+  'system-runtime': 'Runtime',
 }

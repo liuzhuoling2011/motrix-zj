@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'Minden letöltési feladat törölve',
   'ua-unsafe-chars-detected': 'Vezérlőkarakterek (sortörések) észlelve — letöltési hibákat okozhat',
   'ua-sanitize': 'Tisztítás',
+  'system-info': 'Rendszerinformáció',
+  'system-arch': 'Architektúra',
+  'system-runtime': 'Futtatókörnyezet',
 }

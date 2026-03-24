@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'All download tasks cleared',
   'ua-unsafe-chars-detected': 'Line breaks detected — may cause download failures',
   'ua-sanitize': 'Clean',
+  'system-info': 'System Information',
+  'system-arch': 'Architecture',
+  'system-runtime': 'Runtime',
 }

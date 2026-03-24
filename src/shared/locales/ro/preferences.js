@@ -191,4 +191,7 @@ export default {
   'clear-all-tasks-success': 'Toate sarcinile de descărcare au fost șterse',
   'ua-unsafe-chars-detected': 'Caractere de control (linii noi) detectate — poate cauza erori de descărcare',
   'ua-sanitize': 'Curăță',
+  'system-info': 'Informații despre sistem',
+  'system-arch': 'Arhitectură',
+  'system-runtime': 'Mediu de execuție',
 }

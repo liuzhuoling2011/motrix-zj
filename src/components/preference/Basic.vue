@@ -7,7 +7,9 @@ import { usePreferenceForm } from '@/composables/usePreferenceForm'
 import { useEngineRestart } from '@/composables/useEngineRestart'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { useIpc } from '@/composables/useIpc'
-import { platform } from '@tauri-apps/plugin-os'
+import { platform, arch as osArch, version as osVersion } from '@tauri-apps/plugin-os'
+import { getVersion as getAppVersion } from '@tauri-apps/api/app'
+import { getVersion as getAria2Version } from '@/api/aria2'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { downloadDir } from '@tauri-apps/api/path'
 import { extractSpeedUnit } from '@shared/utils'
@@ -21,15 +23,14 @@ import {
   NInput,
   NInputNumber,
   NSelect,
-  NCheckbox,
   NSwitch,
   NButton,
-  NSpace,
   NDivider,
   NInputGroup,
   NText,
   NCollapseTransition,
   NTag,
+  NSpace,
   NRadioGroup,
   NRadioButton,
   useDialog,
@@ -41,6 +42,7 @@ import UpdateDialog from '@/components/preference/UpdateDialog.vue'
 
 const { t, locale } = useI18n()
 const preferenceStore = usePreferenceStore()
+
 const dialog = useDialog()
 const message = useAppMessage()
 const defaultDownloadDir = ref('')
@@ -52,6 +54,28 @@ const platformLabel = computed(() => {
   const map: Record<string, string> = { macos: 'macOS', windows: 'Windows', linux: 'Linux' }
   return map[currentPlatform.value] || currentPlatform.value
 })
+
+// ─── System info card ────────────────────────────────────────────────
+const sysArch = ref('')
+const sysOsVersion = ref('')
+const sysAppVersion = ref('')
+const sysAria2Version = ref('')
+const archLabel = computed(() => {
+  if (currentPlatform.value === 'macos') {
+    return sysArch.value === 'aarch64' ? 'Apple Silicon' : 'Intel'
+  }
+  const map: Record<string, string> = { aarch64: 'ARM64', x86_64: 'x64', x86: 'x86' }
+  return map[sysArch.value] || sysArch.value
+})
+
+async function copyVersionToClipboard(text: string, label: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    message.success(t('about.version-copied', { label }))
+  } catch {
+    /* Clipboard API may fail in some contexts — silently ignore. */
+  }
+}
 const updateDialogRef = ref<InstanceType<typeof UpdateDialog> | null>(null)
 
 const checkIntervalOptions = [
@@ -303,6 +327,27 @@ onMounted(async () => {
   } catch (e) {
     logger.debug('Basic.platform', e)
   }
+  try {
+    sysArch.value = osArch()
+  } catch (e) {
+    logger.debug('Basic.arch', e)
+  }
+  try {
+    sysOsVersion.value = osVersion()
+  } catch (e) {
+    logger.debug('Basic.osVersion', e)
+  }
+  try {
+    sysAppVersion.value = await getAppVersion()
+  } catch (e) {
+    logger.debug('Basic.appVersion', e)
+  }
+  try {
+    const info = await getAria2Version()
+    sysAria2Version.value = info.version
+  } catch (e) {
+    logger.debug('Basic.aria2Version', e)
+  }
   loadForm()
   resetSnapshot()
 })
@@ -311,6 +356,44 @@ onMounted(async () => {
 <template>
   <div class="preference-form-wrapper">
     <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
+      <!-- System info — About-panel badge style -->
+      <NDivider title-placement="left">{{ t('preferences.system-info') }}</NDivider>
+      <NFormItem :label="t('preferences.detected-platform')">
+        <NSpace :size="8">
+          <NTag type="info" round size="medium">{{ platformLabel }} {{ sysOsVersion }}</NTag>
+          <NTag round size="medium">{{ archLabel }}</NTag>
+        </NSpace>
+      </NFormItem>
+      <NFormItem :label="t('about.app-version')">
+        <button
+          class="sysinfo-ver-badge"
+          :title="t('about.click-to-copy')"
+          @click="copyVersionToClipboard(`Motrix Next v${sysAppVersion}`, 'Motrix Next')"
+        >
+          <span class="sysinfo-ver-value">v{{ sysAppVersion || '\u2014' }}</span>
+          <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
+          </svg>
+        </button>
+      </NFormItem>
+      <NFormItem :label="t('about.aria2-version')">
+        <button
+          v-if="sysAria2Version"
+          class="sysinfo-ver-badge"
+          :title="t('about.click-to-copy')"
+          @click="copyVersionToClipboard(`aria2 v${sysAria2Version}`, 'aria2')"
+        >
+          <span class="sysinfo-ver-value">v{{ sysAria2Version }}</span>
+          <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
+          </svg>
+        </button>
+        <div v-else class="sysinfo-ver-badge sysinfo-ver-badge--muted">
+          <span class="sysinfo-ver-muted">{{ t('about.unavailable') }}</span>
+        </div>
+      </NFormItem>
       <NDivider title-placement="left">
         {{ locale === 'en-US' ? t('preferences.language') : `${t('preferences.language')} · Language` }}
       </NDivider>
@@ -371,9 +454,6 @@ onMounted(async () => {
       <UpdateDialog ref="updateDialogRef" />
 
       <NDivider title-placement="left">{{ t('preferences.appearance-section') }}</NDivider>
-      <NFormItem :label="t('preferences.detected-platform')">
-        <NTag type="info" round>{{ platformLabel }}</NTag>
-      </NFormItem>
       <NFormItem :label="t('preferences.appearance')">
         <NSelect v-model:value="form.theme" :options="themeOptions" style="width: 200px" />
       </NFormItem>
@@ -389,9 +469,6 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.minimize-to-tray-on-close')">
         <NSwitch v-model:value="form.minimizeToTrayOnClose" />
       </NFormItem>
-      <NFormItem :label="t('preferences.auto-hide-window')">
-        <NSwitch v-model:value="form.autoHideWindow" />
-      </NFormItem>
       <NFormItem v-if="isMac" :label="t('preferences.hide-dock-on-minimize')">
         <NSwitch v-model:value="form.hideDockOnMinimize" />
       </NFormItem>
@@ -400,12 +477,19 @@ onMounted(async () => {
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.startup') }}</NDivider>
-      <NFormItem :show-label="false">
-        <NSpace vertical>
-          <NCheckbox v-model:checked="form.openAtLogin">{{ t('preferences.open-at-login') }}</NCheckbox>
-          <NCheckbox v-model:checked="form.keepWindowState">{{ t('preferences.keep-window-state') }}</NCheckbox>
-          <NCheckbox v-model:checked="form.resumeAllWhenAppLaunched">{{ t('preferences.auto-resume-all') }}</NCheckbox>
-        </NSpace>
+      <NFormItem :label="t('preferences.open-at-login')">
+        <NSwitch v-model:value="form.openAtLogin" />
+      </NFormItem>
+      <NCollapseTransition :show="form.openAtLogin">
+        <NFormItem :label="t('preferences.auto-hide-window')">
+          <NSwitch v-model:value="form.autoHideWindow" />
+        </NFormItem>
+      </NCollapseTransition>
+      <NFormItem :label="t('preferences.keep-window-state')">
+        <NSwitch v-model:value="form.keepWindowState" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.auto-resume-all')">
+        <NSwitch v-model:value="form.resumeAllWhenAppLaunched" />
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.download-path-and-speed') }}</NDivider>
@@ -457,13 +541,11 @@ onMounted(async () => {
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.bt-settings') }}</NDivider>
-      <NFormItem :show-label="false">
-        <NSpace vertical>
-          <NCheckbox v-model:checked="form.btAutoDownloadContent">
-            {{ t('preferences.bt-auto-download-content') }}
-          </NCheckbox>
-          <NCheckbox v-model:checked="form.btForceEncryption">{{ t('preferences.bt-force-encryption') }}</NCheckbox>
-        </NSpace>
+      <NFormItem :label="t('preferences.bt-auto-download-content')">
+        <NSwitch v-model:value="form.btAutoDownloadContent" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.bt-force-encryption')">
+        <NSwitch v-model:value="form.btForceEncryption" />
       </NFormItem>
       <NFormItem :label="t('preferences.keep-seeding')">
         <NSwitch v-model:value="form.keepSeeding" @update:value="onKeepSeedingChange" />
@@ -486,33 +568,27 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.max-connection-per-server')">
         <NInputNumber v-model:value="form.maxConnectionPerServer" :min="1" :max="128" style="width: 120px" />
       </NFormItem>
-      <NFormItem :show-label="false">
-        <NCheckbox v-model:checked="form.continue">{{ t('preferences.continue') }}</NCheckbox>
+      <NFormItem :label="t('preferences.continue')">
+        <NSwitch v-model:value="form.continue" />
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.notification-and-confirm') }}</NDivider>
-      <NFormItem :show-label="false">
-        <NSpace vertical>
-          <NCheckbox v-model:checked="form.newTaskShowDownloading">
-            {{ t('preferences.new-task-show-downloading') }}
-          </NCheckbox>
-          <NCheckbox v-model:checked="form.taskNotification">{{ t('preferences.task-completed-notify') }}</NCheckbox>
-          <NCheckbox v-model:checked="form.noConfirmBeforeDeleteTask">
-            {{ t('preferences.no-confirm-before-delete-task') }}
-          </NCheckbox>
-        </NSpace>
+      <NFormItem :label="t('preferences.new-task-show-downloading')">
+        <NSwitch v-model:value="form.newTaskShowDownloading" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.task-completed-notify')">
+        <NSwitch v-model:value="form.taskNotification" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.no-confirm-before-delete-task')">
+        <NSwitch v-model:value="form.noConfirmBeforeDeleteTask" />
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.auto-cleanup') }}</NDivider>
-      <NFormItem :show-label="false">
-        <NSpace vertical>
-          <NCheckbox v-model:checked="form.deleteTorrentAfterComplete">
-            {{ t('preferences.delete-torrent-after-complete') || 'Delete .torrent file after download completes' }}
-          </NCheckbox>
-          <NCheckbox v-model:checked="form.autoDeleteStaleRecords">
-            {{ t('preferences.auto-delete-stale-records') || 'Auto-delete records when local files are missing' }}
-          </NCheckbox>
-        </NSpace>
+      <NFormItem :label="t('preferences.delete-torrent-after-complete')">
+        <NSwitch v-model:value="form.deleteTorrentAfterComplete" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.auto-delete-stale-records')">
+        <NSwitch v-model:value="form.autoDeleteStaleRecords" />
       </NFormItem>
     </NForm>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
@@ -535,5 +611,57 @@ onMounted(async () => {
 }
 .form-actions {
   padding: 16px 24px 16px 40px;
+}
+
+/* ── System info version badge (matches About panel) ─────────────── */
+.sysinfo-ver-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  width: 120px;
+  padding: 0 10px;
+  border: 1px solid var(--m3-outline-variant, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  background: var(--about-card-bg, rgba(255, 255, 255, 0.03));
+  cursor: pointer;
+  transition: var(--transition-all, 0.2s ease);
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo, Monaco, 'Courier New', monospace;
+}
+.sysinfo-ver-badge:hover {
+  border-color: var(--color-primary);
+  background: var(--about-card-hover-bg, rgba(255, 255, 255, 0.06));
+}
+.sysinfo-ver-badge:hover .sysinfo-ver-copy {
+  opacity: 0.7;
+}
+.sysinfo-ver-badge:active {
+  transform: scale(0.97);
+}
+.sysinfo-ver-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--m3-on-surface, rgba(255, 255, 255, 0.9));
+  letter-spacing: 0.3px;
+}
+.sysinfo-ver-copy {
+  opacity: 0.35;
+  margin-left: auto;
+  color: var(--m3-on-surface-variant, rgba(255, 255, 255, 0.5));
+  transition: var(--transition-all, 0.2s ease);
+  flex-shrink: 0;
+}
+.sysinfo-ver-badge--muted {
+  cursor: default;
+}
+.sysinfo-ver-badge--muted:hover {
+  border-color: var(--m3-outline-variant, rgba(255, 255, 255, 0.08));
+  background: var(--about-card-bg, rgba(255, 255, 255, 0.03));
+}
+.sysinfo-ver-muted {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--m3-outline, rgba(255, 255, 255, 0.38));
+  letter-spacing: 0.3px;
 }
 </style>
