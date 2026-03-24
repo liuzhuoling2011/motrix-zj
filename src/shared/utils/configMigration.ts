@@ -23,6 +23,16 @@ import type { AppConfig } from '@shared/types'
 /** Current schema version. Must equal `migrations.length`. */
 export const CONFIG_VERSION = 1
 
+/** Result returned by runMigrations for callers to act on (e.g. toast). */
+export interface MigrationResult {
+  /** Whether any migration was applied. */
+  migrated: boolean
+  /** The CONFIG_VERSION the config was stamped to. */
+  targetVersion: number
+  /** Error messages from failed migrations (empty = all succeeded). */
+  errors: string[]
+}
+
 type Migration = (config: Partial<AppConfig>) => void
 
 /**
@@ -74,13 +84,15 @@ if (CONFIG_VERSION !== migrations.length) {
  * ensuring partially-migrated configs are not re-processed.
  *
  * @param config - Mutable reference to the loaded user preferences.
- * @returns `true` if any migration was applied (caller must persist),
- *          `false` if the config is already at the current version.
+ * @returns A MigrationResult describing what happened.
  */
-export function runMigrations(config: Partial<AppConfig>): boolean {
+export function runMigrations(config: Partial<AppConfig>): MigrationResult {
   const stored = (config.configVersion as number | undefined) ?? 0
+  const noOp: MigrationResult = { migrated: false, targetVersion: CONFIG_VERSION, errors: [] }
 
-  if (stored >= CONFIG_VERSION) return false
+  if (stored >= CONFIG_VERSION) return noOp
+
+  const errors: string[] = []
 
   for (let i = stored; i < migrations.length; i++) {
     try {
@@ -89,10 +101,12 @@ export function runMigrations(config: Partial<AppConfig>): boolean {
       // Log and continue — don't let one broken migration block the rest.
       // The config will still be stamped to CONFIG_VERSION to prevent
       // re-running the failed migration on every subsequent launch.
-      logger.error('ConfigMigration', `v${i + 1} migration failed: ${(e as Error).message}`)
+      const msg = `v${i + 1}: ${(e as Error).message}`
+      logger.error('ConfigMigration', `migration failed — ${msg}`)
+      errors.push(msg)
     }
   }
 
   config.configVersion = CONFIG_VERSION
-  return true
+  return { migrated: true, targetVersion: CONFIG_VERSION, errors }
 }

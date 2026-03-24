@@ -79,4 +79,6 @@ export default {
   'engine-verifying-stability': 'เอนจินดาวน์โหลด aria2 เริ่มทำงานแล้ว กำลังตรวจสอบความเสถียร...',
   'engine-retrying': 'กำลังลองใหม่...',
   'engine-manual-retry': 'ลองใหม่ด้วยตนเอง',
+  'migration-success': 'อัปเกรดรูปแบบข้อมูลเป็น {version} แล้ว',
+  'migration-incomplete': 'ไม่สามารถอัปเกรดรูปแบบข้อมูลเป็น {version} ได้อย่างสมบูรณ์',
 }

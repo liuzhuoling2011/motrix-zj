@@ -79,4 +79,6 @@ export default {
   'engine-verifying-stability': 'موتور دانلود aria2 راه‌اندازی شد، در حال بررسی پایداری...',
   'engine-retrying': 'در حال تلاش مجدد...',
   'engine-manual-retry': 'تلاش مجدد دستی',
+  'migration-success': 'قالب داده\u200cها به {version} ارتقا یافت',
+  'migration-incomplete': 'قالب داده\u200cها نتوانست به\u200cطور کامل به {version} ارتقا یابد',
 }

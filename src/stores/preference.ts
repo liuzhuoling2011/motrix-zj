@@ -7,7 +7,7 @@ import { getLangDirection, pushItemToFixedLengthArray, removeArrayItem } from '@
 import { fetchBtTrackerFromSource } from '@shared/utils/tracker'
 import { DEFAULT_APP_CONFIG, MAX_NUM_OF_DIRECTORIES } from '@shared/constants'
 import { logger } from '@shared/logger'
-import { runMigrations } from '@shared/utils/configMigration'
+import { runMigrations, type MigrationResult } from '@shared/utils/configMigration'
 import type { AppConfig, ProxyConfig } from '@shared/types'
 
 const STORE_KEY = 'preferences'
@@ -18,6 +18,8 @@ export const usePreferenceStore = defineStore('preference', () => {
   /** Callback registered by the active preference page to save before navigation. */
   const saveBeforeLeave = ref<(() => Promise<void>) | null>(null)
   const config = ref<AppConfig>({ ...DEFAULT_APP_CONFIG } as AppConfig)
+  /** Result from the last migration run (null = no migration attempted yet). */
+  const migrationResult = ref<MigrationResult | null>(null)
 
   const theme = computed(() => config.value.theme)
   const locale = computed(() => config.value.locale)
@@ -32,9 +34,10 @@ export const usePreferenceStore = defineStore('preference', () => {
       const store = await getStore()
       const saved = await store.get<Partial<AppConfig>>(STORE_KEY)
       if (saved && !isEmpty(saved)) {
-        const migrated = runMigrations(saved)
+        const result = runMigrations(saved)
         config.value = { ...config.value, ...saved }
-        if (migrated) {
+        if (result.migrated) {
+          migrationResult.value = result
           await store.set(STORE_KEY, config.value)
           await store.save()
           logger.info('PreferenceStore', 'config migrated and persisted')
@@ -174,6 +177,7 @@ export const usePreferenceStore = defineStore('preference', () => {
     pendingChanges,
     saveBeforeLeave,
     config,
+    migrationResult,
     theme,
     locale,
     direction,

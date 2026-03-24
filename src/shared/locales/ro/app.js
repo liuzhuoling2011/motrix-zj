@@ -79,4 +79,6 @@ export default {
   'engine-verifying-stability': 'Motorul de descarcare aria2 a pornit, se verifica stabilitatea...',
   'engine-retrying': 'Se reincearca...',
   'engine-manual-retry': 'Reincearca manual',
+  'migration-success': 'Formatul datelor a fost actualizat la {version}',
+  'migration-incomplete': 'Formatul datelor nu a putut fi actualizat complet la {version}',
 }

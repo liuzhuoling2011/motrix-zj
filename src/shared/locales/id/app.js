@@ -79,4 +79,6 @@ export default {
   'engine-verifying-stability': 'Mesin unduh aria2 dimulai, memverifikasi stabilitas...',
   'engine-retrying': 'Mencoba lagi...',
   'engine-manual-retry': 'Coba Lagi Manual',
+  'migration-success': 'Format data ditingkatkan ke {version}',
+  'migration-incomplete': 'Format data tidak dapat sepenuhnya ditingkatkan ke {version}',
 }

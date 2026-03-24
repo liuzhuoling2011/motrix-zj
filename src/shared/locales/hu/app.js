@@ -79,4 +79,6 @@ export default {
   'engine-verifying-stability': 'Az aria2 letoltomotor elindult, stabilitas ellenorzese...',
   'engine-retrying': 'Ujraproba...',
   'engine-manual-retry': 'Manualis ujraproba',
+  'migration-success': 'Adatformátum frissítve: {version}',
+  'migration-incomplete': 'Az adatformátum nem frissíthető teljesen: {version}',
 }

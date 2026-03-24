@@ -74,6 +74,22 @@ const { setupListeners } = useAppEvents({
   },
 })
 
+// ── Migration toast ─────────────────────────────────────────────────
+watch(
+  () => preferenceStore.migrationResult,
+  (result) => {
+    if (!result?.migrated) return
+    const v = `v${result.targetVersion}`
+    if (result.errors.length === 0) {
+      message.success(t('app.migration-success', { version: v }))
+    } else {
+      message.warning(t('app.migration-incomplete', { version: v }))
+    }
+    preferenceStore.migrationResult = null
+  },
+  { immediate: true },
+)
+
 function startGlobalPolling() {
   stopGlobalPolling()
   function tick() {

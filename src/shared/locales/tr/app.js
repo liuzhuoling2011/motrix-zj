@@ -79,4 +79,6 @@ export default {
   'engine-verifying-stability': 'aria2 indirme motoru baslatildi, kararlilik dogrulaniyor...',
   'engine-retrying': 'Tekrar deneniyor...',
   'engine-manual-retry': 'Manuel olarak tekrar dene',
+  'migration-success': 'Veri biçimi {version} sürümüne yükseltildi',
+  'migration-incomplete': 'Veri biçimi {version} sürümüne tam olarak yükseltilemedi',
 }

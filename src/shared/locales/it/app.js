@@ -79,4 +79,6 @@ export default {
   'engine-verifying-stability': 'Il motore di download aria2 e stato avviato, verifica stabilita in corso...',
   'engine-retrying': 'Nuovo tentativo...',
   'engine-manual-retry': 'Riprova manualmente',
+  'migration-success': 'Formato dati aggiornato a {version}',
+  'migration-incomplete': 'Impossibile aggiornare completamente il formato dati a {version}',
 }

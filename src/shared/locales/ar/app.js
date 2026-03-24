@@ -79,4 +79,6 @@ export default {
   'engine-verifying-stability': 'تم تشغيل محرك التنزيل aria2، جارٍ التحقق من الاستقرار...',
   'engine-retrying': 'جارٍ إعادة المحاولة...',
   'engine-manual-retry': 'إعادة المحاولة يدوياً',
+  'migration-success': 'تمت ترقية تنسيق البيانات إلى {version}',
+  'migration-incomplete': 'تعذّرت ترقية تنسيق البيانات بالكامل إلى {version}',
 }

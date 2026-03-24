@@ -21,24 +21,31 @@ describe('CONFIG_VERSION', () => {
 // ── runMigrations — return value semantics ─────────────────────────
 
 describe('runMigrations return value', () => {
-  it('returns true when config has no configVersion (needs migration)', () => {
+  it('returns migrated=true when config has no configVersion (needs migration)', () => {
     const config: Partial<AppConfig> = {}
-    expect(runMigrations(config)).toBe(true)
+    const result = runMigrations(config)
+    expect(result.migrated).toBe(true)
+    expect(result.targetVersion).toBe(CONFIG_VERSION)
+    expect(result.errors).toEqual([])
   })
 
-  it('returns true when configVersion is 0 (pre-migration)', () => {
+  it('returns migrated=true when configVersion is 0 (pre-migration)', () => {
     const config: Partial<AppConfig> = { configVersion: 0 }
-    expect(runMigrations(config)).toBe(true)
+    const result = runMigrations(config)
+    expect(result.migrated).toBe(true)
   })
 
-  it('returns false when configVersion equals CONFIG_VERSION (already current)', () => {
+  it('returns migrated=false when configVersion equals CONFIG_VERSION (already current)', () => {
     const config: Partial<AppConfig> = { configVersion: CONFIG_VERSION }
-    expect(runMigrations(config)).toBe(false)
+    const result = runMigrations(config)
+    expect(result.migrated).toBe(false)
+    expect(result.errors).toEqual([])
   })
 
-  it('returns false when configVersion exceeds CONFIG_VERSION (future version)', () => {
+  it('returns migrated=false when configVersion exceeds CONFIG_VERSION (future version)', () => {
     const config: Partial<AppConfig> = { configVersion: CONFIG_VERSION + 1 }
-    expect(runMigrations(config)).toBe(false)
+    const result = runMigrations(config)
+    expect(result.migrated).toBe(false)
   })
 })
 
@@ -131,8 +138,8 @@ describe('runMigrations idempotency', () => {
     runMigrations(config)
     const snapshot = JSON.parse(JSON.stringify(config))
     // Running again on already-migrated config should be a no-op
-    const changed = runMigrations(config)
-    expect(changed).toBe(false)
+    const result = runMigrations(config)
+    expect(result.migrated).toBe(false)
     expect(config).toEqual(snapshot)
   })
 })
@@ -200,7 +207,8 @@ describe('runMigrations error isolation', () => {
     logSpy.mockRestore()
 
     // Migration failed but engine should still complete
-    expect(result).toBe(true)
+    expect(result.migrated).toBe(true)
+    expect(result.errors.length).toBeGreaterThan(0)
     expect(config.configVersion).toBe(CONFIG_VERSION)
   })
 

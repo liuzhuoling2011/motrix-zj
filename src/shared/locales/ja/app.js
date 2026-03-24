@@ -79,4 +79,6 @@ export default {
   'engine-verifying-stability': 'aria2 ダウンロードエンジンを起動しました。安定性を確認中...',
   'engine-retrying': '再試行中...',
   'engine-manual-retry': '手動で再試行',
+  'migration-success': 'データ形式を {version} にアップグレードしました',
+  'migration-incomplete': 'データ形式を {version} に完全にアップグレードできませんでした',
 }
