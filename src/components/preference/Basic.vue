@@ -551,15 +551,15 @@ onMounted(async () => {
         <NSwitch v-model:value="form.keepSeeding" @update:value="onKeepSeedingChange" />
       </NFormItem>
 
-      <NDivider v-if="!form.keepSeeding" title-placement="left">{{ t('preferences.seeding') }}</NDivider>
-      <template v-if="!form.keepSeeding">
+      <NCollapseTransition :show="!form.keepSeeding">
+        <NDivider title-placement="left">{{ t('preferences.seeding') }}</NDivider>
         <NFormItem :label="t('preferences.seed-ratio')">
           <NInputNumber v-model:value="form.seedRatio" :min="1" :max="100" :step="0.1" style="width: 120px" />
         </NFormItem>
         <NFormItem :label="t('preferences.seed-time') + ' (' + t('preferences.seed-time-unit') + ')'">
           <NInputNumber v-model:value="form.seedTime" :min="60" :max="525600" style="width: 120px" />
         </NFormItem>
-      </template>
+      </NCollapseTransition>
 
       <NDivider title-placement="left">{{ t('preferences.task-manage') }}</NDivider>
       <NFormItem :label="t('preferences.max-concurrent-downloads')">
@@ -619,7 +619,7 @@ onMounted(async () => {
   align-items: center;
   gap: 6px;
   height: 30px;
-  width: 120px;
+  min-width: 120px;
   padding: 0 10px;
   border: 1px solid var(--m3-outline-variant, rgba(255, 255, 255, 0.08));
   border-radius: 8px;

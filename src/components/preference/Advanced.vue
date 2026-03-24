@@ -489,7 +489,7 @@ onMounted(() => {
         </NInputGroup>
       </NFormItem>
       <NFormItem :show-label="false">
-        <NButton class="session-reset-btn" ghost @click="handleSessionReset">
+        <NButton class="ghost-btn--warning" ghost @click="handleSessionReset">
           {{ t('preferences.clear-all-tasks') }}
         </NButton>
       </NFormItem>
@@ -508,13 +508,13 @@ onMounted(() => {
       <NFormItem :label="t('preferences.log-level')">
         <div class="log-level-row">
           <NSelect v-model:value="form.logLevel" :options="logLevelOptions" style="width: 110px" />
-          <NButton class="export-logs-btn" ghost :loading="exportingLogs" @click="handleExportLogs">
+          <NButton class="ghost-btn--primary" ghost :loading="exportingLogs" @click="handleExportLogs">
             <template #icon>
               <NIcon><DownloadOutline /></NIcon>
             </template>
             {{ t('preferences.export-diagnostic-logs') }}
           </NButton>
-          <NButton class="clear-log-btn" ghost @click="handleClearLog">
+          <NButton class="ghost-btn--danger" ghost @click="handleClearLog">
             <template #icon>
               <NIcon><TrashOutline /></NIcon>
             </template>
@@ -532,7 +532,7 @@ onMounted(() => {
           <NButton class="db-browse-btn" @click="handleDbBrowse">
             {{ t('preferences.db-browse') }}
           </NButton>
-          <NButton class="db-reset-btn" ghost @click="handleDbReset">
+          <NButton class="ghost-btn--danger" ghost @click="handleDbReset">
             {{ t('preferences.db-reset') }}
           </NButton>
         </NSpace>
@@ -547,10 +547,10 @@ onMounted(() => {
             </template>
             {{ t('preferences.open-config-folder') }}
           </NButton>
-          <NButton class="restore-defaults-btn" ghost @click="handleRestoreDefaults">
+          <NButton class="ghost-btn--warning" ghost @click="handleRestoreDefaults">
             {{ t('preferences.restore-defaults') }}
           </NButton>
-          <NButton class="factory-reset-btn" ghost @click="handleFactoryReset">
+          <NButton class="ghost-btn--danger" ghost @click="handleFactoryReset">
             {{ t('preferences.factory-reset') }}
           </NButton>
         </NSpace>
@@ -625,48 +625,58 @@ onMounted(() => {
   padding: 16px 24px 16px 40px;
 }
 
-/* ── Restore Defaults — warm-gold ghost, same tone as session-reset ── */
-.restore-defaults-btn {
-  --btn-warning: #c9a055;
-  color: var(--btn-warning) !important;
-  border-color: var(--btn-warning) !important;
+/* ── Ghost button variants — shared tinted styles with M3 easing ──── */
+.ghost-btn--danger {
+  --btn-tint: #c97070;
+  color: var(--btn-tint) !important;
+  border-color: var(--btn-tint) !important;
   transition:
     color 0.35s cubic-bezier(0.2, 0, 0, 1),
     background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
     border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
-.restore-defaults-btn:hover {
-  background-color: color-mix(in srgb, var(--btn-warning) 12%, transparent) !important;
+.ghost-btn--danger:hover {
+  background-color: color-mix(in srgb, var(--btn-tint) 12%, transparent) !important;
 }
-.restore-defaults-btn :deep(.n-button__border) {
-  border-color: var(--btn-warning) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.restore-defaults-btn :deep(.n-button__state-border) {
-  border-color: var(--btn-warning) !important;
+.ghost-btn--danger :deep(.n-button__border),
+.ghost-btn--danger :deep(.n-button__state-border) {
+  border-color: var(--btn-tint) !important;
   transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* ── Export Logs — primary-toned ghost button with M3 easing ────── */
-.export-logs-btn {
-  color: var(--color-primary, #5b93d5) !important;
-  border-color: var(--color-primary, #5b93d5) !important;
-  --btn-primary: var(--color-primary, #5b93d5);
+.ghost-btn--warning {
+  --btn-tint: #c9a055;
+  color: var(--btn-tint) !important;
+  border-color: var(--btn-tint) !important;
   transition:
     color 0.35s cubic-bezier(0.2, 0, 0, 1),
     background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    opacity 0.35s cubic-bezier(0.2, 0, 0, 1);
+    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
-.export-logs-btn:hover {
-  background-color: color-mix(in srgb, var(--btn-primary) 12%, transparent) !important;
+.ghost-btn--warning:hover {
+  background-color: color-mix(in srgb, var(--btn-tint) 12%, transparent) !important;
 }
-.export-logs-btn :deep(.n-button__border) {
-  border-color: var(--btn-primary) !important;
+.ghost-btn--warning :deep(.n-button__border),
+.ghost-btn--warning :deep(.n-button__state-border) {
+  border-color: var(--btn-tint) !important;
   transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
-.export-logs-btn :deep(.n-button__state-border) {
-  border-color: var(--btn-primary) !important;
+
+.ghost-btn--primary {
+  --btn-tint: var(--color-primary, #5b93d5);
+  color: var(--btn-tint) !important;
+  border-color: var(--btn-tint) !important;
+  transition:
+    color 0.35s cubic-bezier(0.2, 0, 0, 1),
+    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+.ghost-btn--primary:hover {
+  background-color: color-mix(in srgb, var(--btn-tint) 12%, transparent) !important;
+}
+.ghost-btn--primary :deep(.n-button__border),
+.ghost-btn--primary :deep(.n-button__state-border) {
+  border-color: var(--btn-tint) !important;
   transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 
@@ -676,94 +686,6 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   width: 100%;
-}
-
-/* ── DB Reset — muted-rose ghost, background fills on hover ──────── */
-.db-reset-btn {
-  --btn-error: #c97070;
-  color: var(--btn-error) !important;
-  border-color: var(--btn-error) !important;
-  transition:
-    color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.db-reset-btn:hover {
-  background-color: color-mix(in srgb, var(--btn-error) 12%, transparent) !important;
-}
-.db-reset-btn :deep(.n-button__border) {
-  border-color: var(--btn-error) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.db-reset-btn :deep(.n-button__state-border) {
-  border-color: var(--btn-error) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-
-/* ── Session Reset — warm-gold ghost, background fills on hover ──── */
-.session-reset-btn {
-  --btn-warning: #c9a055;
-  color: var(--btn-warning) !important;
-  border-color: var(--btn-warning) !important;
-  transition:
-    color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.session-reset-btn:hover {
-  background-color: color-mix(in srgb, var(--btn-warning) 12%, transparent) !important;
-}
-.session-reset-btn :deep(.n-button__border) {
-  border-color: var(--btn-warning) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.session-reset-btn :deep(.n-button__state-border) {
-  border-color: var(--btn-warning) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-
-/* ── Factory Reset — muted-rose ghost, background fills on hover ─── */
-.factory-reset-btn {
-  --btn-error: #c97070;
-  color: var(--btn-error) !important;
-  border-color: var(--btn-error) !important;
-  transition:
-    color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.factory-reset-btn:hover {
-  background-color: color-mix(in srgb, var(--btn-error) 12%, transparent) !important;
-}
-.factory-reset-btn :deep(.n-button__border) {
-  border-color: var(--btn-error) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.factory-reset-btn :deep(.n-button__state-border) {
-  border-color: var(--btn-error) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-
-/* ── Clear Log — muted-rose ghost, matches destructive action buttons ── */
-.clear-log-btn {
-  --btn-error: #c97070;
-  color: var(--btn-error) !important;
-  border-color: var(--btn-error) !important;
-  transition:
-    color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.clear-log-btn:hover {
-  background-color: color-mix(in srgb, var(--btn-error) 12%, transparent) !important;
-}
-.clear-log-btn :deep(.n-button__border) {
-  border-color: var(--btn-error) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.clear-log-btn :deep(.n-button__state-border) {
-  border-color: var(--btn-error) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* ── UA preset row — button group + standalone reset ─────────────── */
