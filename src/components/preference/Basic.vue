@@ -360,8 +360,8 @@ onMounted(async () => {
       <NDivider title-placement="left">{{ t('preferences.system-info') }}</NDivider>
       <NFormItem :label="t('preferences.detected-platform')">
         <NSpace :size="8">
-          <NTag type="info" round size="medium">{{ platformLabel }} {{ sysOsVersion }}</NTag>
-          <NTag round size="medium">{{ archLabel }}</NTag>
+          <NTag type="info" round size="medium">{{ platformLabel }}</NTag>
+          <NTag type="success" round size="medium">{{ archLabel }}</NTag>
         </NSpace>
       </NFormItem>
       <NFormItem :label="t('about.app-version')">

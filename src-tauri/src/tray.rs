@@ -103,6 +103,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
     let _tray = TrayIconBuilder::with_id("main")
         .menu(&menu)
         .show_menu_on_left_click(false)
+        .tooltip("Motrix Next")
         .icon(tauri::image::Image::from_bytes(include_bytes!(
             "../icons/tray-icon.png"
         ))?)
