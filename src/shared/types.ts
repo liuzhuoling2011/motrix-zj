@@ -116,6 +116,8 @@ export interface ProtocolsConfig {
 
 /** Application user preferences with full type coverage. */
 export interface AppConfig {
+  /** Schema version for config migration. Absent in pre-migration configs (treated as 0). */
+  configVersion: number
   theme: 'auto' | 'light' | 'dark'
   locale: string
   dir: string

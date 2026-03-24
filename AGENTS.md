@@ -28,10 +28,13 @@ src/
 ├── layouts/                    # Page-level layouts (MainLayout.vue)
 ├── shared/
 │   ├── types.ts                # All TypeScript interfaces (AppConfig, TauriUpdate, etc.)
-│   ├── constants.ts            # Timing constants, update channels
+│   ├── constants.ts            # DEFAULT_APP_CONFIG, proxy scopes, tracker URLs, timing constants
 │   ├── configKeys.ts           # Config key lists (userKeys, systemKeys, needRestartKeys)
 │   ├── locales/                # 26 locale directories (see Section D)
-│   └── utils/                  # Pure utility functions
+│   └── utils/
+│       ├── configMigration.ts  # Config schema migration engine (see Section C′)
+│       ├── config.ts           # Config key-value transform utilities
+│       └── tracker.ts          # BT tracker fetching with proxy support
 ├── stores/                     # Pinia stores (app.ts, preference.ts)
 ├── views/                      # Page-level route views
 └── main.ts                     # App entry, auto-update check
@@ -39,7 +42,9 @@ src/
 src-tauri/
 ├── src/
 │   ├── lib.rs                  # Tauri builder, plugin registration, invoke_handler
+│   ├── main.rs                 # Tauri entry point
 │   ├── commands/
+│   │   ├── mod.rs              # Command module re-exports
 │   │   ├── config.rs           # Config CRUD, session, factory reset commands
 │   │   ├── engine.rs           # Engine start/stop/restart commands
 │   │   ├── ui.rs               # Tray, menu, dock, progress bar commands
@@ -100,8 +105,35 @@ Follow this exact checklist:
 
 1. **`src/shared/types.ts`** — Add the field to the `AppConfig` interface with proper typing
 2. **`src/shared/configKeys.ts`** — Add the key name (kebab-case) to `userKeys` or `systemKeys` array. Without this, the value will NOT persist across restarts
-3. **`src/components/preference/Basic.vue`** or **`Advanced.vue`** — Add the UI control + add to `buildForm()` initializer + add to the `watchSyncEffect` save logic
+3. **UI binding** — For Basic settings: add to `buildForm()` initializer + `watchSyncEffect` save in `Basic.vue`. For Advanced settings: add to `buildAdvancedForm()` + `buildAdvancedSystemConfig()` in `useAdvancedPreference.ts`
 4. **All 26 locale files** — Add i18n label keys. **Must use batch Python script** (see Section D)
+5. **If modifying an existing field's format or default** — Add a migration in `configMigration.ts` (see Section C′)
+
+---
+
+## C′. Config Schema Migration
+
+`src/shared/utils/configMigration.ts` implements versioned schema migration (same pattern as `electron-store`). On each app launch, `loadPreference()` runs pending migrations before merging saved config into defaults.
+
+### How It Works
+
+- `configVersion` (integer) is stored in `config.json` alongside user preferences
+- `CONFIG_VERSION` constant defines the current schema version
+- `migrations[]` array holds ordered migration functions (index 0 = v0→v1, etc.)
+- Migrations run only when `stored version < CONFIG_VERSION`, then persist
+
+### Adding a New Migration
+
+1. Append a function to the `migrations` array in `configMigration.ts`
+2. Increment `CONFIG_VERSION` to match the new array length
+3. Update `DEFAULT_APP_CONFIG.configVersion` in `constants.ts` to match
+4. Add tests in `configMigration.test.ts`
+
+### Rules
+
+- Migrations **mutate** the config object in place
+- Migrations **must be idempotent** — safe to re-run on already-migrated data
+- Migrations **must not delete** user data without logging
 
 ---
 
@@ -366,14 +398,6 @@ All fast checks must pass with zero errors before any PR or release.
 
 ---
 
-## I. Superpowers Skill Framework
-
-This project uses the **Superpowers** skill framework (`~/.claude/skills/using-superpowers/SKILL.md`). It enforces a discipline where AI agents **must invoke relevant skills before any action** — planning, debugging, implementing, or reviewing.
-
-**Read the skill file before starting any work.** It contains the full workflow, skill priority rules, and the complete list of available skills.
-
----
-
-## J. Testing Constraints
+## I. Testing Constraints
 
 > **DO NOT use browser tools (Playwright, browser subagent, etc.) to test this app.** Tauri renders in a native webview — `localhost:1420` in a browser lacks IPC, tray, and sidecar access. Use CLI checks (`vue-tsc`, `pnpm test`, `cargo test`) or ask the user to verify UI via `pnpm tauri dev`.
