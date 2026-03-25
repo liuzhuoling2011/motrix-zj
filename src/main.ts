@@ -147,6 +147,18 @@ window.addEventListener('unhandledrejection', (e) => {
   async function initEngine(port: number, secret: string, config: AppConfig): Promise<boolean> {
     try {
       const { invoke } = await import('@tauri-apps/api/core')
+      const { downloadDir } = await import('@tauri-apps/api/path')
+
+      // Resolve OS-specific Downloads directory as fallback when config.dir
+      // is empty. Without this, aria2 receives no --dir arg and defaults to
+      // CWD, which is read-only on macOS .app bundles (errorCode=16).
+      // Mirrors the same fallback used by Basic.vue and AddTask.vue.
+      let defaultDir = ''
+      try {
+        defaultDir = await downloadDir()
+      } catch {
+        // Non-fatal — dir will stay empty and aria2 falls back to CWD
+      }
 
       // Seed system.json with the FULL set of default system config values.
       // This ensures CLI args include --split, --max-connection-per-server,
@@ -155,7 +167,7 @@ window.addEventListener('unhandledrejection', (e) => {
       // already exist in system.json and will be merged (not overwritten).
       const { buildBasicSystemConfig, buildBasicForm } = await import('@/composables/useBasicPreference')
       const { buildAdvancedSystemConfig, buildAdvancedForm } = await import('@/composables/useAdvancedPreference')
-      const basicSystem = buildBasicSystemConfig(buildBasicForm(config))
+      const basicSystem = buildBasicSystemConfig(buildBasicForm(config, defaultDir))
       const { form: advForm } = buildAdvancedForm(config)
       const advancedSystem = buildAdvancedSystemConfig(advForm)
 
