@@ -416,27 +416,25 @@ onMounted(async () => {
           <NSelect v-model:value="form.autoCheckUpdateInterval" :options="checkIntervalOptions" style="width: 180px" />
         </NFormItem>
       </NCollapseTransition>
-      <NCollapseTransition :show="form.autoCheckUpdate" class="collapse-indent">
-        <NFormItem :label="t('preferences.update-channel')">
-          <NRadioGroup
-            v-model:value="form.updateChannel"
-            size="small"
-            @update:value="
-              async (v: string) => {
-                const ok = await preferenceStore.updateAndSave({ updateChannel: v as 'stable' | 'beta' })
-                if (ok) {
-                  // Only sync updateChannel in the snapshot — preserve dirty state
-                  // for other unsaved fields (download dir, speed limits, etc.).
-                  patchSnapshot({ updateChannel: v } as Partial<typeof form.value>)
-                }
+      <NFormItem :label="t('preferences.update-channel')">
+        <NRadioGroup
+          v-model:value="form.updateChannel"
+          size="small"
+          @update:value="
+            async (v: string) => {
+              const ok = await preferenceStore.updateAndSave({ updateChannel: v as 'stable' | 'beta' })
+              if (ok) {
+                // Only sync updateChannel in the snapshot — preserve dirty state
+                // for other unsaved fields (download dir, speed limits, etc.).
+                patchSnapshot({ updateChannel: v } as Partial<typeof form.value>)
               }
-            "
-          >
-            <NRadioButton value="stable">{{ t('preferences.update-channel-stable') }}</NRadioButton>
-            <NRadioButton value="beta">{{ t('preferences.update-channel-beta') }}</NRadioButton>
-          </NRadioGroup>
-        </NFormItem>
-      </NCollapseTransition>
+            }
+          "
+        >
+          <NRadioButton value="stable">{{ t('preferences.update-channel-stable') }}</NRadioButton>
+          <NRadioButton value="beta">{{ t('preferences.update-channel-beta') }}</NRadioButton>
+        </NRadioGroup>
+      </NFormItem>
       <NFormItem :label="t('preferences.last-check-update-time')">
         <div style="display: flex; align-items: center; gap: 16px">
           <NButton size="small" @click="handleCheckUpdate">
@@ -625,6 +623,7 @@ onMounted(async () => {
 .form-preference {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px 30px 64px 36px;
 }
 .form-preference :deep(.n-form-item) {
