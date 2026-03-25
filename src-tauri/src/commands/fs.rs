@@ -13,11 +13,7 @@ use tauri::Manager;
 pub fn is_autostart_launch() -> bool {
     let args: Vec<String> = std::env::args().collect();
     let result = args.iter().any(|a| a == "--autostart");
-    log::info!(
-        "is_autostart_launch: args={:?} result={}",
-        args,
-        result
-    );
+    log::info!("is_autostart_launch: args={:?} result={}", args, result);
     result
 }
 
