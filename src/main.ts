@@ -147,17 +147,34 @@ window.addEventListener('unhandledrejection', (e) => {
   async function initEngine(port: number, secret: string, config: AppConfig): Promise<boolean> {
     try {
       const { invoke } = await import('@tauri-apps/api/core')
-      const { downloadDir } = await import('@tauri-apps/api/path')
 
       // Resolve OS-specific Downloads directory as fallback when config.dir
       // is empty. Without this, aria2 receives no --dir arg and defaults to
       // CWD, which is read-only on macOS .app bundles (errorCode=16).
-      // Mirrors the same fallback used by Basic.vue and AddTask.vue.
+      //
+      // Three-tier fallback:
+      //   1. downloadDir()            — ~/Downloads (via Tauri path API)
+      //   2. homeDir() + '/Downloads' — manual construction
+      //   3. homeDir()                — last resort (home dir always exists)
       let defaultDir = ''
-      try {
-        defaultDir = await downloadDir()
-      } catch {
-        // Non-fatal — dir will stay empty and aria2 falls back to CWD
+      if (!config.dir) {
+        const { downloadDir, homeDir } = await import('@tauri-apps/api/path')
+        try {
+          defaultDir = await downloadDir()
+        } catch {
+          logger.warn('Engine', 'downloadDir() unavailable, falling back to homeDir')
+          try {
+            defaultDir = (await homeDir()) + '/Downloads'
+          } catch {
+            logger.warn('Engine', 'homeDir() unavailable, dir fallback exhausted')
+          }
+        }
+        // Persist the resolved dir so future launches skip the fallback chain
+        if (defaultDir) {
+          config.dir = defaultDir
+          preferenceStore.updateAndSave({ dir: defaultDir })
+          logger.info('Engine', `resolved default download dir: ${defaultDir}`)
+        }
       }
 
       // Seed system.json with the FULL set of default system config values.
