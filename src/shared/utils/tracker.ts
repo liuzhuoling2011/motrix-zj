@@ -55,11 +55,11 @@ export const fetchBtTrackerFromSource = async (
 }
 
 export const convertTrackerDataToLine = (arr: string[] = []): string => {
-  return arr
+  const lines = arr
     .join('\r\n')
     .split(/\r?\n/)
     .filter((line) => line.trim() !== '')
-    .join('\r\n')
+  return [...new Set(lines)].join('\r\n')
 }
 
 export const convertTrackerDataToComma = (arr: string[] = []): string => {
