@@ -272,6 +272,42 @@ describe('validateAdvancedForm', () => {
   it('returns null when rpcSecret is empty (security warning handled by UI dialog)', () => {
     expect(validateAdvancedForm({ ...validForm, rpcSecret: '' })).toBeNull()
   })
+
+  it('returns null for valid proxy URL when proxy enabled', () => {
+    expect(
+      validateAdvancedForm({
+        ...validForm,
+        proxy: { ...validForm.proxy, enable: true, server: 'http://proxy.example.com:8080' },
+      }),
+    ).toBeNull()
+  })
+
+  it('returns error key for invalid proxy URL when proxy enabled', () => {
+    expect(
+      validateAdvancedForm({
+        ...validForm,
+        proxy: { ...validForm.proxy, enable: true, server: 'not-a-valid-url' },
+      }),
+    ).toBe('preferences.invalid-proxy-url')
+  })
+
+  it('returns null for invalid proxy URL when proxy disabled', () => {
+    expect(
+      validateAdvancedForm({
+        ...validForm,
+        proxy: { ...validForm.proxy, enable: false, server: 'not-a-valid-url' },
+      }),
+    ).toBeNull()
+  })
+
+  it('returns null for empty proxy server when proxy enabled', () => {
+    expect(
+      validateAdvancedForm({
+        ...validForm,
+        proxy: { ...validForm.proxy, enable: true, server: '' },
+      }),
+    ).toBeNull()
+  })
 })
 
 // ── Port Randomizers ────────────────────────────────────────────────
