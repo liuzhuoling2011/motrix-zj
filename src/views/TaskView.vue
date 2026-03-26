@@ -257,17 +257,17 @@ async function handleMagnetConfirm(selectedIndices: number[]) {
 
   try {
     const selectFile = buildSelectFileOption(selectedIndices)
-    const task = taskStore.taskList.find((t) => t.gid === gid)
-    const action = buildStatusAwareConfirmAction(task?.status)
+    const task = await taskStore.fetchTaskStatus(gid)
+    const action = buildStatusAwareConfirmAction(task.status)
 
     // aria2 requires task to be paused before changing select-file on active tasks
-    if (action.needsPause && task) {
+    if (action.needsPause) {
       await taskStore.pauseTask(task)
     }
 
     await taskStore.changeTaskOption({ gid, options: { 'select-file': selectFile } })
 
-    if (action.needsResume && task) {
+    if (action.needsResume) {
       await taskStore.resumeTask(task)
     }
     message.success(t('task.magnet-files-selected') || 'Files selected, download starting')
@@ -289,14 +289,12 @@ async function handleMagnetCancel() {
   if (!gid) return
 
   try {
-    const task = taskStore.taskList.find((t) => t.gid === gid)
-    if (task) {
-      await taskStore.removeTask(task)
-    }
-    message.info(t('task.magnet-download-cancelled') || 'Download cancelled')
-  } catch (e) {
-    logger.error('TaskView.magnetCancel', e)
+    const task = await taskStore.fetchTaskStatus(gid)
+    await taskStore.removeTask(task)
+  } catch {
+    // Task may already be removed — safe to ignore
   }
+  message.info(t('task.magnet-download-cancelled') || 'Download cancelled')
 
   // Resume polling for any remaining pending magnet GIDs.
   // Delay to let the modal close animation finish before showing the next dialog.
