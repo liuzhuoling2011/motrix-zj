@@ -110,4 +110,25 @@ describe('useTheme', () => {
 
     expect(isDark.value).toBe(false)
   })
+
+  it('shares isDark across multiple useTheme() callers on system theme change', () => {
+    mediaQueryMatches = false
+    const store = usePreferenceStore()
+    store.config.theme = 'auto'
+
+    // Simulate App.vue (first caller) and TaskList.vue (second caller)
+    const first = useTheme()
+    const second = useTheme()
+
+    expect(first.isDark.value).toBe(false)
+    expect(second.isDark.value).toBe(false)
+
+    // Simulate OS dark mode toggle
+    mediaQueryMatches = true
+    changeListeners.forEach((cb) => cb())
+
+    // Both callers must reflect the change
+    expect(first.isDark.value).toBe(true)
+    expect(second.isDark.value).toBe(true)
+  })
 })
