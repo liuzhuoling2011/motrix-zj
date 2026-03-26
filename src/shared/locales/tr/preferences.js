@@ -78,6 +78,7 @@ export default {
   'bt-tracker-sync-failed': 'Tracker senkronizasyonu başarısız',
   'bt-tracker-content': 'Tracker listesi',
   'proxy-server': 'Proxy sunucusu',
+  'invalid-proxy-url': 'Invalid proxy URL format',
   'user-agent-string': 'UA dizesi',
   'port': 'Dinleme portları',
   'bt-port': 'BT portu',

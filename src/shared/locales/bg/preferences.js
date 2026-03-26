@@ -78,6 +78,7 @@ export default {
   'bt-tracker-sync-failed': 'Неуспешна синхронизация на тракери',
   'bt-tracker-content': 'Списък с тракери',
   'proxy-server': 'Прокси сървър',
+  'invalid-proxy-url': 'Invalid proxy URL format',
   'user-agent-string': 'UA низ',
   'port': 'Портове за слушане',
   'bt-port': 'BT порт',

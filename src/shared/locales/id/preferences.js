@@ -78,6 +78,7 @@ export default {
   'bt-tracker-sync-failed': 'Sinkronisasi tracker gagal',
   'bt-tracker-content': 'Daftar tracker',
   'proxy-server': 'Server proxy',
+  'invalid-proxy-url': 'Invalid proxy URL format',
   'user-agent-string': 'String UA',
   'port': 'Port pendengar',
   'bt-port': 'Port BT',

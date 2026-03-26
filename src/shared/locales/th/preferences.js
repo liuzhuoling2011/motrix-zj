@@ -78,6 +78,7 @@ export default {
   'bt-tracker-sync-failed': 'ซิงค์ Tracker ไม่สำเร็จ',
   'bt-tracker-content': 'รายการ Tracker',
   'proxy-server': 'เซิร์ฟเวอร์พร็อกซี',
+  'invalid-proxy-url': 'Invalid proxy URL format',
   'user-agent-string': 'สตริง UA',
   'port': 'พอร์ตรับฟัง',
   'bt-port': 'พอร์ต BT',

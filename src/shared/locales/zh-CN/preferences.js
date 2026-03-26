@@ -78,6 +78,7 @@ export default {
   'bt-tracker-sync-failed': 'Tracker 同步失败',
   'bt-tracker-content': 'Tracker 列表',
   'proxy-server': '代理服务器',
+  'invalid-proxy-url': '代理服务器 URL 格式无效',
   'user-agent-string': 'UA 字符串',
   'port': '监听端口',
   'bt-port': 'BT 监听端口',

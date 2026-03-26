@@ -78,6 +78,7 @@ export default {
   'bt-tracker-sync-failed': 'همگام‌سازی ردیاب‌ها ناموفق بود',
   'bt-tracker-content': 'لیست ردیاب‌ها',
   'proxy-server': 'سرور پروکسی',
+  'invalid-proxy-url': 'Invalid proxy URL format',
   'user-agent-string': 'رشته UA',
   'port': 'پورت‌های شنود',
   'bt-port': 'پورت BT',

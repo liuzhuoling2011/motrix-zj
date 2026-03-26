@@ -78,6 +78,7 @@ export default {
   'bt-tracker-sync-failed': 'Tracker szinkronizálás sikertelen',
   'bt-tracker-content': 'Tracker lista',
   'proxy-server': 'Proxy szerver',
+  'invalid-proxy-url': 'Invalid proxy URL format',
   'user-agent-string': 'UA karakterlánc',
   'port': 'Figyelő portok',
   'bt-port': 'BT port',

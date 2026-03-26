@@ -78,6 +78,7 @@ export default {
   'bt-tracker-sync-failed': 'Tracker の同期に失敗しました',
   'bt-tracker-content': 'Tracker リスト',
   'proxy-server': 'プロキシサーバー',
+  'invalid-proxy-url': 'Invalid proxy URL format',
   'user-agent-string': 'UA 文字列',
   'port': '待受ポート',
   'bt-port': 'BT 待受ポート',

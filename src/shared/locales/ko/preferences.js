@@ -78,6 +78,7 @@ export default {
   'bt-tracker-sync-failed': '트래커 동기화 실패',
   'bt-tracker-content': '트래커 목록',
   'proxy-server': '프록시 서버',
+  'invalid-proxy-url': 'Invalid proxy URL format',
   'user-agent-string': 'UA 문자열',
   'port': '수신 포트',
   'bt-port': 'BT 수신 포트',

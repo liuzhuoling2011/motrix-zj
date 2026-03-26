@@ -78,6 +78,7 @@ export default {
   'bt-tracker-sync-failed': 'Error al sincronizar trackers',
   'bt-tracker-content': 'Lista de trackers',
   'proxy-server': 'Servidor proxy',
+  'invalid-proxy-url': 'Invalid proxy URL format',
   'user-agent-string': 'Cadena UA',
   'port': 'Puertos de escucha',
   'bt-port': 'Puerto BT',

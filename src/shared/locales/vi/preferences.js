@@ -78,6 +78,7 @@ export default {
   'bt-tracker-sync-failed': 'Đồng bộ tracker thất bại',
   'bt-tracker-content': 'Danh sách tracker',
   'proxy-server': 'Máy chủ proxy',
+  'invalid-proxy-url': 'Invalid proxy URL format',
   'user-agent-string': 'Chuỗi UA',
   'port': 'Cổng lắng nghe',
   'bt-port': 'Cổng BT',

@@ -78,6 +78,7 @@ export default {
   'bt-tracker-sync-failed': 'فشلت مزامنة المتتبعات',
   'bt-tracker-content': 'قائمة المتتبعات',
   'proxy-server': 'خادم الوكيل',
+  'invalid-proxy-url': 'Invalid proxy URL format',
   'user-agent-string': 'سلسلة UA',
   'port': 'منافذ الاستماع',
   'bt-port': 'منفذ BT',

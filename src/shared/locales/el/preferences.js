@@ -78,6 +78,7 @@ export default {
   'bt-tracker-sync-failed': 'Αποτυχία συγχρονισμού tracker',
   'bt-tracker-content': 'Λίστα tracker',
   'proxy-server': 'Διακομιστής proxy',
+  'invalid-proxy-url': 'Invalid proxy URL format',
   'user-agent-string': 'Συμβολοσειρά UA',
   'port': 'Θύρες ακρόασης',
   'bt-port': 'Θύρα BT',
