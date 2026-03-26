@@ -25,13 +25,14 @@ const mockMatchMedia = vi.fn().mockImplementation(() => ({
 
 Object.defineProperty(window, 'matchMedia', { value: mockMatchMedia, writable: true })
 
-import { useTheme } from '../useTheme'
+import { useTheme, _resetThemeState } from '../useTheme'
 
 describe('useTheme', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     mediaQueryMatches = false
     changeListeners.length = 0
+    _resetThemeState()
     document.documentElement.classList.remove('dark')
     document.documentElement.removeAttribute('data-theme')
   })
