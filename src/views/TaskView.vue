@@ -224,7 +224,7 @@ function startMagnetPoll() {
         if (realFiles.length === 0) continue
 
         // Metadata resolved — show file selection dialog
-        appStore.pendingMagnetGids = gids.filter((g) => g !== gid)
+        appStore.pendingMagnetGids = appStore.pendingMagnetGids.filter((g) => g !== gid)
         const parsed = parseFilesForSelection(realFiles)
         magnetSelectFiles.value = parsed
         magnetSelectGid.value = targetGid
