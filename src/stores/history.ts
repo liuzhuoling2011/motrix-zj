@@ -117,7 +117,7 @@ export const useHistoryStore = defineStore('history', () => {
     await (
       await getDb()
     ).execute(
-      `INSERT OR IGNORE INTO download_history
+      `INSERT OR REPLACE INTO download_history
         (gid, name, uri, dir, total_length, status, task_type, completed_at, meta)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
