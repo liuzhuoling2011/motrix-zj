@@ -401,10 +401,18 @@ describe('HistoryStore', () => {
   // ── closeConnection ────────────────────────────────────────────
 
   describe('closeConnection', () => {
-    it('closes the database connection', async () => {
+    it('closes the database connection and allows re-initialization', async () => {
+      // Add a record before closing
+      await store.addRecord(makeRecord({ gid: 'before-close' }))
       await store.closeConnection()
-      // After closing, operations should throw
-      await expect(store.getRecords()).rejects.toThrow()
+
+      // After closing, the next operation should re-initialize the database
+      // (initPromise is reset so getDb() triggers a fresh init)
+      const results = await store.getRecords()
+      // The mock Database.load creates a fresh connection,
+      // so in-memory mock rows still contain the record
+      expect(results).toHaveLength(1)
+      expect(results[0].gid).toBe('before-close')
     })
   })
 })

@@ -188,6 +188,9 @@ async function handleInstallAndRelaunch() {
     await invoke('apply_update', { channel: ch, proxy: getUpdateProxy() })
     relaunch()
   } catch (e) {
+    // Engine recovery is handled by Rust (restart_engine in apply_update).
+    // Frontend just shows error UI — the MainLayout global poller will
+    // detect the engine is back online on the next tick.
     logger.error('Updater', e)
     errorMsg.value = formatUpdateError(e)
     phase.value = 'error'

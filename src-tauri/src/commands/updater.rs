@@ -298,9 +298,20 @@ pub async fn apply_update(
     log::info!("updater:apply phase=engine-stopped");
 
     // ── Phase 2: Install (NSIS / tar.gz replacement) ────────────────
-    update
-        .install(bytes)
-        .map_err(|e| AppError::Updater(e.to_string()))?;
+    // On install failure, restart the engine so download functionality is
+    // restored.  restart_engine() atomically resets intentional_stop,
+    // preventing the crash watcher from being permanently masked.
+    if let Err(e) = update.install(bytes) {
+        log::warn!("updater:apply install failed, recovering engine: {e}");
+        let app_for_restart = app.clone();
+        let _ = tokio::task::spawn_blocking(move || {
+            let config = super::config::get_system_config(app_for_restart.clone())
+                .unwrap_or_default();
+            crate::engine::restart_engine(&app_for_restart, &config)
+        })
+        .await;
+        return Err(AppError::Updater(e.to_string()));
+    }
     log::info!("updater:apply phase=installed");
 
     // macOS: flush icon cache after OTA bundle replacement.

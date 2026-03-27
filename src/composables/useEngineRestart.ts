@@ -17,19 +17,15 @@ interface RestartOptions {
 }
 
 /**
- * Creates a restart controller with a concurrency guard.
+ * Module-level singleton guard — shared across ALL consumers.
  *
- * Usage:
- * ```ts
- * const { restartEngine, isRestarting } = useEngineRestart()
- * // In template: :disabled="isRestarting"
- * const ok = await restartEngine({ port, secret })
- * if (ok === false) { /* already restarting, call was rejected * / }
- * ```
+ * Previously each useEngineRestart() call created its own ref, meaning
+ * concurrent callers from different components (e.g. Advanced.vue AND
+ * the crash-recovery watcher) wouldn't see each other's guard state.
  */
-export function useEngineRestart() {
-  const isRestarting = ref(false)
+const isRestarting = ref(false)
 
+export function useEngineRestart() {
   async function restartEngine(opts: RestartOptions): Promise<boolean> {
     // Concurrency guard — reject if already restarting
     if (isRestarting.value) {

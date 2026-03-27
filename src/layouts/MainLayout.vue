@@ -8,6 +8,20 @@ import { useAppStore } from '@/stores/app'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { listen } from '@tauri-apps/api/event'
 import { logger } from '@shared/logger'
+import { createTaskLifecycleService } from '@/composables/useTaskLifecycleService'
+import { buildHistoryRecord, isMetadataTask } from '@/composables/useTaskLifecycle'
+import { handleTaskComplete, handleBtComplete, handleTaskError } from '@/composables/useTaskNotifyHandlers'
+import { shouldDeleteTorrent, trashTorrentFile, cleanupTorrentMetadataFiles } from '@/composables/useDownloadCleanup'
+import { getTaskDisplayName } from '@shared/utils'
+import { ARIA2_ERROR_CODES } from '@shared/aria2ErrorCodes'
+import { useHistoryStore } from '@/stores/history'
+import {
+  parseFilesForSelection,
+  buildSelectFileOption,
+  buildStatusAwareConfirmAction,
+} from '@/composables/useMagnetFlow'
+import type { MagnetFileItem } from '@/composables/useMagnetFlow'
+import aria2Api, { isEngineReady } from '@/api/aria2'
 import { throttledResizeHandler, cancelPendingResize } from '@/layouts/resizeThrottle'
 import AsideBar from '@/components/layout/AsideBar.vue'
 import TaskSubnav from '@/components/layout/TaskSubnav.vue'
@@ -18,6 +32,7 @@ import EngineOverlay from '@/components/layout/EngineOverlay.vue'
 import AboutPanel from '@/components/about/AboutPanel.vue'
 import AddTask from '@/components/task/AddTask.vue'
 import UpdateDialog from '@/components/preference/UpdateDialog.vue'
+import MagnetFileSelect from '@/components/task/MagnetFileSelect.vue'
 import { useTaskStore } from '@/stores/task'
 import { usePreferenceStore } from '@/stores/preference'
 import { useAppMessage } from '@/composables/useAppMessage'
@@ -56,8 +71,14 @@ let unlistenTrayMenu: (() => void) | null = null
 let unlistenResize: (() => void) | null = null
 let unlistenExitDialog: (() => void) | null = null
 let globalStatTimer: ReturnType<typeof setTimeout> | null = null
+let lifecycleService: ReturnType<typeof createTaskLifecycleService> | null = null
+let magnetPollTimer: ReturnType<typeof setTimeout> | null = null
 
-import aria2Api, { isEngineReady } from '@/api/aria2'
+// ── Magnet file selection state (app-level) ─────────────────────────
+const magnetSelectVisible = ref(false)
+const magnetSelectFiles = ref<MagnetFileItem[]>([])
+const magnetSelectGid = ref('')
+const magnetSelectName = ref('')
 
 const { setupListeners } = useAppEvents({
   t,
@@ -90,21 +111,144 @@ watch(
   { immediate: true },
 )
 
+let globalPollStopped = true
+
 function startGlobalPolling() {
   stopGlobalPolling()
-  function tick() {
+  globalPollStopped = false
+  async function tick() {
+    if (globalPollStopped) return
     if (isEngineReady()) {
-      appStore.fetchGlobalStat(aria2Api).catch((e) => logger.debug('MainLayout.globalStat', e))
+      await appStore.fetchGlobalStat(aria2Api).catch((e) => logger.debug('MainLayout.globalStat', e))
     }
+    if (globalPollStopped) return
     globalStatTimer = setTimeout(tick, appStore.interval)
   }
   globalStatTimer = setTimeout(tick, appStore.interval)
 }
 
 function stopGlobalPolling() {
+  globalPollStopped = true
   if (globalStatTimer) {
     clearTimeout(globalStatTimer)
     globalStatTimer = null
+  }
+}
+
+// ── Magnet metadata monitoring (app-level) ──────────────────────────
+
+/**
+ * Poll pending magnet tasks for metadata completion.
+ *
+ * aria2 creates a NEW GID (via followedBy) for the actual download after
+ * magnet metadata resolves. With pause-metadata=true, this follow-up task
+ * starts paused. We poll the metadata GID for followedBy, then call getFiles
+ * on the follow-up GID to show the file selection dialog.
+ *
+ * When multiple magnets are added concurrently, only one dialog is shown at
+ * a time. The poll pauses while a dialog is open and resumes after the user
+ * confirms or cancels — preventing dialog state from being overwritten.
+ */
+function startMagnetPoll() {
+  if (magnetPollTimer) clearTimeout(magnetPollTimer)
+
+  async function tick() {
+    const gids = appStore.pendingMagnetGids
+
+    // Don't overwrite an open dialog — pause polling and let
+    // confirm/cancel handler restart it for remaining GIDs.
+    if (magnetSelectVisible.value) {
+      magnetPollTimer = null
+      return
+    }
+
+    if (gids.length === 0) {
+      magnetPollTimer = null
+      return
+    }
+
+    for (const gid of [...gids]) {
+      try {
+        const task = await taskStore.fetchTaskStatus(gid)
+
+        // Use followedBy GID if available (magnet follow-up), else same GID
+        const targetGid = task.followedBy?.[0] ?? gid
+
+        const files = await taskStore.getFiles(targetGid)
+        // Filter real content files (length > 0) and skip [METADATA] entries
+        const realFiles = files.filter((f) => Number(f.length) > 0 && !f.path.startsWith('[METADATA]'))
+        if (realFiles.length === 0) continue
+
+        // Metadata resolved — show file selection dialog
+        appStore.pendingMagnetGids = appStore.pendingMagnetGids.filter((g) => g !== gid)
+        const parsed = parseFilesForSelection(realFiles)
+        magnetSelectFiles.value = parsed
+        magnetSelectGid.value = targetGid
+        magnetSelectName.value = task.bittorrent?.info?.name || parsed[0]?.name || 'Magnet Download'
+        magnetSelectVisible.value = true
+        return // Process one magnet at a time
+      } catch {
+        // Task may have been removed or metadata still downloading — skip
+      }
+    }
+
+    magnetPollTimer = setTimeout(tick, 2000)
+  }
+
+  void tick()
+}
+
+async function handleMagnetConfirm(selectedIndices: number[]) {
+  magnetSelectVisible.value = false
+  const gid = magnetSelectGid.value
+  if (!gid) return
+
+  try {
+    const selectFile = buildSelectFileOption(selectedIndices)
+    const task = await taskStore.fetchTaskStatus(gid)
+    const action = buildStatusAwareConfirmAction(task.status)
+
+    // aria2 requires task to be paused before changing select-file on active tasks
+    if (action.needsPause) {
+      await taskStore.pauseTask(task)
+    }
+
+    await taskStore.changeTaskOption({ gid, options: { 'select-file': selectFile } })
+
+    if (action.needsResume) {
+      await taskStore.resumeTask(task)
+    }
+    message.success(t('task.magnet-files-selected') || 'Files selected, download starting')
+  } catch (e) {
+    logger.error('MainLayout.magnetConfirm', e)
+    message.error(t('task.magnet-select-fail') || 'Failed to configure download')
+  }
+
+  // Resume polling for any remaining pending magnet GIDs.
+  // Delay to let the modal close animation finish before showing the next dialog.
+  if (appStore.pendingMagnetGids.length > 0) {
+    setTimeout(startMagnetPoll, 350)
+  }
+}
+
+async function handleMagnetCancel() {
+  magnetSelectVisible.value = false
+  const gid = magnetSelectGid.value
+  if (!gid) return
+
+  try {
+    const task = await taskStore.fetchTaskStatus(gid)
+    await taskStore.removeTask(task)
+  } catch (e) {
+    // Task may already be removed — log at debug level for diagnostics
+    logger.debug('MainLayout.magnetCancel', e)
+  }
+  message.info(t('task.magnet-download-cancelled') || 'Download cancelled')
+
+  // Resume polling for any remaining pending magnet GIDs.
+  // Delay to let the modal close animation finish before showing the next dialog.
+  if (appStore.pendingMagnetGids.length > 0) {
+    setTimeout(startMagnetPoll, 350)
   }
 }
 
@@ -274,6 +418,74 @@ onMounted(async () => {
   }, 120)
   startGlobalPolling()
 
+  // ── App-level task lifecycle service ─────────────────────────────
+  // Polls aria2 for active + stopped tasks independently of route/tab
+  // state, ensuring completion/error/BT-seeding detection works even
+  // when the user is on Settings or About pages.
+  const historyStore = useHistoryStore()
+  lifecycleService = createTaskLifecycleService(aria2Api, {
+    onTaskError: (task) => {
+      if (isMetadataTask(task)) return
+      const record = buildHistoryRecord(task)
+      historyStore.addRecord(record).catch((e) => logger.debug('Lifecycle.historyRecord.error', e))
+      if (preferenceStore.config?.taskNotification === false) return
+      const i18nKey = task.errorCode ? ARIA2_ERROR_CODES[task.errorCode] : undefined
+      const taskName = getTaskDisplayName(task, { defaultName: 'Unknown' })
+      const errorText = i18nKey ? t(i18nKey) : task.errorMessage || t('task.error-unknown')
+      message.error(`${taskName}: ${errorText}`)
+      handleTaskError(task, `${taskName}: ${errorText}`, {
+        messageSuccess: message.success,
+        messageError: message.error,
+        t,
+        taskNotification: true,
+      })
+    },
+    onTaskComplete: (task) => {
+      if (isMetadataTask(task)) return
+      const record = buildHistoryRecord(task)
+      historyStore.addRecord(record).catch((e) => logger.debug('Lifecycle.historyRecord', e))
+      handleTaskComplete(task, {
+        messageSuccess: message.success,
+        messageError: message.error,
+        t,
+        taskNotification: preferenceStore.config?.taskNotification !== false,
+      })
+    },
+    onBtComplete: async (task) => {
+      handleBtComplete(task, {
+        messageSuccess: message.success,
+        messageError: message.error,
+        t,
+        taskNotification: preferenceStore.config?.taskNotification !== false,
+      })
+      if (!shouldDeleteTorrent(preferenceStore.config)) return
+      const sourcePath = task.infoHash ? taskStore.consumeTorrentSource(task.infoHash) : undefined
+      if (sourcePath) {
+        const ok = await trashTorrentFile(sourcePath)
+        if (ok) {
+          const taskName = getTaskDisplayName(task)
+          message.success(t('task.torrent-trashed', { taskName }))
+        }
+      }
+      if (task.dir && task.infoHash) {
+        cleanupTorrentMetadataFiles(task.dir, task.infoHash).catch((e) => logger.debug('Lifecycle.metadataCleanup', e))
+      }
+    },
+  })
+  lifecycleService.start(() => appStore.interval)
+
+  // ── Magnet metadata monitoring (app-level) ────────────────────────
+  // Watches pendingMagnetGids in app store and starts polling when
+  // magnet tasks are added. Runs at MainLayout level so it works
+  // even when the user navigates away from the task page.
+  watch(
+    () => appStore.pendingMagnetGids,
+    (gids) => {
+      if (gids.length > 0) startMagnetPoll()
+    },
+    { immediate: true },
+  )
+
   // Track maximize state to remove border-radius when maximized.
   // Windows and Linux need this: transparent + decorations:false windows
   // leak transparent pixels through CSS border-radius corners when maximized.
@@ -400,6 +612,11 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopGlobalPolling()
+  lifecycleService?.stop()
+  if (magnetPollTimer) {
+    clearTimeout(magnetPollTimer)
+    magnetPollTimer = null
+  }
   if (unlistenDragDrop) unlistenDragDrop()
   if (unlistenMenuEvent) unlistenMenuEvent()
   if (unlistenCloseRequested) unlistenCloseRequested()
@@ -457,6 +674,13 @@ onUnmounted(() => {
       :show="showEngineOverlay"
       @recovered="showEngineOverlay = false"
       @close="showEngineOverlay = false"
+    />
+    <MagnetFileSelect
+      :show="magnetSelectVisible"
+      :files="magnetSelectFiles"
+      :task-name="magnetSelectName"
+      @confirm="handleMagnetConfirm"
+      @cancel="handleMagnetCancel"
     />
 
     <!-- Close action dialog: minimize-to-tray / quit / cancel -->

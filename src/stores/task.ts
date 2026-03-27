@@ -9,7 +9,7 @@ import type { Aria2Task, Aria2File, Aria2Peer, Aria2EngineOptions, AddMetalinkPa
 import { historyRecordToTask } from '@/composables/useTaskLifecycle'
 import { shouldShowFileSelection } from '@/composables/useMagnetFlow'
 import { useHistoryStore } from '@/stores/history'
-import { createTaskNotifier } from './taskNotifications'
+
 import { restartTask as restartTaskImpl } from './taskRestart'
 import { createTaskOperations } from './taskOperations'
 
@@ -28,22 +28,6 @@ export const useTaskStore = defineStore('task', () => {
   const selectedGidList = ref<string[]>([])
 
   let api: TaskApi
-
-  const notifier = createTaskNotifier()
-  let onTaskError: ((task: Aria2Task) => void) | null = null
-  let onTaskComplete: ((task: Aria2Task) => void) | null = null
-  let onBtComplete: ((task: Aria2Task) => void) | null = null
-
-  type TaskCb = (task: Aria2Task) => void
-  const setOnTaskError = (fn: TaskCb) => {
-    onTaskError = fn
-  }
-  const setOnTaskComplete = (fn: TaskCb) => {
-    onTaskComplete = fn
-  }
-  const setOnBtComplete = (fn: TaskCb) => {
-    onBtComplete = fn
-  }
 
   /** In-memory map: infoHash → original .torrent file path for post-download cleanup. */
   const torrentSourcePaths = new Map<string, string>()
@@ -99,15 +83,6 @@ export const useTaskStore = defineStore('task', () => {
           const fresh = data.find((t: Aria2Task) => t.gid === currentTaskGid.value)
           if (fresh) updateCurrentTaskItem(fresh)
         }
-      }
-      // Scan for error + completion + BT-seeding lifecycle events.
-      // IMPORTANT: Only scan on the active tab. When currentList === 'stopped',
-      // `data` comes from the history DB — those are historical records, not live
-      // events. Scanning them would fire onTaskComplete for every past download,
-      // causing a notification flood on tab switch or app restart.
-      if (currentList.value !== 'stopped' && (onTaskError || onTaskComplete || onBtComplete)) {
-        const stoppedTasks = (await api.fetchTaskList({ type: 'stopped' })).slice(0, 20)
-        notifier.scanTasks([...data, ...stoppedTasks], { onTaskError, onTaskComplete, onBtComplete })
       }
     } catch (e) {
       logger.warn('TaskStore.fetchList', (e as Error).message)
@@ -300,9 +275,7 @@ export const useTaskStore = defineStore('task', () => {
     batchPauseSelectedTasks,
     batchRemoveTask: (gids: string[]) => taskOps.batchRemoveTask(gids),
     restartTask,
-    setOnTaskError,
-    setOnTaskComplete,
-    setOnBtComplete,
+
     registerTorrentSource,
     consumeTorrentSource,
     hasActiveTasks: () => taskOps.hasActiveTasks(),

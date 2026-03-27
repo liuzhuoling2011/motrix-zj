@@ -2,7 +2,7 @@
  * @fileoverview Integration tests for TaskActions.vue.
  *
  * Key behaviors under test:
- * - Engine guard: resumeAll/pauseAll/purgeRecord block when engine not ready
+ * - Engine guard: resumeAll/pauseAll block when engine not ready (purgeRecord has no gate)
  * - Refresh debounce: rapid clicks coalesce via 500ms timer
  * - Confirmation dialogs: all destructive actions require user confirmation
  * - Delete-all: batch removal with optional file deletion
@@ -190,7 +190,7 @@ describe('TaskActions', () => {
       expect(mockDialogWarning).not.toHaveBeenCalled()
     })
 
-    it('shows warning when purgeRecord is clicked and engine is not ready', async () => {
+    it('opens purgeRecord dialog even when engine is not ready (purge operates on DB only)', async () => {
       mockIsEngineReady.mockReturnValue(false)
       const taskStore = useTaskStore()
       taskStore.currentList = 'stopped'
@@ -198,8 +198,9 @@ describe('TaskActions', () => {
 
       await clickButton(wrapper, 2) // Purge (index 2 when in stopped list)
 
-      expect(mockMessageWarning).toHaveBeenCalledOnce()
-      expect(mockDialogWarning).not.toHaveBeenCalled()
+      // No engine gate — dialog should open regardless
+      expect(mockMessageWarning).not.toHaveBeenCalled()
+      expect(mockDialogWarning).toHaveBeenCalledOnce()
     })
 
     it('opens confirmation dialog for resumeAll when engine IS ready', async () => {

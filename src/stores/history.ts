@@ -174,12 +174,14 @@ export const useHistoryStore = defineStore('history', () => {
     return result[0]?.integrity_check ?? 'unknown'
   }
 
-  /** Close the database connection. After calling, all operations will throw. */
+  /** Close the database connection and reset initialization state.
+   *  After calling, the next init() or getDb() will re-open the database. */
   async function closeConnection(): Promise<void> {
     if (db) {
       await db.close()
       db = null
     }
+    initPromise = null
   }
 
   return {

@@ -240,10 +240,6 @@ function cleanupStopSeedingWatcher() {
 onBeforeUnmount(() => cleanupStopSeedingWatcher())
 
 function purgeRecord() {
-  if (!isEngineReady()) {
-    message.warning(t('app.engine-not-ready'))
-    return
-  }
   const deleteFiles = ref(false)
   const d = dialog.warning({
     title: t('task.purge-record'),
