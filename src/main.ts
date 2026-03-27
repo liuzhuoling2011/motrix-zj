@@ -374,12 +374,14 @@ window.addEventListener('unhandledrejection', (e) => {
           const runCleanup = async () => {
             try {
               const { runStaleRecordCleanup } = await import('./composables/useStaleCleanup')
+              const { extractHistoryFilePaths } = await import('./composables/useTaskLifecycle')
               const records = await historyStore.getRecords('complete')
               const result = await runStaleRecordCleanup(
                 records.map((r) => ({
                   gid: r.gid,
                   name: r.name,
                   dir: r.dir ?? '',
+                  filePaths: extractHistoryFilePaths(r),
                 })),
                 historyStore.removeStaleRecords,
               )

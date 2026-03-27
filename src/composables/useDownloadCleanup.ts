@@ -12,6 +12,8 @@ export interface StaleCheckItem {
   gid: string
   dir: string
   name: string
+  /** All file paths from meta.files — if present, ALL must be gone to count as stale. */
+  filePaths?: string[]
 }
 
 /** Identify records whose downloaded files no longer exist on disk.
@@ -20,6 +22,25 @@ export async function findStaleRecords(records: StaleCheckItem[]): Promise<strin
   const staleGids: string[] = []
 
   for (const record of records) {
+    // Multi-file: only stale if ALL expected files are gone.
+    // Early-exit on first existing file for performance.
+    if (record.filePaths && record.filePaths.length > 0) {
+      let anyExists = false
+      for (const fp of record.filePaths) {
+        try {
+          if (await invoke<boolean>('check_path_exists', { path: fp })) {
+            anyExists = true
+            break
+          }
+        } catch {
+          // Treat errors as non-existent
+        }
+      }
+      if (!anyExists) staleGids.push(record.gid)
+      continue
+    }
+
+    // Legacy single-file fallback (unchanged)
     if (!record.dir || !record.name) {
       staleGids.push(record.gid)
       continue

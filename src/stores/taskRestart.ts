@@ -6,7 +6,7 @@
  * making it independently testable without Pinia or Vue reactivity.
  */
 import { TASK_STATUS } from '@shared/constants'
-import { checkTaskIsBT, getTaskUris } from '@shared/utils'
+import { checkTaskIsBT, getRestartDescriptors } from '@shared/utils'
 import { shouldShowFileSelection } from '@/composables/useMagnetFlow'
 import { logger } from '@shared/logger'
 import type { Aria2Task } from '@shared/types'
@@ -43,8 +43,8 @@ export async function restartTask(task: Aria2Task, api: RestartTaskApi, historyA
   const { ERROR, COMPLETE, REMOVED } = TASK_STATUS
   if (status !== ERROR && status !== COMPLETE && status !== REMOVED) return
 
-  const uris = getTaskUris(task, true) // include trackers for BT
-  if (uris.length === 0) {
+  const descriptors = getRestartDescriptors(task, true) // include trackers for BT
+  if (descriptors.length === 0) {
     throw new Error('Cannot restart: no download URIs found for this task')
   }
 
@@ -62,12 +62,13 @@ export async function restartTask(task: Aria2Task, api: RestartTaskApi, historyA
     if (dir) options.dir = dir
   }
 
-  // Submit each URI as a separate download, tracking created GIDs for rollback
+  // Submit each file as a separate download with ALL its mirror URIs,
+  // tracking created GIDs for rollback.
   const isBT = checkTaskIsBT(task)
   const createdGids: string[] = []
   try {
-    for (const uri of uris) {
-      const newGid = await api.addUriAtomic({ uris: [uri], options })
+    for (const mirrorGroup of descriptors) {
+      const newGid = await api.addUriAtomic({ uris: mirrorGroup, options })
       createdGids.push(newGid)
       // BT restarts produce magnet URIs — register with the metadata poller
       // only when pause-metadata is enabled (file selection mode).

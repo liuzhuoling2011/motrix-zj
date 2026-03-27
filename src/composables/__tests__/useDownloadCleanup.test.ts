@@ -83,6 +83,32 @@ describe('useDownloadCleanup', () => {
       expect(stale).toContain('g2')
       expect(stale).not.toContain('g3')
     })
+
+    it('marks multi-file record as stale only when ALL files are gone', async () => {
+      // File 1 exists, file 2 gone — should NOT be stale
+      mockCheckPathExists.mockResolvedValueOnce(true) // /dl/a.zip exists
+      const records = [{ gid: 'g1', dir: '/dl', name: 'a.zip', filePaths: ['/dl/a.zip', '/dl/b.zip'] }]
+      const stale = await findStaleRecords(records)
+      expect(stale).not.toContain('g1')
+    })
+
+    it('marks multi-file record as stale when ALL files are gone', async () => {
+      mockCheckPathExists
+        .mockResolvedValueOnce(false) // /dl/a.zip gone
+        .mockResolvedValueOnce(false) // /dl/b.zip gone
+      const records = [{ gid: 'g1', dir: '/dl', name: 'a.zip', filePaths: ['/dl/a.zip', '/dl/b.zip'] }]
+      const stale = await findStaleRecords(records)
+      expect(stale).toContain('g1')
+    })
+
+    it('uses legacy single-file check when filePaths is absent', async () => {
+      mockCheckPathExists.mockResolvedValueOnce(false) // single file gone
+      const records = [
+        { gid: 'g1', dir: '/dl', name: 'a.zip' }, // no filePaths
+      ]
+      const stale = await findStaleRecords(records)
+      expect(stale).toContain('g1')
+    })
   })
 
   // ── trashTorrentFile ────────────────────────────────────────────

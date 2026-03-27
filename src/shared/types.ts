@@ -265,6 +265,35 @@ export interface BatchItem {
   error?: string
 }
 
+/** Per-file snapshot stored in HistoryMeta.files for multi-file task reconstruction.
+ *
+ * Captures all data needed to fully restore restart, delete, and stale-cleanup
+ * semantics for each individual file within a multi-file download (metalink, etc.). */
+export interface HistoryFileSnapshot {
+  /** Full local file path. */
+  path: string
+  /** File size as string (aria2 convention). */
+  length?: string
+  /** Whether the file was selected for download ("true"/"false"). */
+  selected?: string
+  /** All download URIs for this file — preserving mirrors, not just the first. */
+  uris: string[]
+}
+
+/** Structured meta payload stored as JSON in HistoryRecord.meta.
+ *
+ * This is the single source of truth for multi-file task reconstruction.
+ * All consumers MUST use the centralized helpers in useTaskLifecycle.ts:
+ * - buildHistoryMeta()  — write path
+ * - parseHistoryMeta()  — read path
+ * - extractHistoryFilePaths() — stale cleanup */
+export interface HistoryMeta {
+  /** BT info hash — used for magnet link reconstruction on restart. */
+  infoHash?: string
+  /** Complete file list with all URIs — present when files.length > 1. */
+  files?: HistoryFileSnapshot[]
+}
+
 /** A completed/errored download record stored in SQLite, independent from the aria2 session. */
 export interface HistoryRecord {
   /** Auto-incremented primary key (present on read, omitted on insert). */

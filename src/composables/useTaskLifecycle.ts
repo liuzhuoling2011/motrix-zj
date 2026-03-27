@@ -3,7 +3,7 @@
  * Bridges aria2 task state changes to download history records
  * and cleanup logic. All functions are pure for testability.
  */
-import type { Aria2Task, HistoryRecord } from '@shared/types'
+import type { Aria2Task, Aria2File, HistoryRecord, HistoryMeta, HistoryFileSnapshot } from '@shared/types'
 import { decodePathSegment } from '@shared/utils/batchHelpers'
 
 /** Detect BT metadata-only downloads (the intermediate magnet resolution phase).
@@ -17,6 +17,63 @@ export function isMetadataTask(task: Aria2Task): boolean {
   return firstPath.startsWith('[METADATA]')
 }
 
+// ── Centralized history snapshot helpers ────────────────────────────
+// All meta read/write MUST go through these functions. Never JSON.parse
+// HistoryRecord.meta directly in consumer code.
+
+/** Build structured meta from a live aria2 task (write path).
+ *
+ * - Stores infoHash for BT magnet reconstruction.
+ * - Stores full file list (with ALL mirror URIs) for multi-file tasks.
+ *   Single-file tasks omit meta.files to keep JSON compact. */
+export function buildHistoryMeta(task: Aria2Task): HistoryMeta {
+  const meta: HistoryMeta = {}
+  if (task.infoHash) meta.infoHash = task.infoHash
+
+  // Multi-file snapshot: preserve every file's path, length, selection, and ALL URIs.
+  // This enables correct restart (mirror groups), delete (all files), and stale cleanup.
+  if (task.files && task.files.length > 1) {
+    meta.files = task.files.map(
+      (f): HistoryFileSnapshot => ({
+        path: f.path,
+        length: f.length,
+        selected: f.selected,
+        uris: (f.uris ?? []).map((u) => u.uri),
+      }),
+    )
+  }
+  return meta
+}
+
+/** Parse structured meta from a persisted history record (read path).
+ *  Never throws — returns empty object on corrupt/missing meta. */
+export function parseHistoryMeta(record: HistoryRecord): HistoryMeta {
+  if (!record.meta) return {}
+  try {
+    return JSON.parse(record.meta) as HistoryMeta
+  } catch {
+    return {}
+  }
+}
+
+/** Extract all expected file paths from a history record.
+ *
+ * Used by stale cleanup to check whether downloaded files still exist.
+ * Multi-file records return all paths; legacy single-file records return
+ * a single synthetic path from dir + name. */
+export function extractHistoryFilePaths(record: HistoryRecord): string[] {
+  const meta = parseHistoryMeta(record)
+  if (meta.files && meta.files.length > 0) {
+    return meta.files.map((f) => f.path).filter(Boolean)
+  }
+  // Legacy fallback: single file path from dir + name
+  if (record.dir && record.name) {
+    const dir = record.dir.replace(/[\\/]+$/, '')
+    return [`${dir}/${record.name}`]
+  }
+  return []
+}
+
 /** Extract a HistoryRecord from an aria2 task for persistence. */
 export function buildHistoryRecord(task: Aria2Task): HistoryRecord {
   const btName = task.bittorrent?.info?.name
@@ -27,10 +84,8 @@ export function buildHistoryRecord(task: Aria2Task): HistoryRecord {
   const uri = firstFile?.uris?.[0]?.uri
   const taskType = task.bittorrent ? 'bt' : 'uri'
 
-  // Persist BT-specific metadata needed for task reconstruction.
-  // infoHash is essential for rebuilding the magnet link on restart.
-  const meta: Record<string, string> = {}
-  if (task.infoHash) meta.infoHash = task.infoHash
+  // Build structured meta snapshot (centralised — no inline JSON.stringify elsewhere)
+  const meta = buildHistoryMeta(task)
 
   return {
     gid: task.gid,
@@ -63,21 +118,29 @@ export function historyRecordToTask(record: HistoryRecord): Aria2Task {
   const totalLength = String(record.total_length ?? 0)
   const completedLength = record.status === 'complete' ? totalLength : '0'
 
-  // Parse meta JSON for BT-specific fields
-  let meta: Record<string, string> = {}
-  if (record.meta) {
-    try {
-      meta = JSON.parse(record.meta) as Record<string, string>
-    } catch {
-      // Corrupt meta — ignore
-    }
-  }
+  // Centralised meta parsing — never JSON.parse directly.
+  const meta = parseHistoryMeta(record)
 
-  // Synthesize files[0] — path is dir + separator + name.
-  // dir may end with `\\` (Windows) or `/` (Unix); avoid double separators.
-  const filePath = dir && record.name ? `${dir.replace(/[\\/]+$/, '')}/${record.name}` : record.name
-  const uris = record.uri ? [{ uri: record.uri, status: 'used' as const }] : []
-  const file = { index: '1', path: filePath, length: totalLength, completedLength, selected: 'true', uris }
+  // Build files array: prefer multi-file snapshot from meta.files,
+  // fall back to legacy single-file synthesis for old records.
+  let files: Aria2File[]
+  if (meta.files && meta.files.length > 0) {
+    // Full restoration from snapshot — preserves all paths, lengths, and mirror URIs.
+    files = meta.files.map((f, i) => ({
+      index: String(i + 1),
+      path: f.path,
+      length: f.length ?? '0',
+      completedLength: record.status === 'complete' ? (f.length ?? '0') : '0',
+      selected: f.selected ?? 'true',
+      uris: f.uris.map((uri) => ({ uri, status: 'used' as const })),
+    }))
+  } else {
+    // Legacy single-file fallback — path is dir + separator + name.
+    // dir may end with `\\` (Windows) or `/` (Unix); avoid double separators.
+    const filePath = dir && record.name ? `${dir.replace(/[\\/]+$/, '')}/${record.name}` : record.name
+    const uris = record.uri ? [{ uri: record.uri, status: 'used' as const }] : []
+    files = [{ index: '1', path: filePath, length: totalLength, completedLength, selected: 'true', uris }]
+  }
 
   const task: Aria2Task = {
     gid: record.gid,
@@ -89,7 +152,7 @@ export function historyRecordToTask(record: HistoryRecord): Aria2Task {
     uploadSpeed: '0',
     connections: '0',
     dir,
-    files: [file],
+    files,
   }
 
   // BT tasks get a bittorrent.info stub so getTaskName() resolves correctly

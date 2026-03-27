@@ -14,6 +14,7 @@ import {
   checkTaskTitleIsEmpty,
   mergeTaskResult,
   resolveOpenTarget,
+  getRestartDescriptors,
 } from '../task'
 import type { Aria2Task, Aria2File } from '@shared/types'
 
@@ -614,5 +615,47 @@ describe('resolveOpenTarget', () => {
       files: [{ index: '1', path: '', length: '0', completedLength: '0', selected: 'true', uris: [] }],
     })
     expect(await resolveOpenTarget(task)).toBe('/downloads')
+  })
+})
+
+// ── getRestartDescriptors ────────────────────────────────────────────
+
+describe('getRestartDescriptors', () => {
+  it('returns [[magnet]] for BT tasks', () => {
+    const task = createMockTask({
+      infoHash: 'abc123',
+      bittorrent: { info: { name: 'test' } },
+      files: [],
+    })
+    const result = getRestartDescriptors(task, true)
+    expect(result).toHaveLength(1)
+    expect(result[0][0]).toContain('magnet:?xt=urn:btih:abc123')
+  })
+
+  it('returns one group per file with all mirror URIs for HTTP tasks', () => {
+    const task = createMockTask({
+      files: [
+        createMockFile({
+          uris: [
+            { uri: 'http://mirror1/a.zip', status: 'used' },
+            { uri: 'http://mirror2/a.zip', status: 'waiting' },
+          ],
+        }),
+        createMockFile({
+          index: '2',
+          path: '/tmp/b.zip',
+          uris: [{ uri: 'http://mirror1/b.zip', status: 'used' }],
+        }),
+      ],
+    })
+    const result = getRestartDescriptors(task)
+    expect(result).toHaveLength(2)
+    expect(result[0]).toEqual(['http://mirror1/a.zip', 'http://mirror2/a.zip'])
+    expect(result[1]).toEqual(['http://mirror1/b.zip'])
+  })
+
+  it('returns empty for task with no files and no BT info', () => {
+    const task = createMockTask({ files: [] })
+    expect(getRestartDescriptors(task)).toEqual([])
   })
 })

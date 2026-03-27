@@ -12,8 +12,14 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
   remove: vi.fn().mockResolvedValue(undefined),
 }))
 
-const { buildHistoryRecord, shouldRunStaleCleanup, historyRecordToTask, mergeHistoryIntoTasks } =
-  await import('../useTaskLifecycle')
+const {
+  buildHistoryRecord,
+  shouldRunStaleCleanup,
+  historyRecordToTask,
+  mergeHistoryIntoTasks,
+  buildHistoryMeta,
+  extractHistoryFilePaths,
+} = await import('../useTaskLifecycle')
 
 // ── Test data factories ──────────────────────────────────────────────
 
@@ -359,5 +365,148 @@ describe('mergeHistoryIntoTasks', () => {
 
   it('handles both empty', () => {
     expect(mergeHistoryIntoTasks([], [])).toEqual([])
+  })
+})
+
+// ── buildHistoryMeta ────────────────────────────────────────────────
+
+describe('buildHistoryMeta', () => {
+  it('stores complete files array in meta.files for multi-file tasks', () => {
+    const task = makeTask({
+      files: [
+        {
+          index: '1',
+          path: '/dl/a.zip',
+          length: '100',
+          completedLength: '100',
+          selected: 'true',
+          uris: [{ uri: 'http://m1/a.zip', status: 'used' }],
+        },
+        {
+          index: '2',
+          path: '/dl/b.zip',
+          length: '200',
+          completedLength: '200',
+          selected: 'true',
+          uris: [{ uri: 'http://m1/b.zip', status: 'used' }],
+        },
+        {
+          index: '3',
+          path: '/dl/c.zip',
+          length: '300',
+          completedLength: '300',
+          selected: 'false',
+          uris: [{ uri: 'http://m1/c.zip', status: 'used' }],
+        },
+      ],
+    })
+    const meta = buildHistoryMeta(task)
+    expect(meta.files).toBeDefined()
+    expect(meta.files).toHaveLength(3)
+    expect(meta.files![0].path).toBe('/dl/a.zip')
+    expect(meta.files![2].selected).toBe('false')
+  })
+
+  it('does NOT store meta.files for single-file tasks', () => {
+    const task = makeTask() // default has 1 file
+    const meta = buildHistoryMeta(task)
+    expect(meta.files).toBeUndefined()
+  })
+
+  it('preserves full mirror URIs per file', () => {
+    const task = makeTask({
+      files: [
+        {
+          index: '1',
+          path: '/dl/a.zip',
+          length: '100',
+          completedLength: '100',
+          selected: 'true',
+          uris: [
+            { uri: 'http://mirror1/a.zip', status: 'used' },
+            { uri: 'http://mirror2/a.zip', status: 'waiting' },
+          ],
+        },
+        {
+          index: '2',
+          path: '/dl/b.zip',
+          length: '200',
+          completedLength: '200',
+          selected: 'true',
+          uris: [{ uri: 'http://mirror1/b.zip', status: 'used' }],
+        },
+      ],
+    })
+    const meta = buildHistoryMeta(task)
+    expect(meta.files![0].uris).toEqual(['http://mirror1/a.zip', 'http://mirror2/a.zip'])
+    expect(meta.files![1].uris).toEqual(['http://mirror1/b.zip'])
+  })
+})
+
+// ── historyRecordToTask multi-file ──────────────────────────────────
+
+describe('historyRecordToTask — multi-file restoration', () => {
+  it('restores complete files[] from meta.files', () => {
+    const meta = JSON.stringify({
+      files: [
+        { path: '/dl/a.zip', length: '100', selected: 'true', uris: ['http://m1/a.zip'] },
+        { path: '/dl/b.zip', length: '200', selected: 'true', uris: ['http://m1/b.zip'] },
+        { path: '/dl/c.zip', length: '300', selected: 'false', uris: ['http://m1/c.zip'] },
+      ],
+    })
+    const task = historyRecordToTask(makeRecord({ meta }))
+    expect(task.files).toHaveLength(3)
+    expect(task.files[0].path).toBe('/dl/a.zip')
+    expect(task.files[1].length).toBe('200')
+    expect(task.files[2].selected).toBe('false')
+  })
+
+  it('restores full mirror URIs from meta.files', () => {
+    const meta = JSON.stringify({
+      files: [{ path: '/dl/a.zip', length: '100', uris: ['http://mirror1/a.zip', 'http://mirror2/a.zip'] }],
+    })
+    const task = historyRecordToTask(makeRecord({ meta }))
+    expect(task.files[0].uris).toEqual([
+      { uri: 'http://mirror1/a.zip', status: 'used' },
+      { uri: 'http://mirror2/a.zip', status: 'used' },
+    ])
+  })
+
+  it('falls back to single-file synthesis when meta.files is absent', () => {
+    const task = historyRecordToTask(makeRecord({ meta: undefined }))
+    expect(task.files).toHaveLength(1)
+    expect(task.files[0].path).toBe('/downloads/test-file.zip')
+  })
+
+  it('falls back to single-file synthesis when meta.files is empty array', () => {
+    const meta = JSON.stringify({ files: [] })
+    const task = historyRecordToTask(makeRecord({ meta }))
+    expect(task.files).toHaveLength(1)
+  })
+})
+
+// ── extractHistoryFilePaths ─────────────────────────────────────────
+
+describe('extractHistoryFilePaths', () => {
+  it('returns all paths from meta.files when present', () => {
+    const meta = JSON.stringify({
+      files: [
+        { path: '/dl/a.zip', uris: [] },
+        { path: '/dl/b.zip', uris: [] },
+        { path: '/dl/c.zip', uris: [] },
+      ],
+    })
+    const paths = extractHistoryFilePaths(makeRecord({ meta }))
+    expect(paths).toEqual(['/dl/a.zip', '/dl/b.zip', '/dl/c.zip'])
+  })
+
+  it('falls back to dir + name when meta.files is absent', () => {
+    const paths = extractHistoryFilePaths(makeRecord({ dir: '/dl', name: 'file.zip', meta: undefined }))
+    expect(paths).toEqual(['/dl/file.zip'])
+  })
+
+  it('returns empty array when both dir and name are missing', () => {
+    const paths = extractHistoryFilePaths(makeRecord({ dir: undefined, name: '', meta: undefined }))
+    expect(paths).toEqual([])
   })
 })

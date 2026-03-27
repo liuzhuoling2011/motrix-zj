@@ -144,6 +144,34 @@ export const getTaskUris = (task: Aria2Task, withTracker = false): string[] => {
   return uris
 }
 
+/**
+ * Build restart descriptors: one URI group per file.
+ *
+ * Unlike getTaskUris() which flattens all URIs into a single list,
+ * this returns grouped URIs so each file can be submitted to addUriAtomic()
+ * with ALL its mirrors in a single call, preserving multi-source semantics.
+ *
+ * - BT: single group containing the magnet link
+ * - HTTP/FTP: one group per file, each containing ALL mirror URIs
+ *
+ * Each group maps to one addUriAtomic({ uris: [...mirrors] }) call.
+ */
+export const getRestartDescriptors = (task: Aria2Task, withTracker = false): string[][] => {
+  if (checkTaskIsBT(task)) {
+    const magnet = buildMagnetLink(task, withTracker)
+    return magnet ? [[magnet]] : []
+  }
+  const { files } = task
+  if (!files || files.length === 0) return []
+  const descriptors: string[][] = []
+  for (const file of files) {
+    if (file.uris && file.uris.length > 0) {
+      descriptors.push(file.uris.map((u) => u.uri))
+    }
+  }
+  return descriptors
+}
+
 /** Returns the primary download URI or magnet link for a task. */
 export const getTaskUri = (task: Aria2Task, withTracker = false): string => {
   const uris = getTaskUris(task, withTracker)

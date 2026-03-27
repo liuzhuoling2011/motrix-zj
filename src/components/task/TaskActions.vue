@@ -9,7 +9,7 @@ import { isEngineReady } from '@/api/aria2'
 import { TASK_STATUS } from '@shared/constants'
 import { checkTaskIsSeeder } from '@shared/utils/task'
 import { deleteTaskFiles } from '@/composables/useFileDelete'
-import { deleteLocalFiles, buildFilePaths } from '@/composables/useBatchDelete'
+
 import { logger } from '@shared/logger'
 import { NButton, NIcon, NCheckbox, useDialog } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
@@ -266,23 +266,14 @@ function purgeRecord() {
       d.maskClosable = false
       await new Promise((r) => setTimeout(r, 50))
 
-      // Capture task info BEFORE purge (list mutates after)
-      const tasksToClean = deleteFiles.value
-        ? taskStore.taskList.map((t) => ({
-            dir: t.dir || '',
-            name: t.files?.[0]?.path?.split(/[/\\]/).pop() || '',
-          }))
-        : []
+      // Capture task refs BEFORE purge — the store list mutates after purgeTaskRecord
+      const tasksToClean = deleteFiles.value ? [...taskStore.taskList] : []
 
       await taskStore
         .purgeTaskRecord()
         .then(async () => {
-          if (deleteFiles.value && tasksToClean.length > 0) {
-            const paths = await buildFilePaths(tasksToClean)
-            const { deleted, errors } = await deleteLocalFiles(paths)
-            if (errors > 0) {
-              logger.warn('purgeRecord', `Deleted ${deleted} files, ${errors} errors`)
-            }
+          for (const task of tasksToClean) {
+            await deleteTaskFiles(task)
           }
           message.success(t('task.purge-record-success'))
         })
