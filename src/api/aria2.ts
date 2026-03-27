@@ -298,18 +298,6 @@ export async function batchRemoveTask(params: { gids: string[] }): Promise<unkno
   return getClient().multicall<unknown[][]>(calls)
 }
 
-/** Fetches user preferences from the Tauri persistent store. */
-export async function fetchPreference(): Promise<Partial<AppConfig>> {
-  const { invoke } = await import('@tauri-apps/api/core')
-  return invoke<Partial<AppConfig>>('get_app_config')
-}
-
-/** Saves updated user preferences to the Tauri persistent store. */
-export async function savePreference(config: Partial<AppConfig>): Promise<void> {
-  const { invoke } = await import('@tauri-apps/api/core')
-  await invoke('save_preference', { config })
-}
-
 const api = {
   initClient,
   closeClient,
@@ -343,8 +331,6 @@ const api = {
   batchPauseTask,
   batchForcePauseTask,
   batchRemoveTask,
-  fetchPreference,
-  savePreference,
 }
 
 export default api

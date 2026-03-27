@@ -78,23 +78,6 @@ export const usePreferenceStore = defineStore('preference', () => {
     config.value = { ...config.value, ...cfg }
   }
 
-  async function fetchPreference(api: { fetchPreference: () => Promise<Partial<AppConfig>> }) {
-    const cfg = await api.fetchPreference()
-    updatePreference(cfg)
-    return cfg
-  }
-
-  async function save(
-    cfg: Partial<AppConfig>,
-    api: { savePreference: (c: Partial<AppConfig>) => Promise<void> },
-    saveSession: () => Promise<string>,
-  ) {
-    await saveSession()
-    if (isEmpty(cfg)) return
-    updatePreference(cfg)
-    return api.savePreference(cfg)
-  }
-
   function recordHistoryDirectory(directory: string) {
     const historyDirectories = config.value.historyDirectories || []
     const favoriteDirectories = config.value.favoriteDirectories || []
@@ -185,8 +168,6 @@ export const usePreferenceStore = defineStore('preference', () => {
     updateAndSave,
     loadPreference,
     savePreference,
-    fetchPreference,
-    save,
     recordHistoryDirectory,
     addHistoryDirectory,
     favoriteDirectory,

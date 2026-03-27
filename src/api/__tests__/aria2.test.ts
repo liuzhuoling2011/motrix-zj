@@ -11,7 +11,6 @@
  * - Batch operations (resume/pause/remove) use multicall
  * - Type guards are applied on getGlobalStat and fetchTaskItem
  * - closeClient resets client to null and clears state
- * - fetchPreference and savePreference use dynamic Tauri invoke
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -72,8 +71,6 @@ import {
   batchResumeTask,
   batchPauseTask,
   batchRemoveTask,
-  fetchPreference,
-  savePreference,
 } from '../aria2'
 
 describe('aria2 API', () => {
@@ -496,22 +493,6 @@ describe('aria2 API', () => {
     it('batchRemoveTask sends multicall with forceRemove for each GID', async () => {
       await batchRemoveTask({ gids: ['g1'] })
       expect(mockMulticall).toHaveBeenCalledWith([['forceRemove', 'g1']])
-    })
-  })
-
-  // ── Tauri IPC Delegation ────────────────────────────────────────
-
-  describe('Tauri IPC', () => {
-    it('fetchPreference invokes get_app_config', async () => {
-      mockInvoke.mockResolvedValueOnce({ theme: 'dark' })
-      const result = await fetchPreference()
-      expect(mockInvoke).toHaveBeenCalledWith('get_app_config')
-      expect(result).toEqual({ theme: 'dark' })
-    })
-
-    it('savePreference invokes save_preference with config', async () => {
-      await savePreference({ theme: 'light' })
-      expect(mockInvoke).toHaveBeenCalledWith('save_preference', { config: { theme: 'light' } })
     })
   })
 })

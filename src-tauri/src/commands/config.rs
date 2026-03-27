@@ -5,37 +5,6 @@ use tauri::AppHandle;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
-/// Reads all user preferences from the `user.json` store.
-#[tauri::command]
-pub fn get_app_config(app: AppHandle) -> Result<Value, AppError> {
-    let store = app
-        .store("user.json")
-        .map_err(|e| AppError::Store(e.to_string()))?;
-    let entries: serde_json::Map<String, Value> = store
-        .entries()
-        .into_iter()
-        .map(|(k, v)| (k.to_string(), v.clone()))
-        .collect();
-    Ok(Value::Object(entries))
-}
-
-/// Merges the given key-value pairs into the `user.json` store.
-#[tauri::command]
-pub fn save_preference(app: AppHandle, config: Value) -> Result<(), AppError> {
-    let store = app
-        .store("user.json")
-        .map_err(|e| AppError::Store(e.to_string()))?;
-    if let Some(obj) = config.as_object() {
-        for (key, value) in obj {
-            store.set(key.clone(), value.clone());
-        }
-    }
-    log::debug!(
-        "config:save-preference keys={}",
-        config.as_object().map_or(0, serde_json::Map::len)
-    );
-    Ok(())
-}
 
 /// Reads all system-level configuration from the `system.json` store.
 #[tauri::command]

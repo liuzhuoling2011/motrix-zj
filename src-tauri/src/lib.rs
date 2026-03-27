@@ -559,8 +559,6 @@ pub fn run() {
         .manage(std::sync::Arc::new(UpdateCancelState::new()))
         .manage(std::sync::Arc::new(DownloadedUpdate::new()))
         .invoke_handler(tauri::generate_handler![
-            commands::get_app_config,
-            commands::save_preference,
             commands::get_system_config,
             commands::save_system_config,
             commands::start_engine_command,

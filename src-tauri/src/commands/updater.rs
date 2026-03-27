@@ -268,7 +268,18 @@ pub async fn apply_update(
     proxy: Option<String>,
 ) -> Result<(), AppError> {
     log::info!("updater:apply channel={channel}");
-    // Take the downloaded bytes from shared state
+    // Re-check the update to obtain the Update object for installation.
+    // This MUST happen before take() — if check() fails (network flap,
+    // JSON changed between download and install), the already-downloaded
+    // bytes remain in shared state and the user can retry without
+    // re-downloading.
+    let update = build_updater(&app, &channel, &proxy)?
+        .check()
+        .await
+        .map_err(|e| AppError::Updater(e.to_string()))?
+        .ok_or_else(|| AppError::Updater("Update no longer available".into()))?;
+
+    // Take the downloaded bytes from shared state AFTER check() succeeds.
     let dl_state = app.state::<Arc<DownloadedUpdate>>();
     let bytes = dl_state
         .bytes
@@ -276,13 +287,6 @@ pub async fn apply_update(
         .await
         .take()
         .ok_or_else(|| AppError::Updater("No downloaded update available".into()))?;
-
-    // Re-check the update to obtain the Update object for installation
-    let update = build_updater(&app, &channel, &proxy)?
-        .check()
-        .await
-        .map_err(|e| AppError::Updater(e.to_string()))?
-        .ok_or_else(|| AppError::Updater("Update no longer available".into()))?;
 
     // ── Phase 1: Stop aria2c engine BEFORE installation ─────────────
     // On Windows, NSIS cannot overwrite a running .exe binary.

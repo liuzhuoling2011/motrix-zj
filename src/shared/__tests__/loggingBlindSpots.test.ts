@@ -141,17 +141,6 @@ describe('P0.2: config/engine/fs critical command logging', () => {
     })
   })
 
-  describe('save_preference — config change tracking', () => {
-    let fnBody: string
-    beforeAll(() => {
-      fnBody = readRustFnBlock(configPath, 'save_preference')
-    })
-
-    it('logs the save operation at debug level', () => {
-      expect(fnBody).toContain('log::debug!')
-    })
-  })
-
   describe('save_system_config — system config change tracking', () => {
     let fnBody: string
     beforeAll(() => {
