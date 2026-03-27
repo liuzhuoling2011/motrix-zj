@@ -202,4 +202,5 @@ export default {
   'clipboard-magnet': 'Magnet hivatkozások',
   'clipboard-thunder': 'Thunder (迅雷) hivatkozások',
   'clipboard-bt-hash': 'BT Info Hash',
+  'copied-to-clipboard': '{label} másolva',
 }

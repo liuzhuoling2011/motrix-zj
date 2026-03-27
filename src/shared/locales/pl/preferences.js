@@ -202,4 +202,5 @@ export default {
   'clipboard-magnet': 'Linki Magnet',
   'clipboard-thunder': 'Linki Thunder (迅雷)',
   'clipboard-bt-hash': 'BT Info Hash',
+  'copied-to-clipboard': '{label} skopiowano',
 }

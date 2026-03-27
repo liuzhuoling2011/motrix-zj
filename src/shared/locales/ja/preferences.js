@@ -202,4 +202,5 @@ export default {
   'clipboard-magnet': 'Magnet リンク',
   'clipboard-thunder': 'Thunder（迅雷）リンク',
   'clipboard-bt-hash': 'BT Info Hash',
+  'copied-to-clipboard': '{label} をコピーしました',
 }

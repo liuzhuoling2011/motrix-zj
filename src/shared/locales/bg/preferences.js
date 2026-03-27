@@ -202,4 +202,5 @@ export default {
   'clipboard-magnet': 'Magnet линкове',
   'clipboard-thunder': 'Thunder (迅雷) линкове',
   'clipboard-bt-hash': 'BT Info Hash',
+  'copied-to-clipboard': '{label} копирано',
 }

@@ -202,4 +202,5 @@ export default {
   'clipboard-magnet': 'Enlaces Magnet',
   'clipboard-thunder': 'Enlaces Thunder (迅雷)',
   'clipboard-bt-hash': 'BT Info Hash',
+  'copied-to-clipboard': '{label} copiado',
 }

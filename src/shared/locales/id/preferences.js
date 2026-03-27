@@ -202,4 +202,5 @@ export default {
   'clipboard-magnet': 'Tautan Magnet',
   'clipboard-thunder': 'Tautan Thunder (迅雷)',
   'clipboard-bt-hash': 'BT Info Hash',
+  'copied-to-clipboard': '{label} disalin',
 }

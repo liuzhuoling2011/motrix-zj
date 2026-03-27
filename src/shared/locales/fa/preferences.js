@@ -202,4 +202,5 @@ export default {
   'clipboard-magnet': 'لینک‌های Magnet',
   'clipboard-thunder': 'لینک‌های Thunder (迅雷)',
   'clipboard-bt-hash': 'BT Info Hash',
+  'copied-to-clipboard': '{label} کپی شد',
 }

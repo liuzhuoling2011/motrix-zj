@@ -45,7 +45,14 @@ import {
   useDialog,
 } from 'naive-ui'
 import { useAppMessage } from '@/composables/useAppMessage'
-import { SyncOutline, DiceOutline, DownloadOutline, FolderOpenOutline, TrashOutline } from '@vicons/ionicons5'
+import {
+  SyncOutline,
+  DiceOutline,
+  DownloadOutline,
+  FolderOpenOutline,
+  TrashOutline,
+  CopyOutline,
+} from '@vicons/ionicons5'
 import { logger } from '@shared/logger'
 import PreferenceActionBar from './PreferenceActionBar.vue'
 import { trackerSourceOptions } from '@shared/constants/trackerSources'
@@ -224,6 +231,16 @@ function onRpcSecretDice() {
   form.value.rpcSecret = generateSecret()
 }
 
+async function copyToClipboard(text: string, label: string) {
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+    message.success(t('preferences.copied-to-clipboard', { label }))
+  } catch {
+    // Clipboard API may fail in restricted webview contexts — silently ignore
+  }
+}
+
 function onBtPortDice() {
   form.value.listenPort = randomBtPort()
 }
@@ -398,6 +415,11 @@ onMounted(() => {
             style="flex: 1"
             :status="form.rpcSecret ? undefined : 'warning'"
           />
+          <NButton style="padding: 0 10px" @click="copyToClipboard(form.rpcSecret, 'RPC Secret')">
+            <template #icon>
+              <NIcon :size="14"><CopyOutline /></NIcon>
+            </template>
+          </NButton>
           <NButton style="padding: 0 10px" @click="onRpcSecretDice">
             <template #icon>
               <NIcon :size="14"><DiceOutline /></NIcon>
@@ -471,6 +493,11 @@ onMounted(() => {
       <NFormItem :label="t('preferences.aria2-conf-path')">
         <NInputGroup>
           <NInput :value="aria2ConfPath" readonly style="flex: 1" />
+          <NButton style="padding: 0 10px" @click="copyToClipboard(aria2ConfPath, t('preferences.aria2-conf-path'))">
+            <template #icon>
+              <NIcon :size="14"><CopyOutline /></NIcon>
+            </template>
+          </NButton>
           <NButton style="padding: 0 10px" @click="handleRevealPath(aria2ConfPath)">
             <template #icon>
               <NIcon :size="14"><FolderOpenOutline /></NIcon>
@@ -481,6 +508,11 @@ onMounted(() => {
       <NFormItem :label="t('preferences.session-path')">
         <NInputGroup>
           <NInput :value="sessionPath" readonly style="flex: 1" />
+          <NButton style="padding: 0 10px" @click="copyToClipboard(sessionPath, t('preferences.session-path'))">
+            <template #icon>
+              <NIcon :size="14"><CopyOutline /></NIcon>
+            </template>
+          </NButton>
           <NButton style="padding: 0 10px" @click="handleRevealPath(sessionPath)">
             <template #icon>
               <NIcon :size="14"><FolderOpenOutline /></NIcon>
@@ -498,6 +530,11 @@ onMounted(() => {
       <NFormItem :label="t('preferences.log-path')">
         <NInputGroup>
           <NInput :value="logPath" readonly style="flex: 1" />
+          <NButton style="padding: 0 10px" @click="copyToClipboard(logPath, t('preferences.log-path'))">
+            <template #icon>
+              <NIcon :size="14"><CopyOutline /></NIcon>
+            </template>
+          </NButton>
           <NButton style="padding: 0 10px" @click="handleRevealPath(logPath)">
             <template #icon>
               <NIcon :size="14"><FolderOpenOutline /></NIcon>

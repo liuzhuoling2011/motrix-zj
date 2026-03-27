@@ -202,4 +202,5 @@ export default {
   'clipboard-magnet': 'Linkuri Magnet',
   'clipboard-thunder': 'Linkuri Thunder (迅雷)',
   'clipboard-bt-hash': 'BT Info Hash',
+  'copied-to-clipboard': '{label} copiat',
 }

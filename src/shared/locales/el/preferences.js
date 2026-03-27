@@ -202,4 +202,5 @@ export default {
   'clipboard-magnet': 'Σύνδεσμοι Magnet',
   'clipboard-thunder': 'Σύνδεσμοι Thunder (迅雷)',
   'clipboard-bt-hash': 'BT Info Hash',
+  'copied-to-clipboard': '{label} αντιγράφηκε',
 }
