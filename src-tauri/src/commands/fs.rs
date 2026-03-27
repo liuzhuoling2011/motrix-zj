@@ -8,10 +8,7 @@ fn redact_url_credentials(value: &str) -> String {
     match url::Url::parse(value) {
         Ok(url) => {
             let host = url.host_str().unwrap_or("invalid-host");
-            let port = url
-                .port()
-                .map(|p| format!(":{p}"))
-                .unwrap_or_default();
+            let port = url.port().map(|p| format!(":{p}")).unwrap_or_default();
             let has_auth = !url.username().is_empty() || url.password().is_some();
             if has_auth {
                 format!("{}://[REDACTED]@{host}{port}", url.scheme())
@@ -25,7 +22,10 @@ fn redact_url_credentials(value: &str) -> String {
 
 fn sanitize_config_snapshot(raw: &Value) -> Value {
     let mut sanitized = raw.clone();
-    if let Some(prefs) = sanitized.get_mut("preferences").and_then(Value::as_object_mut) {
+    if let Some(prefs) = sanitized
+        .get_mut("preferences")
+        .and_then(Value::as_object_mut)
+    {
         if let Some(secret) = prefs.get_mut("rpcSecret") {
             *secret = Value::String("[REDACTED]".into());
         }
@@ -172,7 +172,9 @@ pub async fn export_diagnostic_logs(app: AppHandle, save_path: String) -> Result
                 serde_json::to_vec_pretty(&serde_json::json!({
                     "error": "Failed to sanitize config snapshot"
                 }))
-                .map_err(|serr| AppError::Io(format!("Failed to serialize config fallback: {}", serr)))?
+                .map_err(|serr| {
+                    AppError::Io(format!("Failed to serialize config fallback: {}", serr))
+                })?
             }
         };
         zip_writer
@@ -218,10 +220,17 @@ mod export_tests {
             .get("preferences")
             .and_then(Value::as_object)
             .expect("preferences object must exist");
-        assert_eq!(prefs.get("rpcSecret").and_then(Value::as_str), Some("[REDACTED]"));
-        assert_eq!(prefs.get("cookie").and_then(Value::as_str), Some("[REDACTED]"));
         assert_eq!(
-            prefs.get("proxy")
+            prefs.get("rpcSecret").and_then(Value::as_str),
+            Some("[REDACTED]")
+        );
+        assert_eq!(
+            prefs.get("cookie").and_then(Value::as_str),
+            Some("[REDACTED]")
+        );
+        assert_eq!(
+            prefs
+                .get("proxy")
                 .and_then(Value::as_object)
                 .and_then(|proxy| proxy.get("server"))
                 .and_then(Value::as_str),

@@ -132,10 +132,7 @@ fn redact_proxy_for_log(proxy: &Option<String>) -> String {
     match Url::parse(proxy) {
         Ok(url) => {
             let host = url.host_str().unwrap_or("invalid-host");
-            let port = url
-                .port()
-                .map(|p| format!(":{p}"))
-                .unwrap_or_default();
+            let port = url.port().map(|p| format!(":{p}")).unwrap_or_default();
             let has_auth = !url.username().is_empty() || url.password().is_some();
             if has_auth {
                 format!("{}://[REDACTED]@{host}{port}", url.scheme())
@@ -383,7 +380,9 @@ pub async fn apply_update(
     // On macOS/Linux this prevents session file corruption.
     {
         let app_for_stop = app.clone();
-        tokio::task::spawn_blocking(move || crate::engine::stop_engine(&app_for_stop).map_err(AppError::Engine))
+        tokio::task::spawn_blocking(move || {
+            crate::engine::stop_engine(&app_for_stop).map_err(AppError::Engine)
+        })
         .await
         .map_err(|e| AppError::Engine(e.to_string()))??;
     }
