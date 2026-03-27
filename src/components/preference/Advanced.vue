@@ -398,6 +398,14 @@ onMounted(() => {
       <NFormItem :label="t('preferences.rpc-listen-port')">
         <NInputGroup>
           <NInputNumber v-model:value="form.rpcListenPort" :min="1024" :max="65535" style="width: 160px" />
+          <NButton
+            style="padding: 0 10px"
+            @click="copyToClipboard(String(form.rpcListenPort), t('preferences.rpc-listen-port'))"
+          >
+            <template #icon>
+              <NIcon :size="14"><CopyOutline /></NIcon>
+            </template>
+          </NButton>
           <NButton style="padding: 0 10px" @click="onRpcPortDice">
             <template #icon>
               <NIcon :size="14"><DiceOutline /></NIcon>
