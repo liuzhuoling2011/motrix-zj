@@ -12,7 +12,7 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { useRouter } from 'vue-router'
 import { logger } from '@shared/logger'
-import { setEngineReady, isEngineReady } from '@/api/aria2'
+import { setEngineReady, isEngineReady, reconnectClient } from '@/api/aria2'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
 import { watch, type Ref } from 'vue'
 
@@ -37,6 +37,10 @@ interface AppEventsDeps {
   preferenceStore: {
     pendingChanges: boolean
     saveBeforeLeave: (() => Promise<void>) | null
+    config: {
+      rpcListenPort?: string | number
+      rpcSecret?: string
+    }
   }
   message: {
     success: (msg: string) => void
@@ -99,6 +103,24 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
         }
       },
     )
+
+    listen<{ source: string }>('engine-recovered', async (event) => {
+      logger.info('MainLayout', `engine recovered (source: ${event.payload.source})`)
+      try {
+        const port = Number(preferenceStore.config.rpcListenPort) || 16800
+        const secret = preferenceStore.config.rpcSecret || ''
+        await reconnectClient({ port, secret })
+        setEngineReady(true)
+        appStore.engineReady = true
+        message.success(t('app.engine-recovered'))
+      } catch (e) {
+        logger.error('MainLayout', `engine-recovered reconnect failed: ${e}`)
+        setEngineReady(false)
+        appStore.engineReady = false
+        // Don't show overlay — if engine actually crashed,
+        // the Terminated handler will emit engine-crashed separately.
+      }
+    })
 
     listen('engine-stopped', () => {
       message.warning(t('app.engine-stopped'))

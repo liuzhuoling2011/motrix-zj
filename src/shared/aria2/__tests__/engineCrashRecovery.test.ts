@@ -341,3 +341,82 @@ describe('i18n — crash recovery locale keys', () => {
     })
   }
 })
+
+// ─── Test Group 5: updater.rs — install failure recovery hardening ─────
+
+describe('updater.rs — install failure recovery', () => {
+  let updaterSource: string
+  let installFailureBlock: string
+
+  beforeAll(() => {
+    const updaterPath = path.join(TAURI_ROOT, 'src', 'commands', 'updater.rs')
+    updaterSource = fs.readFileSync(updaterPath, 'utf-8')
+
+    // Isolate the install-failure recovery block between install(bytes) and phase=installed
+    const startMarker = 'update.install(bytes)'
+    const endMarker = 'phase=installed'
+    const startIdx = updaterSource.indexOf(startMarker)
+    const endIdx = updaterSource.indexOf(endMarker, startIdx)
+    installFailureBlock = updaterSource.slice(startIdx, endIdx)
+  })
+
+  it('does NOT use unwrap_or_default() on get_system_config', () => {
+    expect(installFailureBlock).not.toContain('unwrap_or_default()')
+  })
+
+  it('does NOT discard spawn_blocking result with let _ =', () => {
+    expect(installFailureBlock).not.toMatch(/let\s+_\s*=\s*tokio::task::spawn_blocking/)
+  })
+
+  it('emits engine-recovered on successful recovery', () => {
+    expect(installFailureBlock).toContain('engine-recovered')
+  })
+
+  it('emits engine-crashed on failed recovery', () => {
+    expect(installFailureBlock).toContain('engine-crashed')
+  })
+
+  it('checks restart_engine Result (not discarded)', () => {
+    // The recovery block should pattern-match on the result
+    expect(installFailureBlock).toMatch(/match\s+recovery/)
+  })
+})
+
+// ─── Test Group 6: useAppEvents.ts — engine-recovered listener ─────────
+
+describe('useAppEvents.ts — engine-recovered listener', () => {
+  let eventsSource: string
+
+  beforeAll(() => {
+    const eventsPath = path.join(SRC_ROOT, 'src', 'composables', 'useAppEvents.ts')
+    eventsSource = fs.readFileSync(eventsPath, 'utf-8')
+  })
+
+  it('listens for "engine-recovered" event', () => {
+    expect(eventsSource).toContain("'engine-recovered'")
+  })
+
+  it('calls reconnectClient on engine-recovered', () => {
+    const block = extractListenerBlock(eventsSource, 'engine-recovered')
+    expect(block).toBeTruthy()
+    expect(block).toContain('reconnectClient')
+  })
+
+  it('sets engineReady to true on successful reconnect', () => {
+    const block = extractListenerBlock(eventsSource, 'engine-recovered')
+    expect(block).toBeTruthy()
+    expect(block).toContain('setEngineReady(true)')
+  })
+
+  it('sets engineReady to false on failed reconnect', () => {
+    const block = extractListenerBlock(eventsSource, 'engine-recovered')
+    expect(block).toBeTruthy()
+    expect(block).toContain('setEngineReady(false)')
+  })
+
+  it('imports reconnectClient from aria2 API', () => {
+    expect(eventsSource).toContain('reconnectClient')
+    // Must be an import, not just a string reference
+    expect(eventsSource).toMatch(/import\s+\{[^}]*reconnectClient[^}]*\}\s+from/)
+  })
+})

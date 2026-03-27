@@ -302,14 +302,40 @@ pub async fn apply_update(
     // restored.  restart_engine() atomically resets intentional_stop,
     // preventing the crash watcher from being permanently masked.
     if let Err(e) = update.install(bytes) {
-        log::warn!("updater:apply install failed, recovering engine: {e}");
+        log::warn!("updater:apply install failed, attempting engine recovery: {e}");
+
         let app_for_restart = app.clone();
-        let _ = tokio::task::spawn_blocking(move || {
+        let recovery = tokio::task::spawn_blocking(move || -> Result<(), String> {
             let config = super::config::get_system_config(app_for_restart.clone())
-                .unwrap_or_default();
+                .map_err(|ce| format!("config read failed: {ce}"))?;
             crate::engine::restart_engine(&app_for_restart, &config)
         })
         .await;
+
+        match recovery {
+            Ok(Ok(())) => {
+                log::info!("updater:apply engine recovered after install failure");
+                let _ = app.emit(
+                    "engine-recovered",
+                    serde_json::json!({ "source": "updater-install-failed" }),
+                );
+            }
+            Ok(Err(engine_err)) => {
+                log::error!("updater:apply engine recovery failed: {engine_err}");
+                let _ = app.emit(
+                    "engine-crashed",
+                    serde_json::json!({ "code": -1, "signal": null }),
+                );
+            }
+            Err(join_err) => {
+                log::error!("updater:apply recovery task panicked: {join_err}");
+                let _ = app.emit(
+                    "engine-crashed",
+                    serde_json::json!({ "code": -1, "signal": null }),
+                );
+            }
+        }
+
         return Err(AppError::Updater(e.to_string()));
     }
     log::info!("updater:apply phase=installed");
