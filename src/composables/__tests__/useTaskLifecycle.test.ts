@@ -407,10 +407,67 @@ describe('buildHistoryMeta', () => {
     expect(meta.files![2].selected).toBe('false')
   })
 
-  it('does NOT store meta.files for single-file tasks', () => {
-    const task = makeTask() // default has 1 file
+  it('does NOT store meta.files for single-file single-mirror tasks', () => {
+    const task = makeTask() // default has 1 file with 1 URI
     const meta = buildHistoryMeta(task)
     expect(meta.files).toBeUndefined()
+  })
+
+  it('stores meta.files for single-file multi-mirror tasks', () => {
+    const task = makeTask({
+      files: [
+        {
+          index: '1',
+          path: '/dl/archive.zip',
+          length: '5000',
+          completedLength: '5000',
+          selected: 'true',
+          uris: [
+            { uri: 'http://mirror1.example.com/archive.zip', status: 'used' },
+            { uri: 'http://mirror2.example.com/archive.zip', status: 'waiting' },
+            { uri: 'http://mirror3.example.com/archive.zip', status: 'waiting' },
+          ],
+        },
+      ],
+    })
+    const meta = buildHistoryMeta(task)
+    expect(meta.files).toBeDefined()
+    expect(meta.files).toHaveLength(1)
+    expect(meta.files![0].path).toBe('/dl/archive.zip')
+    expect(meta.files![0].uris).toEqual([
+      'http://mirror1.example.com/archive.zip',
+      'http://mirror2.example.com/archive.zip',
+      'http://mirror3.example.com/archive.zip',
+    ])
+  })
+
+  it('round-trips single-file multi-mirror through write → restore', () => {
+    // Write: buildHistoryMeta captures all mirrors
+    const task = makeTask({
+      files: [
+        {
+          index: '1',
+          path: '/dl/archive.zip',
+          length: '5000',
+          completedLength: '5000',
+          selected: 'true',
+          uris: [
+            { uri: 'http://mirror1/archive.zip', status: 'used' },
+            { uri: 'http://mirror2/archive.zip', status: 'waiting' },
+          ],
+        },
+      ],
+    })
+    const meta = buildHistoryMeta(task)
+    expect(meta.files).toHaveLength(1)
+
+    // Restore: historyRecordToTask rebuilds complete uris[]
+    const restored = historyRecordToTask(makeRecord({ meta: JSON.stringify(meta), status: 'complete' }))
+    expect(restored.files).toHaveLength(1)
+    expect(restored.files[0].uris).toEqual([
+      { uri: 'http://mirror1/archive.zip', status: 'used' },
+      { uri: 'http://mirror2/archive.zip', status: 'used' },
+    ])
   })
 
   it('preserves full mirror URIs per file', () => {

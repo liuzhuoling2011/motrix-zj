@@ -30,10 +30,15 @@ export function buildHistoryMeta(task: Aria2Task): HistoryMeta {
   const meta: HistoryMeta = {}
   if (task.infoHash) meta.infoHash = task.infoHash
 
-  // Multi-file snapshot: preserve every file's path, length, selection, and ALL URIs.
-  // This enables correct restart (mirror groups), delete (all files), and stale cleanup.
-  if (task.files && task.files.length > 1) {
-    meta.files = task.files.map(
+  // Snapshot trigger: multi-file OR any file with multiple mirror URIs.
+  // Multi-file: enables correct delete (all files) and stale cleanup.
+  // Multi-mirror: enables correct restart with all mirrors via addUriAtomic.
+  const files = task.files ?? []
+  const hasMultipleFiles = files.length > 1
+  const hasMirrors = files.some((f) => (f.uris?.length ?? 0) > 1)
+  const needsSnapshot = hasMultipleFiles || hasMirrors
+  if (needsSnapshot) {
+    meta.files = files.map(
       (f): HistoryFileSnapshot => ({
         path: f.path,
         length: f.length,
