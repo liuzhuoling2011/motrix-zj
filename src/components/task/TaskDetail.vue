@@ -29,6 +29,7 @@ import {
   NProgress,
   NTag,
   NButton,
+  NCheckbox,
 } from 'naive-ui'
 import {
   InformationCircleOutline,
@@ -39,6 +40,10 @@ import {
 } from '@vicons/ionicons5'
 import TaskGraphic from './TaskGraphic.vue'
 import { useTrackerProbe, buildTrackerRows, type TrackerRow } from '@/composables/useTrackerProbe'
+import { useTaskDetailProxy } from '@/composables/useTaskDetailProxy'
+import { usePreferenceStore } from '@/stores/preference'
+import { useTaskStore } from '@/stores/task'
+import { useAppMessage } from '@/composables/useAppMessage'
 import type { Aria2Task, Aria2File, Aria2Peer } from '@shared/types'
 
 const props = defineProps<{
@@ -49,6 +54,28 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>()
 
 const { t, locale } = useI18n()
+const preferenceStore = usePreferenceStore()
+const taskStore = useTaskStore()
+const message = useAppMessage()
+const taskRef = computed(() => props.task)
+
+const {
+  useProxy: detailUseProxy,
+  canModify: proxyCanModify,
+  globalProxyAvailable: proxyGlobalAvailable,
+  proxyAddress: proxyAddr,
+  dirty: proxyDirty,
+  applying: proxyApplying,
+  applyProxy: applyProxyFn,
+} = useTaskDetailProxy({
+  task: taskRef,
+  getTaskOption: (gid) => taskStore.getTaskOption(gid),
+  changeTaskOption: (payload) => taskStore.changeTaskOption(payload),
+  proxyConfig: () => preferenceStore.config.proxy,
+  message,
+  t,
+})
+
 const activeTab = ref('general')
 const slideDirection = ref<'left' | 'right'>('left')
 const prevTabIndex = ref(0)
@@ -336,6 +363,28 @@ function handleClose() {
                 >
                   {{ task.errorCode }} {{ task.errorMessage }}
                 </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-proxy-label') || 'Proxy'">
+                  <div class="proxy-toggle-row">
+                    <NCheckbox v-model:checked="detailUseProxy" :disabled="!proxyCanModify || !proxyGlobalAvailable">
+                      {{ t('task.use-proxy') }}
+                    </NCheckbox>
+                    <span v-if="proxyGlobalAvailable && detailUseProxy" class="proxy-hint">
+                      {{ proxyAddr }}
+                    </span>
+                    <span v-else-if="!proxyGlobalAvailable" class="proxy-hint-disabled">
+                      {{ t('task.proxy-not-configured') }}
+                    </span>
+                    <NButton
+                      v-if="proxyCanModify && proxyDirty"
+                      size="tiny"
+                      type="primary"
+                      :loading="proxyApplying"
+                      @click="applyProxyFn"
+                    >
+                      {{ t('task.apply') }}
+                    </NButton>
+                  </div>
+                </NDescriptionsItem>
               </NDescriptions>
               <template v-if="isBT && btInfo">
                 <div class="section-divider">BitTorrent</div>
@@ -592,5 +641,24 @@ function handleClose() {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ── Proxy toggle row ────────────────────────────────────────────── */
+.proxy-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.proxy-hint {
+  font-size: var(--font-size-sm, 12px);
+  color: var(--n-text-color-3, #999);
+  opacity: 0.8;
+  user-select: all;
+}
+.proxy-hint-disabled {
+  font-size: var(--font-size-sm, 12px);
+  color: var(--n-text-color-disabled, #bbb);
+  font-style: italic;
 }
 </style>
