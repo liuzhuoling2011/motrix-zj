@@ -21,7 +21,7 @@ import { logger } from '@shared/logger'
 import type { AppConfig } from '@shared/types'
 
 /** Current schema version. Must equal `migrations.length`. */
-export const CONFIG_VERSION = 1
+export const CONFIG_VERSION = 2
 
 /** Result returned by runMigrations for callers to act on (e.g. toast). */
 export interface MigrationResult {
@@ -61,6 +61,28 @@ const migrations: Migration[] = [
       proxy.scope = [...PROXY_SCOPE_OPTIONS]
       logger.info('ConfigMigration', 'v1: backfilled empty proxy.scope with all scope options')
     }
+  },
+
+  // ── v1 → v2 ──────────────────────────────────────────────────────
+  // Decouple split from maxConnectionPerServer.
+  //
+  // Before v2, transformBasicForStore() forced split = maxConnectionPerServer.
+  // Both values are already persisted in config.json with the same number,
+  // so no value migration is needed — we only remove the obsolete
+  // engineMaxConnectionPerServer field that served as a sync anchor for
+  // AddTask's maxSplit computation.
+  //
+  // After v2:
+  //   - split controls aria2's --split (parallel segments per file)
+  //   - maxConnectionPerServer controls aria2's --max-connection-per-server
+  //   - Both are independently adjustable in Basic settings
+  function migrateV2(config: Partial<AppConfig>): void {
+    // Remove the obsolete sync anchor field
+    delete (config as Record<string, unknown>).engineMaxConnectionPerServer
+    logger.info(
+      'ConfigMigration',
+      'v2: removed engineMaxConnectionPerServer — split and maxConnectionPerServer are now independent',
+    )
   },
 ]
 

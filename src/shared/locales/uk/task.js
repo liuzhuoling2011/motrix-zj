@@ -23,6 +23,7 @@ export default {
   'task-out': 'Перейменувати',
   'task-out-tips': 'Необов\'язково',
   'task-split': 'Сегменти',
+  'split-limit-hint': 'Досягнуто ліміт. Ви можете збільшити його в налаштуваннях.',
   'task-dir': 'Зберегти в',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

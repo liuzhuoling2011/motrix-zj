@@ -23,6 +23,7 @@ export default {
   'task-out': 'Gi nytt navn',
   'task-out-tips': 'Valgfritt',
   'task-split': 'Segmenter',
+  'split-limit-hint': 'Grensen er nådd. Du kan øke den i innstillingene.',
   'task-dir': 'Lagre i',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

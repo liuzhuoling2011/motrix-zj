@@ -36,8 +36,18 @@ export const MAX_NUM_OF_DIRECTORIES = 5
 export const ENGINE_RPC_HOST = '127.0.0.1'
 export const ENGINE_RPC_PORT = 16800
 export const ENGINE_MAX_CONCURRENT_DOWNLOADS = 10
-export const ENGINE_MAX_CONNECTION_PER_SERVER = 128
+export const ENGINE_MAX_CONNECTION_PER_SERVER = 256
 export const ENGINE_DEFAULT_CONNECTION_PER_SERVER = 64
+export const ENGINE_DEFAULT_SPLIT = 64
+export const ENGINE_DEFAULT_BT_MAX_PEERS = 128
+export const ENGINE_MAX_BT_MAX_PEERS = 500
+
+// Safe thresholds — values above these trigger a user confirmation warning.
+// These are "recommended" values displayed in UI labels; exceeding them is allowed
+// but requires explicit opt-in via a warning dialog.
+export const SAFE_LIMIT_SPLIT = 64
+export const SAFE_LIMIT_CONNECTION_PER_SERVER = 64
+export const SAFE_LIMIT_BT_MAX_PEERS = 128
 
 export const UNKNOWN_PEERID = '%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00'
 export const UNKNOWN_PEERID_NAME = 'unknown'
@@ -74,22 +84,23 @@ export const UPDATE_CHANNELS = ['stable', 'beta'] as const
  * - `rpcSecret`     → ABSENT from defaults; auto-generated on first launch in main.ts
  */
 export const DEFAULT_APP_CONFIG = {
-  configVersion: 1,
+  configVersion: 2,
   // ── Appearance ──────────────────────────────────────────────────
   theme: 'auto' as const,
   locale: '',
 
   // ── Download Core (aria2 defaults: concurrent=5, split=5, conn/server=1) ──
   dir: '',
-  split: ENGINE_DEFAULT_CONNECTION_PER_SERVER, // legacy Motrix default; UI allows up to ENGINE_MAX_CONNECTION_PER_SERVER
+  split: ENGINE_DEFAULT_SPLIT, // parallel segments per file; independent of maxConnectionPerServer since v2
   maxConcurrentDownloads: 5, // aria2 default; IDM=4, FDM=3~12
-  maxConnectionPerServer: ENGINE_DEFAULT_CONNECTION_PER_SERVER, // legacy Motrix default; UI allows up to ENGINE_MAX_CONNECTION_PER_SERVER
+  maxConnectionPerServer: ENGINE_DEFAULT_CONNECTION_PER_SERVER, // per-server connection cap; independent of split since v2
   maxOverallDownloadLimit: '0',
   maxOverallUploadLimit: '0',
   maxDownloadLimit: '',
   maxUploadLimit: '',
 
   // ── BitTorrent (qBT/Transmission/Deluge conventions) ──────────
+  btMaxPeers: ENGINE_DEFAULT_BT_MAX_PEERS, // aria2 default=55; qBT=100, Transmission=60, Deluge=200
   seedRatio: 2, // old Motrix=2, Transmission=2; 2:1 supports BT ecosystem health
   seedTime: 2880, // old Motrix=2880 (48h); generous default for healthy swarm contribution
   keepSeeding: false, // qBT stops at ratio; safer default for new users
@@ -141,7 +152,6 @@ export const DEFAULT_APP_CONFIG = {
   cookie: '',
   runMode: '',
   engineBinPath: '',
-  engineMaxConnectionPerServer: ENGINE_DEFAULT_CONNECTION_PER_SERVER, // mirrors maxConnectionPerServer
 
   // ── Tracker ───────────────────────────────────────────────────
   autoSyncTracker: true,

@@ -14,7 +14,14 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { downloadDir } from '@tauri-apps/api/path'
 import { extractSpeedUnit } from '@shared/utils'
 import { logger } from '@shared/logger'
-import { ENGINE_RPC_PORT } from '@shared/constants'
+import {
+  ENGINE_RPC_PORT,
+  ENGINE_MAX_CONNECTION_PER_SERVER,
+  ENGINE_MAX_BT_MAX_PEERS,
+  SAFE_LIMIT_SPLIT,
+  SAFE_LIMIT_CONNECTION_PER_SERVER,
+  SAFE_LIMIT_BT_MAX_PEERS,
+} from '@shared/constants'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { buildBasicForm, buildBasicSystemConfig, transformBasicForStore } from '@/composables/useBasicPreference'
 import {
@@ -90,32 +97,88 @@ function buildForm() {
   return buildBasicForm(preferenceStore.config, defaultDownloadDir.value)
 }
 
-const CONNECTION_SAFE_LIMIT = 64
+// ── Safe-limit warning configuration ────────────────────────────────
+// Declarative config: fields that exceed their safe threshold are collected
+// and presented in a single merged warning dialog before save.
+const safeLimits = [
+  {
+    field: 'split' as const,
+    safe: SAFE_LIMIT_SPLIT,
+    labelKey: 'preferences.split-count',
+    reasonKey: 'preferences.high-split-reason',
+  },
+  {
+    field: 'maxConnectionPerServer' as const,
+    safe: SAFE_LIMIT_CONNECTION_PER_SERVER,
+    labelKey: 'preferences.max-connection-per-server',
+    reasonKey: 'preferences.high-connection-reason',
+  },
+  {
+    field: 'btMaxPeers' as const,
+    safe: SAFE_LIMIT_BT_MAX_PEERS,
+    labelKey: 'preferences.bt-max-peers',
+    reasonKey: 'preferences.high-bt-peers-reason',
+  },
+]
+
+/**
+ * Builds a merged warning VNode listing all exceeded fields,
+ * each with its current value, recommended limit, and risk reason.
+ * Uses Vue h() because Naive UI dialog.content renders strings as plain text
+ * without line break support.
+ */
+function buildSafeLimitContent(f: Record<string, unknown>, exceeded: typeof safeLimits) {
+  return h(
+    'div',
+    { style: 'display: flex; flex-direction: column; gap: 12px' },
+    exceeded.map((e) => {
+      const current = f[e.field] as number
+      return h('div', [
+        h(
+          'div',
+          { style: 'font-weight: 500' },
+          `• ${t(e.labelKey)}: ${current} (${t('preferences.recommended-limit', { value: e.safe })})`,
+        ),
+        h('div', { style: 'padding-left: 14px; opacity: 0.75' }, t(e.reasonKey)),
+      ])
+    }),
+  )
+}
+
+/**
+ * Shows a single merged warning dialog for all exceeded fields.
+ * On cancel, all exceeded fields revert to their safe values atomically.
+ */
+function confirmSafeLimits(f: Record<string, unknown>, exceeded: typeof safeLimits): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const revert = () => {
+      for (const e of exceeded) f[e.field] = e.safe
+      resolve(false)
+    }
+    dialog.warning({
+      title: t('preferences.safe-limit-warning-title'),
+      content: () => buildSafeLimitContent(f, exceeded),
+      positiveText: t('preferences.high-connection-continue'),
+      negativeText: t('app.cancel'),
+      onPositiveClick: () => resolve(true),
+      onNegativeClick: revert,
+      onClose: revert,
+    })
+  })
+}
 
 const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } = usePreferenceForm({
   buildForm,
   buildSystemConfig: buildBasicSystemConfig,
   transformForStore: transformBasicForStore,
   beforeSave: async (f) => {
-    // Gate save on user confirmation when connection count exceeds safe threshold.
-    // Modern HTTP/2 & HTTP/3 servers rarely benefit from >64 connections, and
-    // aggressive counts may trigger server-side rate limiting or IP bans.
-    if (f.maxConnectionPerServer > CONNECTION_SAFE_LIMIT) {
-      return new Promise<boolean>((resolve) => {
-        const revert = () => {
-          f.maxConnectionPerServer = CONNECTION_SAFE_LIMIT
-          resolve(false)
-        }
-        dialog.warning({
-          title: t('preferences.high-connection-warning-title'),
-          content: t('preferences.high-connection-warning'),
-          positiveText: t('preferences.high-connection-continue'),
-          negativeText: t('app.cancel'),
-          onPositiveClick: () => resolve(true),
-          onNegativeClick: revert,
-          onClose: revert,
-        })
-      })
+    // Collect all fields exceeding their safe threshold, show one merged dialog
+    const exceeded = safeLimits.filter((e) => {
+      const v = f[e.field as string]
+      return typeof v === 'number' && v > e.safe
+    })
+    if (exceeded.length > 0) {
+      return confirmSafeLimits(f, exceeded)
     }
     return true
   },
@@ -562,8 +625,24 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.max-concurrent-downloads')">
         <NInputNumber v-model:value="form.maxConcurrentDownloads" :min="1" :max="10" style="width: 120px" />
       </NFormItem>
+      <NFormItem :label="t('preferences.split-count')">
+        <NInputNumber
+          v-model:value="form.split"
+          :min="1"
+          :max="ENGINE_MAX_CONNECTION_PER_SERVER"
+          style="width: 120px"
+        />
+      </NFormItem>
       <NFormItem :label="t('preferences.max-connection-per-server')">
-        <NInputNumber v-model:value="form.maxConnectionPerServer" :min="1" :max="128" style="width: 120px" />
+        <NInputNumber
+          v-model:value="form.maxConnectionPerServer"
+          :min="1"
+          :max="ENGINE_MAX_CONNECTION_PER_SERVER"
+          style="width: 120px"
+        />
+      </NFormItem>
+      <NFormItem :label="t('preferences.bt-max-peers')">
+        <NInputNumber v-model:value="form.btMaxPeers" :min="1" :max="ENGINE_MAX_BT_MAX_PEERS" style="width: 120px" />
       </NFormItem>
       <NFormItem :label="t('preferences.continue')">
         <NSwitch v-model:value="form.continue" />

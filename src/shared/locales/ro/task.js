@@ -23,6 +23,7 @@ export default {
   'task-out': 'Redenumește',
   'task-out-tips': 'Opțional',
   'task-split': 'Segmente',
+  'split-limit-hint': 'Limita atinsă. Puteți să o creșteți din Setări.',
   'task-dir': 'Salvează în',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

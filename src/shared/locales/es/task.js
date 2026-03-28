@@ -23,6 +23,7 @@ export default {
   'task-out': 'Renombrar',
   'task-out-tips': 'Opcional',
   'task-split': 'Segmentos',
+  'split-limit-hint': 'Límite alcanzado. Puede aumentarlo en Configuración.',
   'task-dir': 'Guardar en',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

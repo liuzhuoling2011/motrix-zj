@@ -23,6 +23,7 @@ export default {
   'task-out': 'Μετονομασία',
   'task-out-tips': 'Προαιρετικό',
   'task-split': 'Τμήματα',
+  'split-limit-hint': 'Συμπληρώθηκε το όριο. Μπορείτε να το αυξήσετε στις ρυθμίσεις.',
   'task-dir': 'Αποθήκευση σε',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

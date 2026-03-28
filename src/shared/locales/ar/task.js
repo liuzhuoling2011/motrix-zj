@@ -23,6 +23,7 @@ export default {
   'task-out': 'إعادة تسمية',
   'task-out-tips': 'اختياري',
   'task-split': 'الأجزاء',
+  'split-limit-hint': 'تم الوصول للحد الأقصى. يمكنك زيادته من الإعدادات.',
   'task-dir': 'حفظ في',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

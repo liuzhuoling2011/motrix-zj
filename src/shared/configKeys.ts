@@ -9,7 +9,6 @@ const userKeys = [
   'delete-torrent-after-complete',
   'enable-upnp',
   'engine-bin-path',
-  'engine-max-connection-per-server',
   'favorite-directories',
   'hide-dock-on-minimize',
   'history-directories',

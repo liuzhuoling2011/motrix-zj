@@ -3,13 +3,18 @@
  *
  * Key business logic:
  * - btAutoDownloadContent ↔ followTorrent/followMetalink/pauseMetadata
- * - split must be synced to maxConnectionPerServer in system config
- * - Defaults must match ENGINE_DEFAULT_CONNECTION_PER_SERVER (64)
+ * - split and maxConnectionPerServer are independent (v2 decoupling)
+ * - Defaults must match ENGINE_DEFAULT_SPLIT / ENGINE_DEFAULT_CONNECTION_PER_SERVER
  */
 import { describe, it, expect } from 'vitest'
 import { buildBasicForm, buildBasicSystemConfig, transformBasicForStore, type BasicForm } from '../useBasicPreference'
 import type { AppConfig } from '@shared/types'
-import { DEFAULT_APP_CONFIG, ENGINE_DEFAULT_CONNECTION_PER_SERVER } from '@shared/constants'
+import {
+  DEFAULT_APP_CONFIG,
+  ENGINE_DEFAULT_CONNECTION_PER_SERVER,
+  ENGINE_DEFAULT_SPLIT,
+  ENGINE_DEFAULT_BT_MAX_PEERS,
+} from '@shared/constants'
 
 // ── buildBasicForm ──────────────────────────────────────────────────
 
@@ -101,12 +106,22 @@ describe('buildBasicForm', () => {
     expect(DEFAULT_APP_CONFIG.maxConnectionPerServer).toBe(ENGINE_DEFAULT_CONNECTION_PER_SERVER)
   })
 
-  it('DEFAULT_APP_CONFIG.split matches ENGINE_DEFAULT_CONNECTION_PER_SERVER', () => {
-    expect(DEFAULT_APP_CONFIG.split).toBe(ENGINE_DEFAULT_CONNECTION_PER_SERVER)
+  it('DEFAULT_APP_CONFIG.split matches ENGINE_DEFAULT_SPLIT', () => {
+    expect(DEFAULT_APP_CONFIG.split).toBe(ENGINE_DEFAULT_SPLIT)
   })
 
-  it('DEFAULT_APP_CONFIG.engineMaxConnectionPerServer matches maxConnectionPerServer', () => {
-    expect(DEFAULT_APP_CONFIG.engineMaxConnectionPerServer).toBe(DEFAULT_APP_CONFIG.maxConnectionPerServer)
+  it('defaults split to ENGINE_DEFAULT_SPLIT', () => {
+    const form = buildBasicForm({} as AppConfig)
+    expect(form.split).toBe(ENGINE_DEFAULT_SPLIT)
+  })
+
+  it('DEFAULT_APP_CONFIG.btMaxPeers matches ENGINE_DEFAULT_BT_MAX_PEERS', () => {
+    expect(DEFAULT_APP_CONFIG.btMaxPeers).toBe(ENGINE_DEFAULT_BT_MAX_PEERS)
+  })
+
+  it('defaults btMaxPeers to ENGINE_DEFAULT_BT_MAX_PEERS', () => {
+    const form = buildBasicForm({} as AppConfig)
+    expect(form.btMaxPeers).toBe(ENGINE_DEFAULT_BT_MAX_PEERS)
   })
 })
 
@@ -134,6 +149,8 @@ describe('buildBasicSystemConfig', () => {
     noConfirmBeforeDeleteTask: false,
     maxConcurrentDownloads: 5,
     maxConnectionPerServer: 64,
+    split: 64,
+    btMaxPeers: 128,
     maxOverallDownloadLimit: '0',
     maxOverallUploadLimit: '0',
     btAutoDownloadContent: true,
@@ -162,16 +179,18 @@ describe('buildBasicSystemConfig', () => {
     expect(config.continue).toBe('true')
   })
 
-  it('includes split synced to maxConnectionPerServer', () => {
-    const config = buildBasicSystemConfig({ ...baseForm, maxConnectionPerServer: 32 })
-    expect(config.split).toBe('32')
+  it('emits split independently from maxConnectionPerServer', () => {
+    const config = buildBasicSystemConfig({ ...baseForm, maxConnectionPerServer: 32, split: 128 })
+    expect(config.split).toBe('128')
     expect(config['max-connection-per-server']).toBe('32')
   })
 
-  it('always includes split field in output', () => {
+  it('always includes both split and max-connection-per-server', () => {
     const config = buildBasicSystemConfig(baseForm)
     expect(config).toHaveProperty('split')
-    expect(config.split).toBe(String(baseForm.maxConnectionPerServer))
+    expect(config).toHaveProperty('max-connection-per-server')
+    expect(config.split).toBe(String(baseForm.split))
+    expect(config['max-connection-per-server']).toBe(String(baseForm.maxConnectionPerServer))
   })
 
   it('sets follow-torrent=true and pause-metadata=false when auto-content ON', () => {
@@ -240,6 +259,8 @@ describe('transformBasicForStore', () => {
     noConfirmBeforeDeleteTask: false,
     maxConcurrentDownloads: 5,
     maxConnectionPerServer: 16,
+    split: 16,
+    btMaxPeers: 128,
     maxOverallDownloadLimit: '0',
     maxOverallUploadLimit: '0',
     btAutoDownloadContent: true,
@@ -279,13 +300,14 @@ describe('transformBasicForStore', () => {
     expect('btAutoDownloadContent' in result).toBe(false)
   })
 
-  it('syncs split to maxConnectionPerServer', () => {
-    const result = transformBasicForStore({ ...baseForm, maxConnectionPerServer: 32 })
-    expect(result.split).toBe(32)
+  it('persists split independently from maxConnectionPerServer', () => {
+    const result = transformBasicForStore({ ...baseForm, maxConnectionPerServer: 32, split: 128 })
+    expect(result.split).toBe(128)
+    expect(result.maxConnectionPerServer).toBe(32)
   })
 
-  it('syncs engineMaxConnectionPerServer to maxConnectionPerServer', () => {
+  it('does not set engineMaxConnectionPerServer (removed in v2)', () => {
     const result = transformBasicForStore({ ...baseForm, maxConnectionPerServer: 32 })
-    expect(result.engineMaxConnectionPerServer).toBe(32)
+    expect((result as Record<string, unknown>).engineMaxConnectionPerServer).toBeUndefined()
   })
 })

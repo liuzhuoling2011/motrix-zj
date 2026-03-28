@@ -23,6 +23,7 @@ export default {
   'task-out': 'Yeniden adlandır',
   'task-out-tips': 'İsteğe bağlı',
   'task-split': 'Segmentler',
+  'split-limit-hint': 'Sınıra ulaşıldı. Ayarlardan artırabilirsiniz.',
   'task-dir': 'Kayıt yeri',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

@@ -23,6 +23,7 @@ export default {
   'task-out': '이름 변경',
   'task-out-tips': '선택 사항',
   'task-split': '분할 수',
+  'split-limit-hint': '한도에 도달했습니다. 설정에서 늘릴 수 있습니다.',
   'task-dir': '저장 위치',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

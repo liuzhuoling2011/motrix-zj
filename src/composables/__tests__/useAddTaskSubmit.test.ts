@@ -109,16 +109,15 @@ describe('buildEngineOptions', () => {
     expect(opts.split).toBe('16')
   })
 
-  it('always includes max-connection-per-server synced to split', () => {
+  it('does NOT include max-connection-per-server (uses global value since v2)', () => {
     const opts = buildEngineOptions(baseForm)
-    expect(opts['max-connection-per-server']).toBe('16')
-    expect(opts['max-connection-per-server']).toBe(opts.split)
+    expect(opts['max-connection-per-server']).toBeUndefined()
   })
 
-  it('syncs max-connection-per-server when split changes', () => {
-    const opts = buildEngineOptions({ ...baseForm, split: 64 })
-    expect(opts.split).toBe('64')
-    expect(opts['max-connection-per-server']).toBe('64')
+  it('includes split without coupling to max-connection-per-server', () => {
+    const opts = buildEngineOptions({ ...baseForm, split: 128 })
+    expect(opts.split).toBe('128')
+    expect(opts['max-connection-per-server']).toBeUndefined()
   })
 
   it('includes out when non-empty', () => {

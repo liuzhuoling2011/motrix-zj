@@ -52,10 +52,10 @@ describe('syncGlobalOptions', () => {
     expect(mockChangeGlobalOption).toHaveBeenCalledTimes(1)
     const calledWith = mockChangeGlobalOption.mock.calls[0][0] as Record<string, string>
 
-    // These are the critical keys that caused the RPC bug
+    // These are now independent since v2 decoupling
     expect(calledWith).toHaveProperty('split')
     expect(calledWith).toHaveProperty('max-connection-per-server')
-    expect(calledWith['split']).toBe(String(DEFAULT_APP_CONFIG.maxConnectionPerServer))
+    expect(calledWith['split']).toBe(String(DEFAULT_APP_CONFIG.split))
     expect(calledWith['max-connection-per-server']).toBe(String(DEFAULT_APP_CONFIG.maxConnectionPerServer))
   })
 
@@ -135,18 +135,18 @@ describe('syncGlobalOptions', () => {
     await expect(syncGlobalOptions(config)).rejects.toThrow('RPC connection refused')
   })
 
-  it('syncs custom split value, not just defaults', async () => {
+  it('syncs split and max-connection-per-server independently (v2)', async () => {
     const config = {
       ...DEFAULT_APP_CONFIG,
-      maxConnectionPerServer: 32,
-      split: 32,
+      maxConnectionPerServer: 16,
+      split: 128,
     } as AppConfig
 
     await syncGlobalOptions(config)
 
     const calledWith = mockChangeGlobalOption.mock.calls[0][0] as Record<string, string>
-    expect(calledWith['split']).toBe('32')
-    expect(calledWith['max-connection-per-server']).toBe('32')
+    expect(calledWith['split']).toBe('128')
+    expect(calledWith['max-connection-per-server']).toBe('16')
   })
 
   it('includes download directory from config', async () => {

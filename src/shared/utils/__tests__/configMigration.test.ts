@@ -232,3 +232,97 @@ describe('runMigrations error isolation', () => {
     logSpy.mockRestore()
   })
 })
+
+// ── v2 Migration: decouple split / maxConnectionPerServer ──────────
+
+describe('v2 migration — decouple split / maxConnectionPerServer', () => {
+  it('removes engineMaxConnectionPerServer from config', () => {
+    const config = {
+      configVersion: 1,
+      engineMaxConnectionPerServer: 64,
+      split: 64,
+      maxConnectionPerServer: 64,
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect((config as Record<string, unknown>).engineMaxConnectionPerServer).toBeUndefined()
+  })
+
+  it('preserves split value unchanged', () => {
+    const config = {
+      configVersion: 1,
+      engineMaxConnectionPerServer: 128,
+      split: 128,
+      maxConnectionPerServer: 128,
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.split).toBe(128)
+  })
+
+  it('preserves maxConnectionPerServer value unchanged', () => {
+    const config = {
+      configVersion: 1,
+      engineMaxConnectionPerServer: 64,
+      split: 64,
+      maxConnectionPerServer: 64,
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.maxConnectionPerServer).toBe(64)
+  })
+
+  it('handles config without engineMaxConnectionPerServer gracefully', () => {
+    const config = {
+      configVersion: 1,
+      split: 32,
+      maxConnectionPerServer: 32,
+    } as Partial<AppConfig>
+    const result = runMigrations(config)
+    expect(result.migrated).toBe(true)
+    expect(config.split).toBe(32)
+    expect(config.configVersion).toBe(CONFIG_VERSION)
+  })
+
+  it('stamps configVersion to 2 after migration', () => {
+    const config = {
+      configVersion: 1,
+      engineMaxConnectionPerServer: 64,
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.configVersion).toBe(2)
+  })
+
+  it('is idempotent — running on already-migrated v2 config is a no-op', () => {
+    const config = {
+      configVersion: 2,
+      split: 64,
+      maxConnectionPerServer: 16,
+    } as Partial<AppConfig>
+    const result = runMigrations(config)
+    expect(result.migrated).toBe(false)
+    expect(config.split).toBe(64)
+    expect(config.maxConnectionPerServer).toBe(16)
+  })
+})
+
+// ── Full v0 → v2 integration ──────────────────────────────────────
+
+describe('v0 → v2 full migration path', () => {
+  it('runs both v1 and v2 migrations in sequence on fresh config', () => {
+    const config = {
+      proxy: { enable: true, server: 'http://proxy:1080', bypass: '', scope: [] },
+      engineMaxConnectionPerServer: 64,
+      split: 64,
+      maxConnectionPerServer: 64,
+    } as Partial<AppConfig>
+
+    const result = runMigrations(config)
+    expect(result.migrated).toBe(true)
+    expect(config.configVersion).toBe(CONFIG_VERSION)
+    // v1: proxy scope backfilled
+    expect(config.proxy!.scope).toEqual([...PROXY_SCOPE_OPTIONS])
+    // v2: engineMaxConnectionPerServer removed
+    expect((config as Record<string, unknown>).engineMaxConnectionPerServer).toBeUndefined()
+    // Both split and maxConnectionPerServer preserved
+    expect(config.split).toBe(64)
+    expect(config.maxConnectionPerServer).toBe(64)
+  })
+})

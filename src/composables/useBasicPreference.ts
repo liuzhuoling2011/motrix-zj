@@ -33,6 +33,8 @@ export interface BasicForm {
   noConfirmBeforeDeleteTask: boolean
   maxConcurrentDownloads: number
   maxConnectionPerServer: number
+  split: number
+  btMaxPeers: number
   maxOverallDownloadLimit: string
   maxOverallUploadLimit: string
   btAutoDownloadContent: boolean
@@ -86,6 +88,8 @@ export function buildBasicForm(config: AppConfig, defaultDir: string = ''): Basi
     noConfirmBeforeDeleteTask: config.noConfirmBeforeDeleteTask ?? D.noConfirmBeforeDeleteTask,
     maxConcurrentDownloads: config.maxConcurrentDownloads ?? D.maxConcurrentDownloads,
     maxConnectionPerServer: config.maxConnectionPerServer ?? D.maxConnectionPerServer,
+    split: config.split ?? D.split,
+    btMaxPeers: config.btMaxPeers ?? D.btMaxPeers,
     maxOverallDownloadLimit: String(config.maxOverallDownloadLimit ?? D.maxOverallDownloadLimit),
     maxOverallUploadLimit: String(config.maxOverallUploadLimit ?? D.maxOverallUploadLimit),
     btAutoDownloadContent,
@@ -115,7 +119,8 @@ export function buildBasicSystemConfig(f: BasicForm): Record<string, string> {
     dir: f.dir,
     'max-concurrent-downloads': String(f.maxConcurrentDownloads),
     'max-connection-per-server': String(f.maxConnectionPerServer),
-    split: String(f.maxConnectionPerServer),
+    split: String(f.split),
+    'bt-max-peers': String(f.btMaxPeers),
     'max-overall-download-limit': f.maxOverallDownloadLimit,
     'max-overall-upload-limit': f.maxOverallUploadLimit,
     'bt-save-metadata': 'true',
@@ -134,15 +139,13 @@ export function buildBasicSystemConfig(f: BasicForm): Record<string, string> {
 /**
  * Transforms the basic form for store persistence.
  * Expands btAutoDownloadContent back into followTorrent/followMetalink/pauseMetadata.
- * Syncs split and engineMaxConnectionPerServer to maxConnectionPerServer so that
- * AddTask.vue and the engine startup args always use the user's chosen value.
+ * Since v2, split and maxConnectionPerServer are persisted independently.
  */
 export function transformBasicForStore(f: BasicForm): Partial<AppConfig> {
   const data = { ...f } as Partial<AppConfig> & Record<string, unknown>
   delete data.btAutoDownloadContent
-  // Keep split and engineMaxConnectionPerServer in sync with the user-facing value
-  data.split = f.maxConnectionPerServer
-  data.engineMaxConnectionPerServer = f.maxConnectionPerServer
+  // split and maxConnectionPerServer are persisted independently (v2 decoupling)
+  data.split = f.split
   if (f.btAutoDownloadContent) {
     data.followTorrent = true
     data.followMetalink = true

@@ -23,6 +23,7 @@ export default {
   'task-out': 'リネーム',
   'task-out-tips': '任意',
   'task-split': '分割数',
+  'split-limit-hint': '上限に達しました。設定で変更できます。',
   'task-dir': '保存先',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

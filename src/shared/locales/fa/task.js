@@ -23,6 +23,7 @@ export default {
   'task-out': 'تغییر نام',
   'task-out-tips': 'اختیاری',
   'task-split': 'بخش‌ها',
+  'split-limit-hint': 'به حد مجاز رسیده‌اید. می‌توانید آن را در تنظیمات افزایش دهید.',
   'task-dir': 'ذخیره در',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

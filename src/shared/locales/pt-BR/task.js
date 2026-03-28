@@ -23,6 +23,7 @@ export default {
   'task-out': 'Renomear',
   'task-out-tips': 'Opcional',
   'task-split': 'Segmentos',
+  'split-limit-hint': 'Limite atingido. Você pode aumentá-lo nas Configurações.',
   'task-dir': 'Salvar em',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

@@ -6,7 +6,7 @@ import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useTaskStore } from '@/stores/task'
 import { usePreferenceStore } from '@/stores/preference'
-import { ADD_TASK_TYPE } from '@shared/constants'
+import { ADD_TASK_TYPE, ENGINE_MAX_CONNECTION_PER_SERVER } from '@shared/constants'
 import { detectResource, bytesToSize } from '@shared/utils'
 import { mergeUriLines } from '@shared/utils/batchHelpers'
 import {
@@ -31,8 +31,6 @@ import {
   NInputNumber,
   NButton,
   NSpace,
-  NGrid,
-  NGridItem,
   NIcon,
   NInputGroup,
   NDataTable,
@@ -73,7 +71,25 @@ const form = ref({
   allProxy: '',
 })
 
-const maxSplit = computed(() => config.engineMaxConnectionPerServer || 64)
+const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
+
+// Real-time tracking: NInputNumber only commits v-model on blur,
+// so we capture the native `input` event via bubbling from the inner
+// <input> element. The watch covers +/− button clicks (immediate update).
+const splitAtLimit = ref(form.value.split >= maxSplit)
+
+function onSplitRawInput(e: Event) {
+  const raw = (e.target as HTMLInputElement).value
+  const val = Number(raw)
+  splitAtLimit.value = raw !== '' && !isNaN(val) && val >= maxSplit
+}
+
+watch(
+  () => form.value.split,
+  (v) => {
+    splitAtLimit.value = v >= maxSplit
+  },
+)
 
 const fileColumns = computed<DataTableColumns>(() => [
   { type: 'selection' },
@@ -104,10 +120,8 @@ watch(
   (visible) => {
     if (visible) {
       form.value.dir = preferenceStore.config.dir || form.value.dir
-      // Sync split — prefer config.split, fall back to maxConnectionPerServer
-      // for stores that predate the split sync fix.
-      form.value.split =
-        preferenceStore.config.split ?? preferenceStore.config.maxConnectionPerServer ?? form.value.split
+      // Sync split from the user's Basic preference value
+      form.value.split = preferenceStore.config.split ?? form.value.split
     }
   },
 )
@@ -504,18 +518,22 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
 
         <!-- ── Download settings: always visible ──────────────── -->
         <div class="download-settings">
-          <NGrid :cols="24" :x-gap="12">
-            <NGridItem :span="15">
-              <NFormItem :label="t('task.task-out') + ':'">
-                <NInput v-model:value="form.out" :placeholder="t('task.task-out-tips')" :autofocus="false" />
-              </NFormItem>
-            </NGridItem>
-            <NGridItem :span="9">
-              <NFormItem :label="t('task.task-split') + ':'">
-                <NInputNumber v-model:value="form.split" :min="1" :max="maxSplit" style="width: 100%" />
-              </NFormItem>
-            </NGridItem>
-          </NGrid>
+          <NFormItem :label="t('task.task-out') + ':'">
+            <NInput v-model:value="form.out" :placeholder="t('task.task-out-tips')" :autofocus="false" />
+          </NFormItem>
+          <NFormItem :label="t('preferences.split-count') + ':'">
+            <div class="split-field-wrapper" @input="onSplitRawInput">
+              <NInputNumber v-model:value="form.split" :min="1" :max="maxSplit" style="width: 120px" />
+              <!-- Limit hint — CSS Grid 0fr→1fr slide-in, mirrors ua-warn pattern -->
+              <div class="split-limit-collapse" :class="{ 'split-limit-collapse--open': splitAtLimit }">
+                <div class="split-limit-collapse__inner">
+                  <div class="split-limit-bar">
+                    <span class="split-limit-text">⚠ {{ t('task.split-limit-hint') }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </NFormItem>
           <NFormItem :label="t('task.task-dir') + ':'">
             <NInputGroup>
               <NInput v-model:value="form.dir" style="flex: 1" />
@@ -599,6 +617,43 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
 /* ── Download settings ────────────────────────────────────────────── */
 .download-settings {
   margin-top: 4px;
+}
+
+/* ── Split limit hint — CSS Grid 0fr→1fr slide-in (mirrors ua-warn) ─── */
+.split-field-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+.split-limit-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+.split-limit-collapse--open {
+  grid-template-rows: 1fr;
+}
+.split-limit-collapse__inner {
+  overflow: hidden;
+}
+.split-limit-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-top: 6px;
+  border-radius: var(--border-radius);
+  background: var(--m3-error-container-bg);
+  opacity: 0;
+  transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+.split-limit-collapse--open .split-limit-bar {
+  opacity: 1;
+}
+.split-limit-text {
+  font-size: var(--font-size-sm);
+  color: var(--m3-error);
+  flex: 1;
 }
 </style>
 

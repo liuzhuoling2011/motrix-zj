@@ -23,6 +23,7 @@ export default {
   'task-out': 'Átnevezés',
   'task-out-tips': 'Opcionális',
   'task-split': 'Szegmensek',
+  'split-limit-hint': 'Limit elérve. A beállításokban növelheti.',
   'task-dir': 'Mentés ide',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

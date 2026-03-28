@@ -277,7 +277,7 @@ describe('AddTask split preference sync', () => {
     const preferenceStore = usePreferenceStore()
     // Simulate user having saved maxConnectionPerServer=32 in Basic settings
     // which writes split=32 to the store via transformBasicForStore
-    preferenceStore.$patch({ config: { split: 32, maxConnectionPerServer: 32, engineMaxConnectionPerServer: 32 } })
+    preferenceStore.$patch({ config: { split: 32, maxConnectionPerServer: 32 } })
 
     const wrapper = mountDialog()
     await flushPromises()
@@ -296,11 +296,12 @@ describe('AddTask split preference sync', () => {
     expect(Number((splitInput!.element as HTMLInputElement).value)).toBe(32)
   })
 
-  it('falls back to maxConnectionPerServer when config.split is absent', async () => {
+  it('preserves current form.split when config.split is absent (no maxConn fallback in v2)', async () => {
     const { usePreferenceStore } = await import('@/stores/preference')
     const preferenceStore = usePreferenceStore()
     // Simulate legacy store data where split was never saved — explicitly
-    // null out split so the ?? fallback to maxConnectionPerServer kicks in.
+    // null out split so the ?? fallback keeps current form.split.
+    // After v2 decoupling, there is no fallback to maxConnectionPerServer.
     preferenceStore.$patch({
       config: { split: undefined as unknown as number, maxConnectionPerServer: 48 },
     })
@@ -315,16 +316,19 @@ describe('AddTask split preference sync', () => {
     const numberInputs = wrapper.findAll('input[type="number"]')
     const splitInput = numberInputs.find((i) => {
       const val = Number((i.element as HTMLInputElement).value)
-      return val > 0 && val <= 128
+      return val > 0 && val <= 256
     })
     expect(splitInput).toBeDefined()
-    expect(Number((splitInput!.element as HTMLInputElement).value)).toBe(48)
+    // When config.split is undefined, form.split retains its initialization
+    // value (from config.split in the reactive form, which is the initial 16).
+    // It does NOT fall back to maxConnectionPerServer (v2 decoupling).
+    expect(Number((splitInput!.element as HTMLInputElement).value)).not.toBe(48)
   })
 
   it('re-syncs split on subsequent opens after preference changes', async () => {
     const { usePreferenceStore } = await import('@/stores/preference')
     const preferenceStore = usePreferenceStore()
-    preferenceStore.$patch({ config: { split: 64, maxConnectionPerServer: 64, engineMaxConnectionPerServer: 64 } })
+    preferenceStore.$patch({ config: { split: 64, maxConnectionPerServer: 64 } })
 
     const wrapper = mountDialog()
     await flushPromises()
@@ -339,7 +343,7 @@ describe('AddTask split preference sync', () => {
     await flushPromises()
 
     // User changes preference while dialog is closed
-    preferenceStore.$patch({ config: { split: 16, maxConnectionPerServer: 16, engineMaxConnectionPerServer: 16 } })
+    preferenceStore.$patch({ config: { split: 16, maxConnectionPerServer: 16 } })
 
     // Re-open — split should now be 16
     await wrapper.setProps({ show: true })

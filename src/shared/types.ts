@@ -147,6 +147,7 @@ export interface AppConfig {
   maxUploadLimit: string
   seedTime: number
   seedRatio: number
+  btMaxPeers: number
   openAtLogin: boolean
   autoCheckUpdate: boolean
   autoHideWindow: boolean
@@ -165,7 +166,6 @@ export interface AppConfig {
   dockBadgeSpeed: boolean
   logLevel: string
   engineBinPath: string
-  engineMaxConnectionPerServer: number
   cookie: string
   proxy: ProxyConfig
   protocols: ProtocolsConfig
