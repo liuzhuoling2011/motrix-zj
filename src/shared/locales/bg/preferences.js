@@ -63,6 +63,8 @@ export default {
   'change-language': 'Смени език',
   'proxy': 'Прокси',
   'enable-proxy': 'Включи прокси',
+  'proxy-bypass': 'Изключения за прокси',
+  'proxy-scope': 'Обхват на прокси',
   'proxy-bypass-input-tips': 'Заобиколи прокси за тези хостове, един на ред',
   'proxy-scope-download': 'Изтегляния',
   'proxy-scope-update-app': 'Обновления на приложението',

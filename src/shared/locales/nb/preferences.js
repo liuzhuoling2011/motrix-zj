@@ -63,6 +63,8 @@ export default {
   'change-language': 'Endre språk',
   'proxy': 'Proxy',
   'enable-proxy': 'Aktiver proxy',
+  'proxy-bypass': 'Proxy-unntak',
+  'proxy-scope': 'Proxy-omfang',
   'proxy-bypass-input-tips': 'Omgå proxy for disse vertene, én per linje',
   'proxy-scope-download': 'Nedlastinger',
   'proxy-scope-update-app': 'App-oppdateringer',

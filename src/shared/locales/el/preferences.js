@@ -63,6 +63,8 @@ export default {
   'change-language': 'Αλλαγή γλώσσας',
   'proxy': 'Proxy',
   'enable-proxy': 'Ενεργοποίηση proxy',
+  'proxy-bypass': 'Παράκαμψη proxy',
+  'proxy-scope': 'Εύρος proxy',
   'proxy-bypass-input-tips': 'Παράκαμψη proxy για αυτούς τους κεντρικούς, ένας ανά γραμμή',
   'proxy-scope-download': 'Λήψεις',
   'proxy-scope-update-app': 'Ενημερώσεις εφαρμογής',

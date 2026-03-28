@@ -63,6 +63,8 @@ export default {
   'change-language': '切换语言',
   'proxy': '代理',
   'enable-proxy': '启用代理',
+  'proxy-bypass': '代理排除',
+  'proxy-scope': '代理范围',
   'proxy-bypass-input-tips': '不使用代理的地址，每行一个',
   'proxy-scope-download': '下载',
   'proxy-scope-update-app': '应用更新',

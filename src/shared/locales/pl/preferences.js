@@ -63,6 +63,8 @@ export default {
   'change-language': 'Zmień język',
   'proxy': 'Proxy',
   'enable-proxy': 'Włącz proxy',
+  'proxy-bypass': 'Wyjątki proxy',
+  'proxy-scope': 'Zakres proxy',
   'proxy-bypass-input-tips': 'Pomiń proxy dla tych hostów, jeden na linię',
   'proxy-scope-download': 'Pobieranie',
   'proxy-scope-update-app': 'Aktualizacje aplikacji',

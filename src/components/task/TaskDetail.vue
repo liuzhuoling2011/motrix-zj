@@ -29,7 +29,11 @@ import {
   NProgress,
   NTag,
   NButton,
-  NCheckbox,
+  NRadioGroup,
+  NRadio,
+  NInput,
+  NFormItem,
+  NCollapseTransition,
 } from 'naive-ui'
 import {
   InformationCircleOutline,
@@ -37,10 +41,11 @@ import {
   DocumentOutline,
   PeopleOutline,
   ServerOutline,
+  SettingsOutline,
 } from '@vicons/ionicons5'
 import TaskGraphic from './TaskGraphic.vue'
 import { useTrackerProbe, buildTrackerRows, type TrackerRow } from '@/composables/useTrackerProbe'
-import { useTaskDetailProxy } from '@/composables/useTaskDetailProxy'
+import { useTaskDetailOptions } from '@/composables/useTaskDetailOptions'
 import { usePreferenceStore } from '@/stores/preference'
 import { useTaskStore } from '@/stores/task'
 import { useAppMessage } from '@/composables/useAppMessage'
@@ -60,14 +65,13 @@ const message = useAppMessage()
 const taskRef = computed(() => props.task)
 
 const {
-  useProxy: detailUseProxy,
-  canModify: proxyCanModify,
-  globalProxyAvailable: proxyGlobalAvailable,
-  proxyAddress: proxyAddr,
-  dirty: proxyDirty,
-  applying: proxyApplying,
-  applyProxy: applyProxyFn,
-} = useTaskDetailProxy({
+  form: optForm,
+  canModify: optCanModify,
+  globalProxyAvailable: optGlobalProxyAvailable,
+  dirty: optDirty,
+  applying: optApplying,
+  applyOptions: optApplyFn,
+} = useTaskDetailOptions({
   task: taskRef,
   getTaskOption: (gid) => taskStore.getTaskOption(gid),
   changeTaskOption: (payload) => taskStore.changeTaskOption(payload),
@@ -90,6 +94,7 @@ const allTabs: TabDef[] = [
   { key: 'general', labelKey: 'task.task-tab-general', icon: InformationCircleOutline },
   { key: 'activity', labelKey: 'task.task-tab-activity', icon: PulseOutline },
   { key: 'files', labelKey: 'task.task-tab-files', icon: DocumentOutline },
+  { key: 'options', labelKey: 'task.task-tab-options', icon: SettingsOutline },
   { key: 'peers', labelKey: 'task.task-tab-peers', icon: PeopleOutline, btOnly: true },
   { key: 'trackers', labelKey: 'task.task-tab-trackers', icon: ServerOutline, btOnly: true },
 ]
@@ -363,28 +368,6 @@ function handleClose() {
                 >
                   {{ task.errorCode }} {{ task.errorMessage }}
                 </NDescriptionsItem>
-                <NDescriptionsItem :label="t('task.task-proxy-label') || 'Proxy'">
-                  <div class="proxy-toggle-row">
-                    <NCheckbox v-model:checked="detailUseProxy" :disabled="!proxyCanModify || !proxyGlobalAvailable">
-                      {{ t('task.use-proxy') }}
-                    </NCheckbox>
-                    <span v-if="proxyGlobalAvailable && detailUseProxy" class="proxy-hint">
-                      {{ proxyAddr }}
-                    </span>
-                    <span v-else-if="!proxyGlobalAvailable" class="proxy-hint-disabled">
-                      {{ t('task.proxy-not-configured') }}
-                    </span>
-                    <NButton
-                      v-if="proxyCanModify && proxyDirty"
-                      size="tiny"
-                      type="primary"
-                      :loading="proxyApplying"
-                      @click="applyProxyFn"
-                    >
-                      {{ t('task.apply') }}
-                    </NButton>
-                  </div>
-                </NDescriptionsItem>
               </NDescriptions>
               <template v-if="isBT && btInfo">
                 <div class="section-divider">BitTorrent</div>
@@ -462,6 +445,77 @@ function handleClose() {
               virtual-scroll
               striped
             />
+          </div>
+
+          <div v-else-if="activeTab === 'options'" key="options" class="tab-content">
+            <div class="options-form">
+              <NFormItem :label="t('task.task-user-agent') + ':'">
+                <NInput
+                  v-model:value="optForm.userAgent"
+                  type="textarea"
+                  :autosize="{ minRows: 1, maxRows: 3 }"
+                  :readonly="!optCanModify"
+                  :placeholder="t('task.task-user-agent-placeholder') || ''"
+                />
+              </NFormItem>
+              <NFormItem :label="t('task.task-authorization') + ':'">
+                <NInput
+                  v-model:value="optForm.authorization"
+                  type="textarea"
+                  :autosize="{ minRows: 1, maxRows: 3 }"
+                  :readonly="!optCanModify"
+                  :placeholder="t('task.task-authorization-placeholder') || ''"
+                />
+              </NFormItem>
+              <NFormItem :label="t('task.task-referer') + ':'">
+                <NInput
+                  v-model:value="optForm.referer"
+                  type="textarea"
+                  :autosize="{ minRows: 1, maxRows: 3 }"
+                  :readonly="!optCanModify"
+                  :placeholder="t('task.task-referer-placeholder') || ''"
+                />
+              </NFormItem>
+              <NFormItem :label="t('task.task-cookie') + ':'">
+                <NInput
+                  v-model:value="optForm.cookie"
+                  type="textarea"
+                  :autosize="{ minRows: 1, maxRows: 3 }"
+                  :readonly="!optCanModify"
+                  :placeholder="t('task.task-cookie-placeholder') || ''"
+                />
+              </NFormItem>
+              <NFormItem :label="t('task.task-proxy-label') + ':'">
+                <div class="proxy-radio-group">
+                  <NRadioGroup v-model:value="optForm.proxyMode" :disabled="!optCanModify" name="task-proxy-mode">
+                    <NRadio value="none">{{ t('task.proxy-mode-none') }}</NRadio>
+                    <NRadio v-if="optGlobalProxyAvailable" value="global">
+                      {{ t('task.proxy-mode-global') }}
+                    </NRadio>
+                    <NRadio value="custom">{{ t('task.proxy-mode-custom') }}</NRadio>
+                  </NRadioGroup>
+                  <NCollapseTransition :show="optForm.proxyMode === 'custom'">
+                    <NInput
+                      v-model:value="optForm.customProxy"
+                      :readonly="!optCanModify"
+                      :placeholder="'http:// · https:// · socks5://'"
+                      class="custom-proxy-input"
+                    />
+                  </NCollapseTransition>
+                </div>
+              </NFormItem>
+              <div v-if="optCanModify" class="options-apply-bar">
+                <NButton
+                  :type="optDirty ? 'primary' : 'default'"
+                  :disabled="!optDirty"
+                  :loading="optApplying"
+                  class="apply-btn"
+                  @click="optApplyFn"
+                >
+                  {{ optDirty ? t('task.apply-changes') : t('task.no-changes') }}
+                </NButton>
+              </div>
+            </div>
           </div>
 
           <div v-else-if="activeTab === 'peers'" key="peers" class="tab-content">
@@ -643,22 +697,30 @@ function handleClose() {
   }
 }
 
-/* ── Proxy toggle row ────────────────────────────────────────────── */
-.proxy-toggle-row {
+/* ── Options tab ─────────────────────────────────────────────────── */
+.options-form {
+  padding: 4px 0;
+}
+.options-apply-bar {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  justify-content: flex-end;
+  padding-top: 8px;
 }
-.proxy-hint {
-  font-size: var(--font-size-sm, 12px);
-  color: var(--n-text-color-3, #999);
-  opacity: 0.8;
-  user-select: all;
+.apply-btn {
+  transition:
+    background-color 0.25s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.25s cubic-bezier(0.2, 0, 0, 1),
+    color 0.25s cubic-bezier(0.2, 0, 0, 1),
+    opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
-.proxy-hint-disabled {
-  font-size: var(--font-size-sm, 12px);
-  color: var(--n-text-color-disabled, #bbb);
-  font-style: italic;
+.proxy-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+.custom-proxy-input {
+  margin-top: 4px;
+  margin-left: 24px;
 }
 </style>

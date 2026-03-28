@@ -63,6 +63,8 @@ export default {
   'change-language': 'เปลี่ยนภาษา',
   'proxy': 'พร็อกซี',
   'enable-proxy': 'เปิดใช้พร็อกซี',
+  'proxy-bypass': 'ข้ามพร็อกซี',
+  'proxy-scope': 'ขอบเขตพร็อกซี',
   'proxy-bypass-input-tips': 'ข้ามพร็อกซีสำหรับโฮสต์เหล่านี้ หนึ่งรายการต่อบรรทัด',
   'proxy-scope-download': 'ดาวน์โหลด',
   'proxy-scope-update-app': 'อัปเดตแอป',

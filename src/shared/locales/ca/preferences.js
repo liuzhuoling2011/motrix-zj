@@ -63,6 +63,8 @@ export default {
   'language-changed-later': 'Més tard',
   'proxy': 'Proxy',
   'enable-proxy': 'Activar proxy',
+  'proxy-bypass': 'Omissió del proxy',
+  'proxy-scope': 'Àmbit del proxy',
   'proxy-bypass-input-tips': 'Ometre proxy per a aquests amfitrions, un per línia',
   'proxy-scope-download': 'Descàrregues',
   'proxy-scope-update-app': 'Actualitzacions de l\'app',

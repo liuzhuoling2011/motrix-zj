@@ -63,6 +63,8 @@ export default {
   'change-language': 'Taal wijzigen',
   'proxy': 'Proxy',
   'enable-proxy': 'Proxy inschakelen',
+  'proxy-bypass': 'Proxy-uitzondering',
+  'proxy-scope': 'Proxy-bereik',
   'proxy-bypass-input-tips': 'Proxy overslaan voor deze hosts, één per regel',
   'proxy-scope-download': 'Downloads',
   'proxy-scope-update-app': 'App-updates',

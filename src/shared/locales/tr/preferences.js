@@ -63,6 +63,8 @@ export default {
   'change-language': 'Dili değiştir',
   'proxy': 'Proxy',
   'enable-proxy': 'Proxy etkinleştir',
+  'proxy-bypass': 'Proxy istisnası',
+  'proxy-scope': 'Proxy kapsamı',
   'proxy-bypass-input-tips': 'Bu ana makineler için proxy atla, satır başına bir tane',
   'proxy-scope-download': 'İndirmeler',
   'proxy-scope-update-app': 'Uygulama güncellemeleri',

@@ -63,6 +63,8 @@ export default {
   'change-language': '言語を変更',
   'proxy': 'プロキシ',
   'enable-proxy': 'プロキシを有効にする',
+  'proxy-bypass': 'プロキシ除外',
+  'proxy-scope': 'プロキシ適用範囲',
   'proxy-bypass-input-tips': 'プロキシを使用しないホスト（1行に1つ）',
   'proxy-scope-download': 'ダウンロード',
   'proxy-scope-update-app': 'アプリの更新',

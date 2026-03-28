@@ -63,6 +63,8 @@ export default {
   'change-language': 'Đổi ngôn ngữ',
   'proxy': 'Proxy',
   'enable-proxy': 'Bật proxy',
+  'proxy-bypass': 'Bỏ qua proxy',
+  'proxy-scope': 'Phạm vi proxy',
   'proxy-bypass-input-tips': 'Bỏ qua proxy cho các máy chủ này, mỗi dòng một máy chủ',
   'proxy-scope-download': 'Tải xuống',
   'proxy-scope-update-app': 'Cập nhật ứng dụng',

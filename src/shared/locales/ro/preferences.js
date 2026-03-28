@@ -63,6 +63,8 @@ export default {
   'change-language': 'Schimbă limba',
   'proxy': 'Proxy',
   'enable-proxy': 'Activează proxy',
+  'proxy-bypass': 'Excepție proxy',
+  'proxy-scope': 'Domeniu proxy',
   'proxy-bypass-input-tips': 'Ocolește proxy pentru aceste gazde, una pe linie',
   'proxy-scope-download': 'Descărcări',
   'proxy-scope-update-app': 'Actualizări aplicație',

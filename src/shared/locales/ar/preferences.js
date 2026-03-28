@@ -63,6 +63,8 @@ export default {
   'change-language': 'تغيير اللغة',
   'proxy': 'الوكيل',
   'enable-proxy': 'تفعيل الوكيل',
+  'proxy-bypass': 'تجاوز الوكيل',
+  'proxy-scope': 'نطاق الوكيل',
   'proxy-bypass-input-tips': 'تجاوز الوكيل لهذه المضيفات، واحد لكل سطر',
   'proxy-scope-download': 'التنزيلات',
   'proxy-scope-update-app': 'تحديثات التطبيق',

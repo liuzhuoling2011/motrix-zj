@@ -63,6 +63,8 @@ export default {
   'change-language': 'تغییر زبان',
   'proxy': 'پروکسی',
   'enable-proxy': 'فعال کردن پروکسی',
+  'proxy-bypass': 'دور زدن پروکسی',
+  'proxy-scope': 'محدوده پروکسی',
   'proxy-bypass-input-tips': 'دور زدن پروکسی برای این میزبان‌ها، یکی در هر خط',
   'proxy-scope-download': 'دانلودها',
   'proxy-scope-update-app': 'به‌روزرسانی برنامه',

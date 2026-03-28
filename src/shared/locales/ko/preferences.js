@@ -63,6 +63,8 @@ export default {
   'change-language': '언어 변경',
   'proxy': '프록시',
   'enable-proxy': '프록시 활성화',
+  'proxy-bypass': '프록시 우회',
+  'proxy-scope': '프록시 범위',
   'proxy-bypass-input-tips': '프록시를 사용하지 않을 호스트 (줄당 하나)',
   'proxy-scope-download': '다운로드',
   'proxy-scope-update-app': '앱 업데이트',

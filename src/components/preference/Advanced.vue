@@ -329,7 +329,7 @@ onMounted(() => {
           <NFormItem :label="t('preferences.proxy-server')">
             <NInput v-model:value="form.proxy.server" placeholder="[http://][USER:PASSWORD@]HOST[:PORT]" />
           </NFormItem>
-          <NFormItem label="Bypass">
+          <NFormItem :label="t('preferences.proxy-bypass')">
             <NInput
               v-model:value="form.proxy.bypass"
               type="textarea"
@@ -337,7 +337,7 @@ onMounted(() => {
               :placeholder="t('preferences.proxy-bypass-input-tips')"
             />
           </NFormItem>
-          <NFormItem label="Scope">
+          <NFormItem :label="t('preferences.proxy-scope')">
             <NSelect v-model:value="form.proxy.scope" :options="proxyScopeOptions" multiple style="width: 100%" />
           </NFormItem>
         </div>

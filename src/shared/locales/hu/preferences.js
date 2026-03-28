@@ -63,6 +63,8 @@ export default {
   'change-language': 'Nyelv váltása',
   'proxy': 'Proxy',
   'enable-proxy': 'Proxy engedélyezése',
+  'proxy-bypass': 'Proxy kivétel',
+  'proxy-scope': 'Proxy hatóköre',
   'proxy-bypass-input-tips': 'Proxy kihagyása ezeknél a gazdagépeknél, soronként egy',
   'proxy-scope-download': 'Letöltések',
   'proxy-scope-update-app': 'Alkalmazásfrissítések',

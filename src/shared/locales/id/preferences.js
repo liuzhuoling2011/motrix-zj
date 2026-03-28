@@ -63,6 +63,8 @@ export default {
   'change-language': 'Ubah bahasa',
   'proxy': 'Proxy',
   'enable-proxy': 'Aktifkan proxy',
+  'proxy-bypass': 'Lewati proxy',
+  'proxy-scope': 'Cakupan proxy',
   'proxy-bypass-input-tips': 'Lewati proxy untuk host ini, satu per baris',
   'proxy-scope-download': 'Unduhan',
   'proxy-scope-update-app': 'Pembaruan aplikasi',
