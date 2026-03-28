@@ -6,6 +6,27 @@ use tauri::{
     AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder,
 };
 
+/// Embedded tray icon bytes.
+///
+/// On macOS: a white-on-transparent icon (@2x, 88×88 px) matching the
+/// Motrix Next brand identity. Displays as a crisp white silhouette
+/// on the dark macOS menu bar.
+///
+/// On other platforms: the standard full-colour app icon.
+#[cfg(target_os = "macos")]
+pub const TRAY_ICON_BYTES: &[u8] = include_bytes!("../icons/tray-icon@2x.png");
+#[cfg(not(target_os = "macos"))]
+pub const TRAY_ICON_BYTES: &[u8] = include_bytes!("../icons/tray-icon.png");
+
+/// Creates a `tauri::image::Image` from the embedded tray icon bytes.
+///
+/// This is the single source of truth for the tray icon bitmap, shared
+/// between initial setup (`setup_tray`) and the `update_tray_title`
+/// workaround that must re-set the icon after `set_title` on macOS.
+pub fn tray_icon_image() -> tauri::image::Image<'static> {
+    tauri::image::Image::from_bytes(TRAY_ICON_BYTES).expect("embedded tray icon is valid PNG")
+}
+
 /// Holds references to tray menu items for dynamic label updates (i18n).
 /// Used by the `update_tray_menu_labels` command to set localized text
 /// at runtime without rebuilding the menu.
@@ -104,9 +125,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
         .menu(&menu)
         .show_menu_on_left_click(false)
         .tooltip("Motrix Next")
-        .icon(tauri::image::Image::from_bytes(include_bytes!(
-            "../icons/tray-icon.png"
-        ))?)
+        .icon(tray_icon_image())
         .on_tray_icon_event(|tray, event| {
             // Left-click: show main window (macOS and Windows).
             // Linux libappindicator does not emit TrayIconEvent::Click —
@@ -210,5 +229,29 @@ mod tests {
     #[test]
     fn resolve_unknown_returns_none() {
         assert_eq!(resolve_tray_action("nonexistent"), None);
+    }
+
+    /// Verify the embedded tray icon bytes are a valid PNG with correct header.
+    #[test]
+    fn tray_icon_bytes_are_valid_png() {
+        // PNG files start with the 8-byte magic signature.
+        let png_signature: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        assert!(
+            TRAY_ICON_BYTES.len() > 8,
+            "tray icon file is too small to be a valid PNG"
+        );
+        assert_eq!(
+            &TRAY_ICON_BYTES[..8],
+            &png_signature,
+            "tray icon does not have valid PNG header"
+        );
+    }
+
+    /// Verify tray_icon_image() does not panic (bytes decode successfully).
+    #[test]
+    fn tray_icon_image_does_not_panic() {
+        let img = tray_icon_image();
+        // Image must have non-zero dimensions.
+        assert!(img.rgba().len() > 0, "decoded tray icon has no pixel data");
     }
 }

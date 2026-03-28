@@ -17,12 +17,12 @@ pub fn update_tray_title(app: AppHandle, title: String) -> Result<(), AppError> 
         tray.set_title(Some(&title))
             .map_err(|e| AppError::Io(e.to_string()))?;
         // Workaround: re-set icon after set_title to prevent macOS icon disappearing (Tauri/tao bug).
-        // Only needed on macOS — Linux appindicator does not have this issue.
+        // Uses the dedicated tray icon — NOT default_window_icon() which is the
+        // full-colour app icon and would look out of place in the macOS menu bar.
         #[cfg(target_os = "macos")]
         {
-            if let Some(icon) = app.default_window_icon() {
-                let _ = tray.set_icon(Some(icon.clone()));
-            }
+            let icon = crate::tray::tray_icon_image();
+            let _ = tray.set_icon(Some(icon));
         }
     }
     Ok(())
