@@ -84,9 +84,11 @@ import {
   submitBatchItems,
   submitManualUris,
   useAddTaskSubmit,
+  isGlobalProxyConfigured,
+  isGlobalDownloadProxyActive,
   type AddTaskForm,
 } from '../useAddTaskSubmit'
-import type { BatchItem, Aria2EngineOptions } from '@shared/types'
+import type { BatchItem, Aria2EngineOptions, ProxyConfig } from '@shared/types'
 
 // ── buildEngineOptions ──────────────────────────────────────────────
 
@@ -100,7 +102,7 @@ describe('buildEngineOptions', () => {
     authorization: '',
     referer: '',
     cookie: '',
-    allProxy: '',
+    useProxy: false,
   }
 
   it('always includes dir and split', () => {
@@ -154,9 +156,59 @@ describe('buildEngineOptions', () => {
     expect(opts.header).toBeUndefined()
   })
 
-  it('includes all-proxy when set', () => {
-    const opts = buildEngineOptions({ ...baseForm, allProxy: 'socks5://127.0.0.1:1080' })
+  // ── Proxy checkbox tests (#126) ──
+
+  it('sets all-proxy when useProxy is true and globalProxyServer is provided', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      useProxy: true,
+      globalProxyServer: 'http://127.0.0.1:7890',
+    })
+    expect(opts['all-proxy']).toBe('http://127.0.0.1:7890')
+  })
+
+  it('omits all-proxy when useProxy is false', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      useProxy: false,
+      globalProxyServer: 'http://127.0.0.1:7890',
+    })
+    expect(opts['all-proxy']).toBeUndefined()
+  })
+
+  it('omits all-proxy when useProxy is true but globalProxyServer is empty', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      useProxy: true,
+      globalProxyServer: '',
+    })
+    expect(opts['all-proxy']).toBeUndefined()
+  })
+
+  it('omits all-proxy when useProxy is true but globalProxyServer is undefined', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      useProxy: true,
+    })
+    expect(opts['all-proxy']).toBeUndefined()
+  })
+
+  it('handles SOCKS5 proxy server address', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      useProxy: true,
+      globalProxyServer: 'socks5://127.0.0.1:1080',
+    })
     expect(opts['all-proxy']).toBe('socks5://127.0.0.1:1080')
+  })
+
+  it('handles proxy server with authentication credentials', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      useProxy: true,
+      globalProxyServer: 'http://user:pass@proxy.example.com:8080',
+    })
+    expect(opts['all-proxy']).toBe('http://user:pass@proxy.example.com:8080')
   })
 })
 
@@ -325,7 +377,7 @@ describe('submitManualUris', () => {
     authorization: '',
     referer: '',
     cookie: '',
-    allProxy: '',
+    useProxy: false,
   }
 
   beforeEach(() => {
@@ -438,7 +490,7 @@ describe('useAddTaskSubmit', () => {
     authorization: '',
     referer: '',
     cookie: '',
-    allProxy: '',
+    useProxy: false,
   }
 
   beforeEach(() => {
@@ -461,5 +513,91 @@ describe('useAddTaskSubmit', () => {
     expect(onClose).not.toHaveBeenCalled()
     expect(mockMessage.warning).toHaveBeenCalledWith('1 task.failed', { duration: 5000, closable: true })
     expect(mockRouterPush).not.toHaveBeenCalled()
+  })
+})
+
+// ── isGlobalProxyConfigured ─────────────────────────────────────────
+
+describe('isGlobalProxyConfigured', () => {
+  it('returns true when proxy is enabled and server is non-empty', () => {
+    const proxy: ProxyConfig = { enable: true, server: 'http://127.0.0.1:7890' }
+    expect(isGlobalProxyConfigured(proxy)).toBe(true)
+  })
+
+  it('returns false when proxy is disabled', () => {
+    const proxy: ProxyConfig = { enable: false, server: 'http://127.0.0.1:7890' }
+    expect(isGlobalProxyConfigured(proxy)).toBe(false)
+  })
+
+  it('returns false when server is empty', () => {
+    const proxy: ProxyConfig = { enable: true, server: '' }
+    expect(isGlobalProxyConfigured(proxy)).toBe(false)
+  })
+
+  it('returns false when server is whitespace-only', () => {
+    const proxy: ProxyConfig = { enable: true, server: '   ' }
+    expect(isGlobalProxyConfigured(proxy)).toBe(false)
+  })
+
+  it('returns false when both disabled and empty server', () => {
+    const proxy: ProxyConfig = { enable: false, server: '' }
+    expect(isGlobalProxyConfigured(proxy)).toBe(false)
+  })
+})
+
+// ── isGlobalDownloadProxyActive ─────────────────────────────────────
+
+describe('isGlobalDownloadProxyActive', () => {
+  it('returns true when proxy enabled, server set, and scope includes download', () => {
+    const proxy: ProxyConfig = {
+      enable: true,
+      server: 'http://proxy:8080',
+      scope: ['download', 'update-app'],
+    }
+    expect(isGlobalDownloadProxyActive(proxy)).toBe(true)
+  })
+
+  it('returns false when scope does not include download', () => {
+    const proxy: ProxyConfig = {
+      enable: true,
+      server: 'http://proxy:8080',
+      scope: ['update-app', 'update-trackers'],
+    }
+    expect(isGlobalDownloadProxyActive(proxy)).toBe(false)
+  })
+
+  it('returns false when proxy is disabled', () => {
+    const proxy: ProxyConfig = {
+      enable: false,
+      server: 'http://proxy:8080',
+      scope: ['download'],
+    }
+    expect(isGlobalDownloadProxyActive(proxy)).toBe(false)
+  })
+
+  it('returns false when server is empty', () => {
+    const proxy: ProxyConfig = {
+      enable: true,
+      server: '',
+      scope: ['download'],
+    }
+    expect(isGlobalDownloadProxyActive(proxy)).toBe(false)
+  })
+
+  it('returns false when scope is undefined', () => {
+    const proxy: ProxyConfig = {
+      enable: true,
+      server: 'http://proxy:8080',
+    }
+    expect(isGlobalDownloadProxyActive(proxy)).toBe(false)
+  })
+
+  it('returns false when scope is empty array', () => {
+    const proxy: ProxyConfig = {
+      enable: true,
+      server: 'http://proxy:8080',
+      scope: [],
+    }
+    expect(isGlobalDownloadProxyActive(proxy)).toBe(false)
   })
 })

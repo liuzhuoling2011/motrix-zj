@@ -19,7 +19,7 @@ import { isEngineReady } from '@/api/aria2'
 import { normalizeUriLines } from '@shared/utils/batchHelpers'
 import { buildOuts } from '@shared/utils/rename'
 import { logger } from '@shared/logger'
-import type { Aria2EngineOptions, BatchItem } from '@shared/types'
+import type { Aria2EngineOptions, BatchItem, ProxyConfig } from '@shared/types'
 import { isMagnetUri } from '@/composables/useMagnetFlow'
 
 export interface AddTaskForm {
@@ -31,7 +31,10 @@ export interface AddTaskForm {
   authorization: string
   referer: string
   cookie: string
-  allProxy: string
+  /** Whether this task should use the global proxy server. */
+  useProxy: boolean
+  /** Injected from the preference store — not user-editable in the form. */
+  globalProxyServer?: string
 }
 
 export interface UseAddTaskSubmitOptions {
@@ -71,8 +74,29 @@ export function buildEngineOptions(form: AddTaskForm): Aria2EngineOptions {
   if (form.authorization) headers.push(`Authorization: ${form.authorization}`)
   if (headers.length > 0) options.header = headers
 
-  if (form.allProxy) options['all-proxy'] = form.allProxy
+  if (form.useProxy && form.globalProxyServer) {
+    options['all-proxy'] = form.globalProxyServer
+  }
   return options
+}
+
+/**
+ * Returns true if the global proxy is configured (enabled with a non-empty server).
+ * Used by the AddTask UI to determine whether the proxy checkbox should be available.
+ * Pure function — no side effects.
+ */
+export function isGlobalProxyConfigured(proxy: ProxyConfig): boolean {
+  return proxy.enable && !!proxy.server.trim()
+}
+
+/**
+ * Returns true if the global proxy is active AND its scope includes downloads.
+ * When true, aria2 already routes all downloads through the proxy at the engine
+ * level, so the per-task checkbox defaults to checked.
+ * Pure function — no side effects.
+ */
+export function isGlobalDownloadProxyActive(proxy: ProxyConfig): boolean {
+  return isGlobalProxyConfigured(proxy) && Array.isArray(proxy.scope) && proxy.scope.includes('download')
 }
 
 /**

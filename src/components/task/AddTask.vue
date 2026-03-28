@@ -14,6 +14,8 @@ import {
   classifySubmitError,
   submitBatchItems,
   submitManualUris,
+  isGlobalProxyConfigured,
+  isGlobalDownloadProxyActive,
 } from '@/composables/useAddTaskSubmit'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { downloadDir } from '@tauri-apps/api/path'
@@ -68,8 +70,14 @@ const form = ref({
   authorization: '',
   referer: '',
   cookie: '',
-  allProxy: '',
+  useProxy: isGlobalDownloadProxyActive(config.proxy),
 })
+
+/** Whether a usable global proxy is configured in Settings → Advanced. */
+const globalProxyAvailable = computed(() => isGlobalProxyConfigured(config.proxy))
+
+/** The global proxy server address for display in the checkbox hint. */
+const globalProxyServer = computed(() => config.proxy?.server ?? '')
 
 const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
 
@@ -335,7 +343,7 @@ function handleClose() {
     authorization: '',
     referer: '',
     cookie: '',
-    allProxy: '',
+    useProxy: isGlobalDownloadProxyActive(config.proxy),
   })
   submitting.value = false
   selectedBatchIndex.value = 0
@@ -346,7 +354,10 @@ async function handleSubmit() {
   submitting.value = true
 
   try {
-    const options = buildEngineOptions(form.value)
+    const options = buildEngineOptions({
+      ...form.value,
+      globalProxyServer: globalProxyServer.value,
+    })
     let manualResult = { magnetGids: [] as string[], magnetFailures: [] as { uri: string; error: string }[] }
 
     if (hasBatch.value) {
@@ -550,7 +561,9 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
             v-model:authorization="form.authorization"
             v-model:referer="form.referer"
             v-model:cookie="form.cookie"
-            v-model:all-proxy="form.allProxy"
+            v-model:use-proxy="form.useProxy"
+            :global-proxy-available="globalProxyAvailable"
+            :global-proxy-server="globalProxyServer"
           />
         </div>
       </NForm>

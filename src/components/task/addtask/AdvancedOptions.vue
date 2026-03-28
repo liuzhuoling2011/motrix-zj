@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** @fileoverview Advanced task options panel (UA, auth, referer, cookie, proxy). */
+/** @fileoverview Advanced task options panel (UA, auth, referer, cookie, proxy checkbox). */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NFormItem, NInput, NCheckbox, NCollapseTransition, NButton } from 'naive-ui'
@@ -13,7 +13,11 @@ const props = defineProps<{
   authorization: string
   referer: string
   cookie: string
-  allProxy: string
+  useProxy: boolean
+  /** Whether a usable global proxy is configured in Settings → Advanced. */
+  globalProxyAvailable: boolean
+  /** The global proxy server address (displayed as read-only hint). */
+  globalProxyServer: string
 }>()
 
 const emit = defineEmits<{
@@ -22,7 +26,7 @@ const emit = defineEmits<{
   'update:authorization': [value: string]
   'update:referer': [value: string]
   'update:cookie': [value: string]
-  'update:allProxy': [value: string]
+  'update:useProxy': [value: boolean]
 }>()
 
 const uaHasIssue = computed(() => !!props.userAgent && hasUnsafeHeaderChars(props.userAgent))
@@ -85,14 +89,22 @@ function cleanUserAgent() {
           @update:value="$emit('update:cookie', $event)"
         />
       </NFormItem>
-      <NFormItem :label="t('task.task-proxy') + ':'">
-        <NInput
-          :value="allProxy"
-          type="textarea"
-          :autosize="{ minRows: 1, maxRows: 3 }"
-          placeholder="[http://][USER:PASSWORD@]HOST[:PORT]"
-          @update:value="$emit('update:allProxy', $event)"
-        />
+      <NFormItem :show-label="false">
+        <div class="proxy-checkbox-wrapper">
+          <NCheckbox
+            :checked="useProxy"
+            :disabled="!globalProxyAvailable"
+            @update:checked="$emit('update:useProxy', $event)"
+          >
+            {{ t('task.use-proxy') }}
+          </NCheckbox>
+          <span v-if="globalProxyAvailable && useProxy" class="proxy-hint">
+            {{ globalProxyServer }}
+          </span>
+          <span v-else-if="!globalProxyAvailable" class="proxy-hint-disabled">
+            {{ t('task.proxy-not-configured') }}
+          </span>
+        </div>
       </NFormItem>
     </div>
   </NCollapseTransition>
@@ -136,5 +148,24 @@ function cleanUserAgent() {
   font-size: var(--font-size-sm);
   color: var(--m3-error);
   flex: 1;
+}
+
+/* ── Proxy checkbox — inline hint ────────────────────────────────── */
+.proxy-checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.proxy-hint {
+  font-size: var(--font-size-sm);
+  color: var(--n-text-color-3, #999);
+  opacity: 0.8;
+  user-select: all;
+}
+.proxy-hint-disabled {
+  font-size: var(--font-size-sm);
+  color: var(--n-text-color-disabled, #bbb);
+  font-style: italic;
 }
 </style>
