@@ -1,6 +1,7 @@
 /** @fileoverview Tests for resource detection utilities. */
 import { describe, it, expect } from 'vitest'
 import { decodeThunderLink, splitTaskLinks, detectResource, needCheckCopyright } from '../resource'
+import { DETECT_RESOURCE_MAX_CHARS, DETECT_RESOURCE_MAX_LINES } from '@shared/constants'
 import type { ClipboardConfig } from '@shared/types'
 
 describe('decodeThunderLink', () => {
@@ -124,10 +125,50 @@ describe('detectResource', () => {
     })
   })
 
-  describe('false positives — oversized content', () => {
-    it('rejects content exceeding 2048 characters', () => {
-      const longUrl = 'https://example.com/' + 'a'.repeat(2100)
+  // ── Size and line limits ──────────────────────────────────────────
+
+  describe('size and line limits', () => {
+    it('detects 50 HTTP URLs that collectively exceed 2048 characters (#125 regression)', () => {
+      // 50 URLs × ~60 chars each ≈ 3000 chars — well over old 2048 limit
+      const urls = Array.from({ length: 50 }, (_, i) => `https://cdn.example.com/files/package-${i}-release.zip`)
+      const content = urls.join('\n')
+      expect(content.length).toBeGreaterThan(2048)
+      expect(detectResource(content)).toBe(true)
+    })
+
+    it('accepts exactly DETECT_RESOURCE_MAX_LINES lines of valid URLs', () => {
+      const urls = Array.from(
+        { length: DETECT_RESOURCE_MAX_LINES },
+        (_, i) => `https://mirror${i}.example.com/file.zip`,
+      )
+      expect(detectResource(urls.join('\n'))).toBe(true)
+    })
+
+    it('rejects DETECT_RESOURCE_MAX_LINES + 1 lines', () => {
+      const urls = Array.from(
+        { length: DETECT_RESOURCE_MAX_LINES + 1 },
+        (_, i) => `https://mirror${i}.example.com/file.zip`,
+      )
+      expect(detectResource(urls.join('\n'))).toBe(false)
+    })
+
+    it('rejects content exceeding DETECT_RESOURCE_MAX_CHARS', () => {
+      const longUrl = 'https://example.com/' + 'a'.repeat(DETECT_RESOURCE_MAX_CHARS + 1)
       expect(detectResource(longUrl)).toBe(false)
+    })
+
+    it('accepts content just under DETECT_RESOURCE_MAX_CHARS with valid URLs', () => {
+      // Build valid URLs that stay under the char limit
+      const url = 'https://cdn.example.com/f.zip'
+      const count = Math.min(Math.floor(DETECT_RESOURCE_MAX_CHARS / (url.length + 1)) - 1, DETECT_RESOURCE_MAX_LINES)
+      const content = Array.from({ length: count }, () => url).join('\n')
+      expect(content.length).toBeLessThan(DETECT_RESOURCE_MAX_CHARS)
+      expect(detectResource(content)).toBe(true)
+    })
+
+    it('still rejects a single-line non-URL text', () => {
+      const longText = 'a'.repeat(5000)
+      expect(detectResource(longText)).toBe(false)
     })
   })
 

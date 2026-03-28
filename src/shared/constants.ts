@@ -323,6 +323,16 @@ export const THUNDER_RESOURCE_TAGS = ['thunder://']
 
 export const RESOURCE_TAGS = [...COMMON_RESOURCE_TAGS, ...THUNDER_RESOURCE_TAGS]
 
+/** Memory-safety guard: reject clipboard content longer than this (characters). */
+export const DETECT_RESOURCE_MAX_CHARS = 100_000
+
+/**
+ * Maximum number of non-empty lines detectResource will evaluate.
+ * Prevents pathological performance on huge lists while supporting realistic
+ * batch-download scenarios (the old 2048-char limit broke at ~13 URLs).
+ */
+export const DETECT_RESOURCE_MAX_LINES = 200
+
 /**
  * Matches bare BitTorrent v1 info hashes:
  * - SHA-1 hex: exactly 40 hex characters (most common format)

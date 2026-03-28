@@ -1,6 +1,11 @@
 /** @fileoverview Download resource detection: Thunder links, protocol tags, copyright. */
 import { compact } from 'lodash-es'
-import { RESOURCE_TAGS, BARE_INFO_HASH_RE } from '@shared/constants'
+import {
+  RESOURCE_TAGS,
+  BARE_INFO_HASH_RE,
+  DETECT_RESOURCE_MAX_CHARS,
+  DETECT_RESOURCE_MAX_LINES,
+} from '@shared/constants'
 import { splitTextRows } from './format'
 import { isAudioOrVideo } from './file'
 import type { ClipboardConfig } from '@shared/types'
@@ -61,14 +66,14 @@ function buildAllowedTags(filter?: ClipboardConfig): string[] {
  */
 export const detectResource = (content: string, filter?: ClipboardConfig): boolean => {
   if (filter && !filter.enable) return false
-  if (!content || content.length > 2048) return false
+  if (!content || content.length > DETECT_RESOURCE_MAX_CHARS) return false
 
   const lines = content
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean)
 
-  if (lines.length === 0) return false
+  if (lines.length === 0 || lines.length > DETECT_RESOURCE_MAX_LINES) return false
 
   const allowedTags = buildAllowedTags(filter)
   const allowHash = filter ? filter.btHash : true
