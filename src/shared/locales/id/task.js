@@ -23,7 +23,7 @@ export default {
   'task-out': 'Ubah nama',
   'task-out-tips': 'Opsional',
   'task-split': 'Segmen',
-  'split-limit-hint': 'Batas tercapai. Anda dapat meningkatkannya di Pengaturan.',
+  'split-limit-hint': 'Batas maksimum engine tercapai, tidak dapat diubah',
   'task-dir': 'Simpan di',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

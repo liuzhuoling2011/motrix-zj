@@ -23,7 +23,7 @@ export default {
   'task-out': 'Umbenennen',
   'task-out-tips': 'Optional',
   'task-split': 'Segmente',
-  'split-limit-hint': 'Limit erreicht. Sie können es in den Einstellungen erhöhen.',
+  'split-limit-hint': 'Engine-Hardlimit erreicht, kann nicht geändert werden',
   'task-dir': 'Speichern unter',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

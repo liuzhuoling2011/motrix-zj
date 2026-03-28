@@ -23,7 +23,7 @@ export default {
   'task-out': 'Reanomena',
   'task-out-tips': 'Opcional',
   'task-split': 'Segments',
-  'split-limit-hint': 'S\'{ha} assolit el límit. Podeu augmentar-lo a la configuració.',
+  'split-limit-hint': 'S\'ha assolit el límit màxim del motor, no es pot modificar',
   'task-dir': 'Desa a',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

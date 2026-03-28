@@ -23,7 +23,7 @@ export default {
   'task-out': 'Преименувай',
   'task-out-tips': 'По избор',
   'task-split': 'Сегменти',
-  'split-limit-hint': 'Достигнат е лимитът. Можете да го увеличите от настройките.',
+  'split-limit-hint': 'Достигнат е хардуерният лимит на двигателя, не може да бъде променен',
   'task-dir': 'Запиши в',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

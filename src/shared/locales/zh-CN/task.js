@@ -23,7 +23,7 @@ export default {
   'task-out': '重命名',
   'task-out-tips': '选填',
   'task-split': '分片数',
-  'split-limit-hint': '已达上限，可在设置中调整',
+  'split-limit-hint': '已达引擎硬上限，无法修改',
   'task-dir': '存储路径',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

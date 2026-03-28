@@ -23,7 +23,7 @@ export default {
   'task-out': 'Átnevezés',
   'task-out-tips': 'Opcionális',
   'task-split': 'Szegmensek',
-  'split-limit-hint': 'Limit elérve. A beállításokban növelheti.',
+  'split-limit-hint': 'Motor hardlimit elérve, nem módosítható',
   'task-dir': 'Mentés ide',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

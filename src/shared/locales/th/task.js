@@ -23,7 +23,7 @@ export default {
   'task-out': 'เปลี่ยนชื่อ',
   'task-out-tips': 'ไม่บังคับ',
   'task-split': 'เซ็กเมนต์',
-  'split-limit-hint': 'ถึงขีดจำกัดแล้ว คุณสามารถเพิ่มได้ในการตั้งค่า',
+  'split-limit-hint': 'ถึงขีดจำกัดสูงสุดของเอนจิน ไม่สามารถเปลี่ยนแปลงได้',
   'task-dir': 'บันทึกที่',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

@@ -23,7 +23,7 @@ export default {
   'task-out': 'Đổi tên',
   'task-out-tips': 'Tùy chọn',
   'task-split': 'Phân đoạn',
-  'split-limit-hint': 'Đã đạt giới hạn. Bạn có thể tăng trong Cài đặt.',
+  'split-limit-hint': 'Đã đạt giới hạn cứng của engine — không thể thay đổi',
   'task-dir': 'Lưu vào',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

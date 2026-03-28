@@ -23,7 +23,7 @@ export default {
   'task-out': 'Renommer',
   'task-out-tips': 'Facultatif',
   'task-split': 'Segments',
-  'split-limit-hint': 'Limite atteinte. Vous pouvez l\'{augmenter} dans les paramètres.',
+  'split-limit-hint': 'Limite maximale du moteur atteinte — non modifiable',
   'task-dir': 'Enregistrer dans',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

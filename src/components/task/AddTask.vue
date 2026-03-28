@@ -84,18 +84,18 @@ const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
 // Real-time tracking: NInputNumber only commits v-model on blur,
 // so we capture the native `input` event via bubbling from the inner
 // <input> element. The watch covers +/− button clicks (immediate update).
-const splitAtLimit = ref(form.value.split >= maxSplit)
+const splitAtLimit = ref(form.value.split > maxSplit)
 
 function onSplitRawInput(e: Event) {
   const raw = (e.target as HTMLInputElement).value
   const val = Number(raw)
-  splitAtLimit.value = raw !== '' && !isNaN(val) && val >= maxSplit
+  splitAtLimit.value = raw !== '' && !isNaN(val) && val > maxSplit
 }
 
 watch(
   () => form.value.split,
   (v) => {
-    splitAtLimit.value = v >= maxSplit
+    splitAtLimit.value = v > maxSplit
   },
 )
 

@@ -23,7 +23,7 @@ export default {
   'task-out': 'Redenumește',
   'task-out-tips': 'Opțional',
   'task-split': 'Segmente',
-  'split-limit-hint': 'Limita atinsă. Puteți să o creșteți din Setări.',
+  'split-limit-hint': 'Limita maximă a motorului atinsă — nu poate fi modificată',
   'task-dir': 'Salvează în',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',

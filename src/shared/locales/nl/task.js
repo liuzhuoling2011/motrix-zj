@@ -23,7 +23,7 @@ export default {
   'task-out': 'Hernoemen',
   'task-out-tips': 'Optioneel',
   'task-split': 'Segmenten',
-  'split-limit-hint': 'Limiet bereikt. U kunt deze verhogen in Instellingen.',
+  'split-limit-hint': 'Engine-hardlimiet bereikt — kan niet worden gewijzigd',
   'task-dir': 'Opslaan in',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
