@@ -131,12 +131,11 @@ async function open(channel?: string) {
     } else {
       phase.value = 'up-to-date'
     }
+    preferenceStore.updateAndSave({ lastCheckUpdateTime: Date.now() })
   } catch (e) {
     logger.error('Updater', e)
     errorMsg.value = formatUpdateError(e)
     phase.value = 'error'
-  } finally {
-    preferenceStore.updateAndSave({ lastCheckUpdateTime: Date.now() })
   }
 }
 

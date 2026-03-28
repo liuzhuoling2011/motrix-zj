@@ -72,6 +72,7 @@ export const useHistoryStore = defineStore('history', () => {
     } catch (e) {
       logger.error('HistoryDB', `Rebuild failed: ${e}`)
       db = null
+      initPromise = null
       callbacks?.onRebuildFailed?.(e)
     }
   }

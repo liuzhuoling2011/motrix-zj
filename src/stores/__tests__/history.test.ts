@@ -415,4 +415,77 @@ describe('HistoryStore', () => {
       expect(results[0].gid).toBe('before-close')
     })
   })
+
+  // ── init recovery after total failure ──────────────────────────
+
+  describe('init recovery after rebuild failure', () => {
+    it('allows re-initialization when both initial load and rebuild fail', async () => {
+      // Reset to a clean slate so we can control the init sequence
+      await store.closeConnection()
+
+      const Database = (await import('@tauri-apps/plugin-sql')).default
+      const loadFn = Database.load as ReturnType<typeof vi.fn>
+
+      // Force TWO consecutive failures:
+      //   1st rejection → init() catches it, tries rebuildDatabase()
+      //   2nd rejection → rebuildDatabase() also fails
+      // After this, initPromise MUST be reset so a future init() can retry.
+      loadFn.mockRejectedValueOnce(new Error('simulated disk full'))
+      loadFn.mockRejectedValueOnce(new Error('simulated disk full'))
+
+      // This init() will fail internally but should NOT throw — it
+      // swallows errors via the health callback. The critical invariant
+      // is that the store doesn't permanently wedge itself.
+      await store.init()
+
+      // Restore normal Database.load behavior for the retry
+      loadFn.mockResolvedValue({
+        execute: vi.fn((q: string, p: unknown[]) => Promise.resolve(mockExecute(q, p))),
+        select: vi.fn((q: string, p: unknown[]) => Promise.resolve(mockSelect(q, p))),
+        close: vi.fn().mockResolvedValue(undefined),
+      })
+
+      // CRITICAL ASSERTION: A second init() call must trigger a fresh
+      // initialization attempt — not silently reuse the old failed promise.
+      await store.init()
+
+      // If initPromise was not reset, getRecords() would crash on `db!`
+      // being null. A successful call here proves the store recovered.
+      const results = await store.getRecords()
+      expect(results).toBeDefined()
+      expect(Array.isArray(results)).toBe(true)
+    })
+
+    it('recovered store supports full CRUD after retry', async () => {
+      // Start from a failure state
+      await store.closeConnection()
+
+      const Database = (await import('@tauri-apps/plugin-sql')).default
+      const loadFn = Database.load as ReturnType<typeof vi.fn>
+
+      loadFn.mockRejectedValueOnce(new Error('corruption'))
+      loadFn.mockRejectedValueOnce(new Error('corruption'))
+
+      await store.init()
+
+      // Restore
+      loadFn.mockResolvedValue({
+        execute: vi.fn((q: string, p: unknown[]) => Promise.resolve(mockExecute(q, p))),
+        select: vi.fn((q: string, p: unknown[]) => Promise.resolve(mockSelect(q, p))),
+        close: vi.fn().mockResolvedValue(undefined),
+      })
+
+      // Retry — should recover
+      await store.init()
+
+      // Full CRUD cycle to prove the store is fully operational
+      await store.addRecord(makeRecord({ gid: 'after-recovery', name: 'recovered.zip' }))
+      const records = await store.getRecords()
+      expect(records.some((r) => r.gid === 'after-recovery')).toBe(true)
+
+      await store.removeRecord('after-recovery')
+      const afterRemove = await store.getRecords()
+      expect(afterRemove.every((r) => r.gid !== 'after-recovery')).toBe(true)
+    })
+  })
 })

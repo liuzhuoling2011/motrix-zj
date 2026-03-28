@@ -59,7 +59,8 @@ pub fn is_autostart_launch() -> bool {
     let result = args
         .iter()
         .any(|a| a == "--autostart" || a.starts_with("--autostart="));
-    log::info!("is_autostart_launch: args={:?} result={}", args, result);
+    log::info!("is_autostart_launch: argc={} result={}", args.len(), result);
+    log::debug!("is_autostart_launch: args={:?}", args);
     result
 }
 

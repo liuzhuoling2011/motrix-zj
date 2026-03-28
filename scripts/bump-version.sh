@@ -30,7 +30,12 @@ if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
 fi
 
 # Update Cargo.toml (only the package version, not dependency versions)
-sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" "$CARGO_TOML"
+# BSD sed (macOS) requires -i '' with a space; GNU sed (Linux) requires -i without.
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" "$CARGO_TOML"
+else
+  sed -i "s/^version = \".*\"/version = \"$VERSION\"/" "$CARGO_TOML"
+fi
 
 # Update package.json
 cd "$PROJECT_ROOT"
