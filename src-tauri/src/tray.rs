@@ -8,15 +8,18 @@ use tauri::{
 
 /// Embedded tray icon bytes.
 ///
-/// On macOS: a white-on-transparent icon (@2x, 88×88 px) matching the
-/// Motrix Next brand identity. Displays as a crisp white silhouette
-/// on the dark macOS menu bar.
+/// On macOS: a white-on-transparent template image (@2x, 88×88 px).
+/// The system auto-inverts for light/dark menu bar — white silhouette
+/// is the standard macOS convention.
 ///
-/// On other platforms: the standard full-colour app icon.
+/// On Windows/Linux: the full-colour app icon (64×64 px) for the
+/// system tray.  Must be clearly visible on both light and dark
+/// taskbar themes — a white silhouette would be invisible on a light
+/// taskbar.
 #[cfg(target_os = "macos")]
 pub const TRAY_ICON_BYTES: &[u8] = include_bytes!("../icons/tray-icon@2x.png");
 #[cfg(not(target_os = "macos"))]
-pub const TRAY_ICON_BYTES: &[u8] = include_bytes!("../icons/tray-icon.png");
+pub const TRAY_ICON_BYTES: &[u8] = include_bytes!("../icons/tray-icon-color.png");
 
 /// Creates a `tauri::image::Image` from the embedded tray icon bytes.
 ///
