@@ -161,7 +161,7 @@ function onRelease(ev: PointerEvent) {
 </script>
 
 <template>
-  <ul class="task-item-actions" @dblclick.stop>
+  <TransitionGroup tag="ul" name="action-item" class="task-item-actions" @dblclick.stop>
     <li
       v-for="action in actions"
       :key="action.key"
@@ -199,7 +199,7 @@ function onRelease(ev: PointerEvent) {
         </template>
       </MTooltip>
     </li>
-  </ul>
+  </TransitionGroup>
 </template>
 
 <style scoped>
@@ -231,6 +231,7 @@ function onRelease(ev: PointerEvent) {
   display: inline-block;
   padding: 6px;
   margin: 0 3px;
+  max-width: 38px;
   font-size: 0;
   cursor: pointer;
   line-height: 20px;
@@ -239,7 +240,11 @@ function onRelease(ev: PointerEvent) {
   transition:
     color 0.15s,
     background-color 0.15s,
-    transform 0.25s cubic-bezier(0.05, 0.7, 0.1, 1);
+    transform 0.25s cubic-bezier(0.05, 0.7, 0.1, 1),
+    max-width 0.2s ease-out,
+    margin 0.2s ease-out,
+    padding 0.2s ease-out,
+    opacity 0.2s ease-out;
   transform-origin: center;
 }
 .task-item-action:hover {
@@ -320,5 +325,46 @@ function onRelease(ev: PointerEvent) {
 .icon-swap-leave-to {
   opacity: 0;
   transform: scale(0.6);
+}
+/* ── TransitionGroup: directional toolbar grow/shrink ────────── */
+
+/* Enter: button slides in horizontally (width 0 → full) */
+.action-item-enter-active {
+  transition:
+    opacity 0.2s ease-out,
+    max-width 0.2s ease-out,
+    margin 0.2s ease-out,
+    padding 0.2s ease-out;
+}
+
+/* Leave: button collapses out horizontally (width full → 0) */
+.action-item-leave-active {
+  transition:
+    opacity 0.15s ease-in,
+    max-width 0.15s ease-in,
+    margin 0.15s ease-in,
+    padding 0.15s ease-in;
+  position: absolute;
+}
+
+.action-item-enter-from {
+  opacity: 0;
+  max-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.action-item-leave-to {
+  opacity: 0;
+  max-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+/* Move transition: remaining items slide smoothly to fill gaps */
+.action-item-move {
+  transition: transform 0.2s ease-out;
 }
 </style>

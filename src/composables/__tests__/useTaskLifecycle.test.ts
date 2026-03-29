@@ -15,6 +15,7 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 
 const {
   buildHistoryRecord,
+  buildBtCompletionRecord,
   shouldRunStaleCleanup,
   historyRecordToTask,
   mergeHistoryIntoTasks,
@@ -255,6 +256,50 @@ describe('buildHistoryRecord', () => {
   })
 })
 
+// ── buildBtCompletionRecord ──────────────────────────────────────────
+
+describe('buildBtCompletionRecord', () => {
+  it('overrides status to "complete" for a seeding task (aria2 status=active)', () => {
+    const task = makeTask({
+      status: 'active',
+      bittorrent: { info: { name: 'Ubuntu 24.04' } },
+      seeder: 'true',
+    } as Partial<Aria2Task>)
+    const record = buildBtCompletionRecord(task)
+    expect(record.status).toBe('complete')
+  })
+
+  it('preserves all other fields from buildHistoryRecord', () => {
+    const task = makeTask({
+      gid: 'bt-seed-1',
+      status: 'active',
+      totalLength: '5000000',
+      dir: '/downloads/torrents',
+      bittorrent: { info: { name: 'Big Archive' } },
+      infoHash: 'abc123def456',
+    } as Partial<Aria2Task>)
+    const record = buildBtCompletionRecord(task)
+
+    // status overridden
+    expect(record.status).toBe('complete')
+    // everything else preserved
+    expect(record.gid).toBe('bt-seed-1')
+    expect(record.name).toBe('Big Archive')
+    expect(record.dir).toBe('/downloads/torrents')
+    expect(record.total_length).toBe(5000000)
+    expect(record.task_type).toBe('bt')
+    expect(record.completed_at).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+    const meta = JSON.parse(record.meta!)
+    expect(meta.infoHash).toBe('abc123def456')
+  })
+
+  it('works for non-seeding active tasks (defensive)', () => {
+    const task = makeTask({ status: 'active' })
+    const record = buildBtCompletionRecord(task)
+    expect(record.status).toBe('complete')
+  })
+})
+
 // ── shouldRunStaleCleanup ────────────────────────────────────────────
 
 describe('shouldRunStaleCleanup', () => {
@@ -404,6 +449,72 @@ describe('mergeHistoryIntoTasks', () => {
 
   it('handles both empty', () => {
     expect(mergeHistoryIntoTasks([], [])).toEqual([])
+  })
+
+  // ── infoHash-based cross-session dedup ─────────────────────────
+
+  it('deduplicates by infoHash when GIDs differ (cross-session restart)', () => {
+    // aria2 restarted → same torrent got new GID Y, but infoHash is stable
+    const aria2 = [
+      makeTask({
+        gid: 'new-gid-Y',
+        status: 'active',
+        infoHash: 'aabbccdd11223344',
+        bittorrent: { info: { name: 'Ubuntu' } },
+      } as Partial<Aria2Task>),
+    ]
+    const history = [
+      makeRecord({
+        gid: 'old-gid-X',
+        status: 'complete',
+        meta: JSON.stringify({ infoHash: 'aabbccdd11223344' }),
+      }),
+    ]
+    const result = mergeHistoryIntoTasks(aria2, history)
+    expect(result).toHaveLength(1)
+    expect(result[0].gid).toBe('new-gid-Y') // aria2 live data wins
+  })
+
+  it('keeps HTTP records with no infoHash (GID-only dedup)', () => {
+    const aria2 = [makeTask({ gid: 'http-1' })]
+    const history = [makeRecord({ gid: 'http-2', meta: undefined })]
+    const result = mergeHistoryIntoTasks(aria2, history)
+    expect(result).toHaveLength(2) // different GIDs, no infoHash → no cross-dedup
+  })
+
+  it('preserves records with corrupt meta JSON gracefully', () => {
+    const aria2 = [
+      makeTask({
+        gid: 'bt-1',
+        infoHash: 'aabb',
+        bittorrent: { info: { name: 'X' } },
+      } as Partial<Aria2Task>),
+    ]
+    const history = [makeRecord({ gid: 'old-1', meta: 'NOT_VALID_JSON' })]
+    const result = mergeHistoryIntoTasks(aria2, history)
+    // Corrupt meta → cannot extract infoHash → record kept (safe fallback)
+    expect(result).toHaveLength(2)
+  })
+
+  it('filters ALL stale DB records matching same infoHash', () => {
+    // Multiple restarts → multiple stale GIDs for the same torrent in DB
+    const aria2 = [
+      makeTask({
+        gid: 'latest-gid',
+        infoHash: 'hash-abc',
+        bittorrent: { info: { name: 'Torrent' } },
+      } as Partial<Aria2Task>),
+    ]
+    const history = [
+      makeRecord({ gid: 'stale-1', meta: JSON.stringify({ infoHash: 'hash-abc' }) }),
+      makeRecord({ gid: 'stale-2', meta: JSON.stringify({ infoHash: 'hash-abc' }) }),
+      makeRecord({ gid: 'unrelated', meta: undefined }),
+    ]
+    const result = mergeHistoryIntoTasks(aria2, history)
+    // stale-1, stale-2 filtered (infoHash match), unrelated kept
+    expect(result).toHaveLength(2)
+    expect(result[0].gid).toBe('latest-gid')
+    expect(result[1].gid).toBe('unrelated')
   })
 })
 

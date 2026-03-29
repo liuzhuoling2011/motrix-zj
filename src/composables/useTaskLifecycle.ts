@@ -108,6 +108,21 @@ export function buildHistoryRecord(task: Aria2Task): HistoryRecord {
   }
 }
 
+/** Build a history record for a BT task entering seeding state.
+ *
+ * Seeding means the download phase is complete — all pieces verified.
+ * Aria2 still reports status='active' for seeders, but from the user's
+ * perspective the download is done. This function overrides status to
+ * 'complete' so the record correctly reflects download completion.
+ *
+ * Used by both the lifecycle service (automatic detection) and
+ * stopSeeding (manual stop) to avoid duplicating the override logic. */
+export function buildBtCompletionRecord(task: Aria2Task): HistoryRecord {
+  const record = buildHistoryRecord(task)
+  record.status = 'complete'
+  return record
+}
+
 /** Determine if stale record cleanup should run based on user config. */
 export function shouldRunStaleCleanup(config: Partial<{ autoDeleteStaleRecords: boolean }> | undefined): boolean {
   return config?.autoDeleteStaleRecords === true
@@ -179,16 +194,37 @@ export function historyRecordToTask(record: HistoryRecord): Aria2Task {
   return task
 }
 
-/** Merge live aria2 stopped tasks with persisted history records.
+/** Merge live aria2 tasks with persisted history records.
  *
- * Aria2 data takes priority for any GID that appears in both sources.
- * History-only records (from previous sessions) are appended after
- * the live data, preserving temporal ordering. */
+ * Deduplicates on two dimensions:
+ * 1. **GID** — same-session dedup (task still in aria2 with original GID).
+ * 2. **infoHash** — cross-session dedup (aria2 reassigns GIDs on session
+ *    restore, but the torrent's infoHash is globally stable).
+ *
+ * Aria2 live data always takes priority. History-only records (from
+ * previous sessions) are appended after the live data. */
 export function mergeHistoryIntoTasks(aria2Tasks: Aria2Task[], historyRecords: HistoryRecord[]): Aria2Task[] {
   if (historyRecords.length === 0) return aria2Tasks
 
+  // Primary dedup key: GID (handles same-session tasks)
   const seenGids = new Set(aria2Tasks.map((t) => t.gid))
-  const historyOnly = historyRecords.filter((r) => !seenGids.has(r.gid))
+
+  // Secondary dedup key: infoHash (handles cross-session BT tasks)
+  const seenInfoHashes = new Set<string>()
+  for (const t of aria2Tasks) {
+    if (t.infoHash) seenInfoHashes.add(t.infoHash)
+  }
+
+  const historyOnly = historyRecords.filter((r) => {
+    // Same-session: GID match → aria2 data wins
+    if (seenGids.has(r.gid)) return false
+    // Cross-session: infoHash match → live seeding task wins
+    if (r.meta) {
+      const meta = parseHistoryMeta(r)
+      if (meta.infoHash && seenInfoHashes.has(meta.infoHash)) return false
+    }
+    return true
+  })
 
   return [...aria2Tasks, ...historyOnly.map(historyRecordToTask)]
 }

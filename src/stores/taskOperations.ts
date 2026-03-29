@@ -11,7 +11,7 @@
 import { TASK_STATUS } from '@shared/constants'
 import { checkTaskIsBT, checkTaskIsSeeder } from '@shared/utils'
 import { logger } from '@shared/logger'
-import { buildHistoryRecord } from '@/composables/useTaskLifecycle'
+import { buildBtCompletionRecord } from '@/composables/useTaskLifecycle'
 import { useHistoryStore } from '@/stores/history'
 import type { Aria2Task, TaskApi } from '@shared/types'
 import type { Ref } from 'vue'
@@ -100,9 +100,12 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
     } catch {
       /* best-effort: task may already be gone */
     }
-    const record = buildHistoryRecord(task)
-    record.status = 'complete'
+    const record = buildBtCompletionRecord(task)
     const historyStore = useHistoryStore()
+    // Clean up stale DB records from previous sessions (different GID, same infoHash)
+    if (task.infoHash) {
+      await historyStore.removeByInfoHash(task.infoHash, task.gid)
+    }
     await historyStore.addRecord(record)
     await api.saveSession()
   }

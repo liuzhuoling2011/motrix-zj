@@ -248,6 +248,66 @@ describe('TaskStore', () => {
       expect(poll1Gids).toEqual(['bbb', 'aaa'])
       expect(poll2Gids).toEqual(['bbb', 'aaa'])
     })
+
+    it('filters out completed metadata tasks from the stopped source', async () => {
+      await store.changeCurrentList('all')
+
+      // Completed metadata task — should be hidden
+      const completedMeta = makeMockTask('meta1', 'complete', {
+        followedBy: ['real-gid'],
+        files: [
+          {
+            index: '1',
+            path: '[METADATA]KNOPPIX_V9.1',
+            length: '26000',
+            completedLength: '26000',
+            selected: 'true',
+            uris: [],
+          },
+        ],
+      })
+      const realTask = makeMockTask('real-gid', 'active')
+
+      mockApi.fetchTaskList
+        .mockResolvedValueOnce([realTask]) // active — the real download
+        .mockResolvedValueOnce([completedMeta]) // stopped — stale metadata
+      mockHistoryFns.getRecords.mockResolvedValueOnce([])
+
+      await store.fetchList()
+
+      // Completed metadata task should be excluded
+      expect(store.taskList).toHaveLength(1)
+      expect(store.taskList[0].gid).toBe('real-gid')
+    })
+
+    it('keeps actively-downloading metadata tasks visible', async () => {
+      await store.changeCurrentList('all')
+
+      // Active metadata task — still resolving, must remain visible
+      const activeMeta = makeMockTask('meta-active', 'active', {
+        files: [
+          {
+            index: '1',
+            path: '[METADATA]KNOPPIX_V9.1CD',
+            length: '26000',
+            completedLength: '5000',
+            selected: 'true',
+            uris: [],
+          },
+        ],
+      })
+
+      mockApi.fetchTaskList
+        .mockResolvedValueOnce([activeMeta]) // active — metadata still downloading
+        .mockResolvedValueOnce([]) // stopped
+      mockHistoryFns.getRecords.mockResolvedValueOnce([])
+
+      await store.fetchList()
+
+      // Active metadata must NOT be filtered — user needs to see the download progress
+      expect(store.taskList).toHaveLength(1)
+      expect(store.taskList[0].gid).toBe('meta-active')
+    })
   })
 
   it('fetchList prunes selectedGidList to valid gids only', async () => {

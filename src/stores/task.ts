@@ -6,7 +6,7 @@ import { intersection } from '@shared/utils'
 import { logger } from '@shared/logger'
 import type { Aria2Task, Aria2File, Aria2Peer, Aria2EngineOptions, AddMetalinkParams, TaskApi } from '@shared/types'
 
-import { historyRecordToTask, mergeHistoryIntoTasks } from '@/composables/useTaskLifecycle'
+import { historyRecordToTask, mergeHistoryIntoTasks, isMetadataTask } from '@/composables/useTaskLifecycle'
 import { shouldShowFileSelection } from '@/composables/useMagnetFlow'
 import { useHistoryStore } from '@/stores/history'
 
@@ -77,6 +77,10 @@ export const useTaskStore = defineStore('task', () => {
           useHistoryStore().getRecords(undefined, ALL_HISTORY_LIMIT),
         ])
         data = mergeHistoryIntoTasks([...activeTasks, ...stoppedTasks], historyRecords)
+        // Filter stale metadata tasks (completed magnet resolution) but keep
+        // actively-downloading metadata visible so users see the progress.
+        const LIVE_TASK_STATUSES = new Set(['active', 'waiting', 'paused'])
+        data = data.filter((t) => LIVE_TASK_STATUSES.has(t.status) || !isMetadataTask(t))
         data.sort((a, b) => b.gid.localeCompare(a.gid))
       } else {
         data = await api.fetchTaskList({ type: currentList.value })

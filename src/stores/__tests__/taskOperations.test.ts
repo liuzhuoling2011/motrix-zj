@@ -18,20 +18,22 @@ import { createTaskOperations } from '../taskOperations'
 const mockAddRecord = vi.fn().mockResolvedValue(undefined)
 const mockRemoveRecord = vi.fn().mockResolvedValue(undefined)
 const mockClearRecords = vi.fn().mockResolvedValue(undefined)
+const mockRemoveByInfoHash = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('@/stores/history', () => ({
   useHistoryStore: () => ({
     addRecord: mockAddRecord,
     removeRecord: mockRemoveRecord,
     clearRecords: mockClearRecords,
+    removeByInfoHash: mockRemoveByInfoHash,
   }),
 }))
 
-// ── Mock buildHistoryRecord ────────────────────────────────────────
+// ── Mock buildBtCompletionRecord ───────────────────────────────────
 vi.mock('@/composables/useTaskLifecycle', () => ({
-  buildHistoryRecord: (task: Aria2Task) => ({
+  buildBtCompletionRecord: (task: Aria2Task) => ({
     gid: task.gid,
-    status: task.status,
+    status: 'complete',
     dir: '',
     totalLength: '0',
     completedLength: '0',
@@ -359,6 +361,26 @@ describe('stopSeeding', () => {
     const task = makeTask({ gid: 'seed-4' })
     await ops.stopSeeding(task)
     expect(sessionSaved).toBe(true)
+  })
+
+  it('cleans up stale DB records by infoHash before writing (cross-session dedup)', async () => {
+    const task = makeTask({
+      gid: 'new-gid',
+      status: TASK_STATUS.ACTIVE,
+      infoHash: 'abcdef1234567890',
+      bittorrent: { info: { name: 'torrent' } },
+    } as Partial<Aria2Task>)
+    await ops.stopSeeding(task)
+    // removeByInfoHash should be called WITH excludeGid to avoid deleting the record about to be written
+    expect(mockRemoveByInfoHash).toHaveBeenCalledWith('abcdef1234567890', 'new-gid')
+    expect(mockAddRecord).toHaveBeenCalledOnce()
+  })
+
+  it('skips infoHash cleanup for tasks without infoHash', async () => {
+    const task = makeTask({ gid: 'no-hash', status: TASK_STATUS.ACTIVE })
+    await ops.stopSeeding(task)
+    expect(mockRemoveByInfoHash).not.toHaveBeenCalled()
+    expect(mockAddRecord).toHaveBeenCalledOnce()
   })
 })
 

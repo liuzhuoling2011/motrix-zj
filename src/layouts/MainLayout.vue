@@ -9,7 +9,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { listen } from '@tauri-apps/api/event'
 import { logger } from '@shared/logger'
 import { createTaskLifecycleService } from '@/composables/useTaskLifecycleService'
-import { buildHistoryRecord, isMetadataTask } from '@/composables/useTaskLifecycle'
+import { buildHistoryRecord, buildBtCompletionRecord, isMetadataTask } from '@/composables/useTaskLifecycle'
 import { handleTaskComplete, handleBtComplete, handleTaskError } from '@/composables/useTaskNotifyHandlers'
 import { shouldDeleteTorrent, trashTorrentFile, cleanupTorrentMetadataFiles } from '@/composables/useDownloadCleanup'
 import { getTaskDisplayName } from '@shared/utils'
@@ -443,6 +443,11 @@ onMounted(async () => {
     onTaskComplete: (task) => {
       if (isMetadataTask(task)) return
       const record = buildHistoryRecord(task)
+      // BT tasks: clean up stale DB records from previous sessions where
+      // aria2 assigned a different GID to the same torrent (infoHash is stable).
+      if (task.infoHash) {
+        historyStore.removeByInfoHash(task.infoHash, task.gid).catch((e) => logger.debug('Lifecycle.cleanStale', e))
+      }
       historyStore.addRecord(record).catch((e) => logger.debug('Lifecycle.historyRecord', e))
       handleTaskComplete(task, {
         messageSuccess: message.success,
@@ -452,6 +457,18 @@ onMounted(async () => {
       })
     },
     onBtComplete: async (task) => {
+      // Persist immediately — download is complete, seeding is just uploading.
+      // INSERT OR REPLACE: safe if onTaskComplete later writes the same GID.
+      if (!isMetadataTask(task)) {
+        // Clean up stale DB records from previous sessions (different GID, same infoHash)
+        if (task.infoHash) {
+          historyStore
+            .removeByInfoHash(task.infoHash, task.gid)
+            .catch((e) => logger.debug('Lifecycle.btComplete.cleanStale', e))
+        }
+        const record = buildBtCompletionRecord(task)
+        historyStore.addRecord(record).catch((e) => logger.debug('Lifecycle.btComplete.history', e))
+      }
       handleBtComplete(task, {
         messageSuccess: message.success,
         messageError: message.error,

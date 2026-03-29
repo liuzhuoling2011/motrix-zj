@@ -175,6 +175,30 @@ export const useHistoryStore = defineStore('history', () => {
     await (await getDb()).execute(`DELETE FROM download_history WHERE gid IN (${placeholders})`, gids)
   }
 
+  /** Remove records matching a BT infoHash stored in the meta JSON column.
+   *
+   * Aria2 reassigns GIDs on session restore, so the same torrent may have
+   * stale DB records under old GIDs. This method cleans them up before
+   * writing a fresh record with the current GID, preventing duplicates.
+   *
+   * Optionally excludes a specific GID to avoid deleting the record
+   * that was just written (INSERT OR REPLACE is by GID, not infoHash). */
+  async function removeByInfoHash(infoHash: string, excludeGid?: string): Promise<void> {
+    if (!infoHash) return
+    if (excludeGid) {
+      await (
+        await getDb()
+      ).execute(`DELETE FROM download_history WHERE json_extract(meta, '$.infoHash') = $1 AND gid != $2`, [
+        infoHash,
+        excludeGid,
+      ])
+    } else {
+      await (
+        await getDb()
+      ).execute(`DELETE FROM download_history WHERE json_extract(meta, '$.infoHash') = $1`, [infoHash])
+    }
+  }
+
   /** Run PRAGMA integrity_check and return the result string. */
   async function checkIntegrity(): Promise<string> {
     const result = await (await getDb()).select<{ integrity_check: string }[]>('PRAGMA integrity_check', [])
@@ -198,6 +222,7 @@ export const useHistoryStore = defineStore('history', () => {
     removeRecord,
     clearRecords,
     removeStaleRecords,
+    removeByInfoHash,
     checkIntegrity,
     closeConnection,
   }
