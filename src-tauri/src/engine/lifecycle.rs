@@ -245,20 +245,49 @@ pub fn save_session_rpc(port: &str, secret: &str) {
     }
 }
 
-pub fn stop_engine(app: &tauri::AppHandle) -> Result<(), String> {
+/// Stops the running engine process.
+///
+/// Two modes are available, selected by `for_exit`:
+///
+/// - **`for_exit = true`** (app shutdown): uses `CommandChild::kill()`
+///   (`TerminateProcess` on Windows, `SIGKILL` on Unix).  Returns in < 1 ms
+///   because the OS reclaims all child resources when the main process exits
+///   moments later.  No sleep is needed — we will never reuse the port.
+///
+/// - **`for_exit = false`** (restart / command): uses `kill_process_by_pid()`
+///   (`taskkill /T /F` on Windows, `kill -TERM` on Unix) to ensure the entire
+///   process tree is dead, then sleeps 100 ms for the OS to release the RPC
+///   port before a new engine instance binds to it.
+///
+/// aria2c is a single-process, multi-threaded binary — it never spawns child
+/// processes — so `CommandChild::kill()` and `taskkill /T` are functionally
+/// equivalent for termination.  The distinction matters only for timing: the
+/// fast path avoids the ~800 ms overhead of spawning `taskkill.exe` and the
+/// subsequent 100 ms sleep, which is unnecessary during app exit.
+pub fn stop_engine(app: &tauri::AppHandle, for_exit: bool) -> Result<(), String> {
     let state = app.state::<EngineState>();
     // Signal intentional stop BEFORE kill so the Terminated handler
     // knows this is deliberate and suppresses engine-error.
     state.intentional_stop.store(true, Ordering::SeqCst);
     let mut child_lock = state.child.lock().map_err(|e| e.to_string())?;
 
-    if let Some(child) = child_lock.as_ref() {
-        let pid = child.pid();
-        kill_process_by_pid(pid)?;
-        *child_lock = None;
-        log::info!("stopped engine process: PID {}", pid);
-        // Brief wait for the OS to fully terminate the process and release the port.
-        std::thread::sleep(std::time::Duration::from_millis(100));
+    if for_exit {
+        // Fast path: app is exiting — OS will reclaim all child resources.
+        if let Some(child) = child_lock.take() {
+            let pid = child.pid();
+            let _ = child.kill(); // best-effort; ignore errors
+            log::info!("stopped engine process: PID {} (fast exit)", pid);
+        }
+    } else {
+        // Thorough path: must guarantee process tree is dead and port is free.
+        if let Some(child) = child_lock.as_ref() {
+            let pid = child.pid();
+            kill_process_by_pid(pid)?;
+            *child_lock = None;
+            log::info!("stopped engine process: PID {}", pid);
+            // Brief wait for the OS to fully terminate the process and release the port.
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
     }
 
     Ok(())

@@ -381,7 +381,7 @@ pub async fn apply_update(
     {
         let app_for_stop = app.clone();
         tokio::task::spawn_blocking(move || {
-            crate::engine::stop_engine(&app_for_stop).map_err(AppError::Engine)
+            crate::engine::stop_engine(&app_for_stop, false).map_err(AppError::Engine)
         })
         .await
         .map_err(|e| AppError::Engine(e.to_string()))??;

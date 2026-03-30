@@ -22,7 +22,7 @@ pub async fn start_engine_command(app: AppHandle) -> Result<(), AppError> {
 #[tauri::command]
 pub async fn stop_engine_command(app: AppHandle) -> Result<(), AppError> {
     log::info!("engine:stop-command");
-    tokio::task::spawn_blocking(move || engine::stop_engine(&app).map_err(AppError::Engine))
+    tokio::task::spawn_blocking(move || engine::stop_engine(&app, false).map_err(AppError::Engine))
         .await
         .map_err(|e| AppError::Engine(e.to_string()))?
 }

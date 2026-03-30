@@ -374,7 +374,7 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
                     .unwrap_or_default();
                 engine::save_session_rpc(&port, &secret);
             }
-            let _ = engine::stop_engine(app);
+            let _ = engine::stop_engine(app, true);
             // Clean up UPnP port mappings on exit.
             if let Some(state) = app.try_state::<UpnpState>() {
                 tauri::async_runtime::block_on(async {

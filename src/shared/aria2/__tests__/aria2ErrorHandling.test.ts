@@ -295,13 +295,18 @@ describe('engine/ — stdout/stderr logging and exit code events', () => {
       expect(resetIdx).toBeGreaterThan(spawnIdx)
     })
 
-    it('stop_engine does not take child before kill succeeds', () => {
+    it('stop_engine thorough path uses .as_ref() before kill_process_by_pid (not .take())', () => {
       const fnBody = extractFnBody(engineSource, 'stop_engine')
       expect(fnBody).toBeTruthy()
-      const takeIdx = fnBody!.indexOf('.take()')
+      // The thorough path (for_exit=false) must use .as_ref() so the child
+      // handle is preserved on kill failure.  The fast exit path (for_exit=true)
+      // correctly uses .take() + child.kill() since the OS reclaims children.
       const killIdx = fnBody!.indexOf('kill_process_by_pid')
       expect(killIdx).toBeGreaterThanOrEqual(0)
-      expect(takeIdx).toBe(-1)
+      // .as_ref() must appear before kill_process_by_pid (thorough path)
+      const asRefIdx = fnBody!.indexOf('.as_ref()')
+      expect(asRefIdx).toBeGreaterThanOrEqual(0)
+      expect(asRefIdx).toBeLessThan(killIdx)
     })
 
     it('restart_engine does not take child before kill succeeds', () => {
