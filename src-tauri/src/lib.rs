@@ -40,6 +40,7 @@ pub(crate) fn read_log_level() -> log::LevelFilter {
 /// Initialises menus, tray, deep links, window state, and platform-specific
 /// workarounds.  Called once by `Builder.setup()`.
 fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    eprintln!("[DEBUG-EXIT] setup_app() entered, PID={}, argv={:?}", std::process::id(), std::env::args().collect::<Vec<_>>());
     let handle = app.handle();
     #[cfg(target_os = "macos")]
     {
@@ -330,6 +331,7 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
         // closing (NOT an explicit `app.exit()` call).  When the user
         // has minimize-to-tray enabled, keep the process alive.
         tauri::RunEvent::ExitRequested { ref api, code, .. } => {
+            eprintln!("[DEBUG-EXIT] ExitRequested code={:?} PID={}", code, std::process::id());
             log::info!("app:exit-requested code={:?}", code);
 
             if code.is_none() {
@@ -349,6 +351,7 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
             }
         }
         tauri::RunEvent::Exit => {
+            eprintln!("[DEBUG-EXIT] RunEvent::Exit START PID={}", std::process::id());
             log::info!("app:exit — saving session, stopping engine and UPnP");
             // Save aria2 session before killing the engine so in-progress
             // downloads survive across restarts.  Best-effort with 500ms
@@ -374,7 +377,9 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
                     .unwrap_or_default();
                 engine::save_session_rpc(&port, &secret);
             }
+            eprintln!("[DEBUG-EXIT] calling stop_engine...");
             let _ = engine::stop_engine(app);
+            eprintln!("[DEBUG-EXIT] stop_engine done, starting UPnP cleanup...");
             // Clean up UPnP port mappings on exit.
             if let Some(state) = app.try_state::<UpnpState>() {
                 tauri::async_runtime::block_on(async {
@@ -385,6 +390,7 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
                     .await;
                 });
             }
+            eprintln!("[DEBUG-EXIT] RunEvent::Exit DONE PID={}", std::process::id());
         }
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen { .. } => {
@@ -403,6 +409,8 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    eprintln!("[DEBUG-EXIT] run() entered, argv={:?}", std::env::args().collect::<Vec<_>>());
+    eprintln!("[DEBUG-EXIT] PID={}", std::process::id());
     // ── Linux/NVIDIA: auto-disable DMABuf renderer before any thread spawn ──
     //
     // WORKAROUND for WebKitGTK Bug #262607 (RESOLVED WONTFIX).
@@ -535,6 +543,7 @@ pub fn run() {
     #[cfg(desktop)]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            eprintln!("[DEBUG-EXIT] single-instance callback! argv={:?} PID={}", argv, std::process::id());
             let _ = app.emit("single-instance-triggered", &argv);
             if let Some(w) = app.get_webview_window("main") {
                 let _: Result<(), _> = w.show();
