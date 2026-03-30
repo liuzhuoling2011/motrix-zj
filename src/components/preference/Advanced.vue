@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /** @fileoverview Advanced preference form: proxy, tracker, RPC, port, and user-agent settings. */
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, h } from 'vue'
+import type { VNodeChild } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
@@ -14,12 +15,14 @@ import { useIpc } from '@/composables/useIpc'
 import { appDataDir, appLogDir, join } from '@tauri-apps/api/path'
 import { LOG_LEVELS, PROXY_SCOPE_OPTIONS } from '@shared/constants'
 import { convertTrackerDataToLine } from '@shared/utils/tracker'
+import { SYNC_MIN_DURATION } from '@shared/timing'
 import {
   generateSecret,
   buildAdvancedForm,
   buildAdvancedSystemConfig,
   transformAdvancedForStore,
   validateAdvancedForm,
+  isValidTrackerSourceUrl,
   randomRpcPort,
   randomBtPort,
   randomDhtPort,
@@ -52,6 +55,8 @@ import {
   FolderOpenOutline,
   TrashOutline,
   CopyOutline,
+  AddCircleOutline,
+  CloseCircleOutline,
 } from '@vicons/ionicons5'
 import { logger } from '@shared/logger'
 import PreferenceActionBar from './PreferenceActionBar.vue'
@@ -77,6 +82,81 @@ const proxyScopeOptions = PROXY_SCOPE_OPTIONS.map((s: string) => ({
 const logLevelOptions = LOG_LEVELS.map((l: string) => ({ label: l, value: l }))
 
 const syncingTracker = ref(false)
+const customTrackerInput = ref('')
+
+/** All known preset tracker source values for fast O(1) classification. */
+const presetTrackerValues = new Set(
+  trackerSourceOptions.flatMap((group) => ('children' in group ? group.children.map((c) => c.value) : [])),
+)
+
+/**
+ * Writable computed: preset portion of form.trackerSource.
+ * Reading returns only values that exist in trackerSourceOptions.
+ * Writing merges the new preset values with existing custom values.
+ */
+const presetSources = computed({
+  get: () => form.value.trackerSource.filter((v) => presetTrackerValues.has(v)),
+  set: (vals: string[]) => {
+    const custom = form.value.trackerSource.filter((v) => !presetTrackerValues.has(v))
+    form.value.trackerSource = [...vals, ...custom]
+  },
+})
+
+/** NSelect options derived from persisted custom URL registry. */
+const customSelectOptions = computed(() =>
+  form.value.customTrackerUrls.map((url: string) => ({ label: url, value: url })),
+)
+
+/**
+ * Writable computed: active custom portion of form.trackerSource.
+ * Reading returns only values NOT in trackerSourceOptions.
+ * Writing merges the new custom values with existing preset values.
+ */
+const customSources = computed({
+  get: () => form.value.trackerSource.filter((v) => !presetTrackerValues.has(v)),
+  set: (vals: string[]) => {
+    const preset = form.value.trackerSource.filter((v) => presetTrackerValues.has(v))
+    form.value.trackerSource = [...preset, ...vals]
+  },
+})
+
+/** Permanently removes a custom URL from both the registry and active selection. */
+function onDeleteCustomTracker(url: string, e: Event) {
+  e.stopPropagation() // prevent NSelect from toggling selection
+  form.value.customTrackerUrls = form.value.customTrackerUrls.filter((v: string) => v !== url)
+  customSources.value = customSources.value.filter((v) => v !== url)
+}
+
+/**
+ * NSelect render-option: wraps each option with a delete button on the right.
+ * Clicking the option text toggles selection; clicking the delete icon permanently removes.
+ */
+function renderCustomOption(info: {
+  node: VNodeChild
+  option: { value?: string | number }
+  selected: boolean
+}): VNodeChild {
+  const url = String(info.option.value ?? '')
+  return h('div', { style: 'display:flex;align-items:center;position:relative;padding-right:32px' }, [
+    h('div', { style: 'flex:1;min-width:0' }, [info.node]),
+    h(
+      'span',
+      {
+        style:
+          'position:absolute;right:8px;display:flex;align-items:center;cursor:pointer;color:var(--error-color, #e88080)',
+        onClick: (e: Event) => onDeleteCustomTracker(url, e),
+      },
+      [h(NIcon, { size: 18 }, { default: () => h(CloseCircleOutline) })],
+    ),
+  ])
+}
+
+/** Dynamic placeholder: distinguishes empty registry from 'has URLs but none selected'. */
+const customPlaceholder = computed(() =>
+  form.value.customTrackerUrls.length
+    ? t('preferences.bt-tracker-source-custom-select')
+    : t('preferences.bt-tracker-source-custom-empty'),
+)
 
 const aria2ConfPath = ref('')
 const sessionPath = ref('')
@@ -206,14 +286,27 @@ async function handleSyncTracker() {
   }
   syncingTracker.value = true
   try {
-    const results = await preferenceStore.fetchBtTracker(form.value.trackerSource)
-    const text = convertTrackerDataToLine(results)
-    if (text) {
+    // Minimum visible loading duration prevents animation flash
+    const [result] = await Promise.all([
+      preferenceStore.fetchBtTracker(form.value.trackerSource),
+      new Promise((r) => setTimeout(r, SYNC_MIN_DURATION)),
+    ])
+
+    const text = convertTrackerDataToLine(result.data)
+
+    if (result.failures.length === 0 && text) {
+      // All sources succeeded with data
       form.value.btTracker = text
       form.value.lastSyncTrackerTime = Date.now()
       message.success(t('preferences.bt-tracker-sync-succeed'))
+    } else if (result.data.length > 0 && text) {
+      // Partial success — use available data, warn about failures
+      form.value.btTracker = text
+      form.value.lastSyncTrackerTime = Date.now()
+      showSyncFailureDialog(result.failures, result.data.length, form.value.trackerSource.length)
     } else {
-      message.error(t('preferences.bt-tracker-sync-failed'))
+      // Total failure — no usable data
+      showSyncFailureDialog(result.failures, 0, form.value.trackerSource.length)
     }
   } catch (e) {
     logger.debug('Advanced.syncTracker', e)
@@ -221,6 +314,75 @@ async function handleSyncTracker() {
   } finally {
     syncingTracker.value = false
   }
+}
+
+/**
+ * Shows a dialog listing which tracker source URLs failed and why.
+ * Uses NDialog warning for partial success, error for total failure.
+ */
+function showSyncFailureDialog(
+  failures: Array<{ url: string; reason: string }>,
+  successCount: number,
+  totalCount: number,
+) {
+  const isPartial = successCount > 0
+  const dialogType = isPartial ? 'warning' : 'error'
+  const title = isPartial ? t('preferences.bt-tracker-sync-partial-title') : t('preferences.bt-tracker-sync-failed')
+
+  dialog[dialogType]({
+    title,
+    content: () =>
+      h('div', { style: 'max-height:300px;overflow-y:auto' }, [
+        isPartial
+          ? h(
+              'p',
+              { style: 'margin:0 0 8px;color:var(--text-color-secondary, #999)' },
+              `${successCount}/${totalCount} ${t('preferences.bt-tracker-sync-sources-ok')}`,
+            )
+          : null,
+        h('p', { style: 'margin:0 0 8px;font-weight:500' }, t('preferences.bt-tracker-sync-failed-sources')),
+        ...failures.map((f) =>
+          h(
+            'div',
+            {
+              style:
+                'margin:6px 0;padding:6px 8px;border-radius:4px;background:var(--error-color-hover, rgba(232,128,128,0.08))',
+            },
+            [
+              h('div', { style: 'font-size:12px;word-break:break-all;font-weight:500' }, f.url),
+              h('div', { style: 'font-size:11px;color:var(--error-color, #e88080);margin-top:2px' }, f.reason),
+            ],
+          ),
+        ),
+      ]),
+    positiveText: 'OK',
+  })
+}
+
+/**
+ * Adds a custom tracker source URL after validation.
+ * Called when user clicks the Add button or presses Enter in the custom URL input.
+ */
+function onAddCustomTracker() {
+  const url = customTrackerInput.value.trim()
+  if (!url) return
+
+  if (!isValidTrackerSourceUrl(url)) {
+    message.warning(t('preferences.bt-tracker-source-invalid-url'))
+    return
+  }
+
+  // Add to registry if not already known
+  if (!form.value.customTrackerUrls.includes(url)) {
+    form.value.customTrackerUrls = [...form.value.customTrackerUrls, url]
+  }
+
+  // Add to active selection if not already selected
+  if (!form.value.trackerSource.includes(url)) {
+    form.value.trackerSource = [...form.value.trackerSource, url]
+  }
+
+  customTrackerInput.value = ''
 }
 
 function onRpcPortDice() {
@@ -344,24 +506,49 @@ onMounted(() => {
       </div>
 
       <NDivider title-placement="left">{{ t('preferences.bt-tracker') }}</NDivider>
-      <NFormItem :label="t('preferences.bt-tracker-source')">
+      <NFormItem :label="t('preferences.bt-tracker-source-preset')">
+        <NSelect
+          v-model:value="presetSources"
+          :options="trackerSourceOptions"
+          multiple
+          :placeholder="t('preferences.bt-tracker-source-placeholder')"
+          clearable
+          max-tag-count="responsive"
+        />
+      </NFormItem>
+      <NFormItem :label="t('preferences.bt-tracker-source-custom')">
         <NInputGroup>
-          <NSelect
-            v-model:value="form.trackerSource"
-            :options="trackerSourceOptions"
-            multiple
-            :placeholder="t('preferences.bt-tracker-tips')"
-            style="flex: 1"
+          <NInput
+            v-model:value="customTrackerInput"
+            :placeholder="t('preferences.bt-tracker-source-custom-placeholder')"
             clearable
-            max-tag-count="responsive"
+            @keydown.enter="onAddCustomTracker"
           />
-          <NButton :loading="syncingTracker" size="small" style="flex-shrink: 0" @click="handleSyncTracker">
+          <NButton size="small" style="flex-shrink: 0" @click="onAddCustomTracker">
             <template #icon>
-              <NIcon><SyncOutline /></NIcon>
+              <NIcon><AddCircleOutline /></NIcon>
             </template>
-            {{ t('preferences.bt-tracker-sync') }}
           </NButton>
         </NInputGroup>
+      </NFormItem>
+      <NFormItem label=" ">
+        <NSelect
+          v-model:value="customSources"
+          :options="customSelectOptions"
+          :render-option="renderCustomOption"
+          multiple
+          clearable
+          :placeholder="customPlaceholder"
+          max-tag-count="responsive"
+        />
+      </NFormItem>
+      <NFormItem label=" ">
+        <NButton :loading="syncingTracker" type="warning" secondary style="min-width: 140px" @click="handleSyncTracker">
+          <template #icon>
+            <NIcon><SyncOutline /></NIcon>
+          </template>
+          {{ t('preferences.bt-tracker-sync') }}
+        </NButton>
       </NFormItem>
       <NFormItem :label="t('preferences.bt-tracker-content')">
         <NInput

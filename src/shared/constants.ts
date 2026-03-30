@@ -158,6 +158,7 @@ export const DEFAULT_APP_CONFIG = {
   // ── Tracker ───────────────────────────────────────────────────
   autoSyncTracker: true,
   trackerSource: [] as string[], // populated from DEFAULT_TRACKER_SOURCE below at runtime
+  customTrackerUrls: [] as string[],
   btTracker: '',
   lastSyncTrackerTime: 0,
 

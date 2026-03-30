@@ -8,6 +8,26 @@ import { ENGINE_RPC_PORT, PROXY_SCOPES, PROXY_SCOPE_OPTIONS, DEFAULT_APP_CONFIG 
 import { convertCommaToLine, convertLineToComma, generateRandomInt } from '@shared/utils'
 import type { AppConfig } from '@shared/types'
 
+// ── URL Validation ──────────────────────────────────────────────────
+
+/**
+ * Validates whether a string is a valid HTTP/HTTPS URL suitable for use as a
+ * tracker source. Custom tracker sources are fetched via axios GET, so only
+ * HTTP-based protocols are accepted.
+ *
+ * Exported for unit testing and use in Advanced.vue's tracker source validation.
+ */
+export function isValidTrackerSourceUrl(input: string): boolean {
+  const trimmed = input.trim()
+  if (!trimmed) return false
+  try {
+    const url = new URL(trimmed)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 // ── Types ───────────────────────────────────────────────────────────
 
 export interface AdvancedForm {
@@ -19,6 +39,7 @@ export interface AdvancedForm {
     scope: string[]
   }
   trackerSource: string[]
+  customTrackerUrls: string[]
   btTracker: string
   autoSyncTracker: boolean
   lastSyncTrackerTime: number
@@ -65,6 +86,7 @@ export function buildAdvancedForm(config: AppConfig): { form: AdvancedForm; gene
         scope: proxy.scope ?? [...PROXY_SCOPE_OPTIONS],
       },
       trackerSource: config.trackerSource ?? [...D.trackerSource],
+      customTrackerUrls: config.customTrackerUrls ?? [...D.customTrackerUrls],
       btTracker: convertCommaToLine(config.btTracker ?? D.btTracker),
       autoSyncTracker: config.autoSyncTracker ?? D.autoSyncTracker,
       lastSyncTrackerTime: config.lastSyncTrackerTime ?? D.lastSyncTrackerTime,

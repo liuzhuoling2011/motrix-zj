@@ -5,6 +5,7 @@ const userKeys = [
   'auto-hide-window',
   'auto-sync-tracker',
   'cookie',
+  'custom-tracker-urls',
   'clipboard',
   'delete-torrent-after-complete',
   'enable-upnp',

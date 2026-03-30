@@ -594,6 +594,7 @@ pub fn run() {
             commands::get_upnp_status,
             commands::set_dock_visible,
             commands::probe_trackers,
+            commands::fetch_tracker_sources,
             commands::is_autostart_launch,
             commands::clear_log_file,
             commands::export_diagnostic_logs,

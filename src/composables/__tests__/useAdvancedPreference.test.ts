@@ -11,14 +11,125 @@ import {
   buildAdvancedSystemConfig,
   transformAdvancedForStore,
   validateAdvancedForm,
+  isValidTrackerSourceUrl,
   randomRpcPort,
   randomBtPort,
   randomDhtPort,
   type AdvancedForm,
 } from '../useAdvancedPreference'
-import { ENGINE_RPC_PORT, PROXY_SCOPES, PROXY_SCOPE_OPTIONS } from '@shared/constants'
+import { ENGINE_RPC_PORT, PROXY_SCOPES, PROXY_SCOPE_OPTIONS, DEFAULT_APP_CONFIG } from '@shared/constants'
 import { diffConfig } from '@shared/utils/config'
 import type { AppConfig } from '@shared/types'
+
+// ── isValidTrackerSourceUrl ─────────────────────────────────────────
+
+describe('isValidTrackerSourceUrl', () => {
+  // ── Valid URLs ────────────────────────────────────────────────────
+
+  it('accepts HTTPS URL', () => {
+    expect(isValidTrackerSourceUrl('https://trackers.run/s/wp_up_hp_hs_v4_v6.txt')).toBe(true)
+  })
+
+  it('accepts HTTP URL', () => {
+    expect(isValidTrackerSourceUrl('http://example.com/trackers.txt')).toBe(true)
+  })
+
+  it('accepts HTTPS URL with path, query, and fragment', () => {
+    expect(isValidTrackerSourceUrl('https://cdn.jsdelivr.net/gh/ngosang/trackerslist/trackers_best.txt?v=2#top')).toBe(
+      true,
+    )
+  })
+
+  it('accepts URL with port number', () => {
+    expect(isValidTrackerSourceUrl('https://trackers.example.com:8443/list.txt')).toBe(true)
+  })
+
+  it('accepts URL with authentication', () => {
+    expect(isValidTrackerSourceUrl('https://user:pass@trackers.example.com/list.txt')).toBe(true)
+  })
+
+  // ── Trimming ─────────────────────────────────────────────────────
+
+  it('accepts URL with leading/trailing whitespace (trimmed)', () => {
+    expect(isValidTrackerSourceUrl('  https://trackers.run/list.txt  ')).toBe(true)
+  })
+
+  // ── Invalid protocols ────────────────────────────────────────────
+
+  it('rejects FTP URL', () => {
+    expect(isValidTrackerSourceUrl('ftp://files.example.com/trackers.txt')).toBe(false)
+  })
+
+  it('rejects UDP URL', () => {
+    expect(isValidTrackerSourceUrl('udp://tracker.example.com:6969/announce')).toBe(false)
+  })
+
+  it('rejects WSS URL', () => {
+    expect(isValidTrackerSourceUrl('wss://tracker.example.com/announce')).toBe(false)
+  })
+
+  it('rejects magnet link', () => {
+    expect(isValidTrackerSourceUrl('magnet:?xt=urn:btih:abc')).toBe(false)
+  })
+
+  it('rejects file URL', () => {
+    expect(isValidTrackerSourceUrl('file:///etc/trackers.txt')).toBe(false)
+  })
+
+  // ── Malformed input ──────────────────────────────────────────────
+
+  it('rejects plain text', () => {
+    expect(isValidTrackerSourceUrl('not-a-url')).toBe(false)
+  })
+
+  it('rejects empty string', () => {
+    expect(isValidTrackerSourceUrl('')).toBe(false)
+  })
+
+  it('rejects whitespace-only string', () => {
+    expect(isValidTrackerSourceUrl('   ')).toBe(false)
+  })
+
+  it('rejects URL without scheme', () => {
+    expect(isValidTrackerSourceUrl('trackers.run/list.txt')).toBe(false)
+  })
+
+  it('rejects string with only scheme', () => {
+    expect(isValidTrackerSourceUrl('https://')).toBe(false)
+  })
+})
+
+// ── buildAdvancedForm — custom tracker source URLs ──────────────────
+
+describe('buildAdvancedForm — custom tracker source URLs', () => {
+  it('preserves custom tracker source URLs alongside preset ones', () => {
+    const customUrl = 'https://trackers.run/s/wp_up_hp_hs_v4_v6.txt'
+    const presetUrl = 'https://cdn.jsdelivr.net/gh/ngosang/trackerslist/trackers_best.txt'
+    const config = {
+      ...DEFAULT_APP_CONFIG,
+      trackerSource: [presetUrl, customUrl],
+    } as AppConfig
+    const { form } = buildAdvancedForm(config)
+    expect(form.trackerSource).toHaveLength(2)
+    expect(form.trackerSource).toContain(presetUrl)
+    expect(form.trackerSource).toContain(customUrl)
+  })
+
+  it('preserves only custom URLs when no presets selected', () => {
+    const config = {
+      ...DEFAULT_APP_CONFIG,
+      trackerSource: ['https://my-tracker.example.com/list.txt'],
+    } as AppConfig
+    const { form } = buildAdvancedForm(config)
+    expect(form.trackerSource).toEqual(['https://my-tracker.example.com/list.txt'])
+  })
+
+  it('preserves empty trackerSource array', () => {
+    const config = { ...DEFAULT_APP_CONFIG, trackerSource: [] as string[] } as AppConfig
+    const { form } = buildAdvancedForm(config)
+    expect(form.trackerSource).toEqual([])
+  })
+})
 
 // ── generateSecret ──────────────────────────────────────────────────
 
@@ -119,6 +230,7 @@ describe('buildAdvancedSystemConfig', () => {
   const baseForm: AdvancedForm = {
     proxy: { enable: false, server: '', bypass: '', scope: [] },
     trackerSource: [],
+    customTrackerUrls: [],
     btTracker: 'udp://t1.org:6969\nudp://t2.org:6969',
     autoSyncTracker: false,
     lastSyncTrackerTime: 0,
@@ -189,6 +301,7 @@ describe('transformAdvancedForStore', () => {
     const form: AdvancedForm = {
       proxy: { enable: false, server: '', bypass: '', scope: [] },
       trackerSource: [],
+      customTrackerUrls: [],
       btTracker: 'udp://a\nudp://b',
       autoSyncTracker: false,
       lastSyncTrackerTime: 0,
@@ -208,6 +321,7 @@ describe('transformAdvancedForStore', () => {
     const form: AdvancedForm = {
       proxy: { enable: false, server: '', bypass: '', scope: [] },
       trackerSource: [],
+      customTrackerUrls: [],
       btTracker: '',
       autoSyncTracker: false,
       lastSyncTrackerTime: 0,
@@ -253,6 +367,7 @@ describe('validateAdvancedForm', () => {
   const validForm: AdvancedForm = {
     proxy: { enable: false, server: '', bypass: '', scope: [] },
     trackerSource: [],
+    customTrackerUrls: [],
     btTracker: '',
     autoSyncTracker: false,
     lastSyncTrackerTime: 0,
@@ -373,6 +488,7 @@ describe('proxy configuration invariants', () => {
     const form: AdvancedForm = {
       proxy: { enable: false, server: 'http://127.0.0.1:7890', bypass: '', scope: [...PROXY_SCOPE_OPTIONS] },
       trackerSource: [],
+      customTrackerUrls: [],
       btTracker: '',
       autoSyncTracker: false,
       lastSyncTrackerTime: 0,
@@ -399,6 +515,7 @@ describe('proxy configuration invariants', () => {
         scope: [PROXY_SCOPES.UPDATE_APP, PROXY_SCOPES.UPDATE_TRACKERS],
       },
       trackerSource: [],
+      customTrackerUrls: [],
       btTracker: '',
       autoSyncTracker: false,
       lastSyncTrackerTime: 0,
@@ -423,6 +540,7 @@ describe('proxy configuration invariants', () => {
         scope: [PROXY_SCOPES.DOWNLOAD],
       },
       trackerSource: [],
+      customTrackerUrls: [],
       btTracker: '',
       autoSyncTracker: false,
       lastSyncTrackerTime: 0,

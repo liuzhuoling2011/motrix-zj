@@ -175,6 +175,7 @@ export interface AppConfig {
   protocols: ProtocolsConfig
   clipboard: ClipboardConfig
   trackerSource: string[]
+  customTrackerUrls: string[]
   historyDirectories: string[]
   favoriteDirectories: string[]
   lastCheckUpdateTime: number

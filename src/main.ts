@@ -108,11 +108,11 @@ window.addEventListener('unhandledrejection', (e) => {
 
     const sources = config.trackerSource?.length ? config.trackerSource : DEFAULT_TRACKER_SOURCE
     try {
-      const results = await preferenceStore.fetchBtTracker(sources)
-      const text = convertTrackerDataToLine(results)
+      const result = await preferenceStore.fetchBtTracker(sources)
+      const text = convertTrackerDataToLine(result.data)
       if (!text) return
 
-      const comma = convertTrackerDataToComma(results)
+      const comma = convertTrackerDataToComma(result.data)
       await preferenceStore.updateAndSave({
         btTracker: comma,
         trackerSource: sources,
@@ -121,7 +121,7 @@ window.addEventListener('unhandledrejection', (e) => {
 
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('save_system_config', { config: { 'bt-tracker': reduceTrackerString(comma) } })
-      logger.info('Tracker', `Auto-synced ${results.length} tracker source(s)`)
+      logger.info('Tracker', `Auto-synced: ${result.data.length}/${sources.length} source(s) succeeded`)
     } catch (e) {
       logger.debug('Tracker', 'auto-sync failed: ' + (e as Error).message)
     }
