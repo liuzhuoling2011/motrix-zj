@@ -421,8 +421,8 @@ pub fn run() {
             use std::io::Write;
             let _ = writeln!(
                 f,
-                "[{}] run() entered PID={} argv={:?}",
-                chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"),
+                "[{:?}] run() entered PID={} argv={:?}",
+                std::time::SystemTime::now(),
                 std::process::id(),
                 std::env::args().collect::<Vec<_>>()
             );
