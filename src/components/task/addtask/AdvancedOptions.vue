@@ -57,7 +57,7 @@ function cleanUserAgent() {
             <div class="ua-warn-collapse__inner">
               <div class="ua-warn-bar">
                 <span class="ua-warn-text">⚠ {{ t('preferences.ua-unsafe-chars-detected') }}</span>
-                <NButton size="tiny" type="warning" ghost @click="cleanUserAgent">
+                <NButton size="tiny" type="primary" ghost @click="cleanUserAgent">
                   {{ t('preferences.ua-sanitize') }}
                 </NButton>
               </div>

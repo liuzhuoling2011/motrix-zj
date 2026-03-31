@@ -851,7 +851,7 @@ onUnmounted(() => {
           <NButton class="exit-btn" @click="handleMinimizeToTray">
             {{ t('app.minimize-to-tray') }}
           </NButton>
-          <NButton class="exit-btn" type="warning" @click="handleExitConfirm">
+          <NButton class="exit-btn" type="primary" @click="handleExitConfirm">
             {{ t('app.quit-app') }}
           </NButton>
         </NSpace>

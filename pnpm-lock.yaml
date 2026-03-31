@@ -11,6 +11,9 @@ importers:
       '@bany/curl-to-json':
         specifier: ^1.2.10
         version: 1.2.10
+      '@material/material-color-utilities':
+        specifier: ^0.4.0
+        version: 0.4.0
       '@tauri-apps/api':
         specifier: ^2
         version: 2.10.1
@@ -514,6 +517,9 @@ packages:
 
   '@juggle/resize-observer@3.4.0':
     resolution: {integrity: sha512-dfLbk+PwWvFzSxwk3n5ySL0hfBog779o8h68wK/7/APo/7cgyWp5jcXockbxdk5kFRkbeXWm4Fbi9FrdN381sA==}
+
+  '@material/material-color-utilities@0.4.0':
+    resolution: {integrity: sha512-dlq6VExJReb8dhjj3a/yTigr3ncNwoFmL5Iy2ENtbDX03EmNeOEdZ+vsaGrj7RTuO+mB7L58II4LCsl4NpM8uw==}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -2622,6 +2628,8 @@ snapshots:
       '@jridgewell/sourcemap-codec': 1.5.5
 
   '@juggle/resize-observer@3.4.0': {}
+
+  '@material/material-color-utilities@0.4.0': {}
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:

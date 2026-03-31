@@ -259,7 +259,7 @@ function onRelease(ev: PointerEvent) {
   transform-origin: center;
 }
 .task-item-action:hover {
-  color: var(--primary-color, #e0a422);
+  color: var(--color-primary);
 }
 .task-item-action.pressed {
   transform: scale(0.85);

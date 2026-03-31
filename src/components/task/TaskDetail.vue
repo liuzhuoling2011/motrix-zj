@@ -587,12 +587,12 @@ function handleClose() {
 }
 
 .detail-tab:hover {
-  color: var(--primary-color, #e0a422);
+  color: var(--color-primary);
 }
 
 .detail-tab.active {
-  color: var(--primary-color, #e0a422);
-  border-bottom-color: var(--primary-color, #e0a422);
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
 }
 
 .tab-content-wrapper {
@@ -608,7 +608,7 @@ function handleClose() {
   margin: 20px 0 12px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--primary-color, #e0a422);
+  color: var(--color-primary);
   letter-spacing: 0.5px;
 }
 

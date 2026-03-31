@@ -543,7 +543,7 @@ onMounted(() => {
         />
       </NFormItem>
       <NFormItem label=" ">
-        <NButton :loading="syncingTracker" type="warning" secondary style="min-width: 140px" @click="handleSyncTracker">
+        <NButton :loading="syncingTracker" type="primary" secondary style="min-width: 140px" @click="handleSyncTracker">
           <template #icon>
             <NIcon><SyncOutline /></NIcon>
           </template>
@@ -662,7 +662,7 @@ onMounted(() => {
             <div class="ua-warn-collapse__inner">
               <div class="ua-warn-bar">
                 <span class="ua-warn-text">⚠ {{ t('preferences.ua-unsafe-chars-detected') }}</span>
-                <NButton size="tiny" type="warning" ghost @click="cleanUserAgent">
+                <NButton size="tiny" type="primary" ghost @click="cleanUserAgent">
                   {{ t('preferences.ua-sanitize') }}
                 </NButton>
               </div>
@@ -859,7 +859,7 @@ onMounted(() => {
 
 /* ── Ghost button variants — shared tinted styles with M3 easing ──── */
 .ghost-btn--danger {
-  --btn-tint: #c97070;
+  --btn-tint: var(--m3-error, #c97070);
   color: var(--btn-tint) !important;
   border-color: var(--btn-tint) !important;
   transition:
@@ -877,7 +877,7 @@ onMounted(() => {
 }
 
 .ghost-btn--warning {
-  --btn-tint: #c9a055;
+  --btn-tint: var(--m3-tertiary, #c9a055);
   color: var(--btn-tint) !important;
   border-color: var(--btn-tint) !important;
   transition:

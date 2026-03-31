@@ -18,6 +18,7 @@ export interface BasicForm {
   dir: string
   locale: string
   theme: string
+  colorScheme: string
   openAtLogin: boolean
   keepWindowState: boolean
 
@@ -75,6 +76,7 @@ export function buildBasicForm(config: AppConfig, defaultDir: string = ''): Basi
     dir: config.dir || defaultDir,
     locale: config.locale || 'en-US',
     theme: config.theme ?? D.theme,
+    colorScheme: config.colorScheme ?? D.colorScheme,
     openAtLogin: config.openAtLogin ?? D.openAtLogin,
     keepWindowState: config.keepWindowState ?? D.keepWindowState,
 

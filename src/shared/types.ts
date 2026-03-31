@@ -140,6 +140,7 @@ export interface AppConfig {
    *  can be distinguished from fresh installs (who have empty config). */
   dbSchemaVersion: number
   theme: 'auto' | 'light' | 'dark'
+  colorScheme: string
   locale: string
   dir: string
   split: number

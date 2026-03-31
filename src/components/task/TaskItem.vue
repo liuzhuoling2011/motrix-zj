@@ -87,8 +87,8 @@ function cssVar(name: string, fallback: string): string {
 }
 
 const statusColorMap = computed<Record<string, string>>(() => ({
-  active: cssVar('--m3-status-active', '#E0A422'),
-  waiting: cssVar('--m3-status-waiting', '#E6A23C'),
+  active: cssVar('--m3-status-active', ''),
+  waiting: cssVar('--m3-status-waiting', ''),
   paused: cssVar('--m3-status-paused', '#909399'),
   error: cssVar('--m3-status-error', '#F56C6C'),
   complete: cssVar('--m3-status-success', '#67C23A'),
@@ -96,7 +96,7 @@ const statusColorMap = computed<Record<string, string>>(() => ({
   seeding: cssVar('--m3-status-success', '#67C23A'),
 }))
 
-const progressColor = computed(() => statusColorMap.value[taskStatus.value] || cssVar('--m3-status-active', '#E0A422'))
+const progressColor = computed(() => statusColorMap.value[taskStatus.value] || cssVar('--m3-status-active', ''))
 
 const finishedTag = computed(() => {
   const s = props.task.status
@@ -398,7 +398,7 @@ onBeforeUnmount(() => {
 /* The release uses M3 emphasized-decelerate for organic overshoot.     */
 .task-item.pressed {
   transform: scale(0.98);
-  border-color: var(--primary-color, #e0a422);
+  border-color: var(--color-primary);
   transition:
     transform 0.15s cubic-bezier(0.2, 0, 0, 1),
     border-color 0.15s;

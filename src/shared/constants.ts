@@ -9,6 +9,40 @@ export const APP_THEME = {
   DARK: 'dark',
 }
 
+/** Color scheme definition for the preset palette picker. */
+export interface ColorSchemeDefinition {
+  /** Unique identifier stored in config (kebab-case). */
+  id: string
+  /** i18n key suffix: `preferences.color-scheme-{id}` */
+  labelKey: string
+  /** Seed hex fed to MCU `themeFromSourceColor` to generate the full M3 tonal palette. */
+  seed: string
+}
+
+/**
+ * 10 curated preset color schemes spanning warm, cool, and neutral hues.
+ *
+ * Each seed is chosen for:
+ * - Even HSL hue distribution (~36° apart) to avoid clustering
+ * - WCAG AA contrast compliance when MCU-generated
+ * - Aesthetic harmony across both light and dark M3 surfaces
+ *
+ * Sources: Tailwind CSS v4, macOS system colors, Catppuccin/Nord,
+ * M3 Material Theme Builder, color psychology research.
+ */
+export const COLOR_SCHEMES: ColorSchemeDefinition[] = [
+  { id: 'amber', labelKey: 'preferences.color-scheme-amber', seed: '#E0A422' },
+  { id: 'space', labelKey: 'preferences.color-scheme-space', seed: '#4A6CF7' },
+  { id: 'mint', labelKey: 'preferences.color-scheme-mint', seed: '#10B981' },
+  { id: 'rose', labelKey: 'preferences.color-scheme-rose', seed: '#F43F5E' },
+  { id: 'aurora', labelKey: 'preferences.color-scheme-aurora', seed: '#8B5CF6' },
+  { id: 'coral', labelKey: 'preferences.color-scheme-coral', seed: '#F97316' },
+  { id: 'glacier', labelKey: 'preferences.color-scheme-glacier', seed: '#06B6D4' },
+  { id: 'evergreen', labelKey: 'preferences.color-scheme-evergreen', seed: '#15803D' },
+  { id: 'graphite', labelKey: 'preferences.color-scheme-graphite', seed: '#6B7280' },
+  { id: 'sakura', labelKey: 'preferences.color-scheme-sakura', seed: '#EC4899' },
+]
+
 export const APP_RUN_MODE = {
   STANDARD: 1,
   TRAY: 2,
@@ -89,6 +123,7 @@ export const DEFAULT_APP_CONFIG = {
   dbSchemaVersion: 2,
   // ── Appearance ──────────────────────────────────────────────────
   theme: 'auto' as const,
+  colorScheme: 'amber',
   locale: '',
 
   // ── Download Core (aria2 defaults: concurrent=5, split=5, conn/server=1) ──

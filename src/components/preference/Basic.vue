@@ -21,6 +21,7 @@ import {
   SAFE_LIMIT_SPLIT,
   SAFE_LIMIT_CONNECTION_PER_SERVER,
   SAFE_LIMIT_BT_MAX_PEERS,
+  COLOR_SCHEMES,
 } from '@shared/constants'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { buildBasicForm, buildBasicSystemConfig, transformBasicForStore } from '@/composables/useBasicPreference'
@@ -556,6 +557,31 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.appearance')">
         <NSelect v-model:value="form.theme" :options="themeOptions" style="width: 200px" />
       </NFormItem>
+
+      <!-- ── Color Scheme Picker ────────────────────────────────── -->
+      <NFormItem :label="t('preferences.color-scheme')">
+        <div class="color-scheme-picker">
+          <button
+            v-for="scheme in COLOR_SCHEMES"
+            :key="scheme.id"
+            class="color-swatch"
+            :class="{ active: form.colorScheme === scheme.id }"
+            :style="{ '--swatch-color': scheme.seed }"
+            :title="t(scheme.labelKey)"
+            @click="form.colorScheme = scheme.id"
+          >
+            <svg v-if="form.colorScheme === scheme.id" class="swatch-check" viewBox="0 0 16 16" fill="none">
+              <path
+                d="M4 8.5L6.5 11L12 5"
+                stroke="white"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+      </NFormItem>
       <NFormItem v-if="isMacOrWin" :label="t('preferences.show-progress-bar')">
         <NSwitch v-model:value="form.showProgressBar" />
       </NFormItem>
@@ -816,5 +842,48 @@ onMounted(async () => {
 .form-preference :deep(.collapse-indent) {
   position: relative;
   margin-left: 16px;
+}
+
+/* ── Color Scheme Swatch Picker ───────────────────────────────────── */
+.color-scheme-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.color-swatch {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: var(--swatch-color);
+  cursor: pointer;
+  transition:
+    transform 0.2s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.2s cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+  padding: 0;
+}
+.color-swatch:hover {
+  transform: scale(1.18);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.color-swatch:active {
+  transform: scale(1.05);
+}
+.color-swatch.active {
+  border-color: var(--m3-on-surface, #fff);
+  box-shadow:
+    0 0 0 2px var(--swatch-color),
+    0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.swatch-check {
+  width: 14px;
+  height: 14px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 </style>

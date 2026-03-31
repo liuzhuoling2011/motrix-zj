@@ -94,10 +94,10 @@
   --border-color-light: var(--m3-outline-variant);
   --border-color-lighter: #ebeef5;
 
-  --aside-bg: #e4dfd7;
+  --aside-bg: var(--m3-surface-container-highest);
   --aside-text: var(--m3-on-surface);
-  --aside-icon-color: rgba(0, 0, 0, 0.55);
-  --aside-icon-hover-bg: rgba(0, 0, 0, 0.08);
+  --aside-icon-color: var(--m3-on-surface-variant);
+  --aside-icon-hover-bg: color-mix(in srgb, var(--m3-on-surface) 8%, transparent);
 
   --subnav-bg: var(--m3-surface-container);
   --subnav-title: var(--m3-on-surface);
@@ -133,8 +133,8 @@
   --dialog-bg: var(--m3-surface-container-high);
   --preference-text: var(--m3-on-surface-variant);
 
-  --about-glass-bg: rgba(254, 251, 246, 0.96);
-  --about-glass-ring: rgba(0, 0, 0, 0.08);
+  --about-glass-bg: color-mix(in srgb, var(--m3-surface) 96%, transparent);
+  --about-glass-ring: color-mix(in srgb, var(--m3-on-surface) 8%, transparent);
   --about-card-bg: var(--m3-surface-container-lowest);
   --about-card-hover-bg: var(--m3-surface-container-high);
 
@@ -239,10 +239,10 @@
   /* ── Legacy Overrides (dark-specific) ──────────────────────────── */
   --border-color-lighter: #3a3730;
 
-  --aside-bg: rgb(20, 20, 22);
-  --aside-text: #fff;
-  --aside-icon-color: rgba(255, 255, 255, 0.7);
-  --aside-icon-hover-bg: rgba(255, 255, 255, 0.15);
+  --aside-bg: var(--m3-surface-container-lowest);
+  --aside-text: var(--m3-on-surface);
+  --aside-icon-color: var(--m3-on-surface-variant);
+  --aside-icon-hover-bg: color-mix(in srgb, var(--m3-on-surface) 12%, transparent);
 
   --subnav-active-text: #fff;
 
@@ -263,8 +263,8 @@
   /* macOS traffic light — inactive (unfocused) */
   --tl-inactive: #4a4a4a;
 
-  --about-glass-bg: rgba(32, 30, 27, 0.96);
-  --about-glass-ring: rgba(255, 255, 255, 0.1);
+  --about-glass-bg: color-mix(in srgb, var(--m3-surface) 96%, transparent);
+  --about-glass-ring: color-mix(in srgb, var(--m3-on-surface) 10%, transparent);
   --about-card-bg: var(--m3-surface-container);
   --about-card-hover-bg: var(--m3-surface-container-highest);
 }
