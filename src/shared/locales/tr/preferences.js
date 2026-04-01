@@ -93,6 +93,8 @@ export default {
   'bt-tracker-content': 'Tracker listesi',
   'proxy-server': 'Proxy sunucusu',
   'invalid-proxy-url': 'Invalid proxy URL format',
+  'proxy-unsupported-protocol': 'Desteklenmeyen proxy protokolü. aria2 yalnızca HTTP proxy destekler (http/https/ftp).',
+  'proxy-http-only-hint': 'aria2 yalnızca HTTP proxy destekler. SOCKS proxy desteklenmez.',
   'user-agent-string': 'UA dizesi',
   'port': 'Dinleme portları',
   'bt-port': 'BT portu',

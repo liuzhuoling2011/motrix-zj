@@ -93,6 +93,8 @@ export default {
   'bt-tracker-content': '트래커 목록',
   'proxy-server': '프록시 서버',
   'invalid-proxy-url': 'Invalid proxy URL format',
+  'proxy-unsupported-protocol': '지원하지 않는 프록시 프로토콜입니다. aria2는 HTTP 프록시만 지원합니다 (http/https/ftp).',
+  'proxy-http-only-hint': 'aria2는 HTTP 프록시만 지원합니다. SOCKS 프록시는 지원하지 않습니다.',
   'user-agent-string': 'UA 문자열',
   'port': '수신 포트',
   'bt-port': 'BT 수신 포트',

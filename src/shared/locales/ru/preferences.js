@@ -93,6 +93,8 @@ export default {
   'bt-tracker-content': 'Список трекеров',
   'proxy-server': 'Прокси-сервер',
   'invalid-proxy-url': 'Invalid proxy URL format',
+  'proxy-unsupported-protocol': 'Неподдерживаемый протокол прокси. aria2 поддерживает только HTTP-прокси (http/https/ftp).',
+  'proxy-http-only-hint': 'aria2 поддерживает только HTTP-прокси. SOCKS-прокси не поддерживается.',
   'user-agent-string': 'Строка UA',
   'port': 'Порты прослушивания',
   'bt-port': 'Порт BT',

@@ -93,6 +93,8 @@ export default {
   'bt-tracker-content': 'Tracker リスト',
   'proxy-server': 'プロキシサーバー',
   'invalid-proxy-url': 'Invalid proxy URL format',
+  'proxy-unsupported-protocol': 'サポートされていないプロキシプロトコルです。aria2はHTTPプロキシのみ対応しています（http/https/ftp）。',
+  'proxy-http-only-hint': 'aria2はHTTPプロキシのみ対応しています。SOCKSプロキシには対応していません。',
   'user-agent-string': 'UA 文字列',
   'port': '待受ポート',
   'bt-port': 'BT 待受ポート',

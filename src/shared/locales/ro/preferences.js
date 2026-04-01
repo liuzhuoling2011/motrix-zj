@@ -93,6 +93,8 @@ export default {
   'bt-tracker-content': 'Lista de trackere',
   'proxy-server': 'Server proxy',
   'invalid-proxy-url': 'Invalid proxy URL format',
+  'proxy-unsupported-protocol': 'Protocol proxy nesuportat. aria2 acceptă doar proxy HTTP (http/https/ftp).',
+  'proxy-http-only-hint': 'aria2 acceptă doar proxy HTTP. Proxy SOCKS nu este suportat.',
   'user-agent-string': 'Șir UA',
   'port': 'Porturi de ascultare',
   'bt-port': 'Port BT',

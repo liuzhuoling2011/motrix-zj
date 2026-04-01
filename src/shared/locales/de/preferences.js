@@ -93,6 +93,8 @@ export default {
   'bt-tracker-content': 'Tracker-Liste',
   'proxy-server': 'Proxy-Server',
   'invalid-proxy-url': 'Invalid proxy URL format',
+  'proxy-unsupported-protocol': 'Nicht unterstütztes Proxy-Protokoll. aria2 unterstützt nur HTTP-Proxy (http/https/ftp).',
+  'proxy-http-only-hint': 'aria2 unterstützt nur HTTP-Proxy. SOCKS-Proxy wird nicht unterstützt.',
   'user-agent-string': 'UA-Zeichenkette',
   'port': 'Ports',
   'bt-port': 'BT-Port',

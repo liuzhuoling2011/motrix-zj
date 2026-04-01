@@ -93,6 +93,8 @@ export default {
   'bt-tracker-content': 'قائمة المتتبعات',
   'proxy-server': 'خادم الوكيل',
   'invalid-proxy-url': 'Invalid proxy URL format',
+  'proxy-unsupported-protocol': 'بروتوكول وكيل غير مدعوم. يدعم aria2 وكيل HTTP فقط (http/https/ftp).',
+  'proxy-http-only-hint': 'يدعم aria2 وكيل HTTP فقط، لا يدعم وكيل SOCKS.',
   'user-agent-string': 'سلسلة UA',
   'port': 'منافذ الاستماع',
   'bt-port': 'منفذ BT',

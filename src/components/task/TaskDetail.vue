@@ -498,7 +498,7 @@ function handleClose() {
                     <NInput
                       v-model:value="optForm.customProxy"
                       :readonly="!optCanModify"
-                      :placeholder="'http:// · https:// · socks5://'"
+                      :placeholder="'http://host:port'"
                       class="custom-proxy-input"
                     />
                   </NCollapseTransition>

@@ -31,8 +31,10 @@ export interface AddTaskForm {
   authorization: string
   referer: string
   cookie: string
-  /** Whether this task should use the global proxy server. */
-  useProxy: boolean
+  /** Proxy mode: none (no proxy), global (use global), custom (user-entered). */
+  proxyMode: 'none' | 'global' | 'custom'
+  /** User-entered proxy address when proxyMode is 'custom'. */
+  customProxy: string
   /** Injected from the preference store — not user-editable in the form. */
   globalProxyServer?: string
 }
@@ -74,10 +76,21 @@ export function buildEngineOptions(form: AddTaskForm): Aria2EngineOptions {
   if (form.authorization) headers.push(`Authorization: ${form.authorization}`)
   if (headers.length > 0) options.header = headers
 
-  if (form.useProxy && form.globalProxyServer) {
-    options['all-proxy'] = form.globalProxyServer
+  const proxy = resolveAddTaskProxy(form)
+  if (proxy) {
+    options['all-proxy'] = proxy
   }
   return options
+}
+
+/**
+ * Resolves the effective proxy URL from the tri-state add-task form.
+ * Mirrors the resolveProxy() pattern in useTaskDetailOptions.
+ */
+function resolveAddTaskProxy(form: AddTaskForm): string {
+  if (form.proxyMode === 'global') return form.globalProxyServer ?? ''
+  if (form.proxyMode === 'custom') return form.customProxy
+  return ''
 }
 
 /**

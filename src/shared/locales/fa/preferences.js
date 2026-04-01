@@ -93,6 +93,8 @@ export default {
   'bt-tracker-content': 'لیست ردیاب‌ها',
   'proxy-server': 'سرور پروکسی',
   'invalid-proxy-url': 'Invalid proxy URL format',
+  'proxy-unsupported-protocol': 'پروتکل پروکسی پشتیبانی نمی‌شود. aria2 فقط از پروکسی HTTP پشتیبانی می‌کند (http/https/ftp).',
+  'proxy-http-only-hint': 'aria2 فقط از پروکسی HTTP پشتیبانی می‌کند. پروکسی SOCKS پشتیبانی نمی‌شود.',
   'user-agent-string': 'رشته UA',
   'port': 'پورت‌های شنود',
   'bt-port': 'پورت BT',

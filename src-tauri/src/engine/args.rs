@@ -175,6 +175,17 @@ pub(crate) fn build_start_args(
                 continue;
             }
 
+            // Defensive: skip SOCKS proxy values that aria2 cannot handle.
+            // aria2's HttpProxyOptionHandler only accepts http/https/ftp schemes;
+            // socks4/socks5 URIs cause errorCode=28 and crash the engine.
+            if key == "all-proxy" && val_str.to_ascii_lowercase().starts_with("socks") {
+                log::warn!(
+                    "Skipping unsupported proxy protocol for --all-proxy: {}",
+                    val_str
+                );
+                continue;
+            }
+
             // Handle keep-seeding: override seed-ratio to 0
             if keep_seeding && key == "seed-ratio" {
                 args.push("--seed-ratio=0".to_string());
@@ -361,5 +372,57 @@ mod tests {
         let config = json!({ "force-save": "true" });
         let args = build_start_args(&config, None, "/tmp/s", false);
         assert!(!args.iter().any(|a| a.contains("force-save")));
+    }
+
+    #[test]
+    fn build_args_skips_socks5_proxy() {
+        let config = json!({ "all-proxy": "socks5://127.0.0.1:1080", "dir": "/tmp" });
+        let args = build_start_args(&config, None, "/tmp/s", false);
+        assert!(
+            !args.iter().any(|a| a.contains("all-proxy")),
+            "socks5 proxy should be filtered out"
+        );
+        assert!(args.iter().any(|a| a == "--dir=/tmp"));
+    }
+
+    #[test]
+    fn build_args_skips_socks4_proxy() {
+        let config = json!({ "all-proxy": "socks4://127.0.0.1:1080" });
+        let args = build_start_args(&config, None, "/tmp/s", false);
+        assert!(
+            !args.iter().any(|a| a.contains("all-proxy")),
+            "socks4 proxy should be filtered out"
+        );
+    }
+
+    #[test]
+    fn build_args_skips_socks5h_proxy() {
+        let config = json!({ "all-proxy": "SOCKS5://127.0.0.1:1080" });
+        let args = build_start_args(&config, None, "/tmp/s", false);
+        assert!(
+            !args.iter().any(|a| a.contains("all-proxy")),
+            "SOCKS5 (uppercase) should be filtered out"
+        );
+    }
+
+    #[test]
+    fn build_args_passes_http_proxy() {
+        let config = json!({ "all-proxy": "http://127.0.0.1:8080" });
+        let args = build_start_args(&config, None, "/tmp/s", false);
+        assert!(
+            args.iter()
+                .any(|a| a == "--all-proxy=http://127.0.0.1:8080"),
+            "HTTP proxy should pass through"
+        );
+    }
+
+    #[test]
+    fn build_args_passes_bare_host_port_proxy() {
+        let config = json!({ "all-proxy": "127.0.0.1:8080" });
+        let args = build_start_args(&config, None, "/tmp/s", false);
+        assert!(
+            args.iter().any(|a| a == "--all-proxy=127.0.0.1:8080"),
+            "Bare HOST:PORT proxy should pass through"
+        );
     }
 }

@@ -93,6 +93,8 @@ export default {
   'bt-tracker-content': 'Tracker lista',
   'proxy-server': 'Proxy szerver',
   'invalid-proxy-url': 'Invalid proxy URL format',
+  'proxy-unsupported-protocol': 'Nem támogatott proxy protokoll. Az aria2 csak HTTP proxyt támogat (http/https/ftp).',
+  'proxy-http-only-hint': 'Az aria2 csak HTTP proxyt támogat. A SOCKS proxy nem támogatott.',
   'user-agent-string': 'UA karakterlánc',
   'port': 'Figyelő portok',
   'bt-port': 'BT port',

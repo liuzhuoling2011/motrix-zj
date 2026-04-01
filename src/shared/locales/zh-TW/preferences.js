@@ -93,6 +93,8 @@ export default {
   'bt-tracker-content': 'Tracker 列表',
   'proxy-server': '代理伺服器',
   'invalid-proxy-url': 'Invalid proxy URL format',
+  'proxy-unsupported-protocol': '不支援的代理協定，aria2 僅支援 HTTP 代理（http/https/ftp）',
+  'proxy-http-only-hint': 'aria2 僅支援 HTTP 代理，不支援 SOCKS 代理',
   'user-agent-string': 'UA 字串',
   'port': '監聽埠',
   'bt-port': 'BT 監聽埠',

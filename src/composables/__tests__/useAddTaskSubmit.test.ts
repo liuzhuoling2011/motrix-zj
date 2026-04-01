@@ -102,7 +102,8 @@ describe('buildEngineOptions', () => {
     authorization: '',
     referer: '',
     cookie: '',
-    useProxy: false,
+    proxyMode: 'none',
+    customProxy: '',
   }
 
   it('always includes dir and split', () => {
@@ -156,56 +157,74 @@ describe('buildEngineOptions', () => {
     expect(opts.header).toBeUndefined()
   })
 
-  // ── Proxy checkbox tests (#126) ──
+  // ── Proxy tri-state tests ──
 
-  it('sets all-proxy when useProxy is true and globalProxyServer is provided', () => {
+  it('sets all-proxy when proxyMode is global and globalProxyServer is provided', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      useProxy: true,
+      proxyMode: 'global',
       globalProxyServer: 'http://127.0.0.1:7890',
     })
     expect(opts['all-proxy']).toBe('http://127.0.0.1:7890')
   })
 
-  it('omits all-proxy when useProxy is false', () => {
+  it('omits all-proxy when proxyMode is none', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      useProxy: false,
+      proxyMode: 'none',
       globalProxyServer: 'http://127.0.0.1:7890',
     })
     expect(opts['all-proxy']).toBeUndefined()
   })
 
-  it('omits all-proxy when useProxy is true but globalProxyServer is empty', () => {
+  it('omits all-proxy when proxyMode is global but globalProxyServer is empty', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      useProxy: true,
+      proxyMode: 'global',
       globalProxyServer: '',
     })
     expect(opts['all-proxy']).toBeUndefined()
   })
 
-  it('omits all-proxy when useProxy is true but globalProxyServer is undefined', () => {
+  it('omits all-proxy when proxyMode is global but globalProxyServer is undefined', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      useProxy: true,
+      proxyMode: 'global',
     })
     expect(opts['all-proxy']).toBeUndefined()
   })
 
-  it('handles SOCKS5 proxy server address', () => {
+  it('sets all-proxy when proxyMode is custom with valid address', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      useProxy: true,
-      globalProxyServer: 'socks5://127.0.0.1:1080',
+      proxyMode: 'custom',
+      customProxy: 'http://10.0.0.1:8080',
     })
-    expect(opts['all-proxy']).toBe('socks5://127.0.0.1:1080')
+    expect(opts['all-proxy']).toBe('http://10.0.0.1:8080')
+  })
+
+  it('omits all-proxy when proxyMode is custom but customProxy is empty', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      proxyMode: 'custom',
+      customProxy: '',
+    })
+    expect(opts['all-proxy']).toBeUndefined()
+  })
+
+  it('ignores customProxy when proxyMode is none', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      proxyMode: 'none',
+      customProxy: 'http://10.0.0.1:8080',
+    })
+    expect(opts['all-proxy']).toBeUndefined()
   })
 
   it('handles proxy server with authentication credentials', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      useProxy: true,
+      proxyMode: 'global',
       globalProxyServer: 'http://user:pass@proxy.example.com:8080',
     })
     expect(opts['all-proxy']).toBe('http://user:pass@proxy.example.com:8080')
@@ -377,7 +396,8 @@ describe('submitManualUris', () => {
     authorization: '',
     referer: '',
     cookie: '',
-    useProxy: false,
+    proxyMode: 'none',
+    customProxy: '',
   }
 
   beforeEach(() => {
@@ -490,7 +510,8 @@ describe('useAddTaskSubmit', () => {
     authorization: '',
     referer: '',
     cookie: '',
-    useProxy: false,
+    proxyMode: 'none',
+    customProxy: '',
   }
 
   beforeEach(() => {

@@ -17,6 +17,7 @@ import {
   isGlobalProxyConfigured,
   isGlobalDownloadProxyActive,
 } from '@/composables/useAddTaskSubmit'
+import { isValidAria2ProxyUrl } from '@/composables/useAdvancedPreference'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { downloadDir } from '@tauri-apps/api/path'
 import { logger } from '@shared/logger'
@@ -70,7 +71,8 @@ const form = ref({
   authorization: '',
   referer: '',
   cookie: '',
-  useProxy: isGlobalDownloadProxyActive(config.proxy),
+  proxyMode: (isGlobalDownloadProxyActive(config.proxy) ? 'global' : 'none') as 'none' | 'global' | 'custom',
+  customProxy: '',
 })
 
 /** Whether a usable global proxy is configured in Settings → Advanced. */
@@ -343,7 +345,8 @@ function handleClose() {
     authorization: '',
     referer: '',
     cookie: '',
-    useProxy: isGlobalDownloadProxyActive(config.proxy),
+    proxyMode: isGlobalDownloadProxyActive(config.proxy) ? 'global' : 'none',
+    customProxy: '',
   })
   submitting.value = false
   selectedBatchIndex.value = 0
@@ -354,6 +357,15 @@ async function handleSubmit() {
   submitting.value = true
 
   try {
+    // Validate custom proxy before building options
+    if (form.value.proxyMode === 'custom' && form.value.customProxy) {
+      if (!isValidAria2ProxyUrl(form.value.customProxy)) {
+        message.error(t('task.proxy-unsupported-protocol'), { duration: 5000, closable: true })
+        submitting.value = false
+        return
+      }
+    }
+
     const options = buildEngineOptions({
       ...form.value,
       globalProxyServer: globalProxyServer.value,
@@ -561,7 +573,8 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
             v-model:authorization="form.authorization"
             v-model:referer="form.referer"
             v-model:cookie="form.cookie"
-            v-model:use-proxy="form.useProxy"
+            v-model:proxy-mode="form.proxyMode"
+            v-model:custom-proxy="form.customProxy"
             :global-proxy-available="globalProxyAvailable"
             :global-proxy-server="globalProxyServer"
           />

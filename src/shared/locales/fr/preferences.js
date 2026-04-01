@@ -93,6 +93,8 @@ export default {
   'bt-tracker-content': 'Liste des trackers',
   'proxy-server': 'Serveur proxy',
   'invalid-proxy-url': 'Invalid proxy URL format',
+  'proxy-unsupported-protocol': 'Protocole proxy non pris en charge. aria2 ne prend en charge que le proxy HTTP (http/https/ftp).',
+  'proxy-http-only-hint': 'aria2 ne prend en charge que le proxy HTTP. Le proxy SOCKS n\'est pas pris en charge.',
   'user-agent-string': 'Chaîne UA',
   'port': 'Ports d\'écoute',
   'bt-port': 'Port BT',

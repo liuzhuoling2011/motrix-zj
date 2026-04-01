@@ -344,12 +344,33 @@ describe('useTaskDetailOptions', () => {
       const { form, applyOptions } = setup(mocks)
       await nextTick()
       form.proxyMode = 'custom'
-      form.customProxy = 'socks5://10.0.0.1:1080'
+      form.customProxy = 'http://10.0.0.1:8080'
       await applyOptions()
       expect(mocks.changeTaskOption).toHaveBeenCalledWith({
         gid: 'abc123',
-        options: expect.objectContaining({ 'all-proxy': 'socks5://10.0.0.1:1080' }),
+        options: expect.objectContaining({ 'all-proxy': 'http://10.0.0.1:8080' }),
       })
+    })
+
+    it('blocks socks5 custom proxy with error toast', async () => {
+      const mocks = createMocks()
+      const { form, applyOptions } = setup(mocks)
+      await nextTick()
+      form.proxyMode = 'custom'
+      form.customProxy = 'socks5://10.0.0.1:1080'
+      await applyOptions()
+      expect(mocks.changeTaskOption).not.toHaveBeenCalled()
+      expect(mocks.errorFn).toHaveBeenCalledWith('task.proxy-unsupported-protocol')
+    })
+
+    it('keeps dirty after socks5 proxy rejection', async () => {
+      const mocks = createMocks()
+      const { form, applyOptions, dirty } = setup(mocks)
+      await nextTick()
+      form.proxyMode = 'custom'
+      form.customProxy = 'socks5://10.0.0.1:1080'
+      await applyOptions()
+      expect(dirty.value).toBe(true)
     })
 
     it('sends empty all-proxy when proxyMode is none', async () => {

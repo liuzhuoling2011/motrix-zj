@@ -491,6 +491,9 @@ onMounted(() => {
           <NFormItem :label="t('preferences.proxy-server')">
             <NInput v-model:value="form.proxy.server" placeholder="[http://][USER:PASSWORD@]HOST[:PORT]" />
           </NFormItem>
+          <NFormItem :show-label="false">
+            <div class="info-text">{{ t('preferences.proxy-http-only-hint') }}</div>
+          </NFormItem>
           <NFormItem :label="t('preferences.proxy-bypass')">
             <NInput
               v-model:value="form.proxy.bypass"

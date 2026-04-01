@@ -93,6 +93,8 @@ export default {
   'bt-tracker-content': 'Danh sách tracker',
   'proxy-server': 'Máy chủ proxy',
   'invalid-proxy-url': 'Invalid proxy URL format',
+  'proxy-unsupported-protocol': 'Giao thức proxy không được hỗ trợ. aria2 chỉ hỗ trợ proxy HTTP (http/https/ftp).',
+  'proxy-http-only-hint': 'aria2 chỉ hỗ trợ proxy HTTP. Proxy SOCKS không được hỗ trợ.',
   'user-agent-string': 'Chuỗi UA',
   'port': 'Cổng lắng nghe',
   'bt-port': 'Cổng BT',

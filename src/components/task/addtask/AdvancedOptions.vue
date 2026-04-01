@@ -2,7 +2,7 @@
 /** @fileoverview Advanced task options panel (UA, auth, referer, cookie, proxy checkbox). */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NFormItem, NInput, NCheckbox, NCollapseTransition, NButton } from 'naive-ui'
+import { NFormItem, NInput, NCheckbox, NCollapseTransition, NButton, NRadioGroup, NRadio } from 'naive-ui'
 import { hasUnsafeHeaderChars, sanitizeHeaderValue } from '@shared/utils/headerSanitize'
 
 const { t } = useI18n()
@@ -13,7 +13,10 @@ const props = defineProps<{
   authorization: string
   referer: string
   cookie: string
-  useProxy: boolean
+  /** Proxy mode: 'none' | 'global' | 'custom'. */
+  proxyMode: 'none' | 'global' | 'custom'
+  /** Custom proxy address when proxyMode is 'custom'. */
+  customProxy: string
   /** Whether a usable global proxy is configured in Settings → Advanced. */
   globalProxyAvailable: boolean
   /** The global proxy server address (displayed as read-only hint). */
@@ -26,7 +29,8 @@ const emit = defineEmits<{
   'update:authorization': [value: string]
   'update:referer': [value: string]
   'update:cookie': [value: string]
-  'update:useProxy': [value: boolean]
+  'update:proxyMode': [value: 'none' | 'global' | 'custom']
+  'update:customProxy': [value: string]
 }>()
 
 const uaHasIssue = computed(() => !!props.userAgent && hasUnsafeHeaderChars(props.userAgent))
@@ -89,21 +93,28 @@ function cleanUserAgent() {
           @update:value="$emit('update:cookie', $event)"
         />
       </NFormItem>
-      <NFormItem :show-label="false">
-        <div class="proxy-checkbox-wrapper">
-          <NCheckbox
-            :checked="useProxy"
-            :disabled="!globalProxyAvailable"
-            @update:checked="$emit('update:useProxy', $event)"
+      <NFormItem :label="t('task.task-proxy-label') + ':'">
+        <div class="proxy-radio-group">
+          <NRadioGroup
+            :value="proxyMode"
+            name="add-task-proxy-mode"
+            @update:value="$emit('update:proxyMode', $event as 'none' | 'global' | 'custom')"
           >
-            {{ t('task.use-proxy') }}
-          </NCheckbox>
-          <span v-if="globalProxyAvailable && useProxy" class="proxy-hint">
-            {{ globalProxyServer }}
-          </span>
-          <span v-else-if="!globalProxyAvailable" class="proxy-hint-disabled">
-            {{ t('task.proxy-not-configured') }}
-          </span>
+            <NRadio value="none">{{ t('task.proxy-mode-none') }}</NRadio>
+            <NRadio v-if="globalProxyAvailable" value="global">
+              {{ t('task.proxy-mode-global') }}
+              <span v-if="proxyMode === 'global'" class="proxy-hint">{{ globalProxyServer }}</span>
+            </NRadio>
+            <NRadio value="custom">{{ t('task.proxy-mode-custom') }}</NRadio>
+          </NRadioGroup>
+          <NCollapseTransition :show="proxyMode === 'custom'">
+            <NInput
+              :value="customProxy"
+              placeholder="http://host:port"
+              class="custom-proxy-input"
+              @update:value="$emit('update:customProxy', $event)"
+            />
+          </NCollapseTransition>
         </div>
       </NFormItem>
     </div>
@@ -150,22 +161,21 @@ function cleanUserAgent() {
   flex: 1;
 }
 
-/* ── Proxy checkbox — inline hint ────────────────────────────────── */
-.proxy-checkbox-wrapper {
+/* ── Proxy radio group ──────────────────────────────────────────── */
+.proxy-radio-group {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 6px;
   width: 100%;
 }
 .proxy-hint {
   font-size: var(--font-size-sm);
   color: var(--n-text-color-3, #999);
   opacity: 0.8;
+  margin-left: 6px;
   user-select: all;
 }
-.proxy-hint-disabled {
-  font-size: var(--font-size-sm);
-  color: var(--n-text-color-disabled, #bbb);
-  font-style: italic;
+.custom-proxy-input {
+  margin-top: 6px;
 }
 </style>

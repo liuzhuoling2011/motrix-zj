@@ -93,6 +93,8 @@ export default {
   'bt-tracker-content': 'Daftar tracker',
   'proxy-server': 'Server proxy',
   'invalid-proxy-url': 'Invalid proxy URL format',
+  'proxy-unsupported-protocol': 'Protokol proxy tidak didukung. aria2 hanya mendukung proxy HTTP (http/https/ftp).',
+  'proxy-http-only-hint': 'aria2 hanya mendukung proxy HTTP. Proxy SOCKS tidak didukung.',
   'user-agent-string': 'String UA',
   'port': 'Port pendengar',
   'bt-port': 'Port BT',

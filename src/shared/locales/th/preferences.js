@@ -93,6 +93,8 @@ export default {
   'bt-tracker-content': 'รายการ Tracker',
   'proxy-server': 'เซิร์ฟเวอร์พร็อกซี',
   'invalid-proxy-url': 'Invalid proxy URL format',
+  'proxy-unsupported-protocol': 'โปรโตคอลพร็อกซีไม่รองรับ aria2 รองรับเฉพาะ HTTP พร็อกซี (http/https/ftp)',
+  'proxy-http-only-hint': 'aria2 รองรับเฉพาะ HTTP พร็อกซี ไม่รองรับ SOCKS พร็อกซี',
   'user-agent-string': 'สตริง UA',
   'port': 'พอร์ตรับฟัง',
   'bt-port': 'พอร์ต BT',

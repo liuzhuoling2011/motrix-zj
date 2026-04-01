@@ -11,6 +11,7 @@ import {
   buildAdvancedSystemConfig,
   transformAdvancedForStore,
   validateAdvancedForm,
+  isValidAria2ProxyUrl,
   isValidTrackerSourceUrl,
   randomRpcPort,
   randomBtPort,
@@ -361,6 +362,78 @@ describe('transformAdvancedForStore', () => {
   })
 })
 
+// ── isValidAria2ProxyUrl ────────────────────────────────────────────
+
+describe('isValidAria2ProxyUrl', () => {
+  // ── Valid inputs ──────────────────────────────────────────────────
+
+  it('accepts empty string (clears proxy)', () => {
+    expect(isValidAria2ProxyUrl('')).toBe(true)
+  })
+
+  it('accepts whitespace-only string', () => {
+    expect(isValidAria2ProxyUrl('   ')).toBe(true)
+  })
+
+  it('accepts http:// proxy', () => {
+    expect(isValidAria2ProxyUrl('http://127.0.0.1:8080')).toBe(true)
+  })
+
+  it('accepts https:// proxy', () => {
+    expect(isValidAria2ProxyUrl('https://proxy.example.com:443')).toBe(true)
+  })
+
+  it('accepts ftp:// proxy', () => {
+    expect(isValidAria2ProxyUrl('ftp://proxy.example.com:21')).toBe(true)
+  })
+
+  it('accepts http:// with user:password', () => {
+    expect(isValidAria2ProxyUrl('http://user:pass@proxy.example.com:8080')).toBe(true)
+  })
+
+  it('accepts bare HOST:PORT (no scheme)', () => {
+    expect(isValidAria2ProxyUrl('127.0.0.1:8080')).toBe(true)
+  })
+
+  it('accepts bare hostname (no port, no scheme)', () => {
+    expect(isValidAria2ProxyUrl('proxy.example.com')).toBe(true)
+  })
+
+  it('accepts URL with leading/trailing whitespace', () => {
+    expect(isValidAria2ProxyUrl('  http://proxy:8080  ')).toBe(true)
+  })
+
+  // ── Rejected inputs ───────────────────────────────────────────────
+
+  it('rejects socks5:// proxy', () => {
+    expect(isValidAria2ProxyUrl('socks5://127.0.0.1:1080')).toBe(false)
+  })
+
+  it('rejects socks4:// proxy', () => {
+    expect(isValidAria2ProxyUrl('socks4://127.0.0.1:1080')).toBe(false)
+  })
+
+  it('rejects socks5h:// proxy', () => {
+    expect(isValidAria2ProxyUrl('socks5h://127.0.0.1:1080')).toBe(false)
+  })
+
+  it('rejects socks4a:// proxy', () => {
+    expect(isValidAria2ProxyUrl('socks4a://127.0.0.1:1080')).toBe(false)
+  })
+
+  it('rejects SOCKS5:// (case-insensitive)', () => {
+    expect(isValidAria2ProxyUrl('SOCKS5://127.0.0.1:1080')).toBe(false)
+  })
+
+  it('rejects ws:// scheme', () => {
+    expect(isValidAria2ProxyUrl('ws://proxy:8080')).toBe(false)
+  })
+
+  it('rejects custom:// scheme', () => {
+    expect(isValidAria2ProxyUrl('custom://proxy:8080')).toBe(false)
+  })
+})
+
 // ── validateAdvancedForm ────────────────────────────────────────────
 
 describe('validateAdvancedForm', () => {
@@ -397,20 +470,38 @@ describe('validateAdvancedForm', () => {
     ).toBeNull()
   })
 
-  it('returns error key for invalid proxy URL when proxy enabled', () => {
+  it('returns invalid-proxy-url for malformed URL when proxy enabled', () => {
     expect(
       validateAdvancedForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: 'not-a-valid-url' },
+        proxy: { ...validForm.proxy, enable: true, server: 'http://:invalid:url:' },
       }),
     ).toBe('preferences.invalid-proxy-url')
+  })
+
+  it('returns proxy-unsupported-protocol for socks5 when proxy enabled', () => {
+    expect(
+      validateAdvancedForm({
+        ...validForm,
+        proxy: { ...validForm.proxy, enable: true, server: 'socks5://127.0.0.1:1080' },
+      }),
+    ).toBe('preferences.proxy-unsupported-protocol')
+  })
+
+  it('returns proxy-unsupported-protocol for socks4 when proxy enabled', () => {
+    expect(
+      validateAdvancedForm({
+        ...validForm,
+        proxy: { ...validForm.proxy, enable: true, server: 'socks4://127.0.0.1:1080' },
+      }),
+    ).toBe('preferences.proxy-unsupported-protocol')
   })
 
   it('returns null for invalid proxy URL when proxy disabled', () => {
     expect(
       validateAdvancedForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: false, server: 'not-a-valid-url' },
+        proxy: { ...validForm.proxy, enable: false, server: 'socks5://127.0.0.1:1080' },
       }),
     ).toBeNull()
   })

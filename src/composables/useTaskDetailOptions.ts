@@ -22,6 +22,7 @@
 import { ref, reactive, computed, watch, type Ref } from 'vue'
 import { isEngineReady } from '@/api/aria2'
 import { isGlobalProxyConfigured } from '@/composables/useAddTaskSubmit'
+import { isValidAria2ProxyUrl } from '@/composables/useAdvancedPreference'
 import { TASK_STATUS } from '@shared/constants'
 import type { Aria2Task, Aria2EngineOptions, ProxyConfig } from '@shared/types'
 import { logger } from '@shared/logger'
@@ -232,6 +233,13 @@ export function useTaskDetailOptions(config: UseTaskDetailOptionsConfig) {
     applying.value = true
     try {
       const proxy = resolveProxy(form.proxyMode, form.customProxy, proxyAddress.value)
+
+      // Validate proxy format before sending to aria2 — prevents errorCode=28 crash
+      if (proxy && !isValidAria2ProxyUrl(proxy)) {
+        message.error(t('task.proxy-unsupported-protocol'))
+        return
+      }
+
       const options = buildChangedOptions(form, loaded, proxy)
       await changeTaskOption({ gid: task.value.gid, options })
       snapshotForm(form, loaded)
