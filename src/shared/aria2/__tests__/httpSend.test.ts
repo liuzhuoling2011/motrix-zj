@@ -10,6 +10,8 @@
  *  2. Invalid JSON response bodies reject the deferred immediately.
  *  3. An 'error' event is emitted on both paths for diagnostic
  *     consistency with the WebSocket error flow.
+ *  4. call() and batch() produce a single rejection path — no dangling
+ *     unhandled rejections from dual throw+reject.
  *
  * Mock strategy:
  *  - Stub global `fetch` (transport boundary) — everything inside
@@ -44,67 +46,70 @@ function fakeNonJsonResponse(status: number, statusText: string, ok: boolean): R
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// httpSend — call() path
+// httpSend — call() and batch() paths
 // ═══════════════════════════════════════════════════════════════════
 
 describe('JSONRPCClient httpSend (HTTP transport)', () => {
   let client: JSONRPCClient
   let fetchSpy: ReturnType<typeof vi.fn>
 
-  // call() has a known dual-rejection pattern: when httpSend throws,
-  // call() rejects the deferred AND re-throws. Since call() never reaches
-  // `return deferred.promise`, the deferred rejection is unhandled. This
-  // is safe (Deferred.settled prevents double-resolve) but Vitest reports
-  // it. Suppress to avoid false positives.
-  const suppressedErrors: unknown[] = []
-  function onUnhandled(event: PromiseRejectionEvent) {
-    event.preventDefault()
-    suppressedErrors.push(event.reason)
-  }
-
   beforeEach(() => {
     client = new JSONRPCClient({ host: '127.0.0.1', port: 6800 })
     fetchSpy = vi.fn()
     vi.stubGlobal('fetch', fetchSpy)
-    suppressedErrors.length = 0
-    globalThis.addEventListener('unhandledrejection', onUnhandled)
   })
 
   afterEach(() => {
-    globalThis.removeEventListener('unhandledrejection', onUnhandled)
     vi.unstubAllGlobals()
   })
 
   // ─── Non-2xx HTTP responses ──────────────────────────────────────
 
   describe('non-2xx HTTP response', () => {
-    it('rejects call() deferred immediately on HTTP 400', async () => {
+    it('rejects call() on HTTP 400', async () => {
       fetchSpy.mockResolvedValueOnce(
-        fakeResponse('{"error": "bad"}', { status: 400, statusText: 'Bad Request', ok: false }),
+        fakeResponse('{"error": "bad"}', {
+          status: 400,
+          statusText: 'Bad Request',
+          ok: false,
+        }),
       )
 
-      // call() returns deferred.promise; httpSend throw is caught by call()'s
-      // catch block which rejects the deferred and re-throws — the re-throw
-      // is the same promise we await here, so a single catch suffices.
       await expect(client.call('aria2.addUri', [['http://x.com/f']])).rejects.toThrow('aria2 HTTP error 400')
     })
 
-    it('rejects call() deferred immediately on HTTP 500', async () => {
+    it('rejects call() on HTTP 500', async () => {
       fetchSpy.mockResolvedValueOnce(
-        fakeResponse('Internal Server Error', { status: 500, statusText: 'Internal Server Error', ok: false }),
+        fakeResponse('Internal Server Error', {
+          status: 500,
+          statusText: 'Internal Server Error',
+          ok: false,
+        }),
       )
 
       await expect(client.call('aria2.getVersion')).rejects.toThrow('aria2 HTTP error 500')
     })
 
-    it('rejects call() deferred immediately on HTTP 404', async () => {
-      fetchSpy.mockResolvedValueOnce(fakeResponse('Not Found', { status: 404, statusText: 'Not Found', ok: false }))
+    it('rejects call() on HTTP 404', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        fakeResponse('Not Found', {
+          status: 404,
+          statusText: 'Not Found',
+          ok: false,
+        }),
+      )
 
       await expect(client.call('aria2.noSuchMethod')).rejects.toThrow('aria2 HTTP error 404')
     })
 
     it('includes status code and statusText in the error message', async () => {
-      fetchSpy.mockResolvedValueOnce(fakeResponse('', { status: 502, statusText: 'Bad Gateway', ok: false }))
+      fetchSpy.mockResolvedValueOnce(
+        fakeResponse('', {
+          status: 502,
+          statusText: 'Bad Gateway',
+          ok: false,
+        }),
+      )
 
       await expect(client.call('aria2.getVersion')).rejects.toThrow('aria2 HTTP error 502: Bad Gateway')
     })
@@ -113,7 +118,13 @@ describe('JSONRPCClient httpSend (HTTP transport)', () => {
       const errorHandler = vi.fn()
       client.on('error', errorHandler)
 
-      fetchSpy.mockResolvedValueOnce(fakeResponse('', { status: 503, statusText: 'Service Unavailable', ok: false }))
+      fetchSpy.mockResolvedValueOnce(
+        fakeResponse('', {
+          status: 503,
+          statusText: 'Service Unavailable',
+          ok: false,
+        }),
+      )
 
       await expect(client.call('aria2.getVersion')).rejects.toThrow()
       expect(errorHandler).toHaveBeenCalledOnce()
@@ -125,7 +136,7 @@ describe('JSONRPCClient httpSend (HTTP transport)', () => {
   // ─── Invalid JSON body ───────────────────────────────────────────
 
   describe('invalid JSON response body', () => {
-    it('rejects call() deferred immediately when body is not valid JSON', async () => {
+    it('rejects call() when body is not valid JSON', async () => {
       fetchSpy.mockResolvedValueOnce(fakeNonJsonResponse(200, 'OK', true))
 
       await expect(client.call('aria2.getVersion')).rejects.toThrow()
@@ -145,15 +156,17 @@ describe('JSONRPCClient httpSend (HTTP transport)', () => {
   // ─── Successful request (control test) ───────────────────────────
 
   describe('successful HTTP request', () => {
-    it('resolves call() deferred on HTTP 200 with valid JSON-RPC response', async () => {
-      // We need to intercept the ID from the outgoing request
+    it('resolves call() on HTTP 200 with valid JSON-RPC response', async () => {
       fetchSpy.mockImplementation(async (_url: string, init: RequestInit) => {
         const body = JSON.parse(init.body as string)
-        return fakeResponse(JSON.stringify({ id: body.id, jsonrpc: '2.0', result: { version: '1.37.0' } }), {
-          status: 200,
-          statusText: 'OK',
-          ok: true,
-        })
+        return fakeResponse(
+          JSON.stringify({
+            id: body.id,
+            jsonrpc: '2.0',
+            result: { version: '1.37.0' },
+          }),
+          { status: 200, statusText: 'OK', ok: true },
+        )
       })
 
       const result = await client.call('aria2.getVersion')
@@ -165,26 +178,56 @@ describe('JSONRPCClient httpSend (HTTP transport)', () => {
   // ─── batch() path ────────────────────────────────────────────────
 
   describe('batch() with non-2xx HTTP response', () => {
-    it('rejects all batch deferreds immediately on HTTP error', async () => {
-      fetchSpy.mockResolvedValueOnce(fakeResponse('Bad Gateway', { status: 502, statusText: 'Bad Gateway', ok: false }))
+    it('returns promises that reject on HTTP error', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        fakeResponse('Bad Gateway', {
+          status: 502,
+          statusText: 'Bad Gateway',
+          ok: false,
+        }),
+      )
 
-      // batch() itself throws (from _send catch) AND rejects each deferred.
-      // We must catch both: the outer throw AND the individual promises.
-      let promises: Promise<unknown>[] | undefined
-      try {
-        promises = await client.batch([['aria2.getVersion'], ['aria2.getGlobalStat']])
-      } catch {
-        // batch() re-throws the httpSend error — that's expected.
-        // The deferreds are already rejected at this point.
-      }
+      const promises = await client.batch([['aria2.getVersion'], ['aria2.getGlobalStat']])
 
-      // If batch() threw before returning, promises is undefined.
-      // The deferreds were rejected in the catch block of batch().
-      // Verify no dangling unresolved deferreds remain.
-      if (promises) {
-        await expect(promises[0]).rejects.toThrow('aria2 HTTP error 502')
-        await expect(promises[1]).rejects.toThrow('aria2 HTTP error 502')
-      }
+      await expect(promises[0]).rejects.toThrow('aria2 HTTP error 502')
+      await expect(promises[1]).rejects.toThrow('aria2 HTTP error 502')
+    })
+  })
+
+  // ─── No dangling unhandled rejections ────────────────────────────
+
+  describe('rejection path safety', () => {
+    it('call() produces exactly one rejection (no dangling deferred)', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        fakeResponse('', {
+          status: 500,
+          statusText: 'Internal Server Error',
+          ok: false,
+        }),
+      )
+
+      // If call() both throws AND leaves a dangling rejected deferred,
+      // Vitest will report an unhandled rejection error. This test
+      // verifies a single clean rejection path.
+      const result = client.call('aria2.getVersion')
+      await expect(result).rejects.toThrow('aria2 HTTP error 500')
+    })
+
+    it('batch() returns rejected promises without throwing', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        fakeResponse('', {
+          status: 500,
+          statusText: 'Internal Server Error',
+          ok: false,
+        }),
+      )
+
+      // batch() should return the promises array (not throw) so callers
+      // can inspect individual results. Each promise rejects individually.
+      const promises = await client.batch([['aria2.method1'], ['aria2.method2']])
+      expect(promises).toHaveLength(2)
+      await expect(promises[0]).rejects.toThrow('aria2 HTTP error 500')
+      await expect(promises[1]).rejects.toThrow('aria2 HTTP error 500')
     })
   })
 })

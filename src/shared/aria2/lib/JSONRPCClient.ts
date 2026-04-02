@@ -138,7 +138,6 @@ export class JSONRPCClient extends EventEmitter {
         if (deferred) deferred.reject(err instanceof Error ? err : new Error(String(err)))
         delete this.deferreds[id]
       }
-      throw err
     }
 
     return promises
@@ -159,7 +158,6 @@ export class JSONRPCClient extends EventEmitter {
     } catch (err) {
       deferred.reject(err instanceof Error ? err : new Error(String(err)))
       delete this.deferreds[id]
-      throw err
     }
 
     return deferred.promise
