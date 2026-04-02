@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': 'Massa nodes augmenten el consum de memòria',
   'engine-section': 'Motor de descàrrega aria2',
   'hardware-rendering': 'Acceleració GPU',
-  'hardware-rendering-hint': 'Activa el renderitzador WebKitGTK DMA-BUF. Desactivat per defecte per compatibilitat; millora el rendiment però es desactiva automàticament si causa problemes.',
+  'hardware-rendering-hint': 'Per compatibilitat amb més controladors GPU de Linux, s\'\'utilitza renderització per programari per defecte. Activar-ho habilita l\'acceleració DMA-BUF per a una interfície més fluida, però pot causar pantalla en blanc o fallada amb algunes GPU (p. ex. controladors propietaris NVIDIA, Intel + Wayland, Raspberry Pi). Si l\'aplicació falla després d\'activar-ho, es desactivarà automàticament al proper inici.',
   'hardware-rendering-restart-confirm': 'L\'\'acceleració GPU utilitza el renderitzador WebKitGTK DMA-BUF, que s\'ha de configurar abans d\'iniciar el procés, per la qual cosa aquest canvi requereix un reinici. Si l\'activació impedeix que l\'aplicació s\'iniciï normalment, aquesta opció es desactivarà automàticament al proper inici. Les tasques de descàrrega no es veuran afectades.',
   'session-path': 'Fitxer de sessió',
   'clear-all-tasks': 'Esborra totes les tasques',

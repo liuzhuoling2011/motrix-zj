@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': 'Sok csomópont növeli a memóriahasználatot',
   'engine-section': 'aria2 letöltőmotor',
   'hardware-rendering': 'GPU hardveres gyorsítás',
-  'hardware-rendering-hint': 'Aktiválja a WebKitGTK DMA-BUF renderert. Alapértelmezetten kikapcsolva a kompatibilitás érdekében; javítja a teljesítményt, de probléma esetén automatikusan kikapcsol.',
+  'hardware-rendering-hint': 'A szélesebb körű Linux GPU-driver kompatibilitás érdekében alapértelmezetten szoftveres renderelés van használatban. A bekapcsolás DMA-BUF hardveres gyorsítást aktivál a gördülékenyebb felületért, de egyes GPU-knál (pl. NVIDIA tulajdonosi, Intel + Wayland, Raspberry Pi) fehér képernyőt vagy összeomlást okozhat. Ha az alkalmazás összeomlik a bekapcsolás után, a következő indításkor automatikusan kikapcsol.',
   'hardware-rendering-restart-confirm': 'A GPU hardveres gyorsítás a WebKitGTK DMA-BUF renderert használja, amelyet a folyamat indítása előtt kell konfigurálni, ezért ez a változtatás újraindítást igényel. Ha az aktiválás megakadályozza az alkalmazás normális indulását, ez az opció a következő indításkor automatikusan kikapcsol. A letöltési feladatok nem érintettek.',
   'session-path': 'Feladat-gyorsítótár fájl',
   'clear-all-tasks': 'Összes feladat törlése',

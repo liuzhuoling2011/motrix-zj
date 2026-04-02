@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': 'Demasiados nodos aumentan el consumo de memoria',
   'engine-section': 'Motor de descarga aria2',
   'hardware-rendering': 'Aceleración GPU',
-  'hardware-rendering-hint': 'Activa el renderizador WebKitGTK DMA-BUF. Desactivado por defecto por compatibilidad; mejora el rendimiento pero se desactiva automáticamente si causa problemas.',
+  'hardware-rendering-hint': 'Para compatibilidad con más controladores GPU de Linux, se usa renderizado por software de forma predeterminada. Activarlo habilita la aceleración DMA-BUF para una interfaz más fluida, pero puede causar pantalla en blanco o cierre inesperado con algunas GPU (ej. NVIDIA propietario, Intel + Wayland, Raspberry Pi). Si la aplicación se cierra tras activarlo, se desactivará automáticamente en el próximo inicio.',
   'hardware-rendering-restart-confirm': 'La aceleración GPU utiliza el renderizador WebKitGTK DMA-BUF, que debe configurarse antes de iniciar el proceso, por lo que este cambio requiere un reinicio. Si la activación impide que la aplicación se inicie normalmente, esta opción se desactivará automáticamente en el próximo inicio. Sus tareas de descarga no se verán afectadas.',
   'session-path': 'Archivo de caché de tareas',
   'clear-all-tasks': 'Borrar todas las tareas',

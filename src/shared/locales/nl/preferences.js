@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': 'Te veel knooppunten verhoogt het geheugenverbruik',
   'engine-section': 'aria2-downloadengine',
   'hardware-rendering': 'GPU-hardwareversnelling',
-  'hardware-rendering-hint': 'Schakelt de WebKitGTK DMA-BUF renderer in. Standaard uitgeschakeld voor compatibiliteit; verbetert de renderprestaties maar schakelt automatisch uit bij problemen.',
+  'hardware-rendering-hint': 'Voor bredere compatibiliteit met Linux GPU-drivers wordt standaard softwarerendering gebruikt. Inschakelen activeert DMA-BUF hardwareversnelling voor een vloeiendere interface, maar kan een wit scherm of crash veroorzaken bij sommige GPU\'s (bijv. NVIDIA proprietary, Intel + Wayland, Raspberry Pi). Als de app crasht na inschakeling, wordt dit automatisch uitgeschakeld bij de volgende start.',
   'hardware-rendering-restart-confirm': 'GPU-hardwareversnelling gebruikt de WebKitGTK DMA-BUF renderer, die vóór het starten van het proces moet worden geconfigureerd. Daarom vereist deze wijziging een herstart. Als inschakeling voorkomt dat de app normaal opstart, wordt deze optie automatisch uitgeschakeld bij de volgende start. Uw downloadtaken worden niet beïnvloed.',
   'session-path': 'Taakcachebestand',
   'clear-all-tasks': 'Alle taken verwijderen',

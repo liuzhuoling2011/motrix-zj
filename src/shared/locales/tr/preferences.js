@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': 'Çok fazla düğüm bellek tüketimini artırır',
   'engine-section': 'aria2 İndirme Motoru',
   'hardware-rendering': 'GPU Donanım Hızlandırma',
-  'hardware-rendering-hint': 'WebKitGTK DMA-BUF oluşturucuyu etkinleştirir. Uyumluluk için varsayılan olarak kapalıdır; işleme performansını artırır ancak sorun oluşursa otomatik olarak devre dışı bırakılır.',
+  'hardware-rendering-hint': 'Daha geniş Linux GPU sürücü uyumluluğu için varsayılan olarak yazılımsal işleme kullanılır. Etkinleştirme, daha akıcı bir arayüz için DMA-BUF donanım hızlandırmayı etkinleştirir, ancak bazı GPU\'larda (ör. NVIDIA özel sürücü, Intel + Wayland, Raspberry Pi) beyaz ekran veya çökmeye neden olabilir. Etkinleştirme sonrası uygulama çökerse, bir sonraki başlatmada otomatik olarak devre dışı bırakılır.',
   'hardware-rendering-restart-confirm': 'GPU donanım hızlandırma, süreç başlamadan önce yapılandırılması gereken WebKitGTK DMA-BUF oluşturucuyu kullanır, bu nedenle bu değişiklik yeniden başlatma gerektirir. Etkinleştirme uygulamanın normal şekilde başlamasını engellerse, bu seçenek bir sonraki başlatmada otomatik olarak devre dışı bırakılır. İndirme görevleriniz etkilenmez.',
   'session-path': 'Görev Önbellek Dosyası',
   'clear-all-tasks': 'Tüm Görevleri Sil',

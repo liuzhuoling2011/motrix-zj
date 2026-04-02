@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': 'Troppi nodi aumentano il consumo di memoria',
   'engine-section': 'Motore di download aria2',
   'hardware-rendering': 'Accelerazione GPU',
-  'hardware-rendering-hint': 'Attiva il renderer WebKitGTK DMA-BUF. Disattivato per impostazione predefinita per compatibilità; migliora le prestazioni ma si disattiva automaticamente in caso di problemi.',
+  'hardware-rendering-hint': 'Per compatibilità con più driver GPU Linux, viene usato il rendering software per impostazione predefinita. L\'attivazione abilita l\'accelerazione hardware DMA-BUF per un\'interfaccia più fluida, ma potrebbe causare schermo bianco o crash con alcune GPU (es. NVIDIA proprietario, Intel + Wayland, Raspberry Pi). Se l\'applicazione si blocca dopo l\'attivazione, verrà automaticamente disattivata al prossimo avvio.',
   'hardware-rendering-restart-confirm': 'L\'accelerazione GPU utilizza il renderer WebKitGTK DMA-BUF, che deve essere configurato prima dell\'avvio del processo. Questa modifica richiede quindi un riavvio. Se l\'attivazione impedisce l\'avvio normale dell\'applicazione, questa opzione verrà automaticamente disattivata al prossimo avvio. Le attività di download non saranno interessate.',
   'session-path': 'File cache delle attività',
   'clear-all-tasks': 'Cancella tutte le attività',

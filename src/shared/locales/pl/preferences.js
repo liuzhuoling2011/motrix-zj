@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': 'Zbyt wiele węzłów zwiększa zużycie pamięci',
   'engine-section': 'Silnik pobierania aria2',
   'hardware-rendering': 'Akceleracja GPU',
-  'hardware-rendering-hint': 'Włącza renderer WebKitGTK DMA-BUF. Domyślnie wyłączone dla kompatybilności; poprawia wydajność renderowania, ale automatycznie się wyłącza w razie problemów.',
+  'hardware-rendering-hint': 'Dla szerszej kompatybilności z sterownikami GPU Linux domyślnie używane jest renderowanie programowe. Włączenie aktywuje akcelerację sprzętową DMA-BUF dla płynniejszego interfejsu, ale może powodować biały ekran lub awarię na niektórych GPU (np. NVIDIA proprietary, Intel + Wayland, Raspberry Pi). Jeśli aplikacja ulegnie awarii po włączeniu, zostanie automatycznie wyłączone przy następnym uruchomieniu.',
   'hardware-rendering-restart-confirm': 'Akceleracja GPU wykorzystuje renderer WebKitGTK DMA-BUF, który musi być skonfigurowany przed uruchomieniem procesu, więc ta zmiana wymaga ponownego uruchomienia. Jeśli włączenie uniemożliwi normalne uruchomienie aplikacji, ta opcja zostanie automatycznie wyłączona przy następnym uruchomieniu. Twoje zadania pobierania nie będą zmienione.',
   'session-path': 'Plik pamięci podręcznej zadań',
   'clear-all-tasks': 'Usuń wszystkie zadania',

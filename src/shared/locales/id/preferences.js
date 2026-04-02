@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': 'Terlalu banyak node meningkatkan penggunaan memori',
   'engine-section': 'Mesin Unduh aria2',
   'hardware-rendering': 'Akselerasi GPU',
-  'hardware-rendering-hint': 'Mengaktifkan renderer WebKitGTK DMA-BUF. Nonaktif secara default untuk kompatibilitas; meningkatkan performa rendering tetapi otomatis nonaktif jika menyebabkan masalah.',
+  'hardware-rendering-hint': 'Untuk kompatibilitas lebih luas dengan driver GPU Linux, rendering perangkat lunak digunakan secara default. Mengaktifkan ini mengaktifkan akselerasi perangkat keras DMA-BUF untuk UI yang lebih mulus, tetapi dapat menyebabkan layar kosong atau crash pada beberapa GPU (mis. NVIDIA proprietary, Intel + Wayland, Raspberry Pi). Jika aplikasi crash setelah diaktifkan, ini akan otomatis dinonaktifkan pada peluncuran berikutnya.',
   'hardware-rendering-restart-confirm': 'Akselerasi GPU menggunakan renderer WebKitGTK DMA-BUF yang harus dikonfigurasi sebelum proses dimulai, sehingga perubahan ini memerlukan restart. Jika pengaktifan mencegah aplikasi memulai secara normal, opsi ini akan otomatis dinonaktifkan pada peluncuran berikutnya. Tugas unduhan Anda tidak akan terpengaruh.',
   'session-path': 'File Cache Tugas',
   'clear-all-tasks': 'Hapus Semua Tugas',

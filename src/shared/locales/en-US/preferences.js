@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': 'Too many peers increases memory consumption',
   'engine-section': 'aria2 Download Engine',
   'hardware-rendering': 'GPU Hardware Acceleration',
-  'hardware-rendering-hint': 'Enables the WebKitGTK DMA-BUF renderer. Off by default for compatibility; improves rendering performance but auto-disables if it causes issues.',
+  'hardware-rendering-hint': 'Software rendering is used by default for broader Linux GPU driver compatibility. Enabling this activates DMA-BUF hardware acceleration for a smoother UI, but may cause a blank screen or crash on some GPUs (e.g. NVIDIA proprietary, Intel + Wayland, Raspberry Pi). If the app crashes after enabling, this will be automatically disabled on next launch.',
   'hardware-rendering-restart-confirm': 'GPU hardware acceleration uses the WebKitGTK DMA-BUF renderer, which must be configured before the process starts, so this change requires a restart. If enabling it prevents the app from starting normally, this option will be automatically disabled on next launch. Your download tasks will not be affected.',
   'session-path': 'Task Cache File',
   'clear-all-tasks': 'Clear All Tasks',

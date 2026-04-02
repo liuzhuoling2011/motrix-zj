@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': 'Prea multe noduri cresc consumul de memorie',
   'engine-section': 'Motor de descărcare aria2',
   'hardware-rendering': 'Accelerare GPU',
-  'hardware-rendering-hint': 'Activează renderizatorul WebKitGTK DMA-BUF. Dezactivat implicit pentru compatibilitate; îmbunătățește performanța dar se dezactivează automat dacă provoacă probleme.',
+  'hardware-rendering-hint': 'Pentru compatibilitate mai largă cu driverele GPU Linux, redarea software este utilizată implicit. Activarea permite accelerarea hardware DMA-BUF pentru o interfață mai fluidă, dar poate cauza ecran alb sau blocare pe unele GPU-uri (ex. NVIDIA proprietar, Intel + Wayland, Raspberry Pi). Dacă aplicația se blochează după activare, va fi dezactivată automat la următoarea lansare.',
   'hardware-rendering-restart-confirm': 'Accelerarea GPU utilizează renderizatorul WebKitGTK DMA-BUF, care trebuie configurat înainte de pornirea procesului, deci această modificare necesită o repornire. Dacă activarea împiedică pornirea normală a aplicației, această opțiune va fi dezactivată automat la următoarea lansare. Sarcinile de descărcare nu vor fi afectate.',
   'session-path': 'Fișier cache sarcini',
   'clear-all-tasks': 'Șterge toate sarcinile',

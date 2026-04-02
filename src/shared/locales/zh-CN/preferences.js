@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': '过多节点连接会显著增加内存消耗',
   'engine-section': 'aria2 下载引擎',
   'hardware-rendering': 'GPU 硬件加速',
-  'hardware-rendering-hint': '启用 WebKitGTK DMA-BUF 渲染器。默认关闭以确保兼容性，开启可提升渲染性能，若导致异常将自动关闭。',
+  'hardware-rendering-hint': '为兼容更多 Linux 显卡驱动，默认使用软件渲染。开启后启用 DMA-BUF 硬件加速以提升界面流畅度，但在部分显卡（如 NVIDIA 私有驱动、Intel 集显 + Wayland、树莓派等）上可能导致白屏或闪退。若启用后应用崩溃，下次启动时将自动关闭。',
   'hardware-rendering-restart-confirm': 'GPU 硬件加速基于 WebKitGTK DMA-BUF 渲染器，需要在进程启动前配置，因此更改后必须重启应用。若启用后应用无法正常启动，下次启动时将自动关闭此选项。您的下载任务不会受到影响。',
   'session-path': '任务缓存文件',
   'clear-all-tasks': '清除所有任务',

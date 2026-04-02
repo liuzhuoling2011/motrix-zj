@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': 'For mange noder øker minneforbruket',
   'engine-section': 'aria2-nedlastingsmotor',
   'hardware-rendering': 'GPU maskinvareakselerasjon',
-  'hardware-rendering-hint': 'Aktiverer WebKitGTK DMA-BUF-rendereren. Av som standard for kompatibilitet; forbedrer renderingsytelsen, men deaktiveres automatisk ved problemer.',
+  'hardware-rendering-hint': 'For bredere kompatibilitet med Linux GPU-drivere brukes programvarerendering som standard. Aktivering aktiverer DMA-BUF maskinvareakselerasjon for et jevnere grensesnitt, men kan forårsake hvit skjerm eller krasj på noen GPUer (f.eks. NVIDIA proprietær, Intel + Wayland, Raspberry Pi). Hvis appen krasjer etter aktivering, deaktiveres dette automatisk ved neste oppstart.',
   'hardware-rendering-restart-confirm': 'GPU maskinvareakselerasjon bruker WebKitGTK DMA-BUF-rendereren, som må konfigureres før prosessen starter, så denne endringen krever en omstart. Hvis aktivering hindrer appen i å starte normalt, vil dette alternativet automatisk bli deaktivert ved neste oppstart. Nedlastingsoppgavene dine vil ikke bli påvirket.',
   'session-path': 'Hurtigbufferfil for oppgaver',
   'clear-all-tasks': 'Fjern alle oppgaver',

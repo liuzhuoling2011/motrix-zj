@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': 'Viele Knoten erhöhen den Speicherverbrauch',
   'engine-section': 'aria2-Download-Engine',
   'hardware-rendering': 'GPU-Hardwarebeschleunigung',
-  'hardware-rendering-hint': 'Aktiviert den WebKitGTK DMA-BUF Renderer. Standardmäßig deaktiviert für Kompatibilität; verbessert die Renderleistung, wird aber bei Problemen automatisch deaktiviert.',
+  'hardware-rendering-hint': 'Für Kompatibilität mit mehr Linux-GPU-Treibern wird standardmäßig Software-Rendering verwendet. Die Aktivierung ermöglicht DMA-BUF-Hardwarebeschleunigung für eine flüssigere Oberfläche, kann aber bei einigen GPUs (z.B. NVIDIA proprietär, Intel + Wayland, Raspberry Pi) zu weißem Bildschirm oder Absturz führen. Wenn die App nach der Aktivierung abstürzt, wird sie beim nächsten Start automatisch deaktiviert.',
   'hardware-rendering-restart-confirm': 'GPU-Hardwarebeschleunigung nutzt den WebKitGTK DMA-BUF Renderer, der vor dem Prozessstart konfiguriert werden muss. Daher ist ein Neustart erforderlich. Wenn die Aktivierung den normalen Start verhindert, wird diese Option beim nächsten Start automatisch deaktiviert. Ihre Download-Aufgaben werden nicht beeinträchtigt.',
   'session-path': 'Aufgaben-Cache-Datei',
   'clear-all-tasks': 'Alle Aufgaben löschen',

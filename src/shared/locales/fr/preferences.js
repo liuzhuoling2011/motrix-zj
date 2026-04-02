@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': 'Trop de pairs augmente la consommation mémoire',
   'engine-section': 'Moteur de téléchargement aria2',
   'hardware-rendering': 'Accélération GPU',
-  'hardware-rendering-hint': 'Active le moteur de rendu WebKitGTK DMA-BUF. Désactivé par défaut pour la compatibilité ; améliore les performances mais se désactive automatiquement en cas de problème.',
+  'hardware-rendering-hint': 'Pour une meilleure compatibilité avec les pilotes GPU Linux, le rendu logiciel est utilisé par défaut. L\'activation permet l\'accélération matérielle DMA-BUF pour une interface plus fluide, mais peut provoquer un écran blanc ou un plantage avec certains GPU (ex. NVIDIA propriétaire, Intel + Wayland, Raspberry Pi). Si l\'application plante après l\'activation, elle sera automatiquement désactivée au prochain lancement.',
   'hardware-rendering-restart-confirm': 'L\'accélération GPU utilise le moteur de rendu WebKitGTK DMA-BUF, qui doit être configuré avant le démarrage du processus. Ce changement nécessite donc un redémarrage. Si l\'activation empêche l\'application de démarrer normalement, cette option sera automatiquement désactivée au prochain lancement. Vos tâches de téléchargement ne seront pas affectées.',
   'session-path': 'Fichier de session',
   'clear-all-tasks': 'Supprimer toutes les tâches',

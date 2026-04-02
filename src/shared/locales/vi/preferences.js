@@ -200,7 +200,7 @@ export default {
   'high-bt-peers-reason': 'Quá nhiều nút tăng tiêu thụ bộ nhớ',
   'engine-section': 'Công cụ tải xuống aria2',
   'hardware-rendering': 'Tăng tốc GPU',
-  'hardware-rendering-hint': 'Kích hoạt trình kết xuất WebKitGTK DMA-BUF. Tắt theo mặc định để đảm bảo tương thích; cải thiện hiệu suất kết xuất nhưng tự động tắt nếu gây ra sự cố.',
+  'hardware-rendering-hint': 'Để tương thích rộng hơn với driver GPU Linux, kết xuất phần mềm được sử dụng mặc định. Bật tính năng này kích hoạt tăng tốc phần cứng DMA-BUF để giao diện mượt mà hơn, nhưng có thể gây màn hình trắng hoặc sập trên một số GPU (ví dụ: NVIDIA proprietary, Intel + Wayland, Raspberry Pi). Nếu ứng dụng sập sau khi bật, tùy chọn này sẽ tự động tắt trong lần khởi động tiếp theo.',
   'hardware-rendering-restart-confirm': 'Tăng tốc GPU sử dụng trình kết xuất WebKitGTK DMA-BUF, cần được cấu hình trước khi tiến trình khởi động, vì vậy thay đổi này yêu cầu khởi động lại. Nếu việc kích hoạt khiến ứng dụng không thể khởi động bình thường, tùy chọn này sẽ tự động tắt trong lần khởi động tiếp theo. Các tác vụ tải xuống của bạn sẽ không bị ảnh hưởng.',
   'session-path': 'Tập tin bộ nhớ đệm tác vụ',
   'clear-all-tasks': 'Xóa tất cả tác vụ',
