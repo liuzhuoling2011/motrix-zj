@@ -115,15 +115,24 @@ function snapshotForm(source: TaskDetailOptionsForm, target: TaskDetailOptionsFo
 
 // ── Proxy detection ───────────────────────────────────────────────
 
+/** Strips trailing slashes for URL comparison (aria2 normalizes proxy URLs). */
+function normalizeProxyUrl(url: string): string {
+  return url.replace(/\/+$/, '')
+}
+
 /**
  * Detects the proxy mode from the loaded all-proxy value.
  * - Empty → none
  * - Matches global proxy server → global
  * - Anything else → custom (with the URL preserved)
+ *
+ * Uses normalized comparison because aria2's HttpProxyOptionHandler
+ * reconstructs URLs via uri::construct(), which appends a trailing
+ * slash (e.g. "http://host:port" → "http://host:port/").
  */
 function detectProxyMode(allProxy: string, globalServer: string): { mode: ProxyMode; custom: string } {
   if (!allProxy) return { mode: 'none', custom: '' }
-  if (globalServer && allProxy === globalServer) {
+  if (globalServer && normalizeProxyUrl(allProxy) === normalizeProxyUrl(globalServer)) {
     return { mode: 'global', custom: '' }
   }
   return { mode: 'custom', custom: allProxy }

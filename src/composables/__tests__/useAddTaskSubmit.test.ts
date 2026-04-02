@@ -168,30 +168,30 @@ describe('buildEngineOptions', () => {
     expect(opts['all-proxy']).toBe('http://127.0.0.1:7890')
   })
 
-  it('omits all-proxy when proxyMode is none', () => {
+  it('sets all-proxy to empty string when proxyMode is none (clears global)', () => {
     const opts = buildEngineOptions({
       ...baseForm,
       proxyMode: 'none',
       globalProxyServer: 'http://127.0.0.1:7890',
     })
-    expect(opts['all-proxy']).toBeUndefined()
+    expect(opts['all-proxy']).toBe('')
   })
 
-  it('omits all-proxy when proxyMode is global but globalProxyServer is empty', () => {
+  it('sets all-proxy to empty string when proxyMode is global but server is empty', () => {
     const opts = buildEngineOptions({
       ...baseForm,
       proxyMode: 'global',
       globalProxyServer: '',
     })
-    expect(opts['all-proxy']).toBeUndefined()
+    expect(opts['all-proxy']).toBe('')
   })
 
-  it('omits all-proxy when proxyMode is global but globalProxyServer is undefined', () => {
+  it('sets all-proxy to empty string when proxyMode is global but server is undefined', () => {
     const opts = buildEngineOptions({
       ...baseForm,
       proxyMode: 'global',
     })
-    expect(opts['all-proxy']).toBeUndefined()
+    expect(opts['all-proxy']).toBe('')
   })
 
   it('sets all-proxy when proxyMode is custom with valid address', () => {
@@ -203,22 +203,22 @@ describe('buildEngineOptions', () => {
     expect(opts['all-proxy']).toBe('http://10.0.0.1:8080')
   })
 
-  it('omits all-proxy when proxyMode is custom but customProxy is empty', () => {
+  it('sets all-proxy to empty string when proxyMode is custom but customProxy is empty', () => {
     const opts = buildEngineOptions({
       ...baseForm,
       proxyMode: 'custom',
       customProxy: '',
     })
-    expect(opts['all-proxy']).toBeUndefined()
+    expect(opts['all-proxy']).toBe('')
   })
 
-  it('ignores customProxy when proxyMode is none', () => {
+  it('clears all-proxy when proxyMode is none even with customProxy set', () => {
     const opts = buildEngineOptions({
       ...baseForm,
       proxyMode: 'none',
       customProxy: 'http://10.0.0.1:8080',
     })
-    expect(opts['all-proxy']).toBeUndefined()
+    expect(opts['all-proxy']).toBe('')
   })
 
   it('handles proxy server with authentication credentials', () => {

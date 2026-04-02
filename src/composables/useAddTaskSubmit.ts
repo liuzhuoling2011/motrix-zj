@@ -76,10 +76,9 @@ export function buildEngineOptions(form: AddTaskForm): Aria2EngineOptions {
   if (form.authorization) headers.push(`Authorization: ${form.authorization}`)
   if (headers.length > 0) options.header = headers
 
-  const proxy = resolveAddTaskProxy(form)
-  if (proxy) {
-    options['all-proxy'] = proxy
-  }
+  // Always set all-proxy — empty string clears any inherited global proxy.
+  // Without this, mode 'none' would silently inherit the engine-level proxy.
+  options['all-proxy'] = resolveAddTaskProxy(form)
   return options
 }
 
