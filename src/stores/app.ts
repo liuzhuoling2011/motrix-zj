@@ -5,7 +5,7 @@ import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { decodeThunderLink } from '@shared/utils'
 import { logger } from '@shared/logger'
-import { platform } from '@tauri-apps/plugin-os'
+import { usePlatform } from '@/composables/usePlatform'
 import { STAT_BASE_INTERVAL, STAT_PER_TASK_INTERVAL, STAT_MIN_INTERVAL, STAT_MAX_INTERVAL } from '@shared/timing'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
 import type {
@@ -19,14 +19,8 @@ import type {
 
 // Tray title (speed display) is supported on macOS (menu bar) and Linux (appindicator).
 // Windows system tray has no title API — set_title() is a no-op.
-const supportsTrayTitle = (() => {
-  try {
-    const p = platform()
-    return p === 'macos' || p === 'linux'
-  } catch {
-    return false
-  }
-})()
+const { isMac, isLinux } = usePlatform()
+const supportsTrayTitle = isMac.value || isLinux.value
 
 function normalizeFileUriPath(url: string): string {
   const decodedPath = decodeURIComponent(url.replace(/^file:\/\//i, ''))

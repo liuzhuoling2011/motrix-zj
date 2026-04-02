@@ -7,7 +7,8 @@ import { usePreferenceForm } from '@/composables/usePreferenceForm'
 import { useEngineRestart } from '@/composables/useEngineRestart'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { useIpc } from '@/composables/useIpc'
-import { platform, arch as osArch, version as osVersion } from '@tauri-apps/plugin-os'
+import { arch as osArch, version as osVersion } from '@tauri-apps/plugin-os'
+import { usePlatform } from '@/composables/usePlatform'
 import { getVersion as getAppVersion } from '@tauri-apps/api/app'
 import { getVersion as getAria2Version } from '@/api/aria2'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
@@ -55,27 +56,14 @@ const preferenceStore = usePreferenceStore()
 const dialog = useDialog()
 const message = useAppMessage()
 const defaultDownloadDir = ref('')
-const currentPlatform = ref('')
-const isMac = computed(() => currentPlatform.value === 'macos')
-const isMacOrWin = computed(() => currentPlatform.value === 'macos' || currentPlatform.value === 'windows')
-const isMacOrLinux = computed(() => currentPlatform.value === 'macos' || currentPlatform.value === 'linux')
-const platformLabel = computed(() => {
-  const map: Record<string, string> = { macos: 'macOS', windows: 'Windows', linux: 'Linux' }
-  return map[currentPlatform.value] || currentPlatform.value
-})
+const { isMac, isWindows, isLinux, platformLabel, archLabel: getArchLabel } = usePlatform()
 
 // ─── System info card ────────────────────────────────────────────────
 const sysArch = ref('')
 const sysOsVersion = ref('')
 const sysAppVersion = ref('')
 const sysAria2Version = ref('')
-const archLabel = computed(() => {
-  if (currentPlatform.value === 'macos') {
-    return sysArch.value === 'aarch64' ? 'Apple Silicon' : 'Intel'
-  }
-  const map: Record<string, string> = { aarch64: 'ARM64', x86_64: 'x64', x86: 'x86' }
-  return map[sysArch.value] || sysArch.value
-})
+const archLabelDisplay = computed(() => getArchLabel(sysArch.value))
 
 async function copyVersionToClipboard(text: string, label: string) {
   try {
@@ -440,11 +428,7 @@ onMounted(async () => {
   } catch (e) {
     logger.debug('Basic.downloadDir', e)
   }
-  try {
-    currentPlatform.value = platform()
-  } catch (e) {
-    logger.debug('Basic.platform', e)
-  }
+  // Platform is initialised by usePlatform() singleton — no per-component call needed.
   try {
     sysArch.value = osArch()
   } catch (e) {
@@ -472,7 +456,7 @@ onMounted(async () => {
   // Read actual OS registration state for protocol toggles (Windows/Linux).
   // This ensures the switches reflect reality even if another app has taken
   // over the protocol association since Motrix last ran.
-  if (currentPlatform.value && currentPlatform.value !== 'macos') {
+  if (!isMac.value) {
     try {
       const { isRegistered } = await import('@tauri-apps/plugin-deep-link')
       form.value.protocolMagnet = await isRegistered('magnet')
@@ -492,7 +476,7 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.detected-platform')">
         <NSpace :size="8">
           <NTag type="info" round size="medium">{{ platformLabel }}</NTag>
-          <NTag type="success" round size="medium">{{ archLabel }}</NTag>
+          <NTag type="success" round size="medium">{{ archLabelDisplay }}</NTag>
         </NSpace>
       </NFormItem>
       <NFormItem :label="t('about.app-version')">
@@ -613,7 +597,7 @@ onMounted(async () => {
           </MTooltip>
         </div>
       </NFormItem>
-      <NFormItem v-if="isMacOrWin" :label="t('preferences.show-progress-bar')">
+      <NFormItem v-if="isMac || isWindows" :label="t('preferences.show-progress-bar')">
         <NSwitch v-model:value="form.showProgressBar" />
       </NFormItem>
 
@@ -628,7 +612,7 @@ onMounted(async () => {
       <NFormItem v-if="isMac" :label="t('preferences.hide-dock-on-minimize')">
         <NSwitch v-model:value="form.hideDockOnMinimize" />
       </NFormItem>
-      <NFormItem v-if="isMacOrLinux" :label="t('preferences.tray-speedometer')">
+      <NFormItem v-if="isMac || isLinux" :label="t('preferences.tray-speedometer')">
         <NSwitch v-model:value="form.traySpeedometer" />
       </NFormItem>
 

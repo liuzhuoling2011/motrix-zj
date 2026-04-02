@@ -24,6 +24,7 @@ import {
 } from '@/composables/useMagnetFlow'
 import type { MagnetFileItem } from '@/composables/useMagnetFlow'
 import aria2Api, { isEngineReady } from '@/api/aria2'
+import { usePlatform } from '@/composables/usePlatform'
 import { throttledResizeHandler, cancelPendingResize } from '@/layouts/resizeThrottle'
 import AsideBar from '@/components/layout/AsideBar.vue'
 import TaskSubnav from '@/components/layout/TaskSubnav.vue'
@@ -60,7 +61,7 @@ const isExiting = ref(false)
 const rememberChoice = ref(false)
 const pendingTrayHide = ref(false)
 const isMaximized = ref(false)
-const currentPlatform = ref('')
+const { platform: currentPlatform, isMac, isWindows, isLinux } = usePlatform()
 const showEngineOverlay = ref(false)
 
 const updateDialogRef = ref<InstanceType<typeof UpdateDialog> | null>(null)
@@ -453,14 +454,7 @@ function handleExitCancel() {
 }
 
 onMounted(async () => {
-  // Detect platform once for conditional rendering (native traffic lights,
-  // border-radius, etc.).
-  try {
-    const { platform } = await import('@tauri-apps/plugin-os')
-    currentPlatform.value = platform()
-  } catch (e) {
-    logger.debug('MainLayout.platform', e)
-  }
+  // Platform is initialised by usePlatform() singleton — no per-component call needed.
 
   // Show the main window now that the frontend has mounted and the
   // webview has renderable content.  This prevents the transparent-frame
@@ -648,12 +642,10 @@ onMounted(async () => {
   // See: https://bugs.webkit.org/show_bug.cgi?id=262607 (RESOLVED WONTFIX)
   {
     const appWindow = getCurrentWindow()
-    const isWindows = navigator.userAgent.includes('Windows')
-    const isLinux = navigator.userAgent.includes('Linux')
 
-    let shouldTrackMaximize = isWindows
+    let shouldTrackMaximize = isWindows.value
 
-    if (isLinux) {
+    if (isLinux.value) {
       const { invoke } = await import('@tauri-apps/api/core')
       const dmabufDisabled = await invoke<boolean>('is_dmabuf_renderer_disabled')
       shouldTrackMaximize = !dmabufDisabled
@@ -784,7 +776,7 @@ onUnmounted(() => {
       'app-ready': appReady,
       'app-closing': isExiting,
       maximized: isMaximized,
-      'native-frame': currentPlatform === 'macos',
+      'native-frame': isMac,
     }"
   >
     <!-- Minimal progress bar during engine initialization / restart -->

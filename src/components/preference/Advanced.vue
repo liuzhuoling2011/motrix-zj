@@ -3,7 +3,7 @@
 import { ref, computed, nextTick, onMounted, h } from 'vue'
 import type { VNodeChild } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { platform } from '@tauri-apps/plugin-os'
+import { usePlatform } from '@/composables/usePlatform'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
 import { usePreferenceForm } from '@/composables/usePreferenceForm'
@@ -72,13 +72,7 @@ const historyStore = useHistoryStore()
 const message = useAppMessage()
 const dialog = useDialog()
 
-/** Linux detection for platform-specific UI (e.g. hardware rendering toggle). */
-const isLinux = ref(false)
-try {
-  isLinux.value = platform() === 'linux'
-} catch {
-  /* platform() may throw in test/SSR — default to false. */
-}
+const { isLinux } = usePlatform()
 
 import { DEFAULT_TRACKER_SOURCE, ENGINE_RPC_PORT } from '@shared/constants'
 import { diffConfig, checkIsNeedRestart } from '@shared/utils/config'
@@ -714,12 +708,6 @@ onMounted(() => {
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.engine-section') }}</NDivider>
-      <NFormItem v-if="isLinux" :label="t('preferences.hardware-rendering')">
-        <NSwitch v-model:value="form.hardwareRendering" />
-      </NFormItem>
-      <NFormItem v-if="isLinux" :show-label="false">
-        <div class="info-text">{{ t('preferences.hardware-rendering-hint') }}</div>
-      </NFormItem>
       <NFormItem :label="t('preferences.aria2-conf-path')">
         <NInputGroup>
           <NInput :value="aria2ConfPath" readonly style="flex: 1" />
@@ -805,7 +793,13 @@ onMounted(() => {
         </NSpace>
       </NFormItem>
 
-      <NDivider title-placement="left">{{ t('preferences.reset') }}</NDivider>
+      <NDivider title-placement="left">{{ t('preferences.diagnostics-section') }}</NDivider>
+      <NFormItem v-if="isLinux" :label="t('preferences.hardware-rendering')">
+        <NSwitch v-model:value="form.hardwareRendering" />
+      </NFormItem>
+      <NFormItem v-if="isLinux" :show-label="false">
+        <div class="info-text">{{ t('preferences.hardware-rendering-hint') }}</div>
+      </NFormItem>
       <NFormItem :show-label="false">
         <NSpace>
           <NButton class="open-config-folder-btn" @click="handleOpenConfigFolder">
@@ -870,6 +864,8 @@ onMounted(() => {
 .info-text {
   color: var(--m3-on-surface-variant);
   font-size: 12px;
+  max-width: 520px;
+  word-wrap: break-word;
 }
 .info-link {
   color: var(--color-primary);

@@ -55,9 +55,7 @@ fn read_hardware_rendering_from_config(data_dir: &std::path::Path) -> bool {
         let path = data_dir.join("config.json");
         let content = std::fs::read_to_string(path).ok()?;
         let json: serde_json::Value = serde_json::from_str(&content).ok()?;
-        json.get("preferences")?
-            .get("hardwareRendering")?
-            .as_bool()
+        json.get("preferences")?.get("hardwareRendering")?.as_bool()
     })()
     .unwrap_or(false)
 }
@@ -143,9 +141,7 @@ pub fn pre_flight() -> bool {
     } else {
         // SAFETY: single-threaded at this point.
         unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
-        eprintln!(
-            "[motrix-next] Hardware rendering disabled — using software compositing"
-        );
+        eprintln!("[motrix-next] Hardware rendering disabled — using software compositing");
         true // DMA-BUF disabled
     }
 }
