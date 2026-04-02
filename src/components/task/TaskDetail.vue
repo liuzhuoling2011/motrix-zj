@@ -194,22 +194,35 @@ const fileList = computed(() =>
 )
 
 const fileColumns = computed(() => [
-  { title: '#', key: 'idx', width: 50 },
-  { title: t('task.file-name') || 'Name', key: 'name', ellipsis: { tooltip: true } },
-  { title: t('task.file-extension') || 'Ext', key: 'extension', width: 70 },
-  { title: '%', key: 'percent', width: 60, align: 'right' as const },
   {
-    title: '✓',
-    key: 'completedLength',
-    width: 90,
+    title: '#',
+    key: 'idx',
+    minWidth: 50,
+    sorter: (a: { idx: number }, b: { idx: number }) => a.idx - b.idx,
+  },
+  { title: t('task.file-name') || 'Name', key: 'name', ellipsis: { tooltip: true } },
+  { title: t('task.file-extension') || 'Ext', key: 'extension', minWidth: 70 },
+  {
+    title: t('task.task-peer-percent'),
+    key: 'percent',
+    minWidth: 70,
     align: 'right' as const,
+    sorter: (a: { percent: string }, b: { percent: string }) => parseFloat(a.percent) - parseFloat(b.percent),
+  },
+  {
+    title: t('task.file-completed'),
+    key: 'completedLength',
+    minWidth: 90,
+    align: 'right' as const,
+    sorter: (a: { completedLength: number }, b: { completedLength: number }) => a.completedLength - b.completedLength,
     render: (row: { completedLength: number }) => bytesToSize(String(row.completedLength)),
   },
   {
     title: t('task.file-size') || 'Size',
     key: 'length',
-    width: 90,
+    minWidth: 90,
     align: 'right' as const,
+    sorter: (a: { length: number }, b: { length: number }) => a.length - b.length,
     render: (row: { length: number }) => bytesToSize(String(row.length)),
   },
 ])

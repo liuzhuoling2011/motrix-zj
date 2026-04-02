@@ -56,7 +56,7 @@ const columns = computed<DataTableColumns>(() => [
   {
     title: '#',
     key: 'index',
-    width: 50,
+    minWidth: 50,
   },
   {
     title: t('task.file-name') || 'File Name',
@@ -66,7 +66,8 @@ const columns = computed<DataTableColumns>(() => [
   {
     title: t('task.file-size') || 'Size',
     key: 'length',
-    width: 110,
+    minWidth: 110,
+    sorter: (a: Record<string, unknown>, b: Record<string, unknown>) => (a.length as number) - (b.length as number),
     render(row: Record<string, unknown>) {
       return bytesToSize(row.length as number)
     },

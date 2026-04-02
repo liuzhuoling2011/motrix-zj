@@ -15,6 +15,7 @@ export default {
   'file-name': 'Név',
   'file-extension': 'Kiterjesztés',
   'file-size': 'Méret',
+  'file-completed': 'Befejezve',
   'file-completed-size': 'Befejezve',
   'file-index': 'Ssz.',
   'selected-files-sum': 'Kiválasztva: {selectedFilesCount} fájl, összesen {selectedFilesTotalSize}',

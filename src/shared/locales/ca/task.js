@@ -15,6 +15,7 @@ export default {
   'file-name': 'Nom',
   'file-extension': 'Extensió',
   'file-size': 'Mida',
+  'file-completed': 'Completat',
   'file-completed-size': 'Completat',
   'file-index': 'Núm.',
   'selected-files-sum': 'Seleccionats: {selectedFilesCount} fitxers, total {selectedFilesTotalSize}',

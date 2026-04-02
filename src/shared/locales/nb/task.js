@@ -15,6 +15,7 @@ export default {
   'file-name': 'Navn',
   'file-extension': 'Filtype',
   'file-size': 'Størrelse',
+  'file-completed': 'Fullført',
   'file-completed-size': 'Fullført',
   'file-index': 'Nr.',
   'selected-files-sum': 'Valgt: {selectedFilesCount} filer, totalt {selectedFilesTotalSize}',

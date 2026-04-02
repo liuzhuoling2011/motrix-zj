@@ -15,6 +15,7 @@ export default {
   'file-name': 'Nama',
   'file-extension': 'Ekstensi',
   'file-size': 'Ukuran',
+  'file-completed': 'Selesai',
   'file-completed-size': 'Selesai',
   'file-index': 'No.',
   'selected-files-sum': 'Dipilih: {selectedFilesCount} file, total {selectedFilesTotalSize}',

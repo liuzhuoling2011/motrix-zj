@@ -15,6 +15,7 @@ export default {
   'file-name': 'Naam',
   'file-extension': 'Extensie',
   'file-size': 'Grootte',
+  'file-completed': 'Voltooid',
   'file-completed-size': 'Voltooid',
   'file-index': 'Nr.',
   'selected-files-sum': 'Geselecteerd: {selectedFilesCount} bestanden, totaal {selectedFilesTotalSize}',

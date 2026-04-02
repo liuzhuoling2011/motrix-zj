@@ -15,6 +15,7 @@ export default {
   'file-name': 'Tên',
   'file-extension': 'Phần mở rộng',
   'file-size': 'Kích thước',
+  'file-completed': 'Đã hoàn thành',
   'file-completed-size': 'Đã hoàn thành',
   'file-index': 'STT',
   'selected-files-sum': 'Đã chọn: {selectedFilesCount} tệp, tổng {selectedFilesTotalSize}',

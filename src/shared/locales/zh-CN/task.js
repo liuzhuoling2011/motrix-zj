@@ -15,6 +15,7 @@ export default {
   'file-name': '文件名',
   'file-extension': '扩展名',
   'file-size': '大小',
+  'file-completed': '已完成',
   'file-completed-size': '已完成',
   'file-index': '序号',
   'selected-files-sum': '已选 {selectedFilesCount} 个文件，共 {selectedFilesTotalSize}',

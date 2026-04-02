@@ -15,6 +15,7 @@ export default {
   'file-name': 'Име',
   'file-extension': 'Разширение',
   'file-size': 'Размер',
+  'file-completed': 'Завършено',
   'file-completed-size': 'Завършено',
   'file-index': '№',
   'selected-files-sum': 'Избрани: {selectedFilesCount} файла, общо {selectedFilesTotalSize}',

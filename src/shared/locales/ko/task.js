@@ -15,6 +15,7 @@ export default {
   'file-name': '파일명',
   'file-extension': '확장자',
   'file-size': '크기',
+  'file-completed': '완료',
   'file-completed-size': '완료',
   'file-index': '번호',
   'selected-files-sum': '선택: {selectedFilesCount}개 파일, 총 {selectedFilesTotalSize}',

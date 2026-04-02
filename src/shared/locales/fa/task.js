@@ -15,6 +15,7 @@ export default {
   'file-name': 'نام',
   'file-extension': 'پسوند',
   'file-size': 'حجم',
+  'file-completed': 'تکمیل‌شده',
   'file-completed-size': 'تکمیل شده',
   'file-index': 'ردیف',
   'selected-files-sum': 'انتخاب شده: {selectedFilesCount} فایل، مجموع {selectedFilesTotalSize}',

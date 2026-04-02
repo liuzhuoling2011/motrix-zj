@@ -119,12 +119,13 @@ watch(
 
 const fileColumns = computed<DataTableColumns>(() => [
   { type: 'selection' },
-  { title: t('task.file-index'), key: 'idx', width: 50 },
+  { title: t('task.file-index'), key: 'idx', minWidth: 50 },
   { title: t('task.file-name'), key: 'path', ellipsis: { tooltip: true } },
   {
     title: t('task.file-size'),
     key: 'length',
-    width: 100,
+    minWidth: 100,
+    sorter: (a: Record<string, unknown>, b: Record<string, unknown>) => (a.length as number) - (b.length as number),
     render(row: Record<string, unknown>) {
       return bytesToSize(row.length as number)
     },

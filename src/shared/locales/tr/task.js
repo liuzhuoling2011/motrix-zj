@@ -15,6 +15,7 @@ export default {
   'file-name': 'Ad',
   'file-extension': 'Uzantı',
   'file-size': 'Boyut',
+  'file-completed': 'Tamamlandı',
   'file-completed-size': 'Tamamlandı',
   'file-index': 'No.',
   'selected-files-sum': 'Seçili: {selectedFilesCount} dosya, toplam {selectedFilesTotalSize}',

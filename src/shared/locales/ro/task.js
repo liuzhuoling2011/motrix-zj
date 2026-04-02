@@ -15,6 +15,7 @@ export default {
   'file-name': 'Nume',
   'file-extension': 'Extensie',
   'file-size': 'Dimensiune',
+  'file-completed': 'Finalizat',
   'file-completed-size': 'Finalizat',
   'file-index': 'Nr.',
   'selected-files-sum': 'Selectate: {selectedFilesCount} fișiere, total {selectedFilesTotalSize}',

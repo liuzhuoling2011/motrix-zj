@@ -61,12 +61,22 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
   const dbRecords = ref<HistoryRecord[]>([])
   const dbRecordsLoading = ref(false)
 
+  const DB_STATUS_ORDER: Record<string, number> = {
+    active: 0,
+    waiting: 1,
+    paused: 2,
+    complete: 3,
+    error: 4,
+    removed: 5,
+  }
+
   const dbBrowseColumns = computed<DataTableColumns<HistoryRecord>>(() => [
     { title: t('task.task-name'), key: 'name', ellipsis: { tooltip: true }, minWidth: 200 },
     {
       title: t('task.task-status'),
       key: 'status',
-      width: 100,
+      minWidth: 90,
+      sorter: (a, b) => (DB_STATUS_ORDER[a.status] ?? 5) - (DB_STATUS_ORDER[b.status] ?? 5),
       render: (row) =>
         h(
           NTag,
@@ -77,14 +87,25 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
     {
       title: t('task.task-file-size'),
       key: 'total_length',
-      width: 100,
+      minWidth: 90,
+      sorter: (a, b) => (a.total_length ?? 0) - (b.total_length ?? 0),
       render: (row) => (row.total_length ? bytesToSize(row.total_length) : '—'),
     },
-    { title: t('task.task-type'), key: 'task_type', width: 90 },
+    {
+      title: t('task.task-type'),
+      key: 'task_type',
+      minWidth: 80,
+      sorter: 'default' as const,
+    },
     {
       title: t('task.task-completed-at'),
       key: 'completed_at',
-      width: 170,
+      minWidth: 160,
+      sorter: (a, b) => {
+        const ta = a.completed_at ? new Date(a.completed_at).getTime() : 0
+        const tb = b.completed_at ? new Date(b.completed_at).getTime() : 0
+        return ta - tb
+      },
       render: (row) => (row.completed_at ? new Date(row.completed_at).toLocaleString() : '—'),
     },
   ])

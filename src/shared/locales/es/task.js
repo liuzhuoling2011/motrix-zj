@@ -15,6 +15,7 @@ export default {
   'file-name': 'Nombre',
   'file-extension': 'Extensión',
   'file-size': 'Tamaño',
+  'file-completed': 'Completado',
   'file-completed-size': 'Completado',
   'file-index': 'N.º',
   'selected-files-sum': 'Seleccionados: {selectedFilesCount} archivos, total {selectedFilesTotalSize}',

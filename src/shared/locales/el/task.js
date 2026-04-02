@@ -15,6 +15,7 @@ export default {
   'file-name': 'Όνομα',
   'file-extension': 'Επέκταση',
   'file-size': 'Μέγεθος',
+  'file-completed': 'Ολοκληρώθηκε',
   'file-completed-size': 'Ολοκληρώθηκε',
   'file-index': 'Αρ.',
   'selected-files-sum': 'Επιλεγμένα: {selectedFilesCount} αρχεία, σύνολο {selectedFilesTotalSize}',

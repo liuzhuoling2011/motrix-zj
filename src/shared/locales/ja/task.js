@@ -15,6 +15,7 @@ export default {
   'file-name': 'ファイル名',
   'file-extension': '拡張子',
   'file-size': 'サイズ',
+  'file-completed': '完了',
   'file-completed-size': '完了分',
   'file-index': '番号',
   'selected-files-sum': '選択中：{selectedFilesCount}ファイル、合計 {selectedFilesTotalSize}',

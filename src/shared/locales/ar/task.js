@@ -15,6 +15,7 @@ export default {
   'file-name': 'الاسم',
   'file-extension': 'الامتداد',
   'file-size': 'الحجم',
+  'file-completed': 'مكتمل',
   'file-completed-size': 'مكتمل',
   'file-index': 'رقم',
   'selected-files-sum': 'المحدد: {selectedFilesCount} ملفات، المجموع {selectedFilesTotalSize}',
