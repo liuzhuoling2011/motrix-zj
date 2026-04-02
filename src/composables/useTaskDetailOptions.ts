@@ -224,6 +224,17 @@ export function useTaskDetailOptions(config: UseTaskDetailOptionsConfig) {
     try {
       const opts = await getTaskOption(gid)
       populateFormFromResponse(opts, form, proxyAddress.value)
+
+      // If the global proxy has been disabled since this task was created,
+      // the detected 'global' mode is stale — downgrade to 'custom' so the
+      // UI truthfully shows the actual per-task proxy address from aria2.
+      // The user can then manually clear it or switch to 'none'.
+      if (form.proxyMode === 'global' && !globalProxyAvailable.value) {
+        const actualProxy = (opts.allProxy as string) ?? ''
+        form.proxyMode = actualProxy ? 'custom' : 'none'
+        form.customProxy = actualProxy
+      }
+
       snapshotForm(form, loaded)
     } catch (err) {
       logger.debug('[useTaskDetailOptions] getTaskOption failed', err)
@@ -236,6 +247,15 @@ export function useTaskDetailOptions(config: UseTaskDetailOptionsConfig) {
     (gid) => (gid && canModify.value ? void loadOptions(gid) : resetForm()),
     { immediate: true },
   )
+
+  // Sync proxyMode in real-time when global proxy config changes.
+  // Covers the timing gap where loadOptions ran before the preference
+  // store finished loading, leaving a stale 'global' mode.
+  watch(globalProxyAvailable, (available) => {
+    if (!available && form.proxyMode === 'global') {
+      form.proxyMode = form.customProxy ? 'custom' : 'none'
+    }
+  })
 
   async function applyOptions(): Promise<void> {
     if (applying.value || !task.value || !dirty.value) return

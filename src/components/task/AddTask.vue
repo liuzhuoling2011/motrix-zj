@@ -88,6 +88,15 @@ const globalProxyAvailable = computed(() => isGlobalProxyConfigured(preferenceSt
 /** The global proxy server address for display in the radio hint. */
 const globalProxyServer = computed(() => preferenceStore.config.proxy?.server ?? '')
 
+// Sync proxyMode when the global proxy config changes (e.g. disabled in
+// settings, or config loads after component mount).  Without this, a stale
+// 'global' mode would leave the proxy-hint visible with no matching radio.
+watch(globalProxyAvailable, (available) => {
+  if (!available && form.value.proxyMode === 'global') {
+    form.value.proxyMode = 'none'
+  }
+})
+
 const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
 
 // Real-time tracking: NInputNumber only commits v-model on blur,
