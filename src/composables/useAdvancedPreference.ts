@@ -50,6 +50,7 @@ export interface AdvancedForm {
   dhtListenPort: number
   userAgent: string
   logLevel: string
+  hardwareRendering: boolean
 }
 
 // ── Pure Functions ──────────────────────────────────────────────────
@@ -97,6 +98,7 @@ export function buildAdvancedForm(config: AppConfig): { form: AdvancedForm; gene
       dhtListenPort: Number(config.dhtListenPort ?? D.dhtListenPort),
       userAgent: config.userAgent ?? D.userAgent,
       logLevel: config.logLevel ?? D.logLevel,
+      hardwareRendering: config.hardwareRendering ?? D.hardwareRendering,
     },
     generatedSecret,
   }

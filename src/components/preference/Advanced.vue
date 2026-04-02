@@ -3,6 +3,7 @@
 import { ref, computed, nextTick, onMounted, h } from 'vue'
 import type { VNodeChild } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { platform } from '@tauri-apps/plugin-os'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
 import { usePreferenceForm } from '@/composables/usePreferenceForm'
@@ -70,6 +71,14 @@ const taskStore = useTaskStore()
 const historyStore = useHistoryStore()
 const message = useAppMessage()
 const dialog = useDialog()
+
+/** Linux detection for platform-specific UI (e.g. hardware rendering toggle). */
+const isLinux = ref(false)
+try {
+  isLinux.value = platform() === 'linux'
+} catch {
+  /* platform() may throw in test/SSR — default to false. */
+}
 
 import { DEFAULT_TRACKER_SOURCE, ENGINE_RPC_PORT } from '@shared/constants'
 import { diffConfig, checkIsNeedRestart } from '@shared/utils/config'
@@ -227,6 +236,23 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
       dialog.info({
         title: t('preferences.restart-required'),
         content: t('preferences.log-level-restart-confirm'),
+        positiveText: t('preferences.restart-now'),
+        negativeText: t('preferences.engine-restart-later'),
+        maskClosable: false,
+        onPositiveClick: async () => {
+          const { stopEngine } = useIpc()
+          await stopEngine()
+          await relaunch()
+        },
+      })
+    }
+
+    // Hardware rendering toggle needs a full app relaunch — the env var
+    // WEBKIT_DISABLE_DMABUF_RENDERER is read by WebKitGTK at process startup.
+    if (changed.hardwareRendering !== undefined && changed.hardwareRendering !== prevConfig.hardwareRendering) {
+      dialog.info({
+        title: t('preferences.restart-required'),
+        content: t('preferences.hardware-rendering-restart-confirm'),
         positiveText: t('preferences.restart-now'),
         negativeText: t('preferences.engine-restart-later'),
         maskClosable: false,
@@ -688,6 +714,12 @@ onMounted(() => {
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.engine-section') }}</NDivider>
+      <NFormItem v-if="isLinux" :label="t('preferences.hardware-rendering')">
+        <NSwitch v-model:value="form.hardwareRendering" />
+      </NFormItem>
+      <NFormItem v-if="isLinux" :show-label="false">
+        <div class="info-text">{{ t('preferences.hardware-rendering-hint') }}</div>
+      </NFormItem>
       <NFormItem :label="t('preferences.aria2-conf-path')">
         <NInputGroup>
           <NInput :value="aria2ConfPath" readonly style="flex: 1" />

@@ -640,7 +640,8 @@ onMounted(async () => {
   // macOS: Native window handles rounding; isMaximized() inside onResized
   // triggers an infinite loop (tauri-apps/tauri#5812).
   //
-  // Linux + WEBKIT_DISABLE_DMABUF_RENDERER=1 (typically NVIDIA):
+  // Linux + WEBKIT_DISABLE_DMABUF_RENDERER=1 (default safe mode, or
+  // auto-reverted by gpu_guard after a crash):
   // WebKitGTK software compositing loses the alpha channel after a
   // maximize → restore cycle, breaking border-radius corners.
   // WORKAROUND: keep border-radius at all times on affected systems.

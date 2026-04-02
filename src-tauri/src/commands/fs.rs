@@ -138,6 +138,7 @@ pub async fn export_diagnostic_logs(app: AppHandle, save_path: String) -> Result
         "engine_pid": engine_pid,
         "webkit_dmabuf_disabled": std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER")
             .unwrap_or_default(),
+        "gpu_hardware_rendering": crate::gpu_guard::is_hardware_rendering_enabled(),
         "exported_at": chrono::Local::now().to_rfc3339(),
     });
     let info_bytes = serde_json::to_vec_pretty(&system_info)
@@ -500,14 +501,15 @@ pub fn trash_file(path: String) -> Result<(), AppError> {
 /// WORKAROUND for WebKitGTK Bug #262607 (RESOLVED WONTFIX).
 /// <https://bugs.webkit.org/show_bug.cgi?id=262607>
 ///
-/// On Linux with NVIDIA proprietary drivers, WebKitGTK's DMABuf renderer
-/// crashes, so users must set `WEBKIT_DISABLE_DMABUF_RENDERER=1` to fall
-/// back to software compositing.  That fallback loses the alpha channel
-/// after a maximize → restore cycle, breaking CSS `border-radius` corners.
+/// WebKitGTK's DMA-BUF renderer crashes on various GPU/driver/compositor
+/// combinations (NVIDIA, Intel UHD + Wayland, Broadcom on RPi, VM guests).
+/// By default, hardware rendering is OFF (`WEBKIT_DISABLE_DMABUF_RENDERER=1`).
+/// Users can opt in via Advanced → "Hardware Rendering"; if it crashes, the
+/// `gpu_guard` module automatically reverts the preference on next launch.
 ///
 /// The frontend uses this flag to decide:
 /// - `false` → safe to remove border-radius on maximize (normal behavior)
-/// - `true`  → keep border-radius at all times (NVIDIA workaround)
+/// - `true`  → keep border-radius at all times (software compositing workaround)
 ///
 /// On non-Linux platforms this always returns `false`.
 #[tauri::command]

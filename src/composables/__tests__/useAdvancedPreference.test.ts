@@ -242,6 +242,7 @@ describe('buildAdvancedSystemConfig', () => {
     dhtListenPort: 26701,
     userAgent: '',
     logLevel: 'warn',
+    hardwareRendering: false,
   }
 
   it('maps all required aria2 config keys', () => {
@@ -313,6 +314,7 @@ describe('transformAdvancedForStore', () => {
       dhtListenPort: 26701,
       userAgent: '',
       logLevel: 'warn',
+      hardwareRendering: false,
     }
     const result = transformAdvancedForStore(form)
     expect(result.btTracker).toBe('udp://a,udp://b')
@@ -333,6 +335,7 @@ describe('transformAdvancedForStore', () => {
       dhtListenPort: 26701,
       userAgent: '',
       logLevel: 'warn',
+      hardwareRendering: false,
     }
     const result = transformAdvancedForStore(form)
     expect(result.listenPort).toBe(21301)
@@ -451,6 +454,7 @@ describe('validateAdvancedForm', () => {
     dhtListenPort: 26701,
     userAgent: '',
     logLevel: 'warn',
+    hardwareRendering: false,
   }
 
   it('returns null for valid form', () => {
@@ -590,6 +594,7 @@ describe('proxy configuration invariants', () => {
       dhtListenPort: 26701,
       userAgent: '',
       logLevel: 'debug',
+      hardwareRendering: false,
     }
     const systemConfig = buildAdvancedSystemConfig(form)
     // Empty string is intentional — aria2 accepts '' to clear the proxy
@@ -617,6 +622,7 @@ describe('proxy configuration invariants', () => {
       dhtListenPort: 26701,
       userAgent: '',
       logLevel: 'debug',
+      hardwareRendering: false,
     }
     const systemConfig = buildAdvancedSystemConfig(form)
     expect(systemConfig['all-proxy']).toBe('')
@@ -642,9 +648,60 @@ describe('proxy configuration invariants', () => {
       dhtListenPort: 26701,
       userAgent: '',
       logLevel: 'debug',
+      hardwareRendering: false,
     }
     const systemConfig = buildAdvancedSystemConfig(form)
     expect(systemConfig['all-proxy']).toBe('http://proxy:8080')
     expect(systemConfig['no-proxy']).toBe('192.168.0.0/16,*.local')
+  })
+})
+
+// ── hardwareRendering — Linux GPU toggle ────────────────────────────
+
+describe('buildAdvancedForm — hardwareRendering', () => {
+  it('defaults hardwareRendering to false when absent', () => {
+    const { form } = buildAdvancedForm({} as AppConfig)
+    expect(form.hardwareRendering).toBe(false)
+  })
+
+  it('preserves hardwareRendering=true from config', () => {
+    const config = { hardwareRendering: true } as AppConfig
+    const { form } = buildAdvancedForm(config)
+    expect(form.hardwareRendering).toBe(true)
+  })
+
+  it('preserves hardwareRendering=false from config', () => {
+    const config = { hardwareRendering: false } as AppConfig
+    const { form } = buildAdvancedForm(config)
+    expect(form.hardwareRendering).toBe(false)
+  })
+})
+
+describe('transformAdvancedForStore — hardwareRendering', () => {
+  it('preserves hardwareRendering in store output', () => {
+    const form: AdvancedForm = {
+      proxy: { enable: false, server: '', bypass: '', scope: [] },
+      trackerSource: [],
+      customTrackerUrls: [],
+      btTracker: '',
+      autoSyncTracker: false,
+      lastSyncTrackerTime: 0,
+      rpcListenPort: 16800,
+      rpcSecret: 'x',
+      enableUpnp: true,
+      listenPort: 21301,
+      dhtListenPort: 26701,
+      userAgent: '',
+      logLevel: 'warn',
+      hardwareRendering: true,
+    }
+    const result = transformAdvancedForStore(form)
+    expect(result.hardwareRendering).toBe(true)
+  })
+})
+
+describe('DEFAULT_APP_CONFIG — hardwareRendering', () => {
+  it('defaults to false (safe mode)', () => {
+    expect(DEFAULT_APP_CONFIG.hardwareRendering).toBe(false)
   })
 })

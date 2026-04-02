@@ -2,6 +2,7 @@ mod commands;
 mod db_guard;
 mod engine;
 mod error;
+mod gpu_guard;
 #[cfg(target_os = "macos")]
 mod menu;
 mod tray;
@@ -300,6 +301,12 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // ── GPU guard: mark successful startup ───────────────────────────
+    // If the user opted into hardware rendering, the sentinel file was
+    // written by gpu_guard::pre_flight(). Reaching this point proves
+    // that WebKitGTK's EGL init succeeded — safe to delete the sentinel.
+    gpu_guard::mark_healthy();
+
     Ok(())
 }
 
@@ -403,42 +410,31 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // ── Linux/NVIDIA: auto-disable DMABuf renderer before any thread spawn ──
+    // ── Linux: GPU rendering guard ──────────────────────────────────
     //
     // WORKAROUND for WebKitGTK Bug #262607 (RESOLVED WONTFIX).
     // <https://bugs.webkit.org/show_bug.cgi?id=262607>
     //
-    // NVIDIA proprietary drivers crash WebKitGTK's GBM EGL display init
-    // with "EGL_NOT_INITIALIZED", aborting the process before any window
-    // can open.  When the NVIDIA kernel module is loaded we proactively
-    // disable the DMABuf renderer so WebKitGTK falls back to software
-    // compositing.
+    // WebKitGTK's DMA-BUF renderer crashes on various GPU/driver/compositor
+    // combinations (NVIDIA, Intel UHD + Wayland, Broadcom on RPi, VM guests).
+    // The DMA-BUF renderer has no graceful fallback — a failed EGL init
+    // calls `abort()`, killing the entire process.
     //
-    // Detection: `/proc/driver/nvidia/version` is created by the nvidia.ko
-    // kernel module on load — its presence is a reliable, zero-dependency
-    // indicator that the NVIDIA proprietary driver is in use.
+    // Strategy:
+    // - Default: hardware rendering OFF (software compositing).
+    //   Safe for all GPUs, negligible perf difference for a download manager UI.
+    // - Users can opt in via Advanced → "Hardware Rendering" toggle.
+    // - If opting in crashes the app, gpu_guard detects a leftover sentinel
+    //   file on the next launch and auto-reverts the preference to OFF.
     //
-    // The existing `is_dmabuf_renderer_disabled()` command in fs.rs reads
-    // this same env var at runtime, so the frontend's border-radius
-    // workaround (MainLayout.vue) activates automatically.
+    // The `is_dmabuf_renderer_disabled()` command in fs.rs reads the same
+    // env var at runtime, so the frontend's border-radius workaround
+    // (MainLayout.vue) activates automatically.
     //
-    // SAFETY: `set_var` is unsafe since Rust 1.83 due to potential data
-    // races in multi-threaded programs.  This call is safe because it
-    // executes at the very start of `main()`, before Tauri's thread pool,
-    // the async runtime, or any plugin initialisation.
-    #[cfg(target_os = "linux")]
-    {
-        if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err()
-            && std::path::Path::new("/proc/driver/nvidia/version").exists()
-        {
-            // SAFETY: single-threaded at this point — no data race possible.
-            unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
-            eprintln!(
-                "[motrix-next] NVIDIA GPU detected — auto-set \
-                 WEBKIT_DISABLE_DMABUF_RENDERER=1 to prevent WebKitGTK EGL crash"
-            );
-        }
-    }
+    // SAFETY: `set_var` (called inside pre_flight) is unsafe since Rust 1.83.
+    // Safe here because it executes at the very start of `main()`, before
+    // Tauri's thread pool, the async runtime, or any plugin initialisation.
+    gpu_guard::pre_flight();
 
     // ── Panic hook: route panics through log crate for file persistence ──
     // Must be set BEFORE Tauri Builder so even plugin init panics are caught.
