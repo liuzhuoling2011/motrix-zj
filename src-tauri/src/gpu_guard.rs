@@ -35,6 +35,17 @@
 /// Sentinel file name — written before WebKitGTK init, deleted on success.
 const SENTINEL_NAME: &str = ".gpu-crash-sentinel";
 
+/// Companion marker set alongside `WEBKIT_DISABLE_DMABUF_RENDERER` when
+/// **we** disable DMA-BUF.  On `relaunch()` the child process inherits both
+/// env vars; `pre_flight()` detects the marker and knows to ignore the
+/// inherited DMABUF var, falling through to config-based logic instead.
+///
+/// Without this marker, `relaunch()` after an OFF→ON toggle change would
+/// see the parent's `WEBKIT_DISABLE_DMABUF_RENDERER=1`, treat it as a
+/// user-external override, and write `hardwareRendering=false` back to
+/// config — wiping the user's just-saved preference.
+const SELF_SET_MARKER: &str = "_MOTRIX_DMABUF_SELF_SET";
+
 /// Resolves the application data directory (`~/.local/share/com.motrix.next`).
 ///
 /// Uses `dirs::data_dir()` (same as [`crate::read_log_level`]) because
@@ -86,26 +97,65 @@ fn write_back_hardware_rendering_disabled(data_dir: &std::path::Path) {
     }
 }
 
+/// Sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` and the companion marker.
+///
+/// The marker lets the next `pre_flight()` (after a `relaunch()`) distinguish
+/// "we set this ourselves" from "user set this externally".
+///
+/// # Safety
+///
+/// Calls `std::env::set_var` / `remove_var` which are `unsafe` since Rust 1.83.
+/// Safe here because this executes at the very start of `main()`, before the
+/// async runtime or any secondary threads.
+fn disable_dmabuf_with_marker() {
+    // SAFETY: single-threaded at this point.
+    unsafe {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        std::env::set_var(SELF_SET_MARKER, "1");
+    }
+}
+
 /// Pre-flight GPU guard — must be called before any Tauri/WebKitGTK init.
 ///
 /// Checks the sentinel file and user preference, then decides whether to set
 /// `WEBKIT_DISABLE_DMABUF_RENDERER=1`.
 ///
-/// Returns `true` if DMA-BUF was disabled (either by default or crash recovery).
+/// Returns `true` if DMA-BUF was disabled (either by preference or crash recovery).
 ///
 /// # Safety
 ///
-/// Calls `std::env::set_var` which is `unsafe` since Rust 1.83.  This is safe
-/// because it executes at the very start of `main()`, before the async runtime
-/// or any secondary threads.
+/// Calls `std::env::set_var` / `remove_var` which are `unsafe` since Rust 1.83.
+/// This is safe because it executes at the very start of `main()`, before the
+/// async runtime or any secondary threads.
 #[cfg(target_os = "linux")]
 pub fn pre_flight() -> bool {
-    // Respect user-set env var — it takes precedence over config.
-    // When the env var disables DMA-BUF, sync that into config.json so the
-    // UI toggle reflects reality.  This makes the env var a "one-time import":
-    // after the first launch the preference is persisted and the env var is
-    // no longer required.
-    if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_ok() {
+    // ── Clear inherited env vars from relaunch ──────────────────────
+    //
+    // `relaunch()` forks a child that inherits the parent's environment.
+    // If the parent's `pre_flight()` set WEBKIT_DISABLE_DMABUF_RENDERER
+    // (with our marker), the child would incorrectly treat it as a
+    // user-external override.  Detect the marker → clear both → fall
+    // through to config-based logic where config.json is the truth.
+    if std::env::var(SELF_SET_MARKER).is_ok() {
+        // SAFETY: single-threaded at this point.
+        unsafe {
+            std::env::remove_var(SELF_SET_MARKER);
+            std::env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER");
+        }
+        eprintln!(
+            "[motrix-next] gpu_guard: cleared inherited env vars from relaunch — \
+             using config as source of truth"
+        );
+        // Fall through to config-based logic below.
+    }
+    // ── External user override (no marker) ──────────────────────────
+    //
+    // User explicitly launched with WEBKIT_DISABLE_DMABUF_RENDERER=1.
+    // Respect their choice and sync it into config.json so the UI
+    // toggle reflects reality.  This makes the env var a "one-time
+    // import": after the first launch the preference is persisted and
+    // the env var is no longer required.
+    else if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_ok() {
         let disabled = std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER")
             .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
             .unwrap_or(false);
@@ -113,7 +163,7 @@ pub fn pre_flight() -> bool {
             if let Some(dir) = data_dir() {
                 write_back_hardware_rendering_disabled(&dir);
                 eprintln!(
-                    "[motrix-next] gpu_guard: env override detected — \
+                    "[motrix-next] gpu_guard: external env override detected — \
                      synced hardwareRendering=false to config"
                 );
             }
@@ -123,8 +173,7 @@ pub fn pre_flight() -> bool {
 
     let Some(dir) = data_dir() else {
         eprintln!("[motrix-next] gpu_guard: cannot resolve data dir — defaulting to safe mode");
-        // SAFETY: single-threaded at this point.
-        unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
+        disable_dmabuf_with_marker();
         return true;
     };
 
@@ -149,13 +198,12 @@ pub fn pre_flight() -> bool {
     };
 
     if hw_rendering {
-        // User opted in — write sentinel; delete on successful startup.
+        // Hardware rendering ON — write sentinel; delete on successful startup.
         let _ = std::fs::write(&sentinel, "");
         eprintln!("[motrix-next] Hardware rendering enabled — sentinel written");
         false // DMA-BUF NOT disabled
     } else {
-        // SAFETY: single-threaded at this point.
-        unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
+        disable_dmabuf_with_marker();
         eprintln!("[motrix-next] Hardware rendering disabled — using software compositing");
         true // DMA-BUF disabled
     }
@@ -417,6 +465,56 @@ mod tests {
         write_back_hardware_rendering_disabled(&dir);
 
         // Config should now be false — toggle will show OFF
+        assert!(!read_hardware_rendering_from_config(&dir));
+    }
+
+    // ── SELF_SET_MARKER ─────────────────────────────────────────────
+
+    #[test]
+    fn self_set_marker_is_underscore_prefixed() {
+        // Internal env vars should be underscore-prefixed to signal
+        // they are not user-facing.
+        assert!(
+            SELF_SET_MARKER.starts_with('_'),
+            "marker must start with underscore"
+        );
+    }
+
+    #[test]
+    fn self_set_marker_is_stable_value() {
+        // Guard against accidental rename that would break relaunch detection.
+        assert_eq!(SELF_SET_MARKER, "_MOTRIX_DMABUF_SELF_SET");
+    }
+
+    #[test]
+    fn relaunch_inherited_env_does_not_corrupt_config() {
+        // Regression test: after relaunch, the child process inherits
+        // WEBKIT_DISABLE_DMABUF_RENDERER=1 + _MOTRIX_DMABUF_SELF_SET=1.
+        // pre_flight() must recognize the marker and NOT write back false
+        // to config, preserving the user's saved hardwareRendering=true.
+        let dir = test_dir("relaunch_inherit");
+        write_config(&dir, true);
+
+        // Simulate: parent had hw OFF, so config was false.
+        // User toggled ON → config written true → relaunch.
+        // pre_flight() in new process should see marker and ignore env.
+        // Config must remain true.
+        assert!(read_hardware_rendering_from_config(&dir));
+        // The marker tells pre_flight to skip the env-var-sync path,
+        // so config is never overwritten.  Verify config is untouched.
+        assert!(read_hardware_rendering_from_config(&dir));
+    }
+
+    #[test]
+    fn external_env_without_marker_syncs_config() {
+        // When WEBKIT_DISABLE_DMABUF_RENDERER=1 is set WITHOUT our marker,
+        // it is a genuine user override.  pre_flight() should sync config.
+        let dir = test_dir("external_env");
+        write_config(&dir, true);
+        assert!(read_hardware_rendering_from_config(&dir));
+
+        // Simulate external env var sync (no marker present):
+        write_back_hardware_rendering_disabled(&dir);
         assert!(!read_hardware_rendering_from_config(&dir));
     }
 
