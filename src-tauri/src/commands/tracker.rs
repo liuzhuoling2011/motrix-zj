@@ -1,6 +1,6 @@
 use crate::error::AppError;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use tauri::{AppHandle, Emitter};
 
 /// A single tracker source URL that failed to fetch.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,6 +20,18 @@ pub struct FetchTrackerSourcesResult {
     pub failures: Vec<FailedTrackerSource>,
 }
 
+/// Event payload emitted per-tracker during [`probe_trackers`].
+///
+/// Each probe result is pushed to the frontend immediately via
+/// `tracker-probe-result` so the UI can update rows progressively
+/// instead of waiting for the entire batch to complete.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TrackerProbeEvent {
+    url: String,
+    status: String,
+}
+
 /// Classifies a tracker URL's protocol to determine probing strategy.
 ///
 /// - `"probeable"` — HTTP/HTTPS trackers that can be checked with HEAD requests
@@ -32,12 +44,32 @@ fn classify_tracker_protocol(url: &str) -> &'static str {
     }
 }
 
-/// Probes a list of tracker URLs for reachability via HTTP HEAD requests.
-/// UDP and WSS trackers cannot be probed from HTTP and are marked `"unknown"`.
-/// Returns a JSON map of `{ url: "online" | "offline" | "unknown" }`.
+/// Probes a single tracker URL and returns its reachability status.
+///
+/// Pure function extracted from [`probe_trackers`] for testability.
+/// Non-HTTP protocols (UDP, WS, WSS) are classified as `"unknown"`
+/// without network access; HTTP/HTTPS trackers receive a HEAD request.
+async fn probe_single(client: &reqwest::Client, url: &str) -> &'static str {
+    if classify_tracker_protocol(url) == "unknown" {
+        return "unknown";
+    }
+    match client.head(url).send().await {
+        Ok(_) => "online",
+        Err(_) => "offline",
+    }
+}
+
+/// Probes a list of tracker URLs for reachability, emitting results
+/// progressively via the `tracker-probe-result` Tauri event.
+///
+/// Each URL is probed sequentially (HTTP HEAD with 5s timeout).
+/// After each probe completes, a [`TrackerProbeEvent`] is emitted so
+/// the frontend can update the corresponding table row immediately,
+/// rather than waiting for all probes to finish.
+///
+/// UDP/WS/WSS trackers are marked `"unknown"` without network access.
 #[tauri::command]
-pub async fn probe_trackers(urls: Vec<String>) -> Result<Value, AppError> {
-    use std::collections::HashMap;
+pub async fn probe_trackers(app: AppHandle, urls: Vec<String>) -> Result<(), AppError> {
     log::debug!("tracker:probe urls={}", urls.len());
 
     let client = reqwest::Client::builder()
@@ -47,21 +79,18 @@ pub async fn probe_trackers(urls: Vec<String>) -> Result<Value, AppError> {
         .build()
         .map_err(|e| AppError::Io(e.to_string()))?;
 
-    let mut results: HashMap<String, String> = HashMap::new();
-
     for url in &urls {
-        if classify_tracker_protocol(url) == "unknown" {
-            results.insert(url.clone(), "unknown".to_string());
-            continue;
-        }
-        let status = match client.head(url).send().await {
-            Ok(_) => "online",
-            Err(_) => "offline",
-        };
-        results.insert(url.clone(), status.to_string());
+        let status = probe_single(&client, url).await;
+        let _ = app.emit(
+            "tracker-probe-result",
+            TrackerProbeEvent {
+                url: url.clone(),
+                status: status.to_string(),
+            },
+        );
     }
 
-    serde_json::to_value(results).map_err(|e| AppError::Io(e.to_string()))
+    Ok(())
 }
 
 /// Fetches tracker lists from external source URLs via the Rust HTTP client,
@@ -157,69 +186,41 @@ pub async fn fetch_tracker_sources(
 mod tests {
     use super::*;
 
-    // ── probe_trackers ─────────────────────────────────────────────
+    // ── probe_single ──────────────────────────────────────────────────
 
     #[test]
-    fn test_probe_classifies_udp_as_unknown() {
-        let urls = vec!["udp://tracker.example.com:6969".to_string()];
+    fn test_probe_single_classifies_udp_as_unknown() {
         let rt = tokio::runtime::Runtime::new().expect("create tokio runtime");
-        let result = rt
-            .block_on(probe_trackers(urls))
-            .expect("probe_trackers returned Err");
-        let map = result.as_object().expect("result is not a JSON object");
-        assert_eq!(
-            map.get("udp://tracker.example.com:6969")
-                .expect("UDP tracker key missing")
-                .as_str()
-                .expect("value is not a string"),
-            "unknown"
-        );
+        let client = reqwest::Client::new();
+        let status = rt.block_on(probe_single(&client, "udp://tracker.example.com:6969"));
+        assert_eq!(status, "unknown");
     }
 
     #[test]
-    fn test_probe_classifies_wss_as_unknown() {
-        let urls = vec!["wss://tracker.example.com/announce".to_string()];
+    fn test_probe_single_classifies_wss_as_unknown() {
         let rt = tokio::runtime::Runtime::new().expect("create tokio runtime");
-        let result = rt
-            .block_on(probe_trackers(urls))
-            .expect("probe_trackers returned Err");
-        let map = result.as_object().expect("result is not a JSON object");
-        assert_eq!(
-            map.get("wss://tracker.example.com/announce")
-                .expect("WSS tracker key missing")
-                .as_str()
-                .expect("value is not a string"),
-            "unknown"
-        );
+        let client = reqwest::Client::new();
+        let status = rt.block_on(probe_single(&client, "wss://tracker.example.com/announce"));
+        assert_eq!(status, "unknown");
     }
 
     #[test]
-    fn test_probe_empty_list_returns_empty() {
-        let urls: Vec<String> = vec![];
+    fn test_probe_single_classifies_ws_as_unknown() {
         let rt = tokio::runtime::Runtime::new().expect("create tokio runtime");
-        let result = rt
-            .block_on(probe_trackers(urls))
-            .expect("probe_trackers returned Err");
-        let map = result.as_object().expect("result is not a JSON object");
-        assert!(map.is_empty());
+        let client = reqwest::Client::new();
+        let status = rt.block_on(probe_single(&client, "ws://tracker.example.com/announce"));
+        assert_eq!(status, "unknown");
     }
 
     #[test]
-    fn test_probe_unreachable_http_returns_offline() {
-        // Use an invalid host that will fail to connect within the timeout
-        let urls = vec!["http://192.0.2.1:1/announce".to_string()];
+    fn test_probe_single_unreachable_http_returns_offline() {
         let rt = tokio::runtime::Runtime::new().expect("create tokio runtime");
-        let result = rt
-            .block_on(probe_trackers(urls))
-            .expect("probe_trackers returned Err");
-        let map = result.as_object().expect("result is not a JSON object");
-        assert_eq!(
-            map.get("http://192.0.2.1:1/announce")
-                .expect("HTTP tracker key missing")
-                .as_str()
-                .expect("value is not a string"),
-            "offline"
-        );
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .expect("build client");
+        let status = rt.block_on(probe_single(&client, "http://192.0.2.1:1/announce"));
+        assert_eq!(status, "offline");
     }
 
     // ── classify_tracker_protocol ────────────────────────────────────

@@ -243,13 +243,31 @@ interface PeerRow {
 const peerColumns = computed(() => [
   { title: t('task.task-peer-host'), key: 'host', minWidth: 140 },
   { title: t('task.task-peer-client'), key: 'client', minWidth: 100, ellipsis: { tooltip: true } },
-  { title: '%', key: 'percent', width: 55, align: 'right' as const },
-  { title: '↓', key: 'downloadSpeed', width: 90, align: 'right' as const },
-  { title: '↑', key: 'uploadSpeed', width: 90, align: 'right' as const },
+  {
+    title: t('task.task-peer-percent'),
+    key: 'percent',
+    minWidth: 80,
+    align: 'right' as const,
+    sorter: (a: PeerRow, b: PeerRow) => parseFloat(a.percent) - parseFloat(b.percent),
+  },
+  {
+    title: t('task.task-peer-download-speed'),
+    key: 'downloadSpeed',
+    minWidth: 90,
+    align: 'right' as const,
+    sorter: (a: PeerRow, b: PeerRow) => parseFloat(a.downloadSpeed) - parseFloat(b.downloadSpeed),
+  },
+  {
+    title: t('task.task-peer-upload-speed'),
+    key: 'uploadSpeed',
+    minWidth: 90,
+    align: 'right' as const,
+    sorter: (a: PeerRow, b: PeerRow) => parseFloat(a.uploadSpeed) - parseFloat(b.uploadSpeed),
+  },
   {
     title: t('task.task-peer-flags'),
     key: 'flags',
-    width: 60,
+    minWidth: 55,
     align: 'center' as const,
     render: (row: PeerRow) => {
       const flags: string[] = []
@@ -259,10 +277,11 @@ const peerColumns = computed(() => [
     },
   },
   {
-    title: 'S',
+    title: t('task.task-peer-seeder'),
     key: 'seeder',
-    width: 45,
+    minWidth: 70,
     align: 'center' as const,
+    sorter: (a: PeerRow, b: PeerRow) => Number(b.seeder) - Number(a.seeder),
     render: (row: PeerRow) => (row.seeder ? '✓' : ''),
   },
 ])
@@ -283,15 +302,32 @@ const trackerRows = computed((): TrackerRow[] => {
   }))
 })
 
+/** Sort-order mapping for tracker status: lower = higher priority. */
+const TRACKER_STATUS_ORDER: Record<string, number> = { online: 0, checking: 1, unknown: 2, offline: 3 }
+
 const trackerColumns = computed(() => [
-  { title: t('task.task-tracker-tier'), key: 'tier', width: 55, align: 'center' as const },
+  {
+    title: t('task.task-tracker-tier'),
+    key: 'tier',
+    minWidth: 80,
+    align: 'center' as const,
+    sorter: (a: TrackerRow, b: TrackerRow) => a.tier - b.tier,
+  },
   { title: 'URL', key: 'url', ellipsis: { tooltip: true } },
-  { title: t('task.task-tracker-protocol'), key: 'protocol', width: 75, align: 'center' as const },
+  {
+    title: t('task.task-tracker-protocol'),
+    key: 'protocol',
+    minWidth: 80,
+    align: 'center' as const,
+    sorter: 'default' as const,
+  },
   {
     title: t('task.task-tracker-status'),
     key: 'status',
-    width: 100,
+    minWidth: 90,
     align: 'center' as const,
+    sorter: (a: TrackerRow, b: TrackerRow) =>
+      (TRACKER_STATUS_ORDER[a.status] ?? 2) - (TRACKER_STATUS_ORDER[b.status] ?? 2),
     render: (row: TrackerRow) =>
       h(
         NTag,
