@@ -8,6 +8,7 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NModal, NCard, NDataTable, NButton, NSpace, NEllipsis } from 'naive-ui'
 import { bytesToSize } from '@shared/utils'
+import { calcColumnWidth } from '@shared/utils/calcColumnWidth'
 import type { DataTableColumns, DataTableRowKey } from 'naive-ui'
 import type { MagnetFileItem } from '@/composables/useMagnetFlow'
 
@@ -51,28 +52,38 @@ watch(
   },
 )
 
-const columns = computed<DataTableColumns>(() => [
-  { type: 'selection' },
-  {
-    title: '#',
-    key: 'index',
-    minWidth: 50,
-  },
-  {
-    title: t('task.file-name') || 'File Name',
-    key: 'name',
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: t('task.file-size') || 'Size',
-    key: 'length',
-    minWidth: 110,
-    sorter: (a: Record<string, unknown>, b: Record<string, unknown>) => (a.length as number) - (b.length as number),
-    render(row: Record<string, unknown>) {
-      return bytesToSize(row.length as number)
+const columns = computed<DataTableColumns>(() => {
+  const data = props.files
+  return [
+    { type: 'selection' },
+    {
+      title: t('task.file-index') || '#',
+      key: 'index',
+      width: calcColumnWidth({
+        title: t('task.file-index') || '#',
+        values: data.map((r) => String(r.index)),
+      }),
     },
-  },
-])
+    {
+      title: t('task.file-name') || 'File Name',
+      key: 'name',
+      ellipsis: { tooltip: true },
+    },
+    {
+      title: t('task.file-size') || 'Size',
+      key: 'length',
+      width: calcColumnWidth({
+        title: t('task.file-size') || 'Size',
+        values: data.map((r) => bytesToSize(r.length)),
+        sortable: true,
+      }),
+      sorter: (a: Record<string, unknown>, b: Record<string, unknown>) => (a.length as number) - (b.length as number),
+      render(row: Record<string, unknown>) {
+        return bytesToSize(row.length as number)
+      },
+    },
+  ]
+})
 
 const totalSize = computed(() => {
   const selected = new Set(checkedKeys.value)

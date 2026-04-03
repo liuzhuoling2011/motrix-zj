@@ -19,6 +19,7 @@ import {
   timeFormat,
 } from '@shared/utils'
 import { decodePathSegment } from '@shared/utils/batchHelpers'
+import { calcColumnWidth } from '@shared/utils/calcColumnWidth'
 import {
   NDrawer,
   NDrawerContent,
@@ -34,6 +35,7 @@ import {
   NInput,
   NFormItem,
   NCollapseTransition,
+  NEllipsis,
 } from 'naive-ui'
 import {
   InformationCircleOutline,
@@ -193,39 +195,65 @@ const fileList = computed(() =>
   }),
 )
 
-const fileColumns = computed(() => [
-  {
-    title: '#',
-    key: 'idx',
-    minWidth: 50,
-    sorter: (a: { idx: number }, b: { idx: number }) => a.idx - b.idx,
-  },
-  { title: t('task.file-name') || 'Name', key: 'name', ellipsis: { tooltip: true } },
-  { title: t('task.file-extension') || 'Ext', key: 'extension', minWidth: 70 },
-  {
-    title: t('task.task-peer-percent'),
-    key: 'percent',
-    minWidth: 70,
-    align: 'right' as const,
-    sorter: (a: { percent: string }, b: { percent: string }) => parseFloat(a.percent) - parseFloat(b.percent),
-  },
-  {
-    title: t('task.file-completed'),
-    key: 'completedLength',
-    minWidth: 90,
-    align: 'right' as const,
-    sorter: (a: { completedLength: number }, b: { completedLength: number }) => a.completedLength - b.completedLength,
-    render: (row: { completedLength: number }) => bytesToSize(String(row.completedLength)),
-  },
-  {
-    title: t('task.file-size') || 'Size',
-    key: 'length',
-    minWidth: 90,
-    align: 'right' as const,
-    sorter: (a: { length: number }, b: { length: number }) => a.length - b.length,
-    render: (row: { length: number }) => bytesToSize(String(row.length)),
-  },
-])
+const fileColumns = computed(() => {
+  const data = fileList.value
+  return [
+    {
+      title: t('task.file-index') || '#',
+      key: 'idx',
+      width: calcColumnWidth({
+        title: t('task.file-index') || '#',
+        values: data.map((r) => String(r.idx)),
+        sortable: true,
+      }),
+      sorter: (a: { idx: number }, b: { idx: number }) => a.idx - b.idx,
+    },
+    { title: t('task.file-name') || 'Name', key: 'name', ellipsis: { tooltip: true } },
+    {
+      title: t('task.file-extension') || 'Ext',
+      key: 'extension',
+      width: calcColumnWidth({
+        title: t('task.file-extension') || 'Ext',
+        values: data.map((r) => r.extension),
+      }),
+    },
+    {
+      title: t('task.task-peer-percent'),
+      key: 'percent',
+      width: calcColumnWidth({
+        title: t('task.task-peer-percent'),
+        values: data.map((r) => String(r.percent)),
+        sortable: true,
+      }),
+      align: 'right' as const,
+      sorter: (a: { percent: string }, b: { percent: string }) => parseFloat(a.percent) - parseFloat(b.percent),
+    },
+    {
+      title: t('task.file-completed'),
+      key: 'completedLength',
+      width: calcColumnWidth({
+        title: t('task.file-completed'),
+        values: data.map((r) => bytesToSize(String(r.completedLength))),
+        sortable: true,
+      }),
+      align: 'right' as const,
+      sorter: (a: { completedLength: number }, b: { completedLength: number }) => a.completedLength - b.completedLength,
+      render: (row: { completedLength: number }) => bytesToSize(String(row.completedLength)),
+    },
+    {
+      title: t('task.file-size') || 'Size',
+      key: 'length',
+      width: calcColumnWidth({
+        title: t('task.file-size') || 'Size',
+        values: data.map((r) => bytesToSize(String(r.length))),
+        sortable: true,
+      }),
+      align: 'right' as const,
+      sorter: (a: { length: number }, b: { length: number }) => a.length - b.length,
+      render: (row: { length: number }) => bytesToSize(String(row.length)),
+    },
+  ]
+})
 
 const peers = computed(() => {
   if (!props.task || !isBT.value) return []
@@ -253,51 +281,78 @@ interface PeerRow {
   seeder: boolean
 }
 
-const peerColumns = computed(() => [
-  { title: t('task.task-peer-host'), key: 'host', minWidth: 140 },
-  { title: t('task.task-peer-client'), key: 'client', minWidth: 100, ellipsis: { tooltip: true } },
-  {
-    title: t('task.task-peer-percent'),
-    key: 'percent',
-    minWidth: 80,
-    align: 'right' as const,
-    sorter: (a: PeerRow, b: PeerRow) => parseFloat(a.percent) - parseFloat(b.percent),
-  },
-  {
-    title: t('task.task-peer-download-speed'),
-    key: 'downloadSpeed',
-    minWidth: 90,
-    align: 'right' as const,
-    sorter: (a: PeerRow, b: PeerRow) => parseFloat(a.downloadSpeed) - parseFloat(b.downloadSpeed),
-  },
-  {
-    title: t('task.task-peer-upload-speed'),
-    key: 'uploadSpeed',
-    minWidth: 90,
-    align: 'right' as const,
-    sorter: (a: PeerRow, b: PeerRow) => parseFloat(a.uploadSpeed) - parseFloat(b.uploadSpeed),
-  },
-  {
-    title: t('task.task-peer-flags'),
-    key: 'flags',
-    minWidth: 55,
-    align: 'center' as const,
-    render: (row: PeerRow) => {
-      const flags: string[] = []
-      if (!row.amChoking) flags.push('D')
-      if (!row.peerChoking) flags.push('U')
-      return flags.join('') || '—'
+const peerColumns = computed(() => {
+  const data = peers.value
+  return [
+    { title: t('task.task-peer-host'), key: 'host', minWidth: 140 },
+    {
+      title: t('task.task-peer-client'),
+      key: 'client',
+      minWidth: 100,
+      render: (row: PeerRow) => h(NEllipsis, null, { default: () => row.client }),
     },
-  },
-  {
-    title: t('task.task-peer-seeder'),
-    key: 'seeder',
-    minWidth: 70,
-    align: 'center' as const,
-    sorter: (a: PeerRow, b: PeerRow) => Number(b.seeder) - Number(a.seeder),
-    render: (row: PeerRow) => (row.seeder ? '✓' : ''),
-  },
-])
+    {
+      title: t('task.task-peer-percent'),
+      key: 'percent',
+      width: calcColumnWidth({
+        title: t('task.task-peer-percent'),
+        values: data.map((r) => r.percent),
+        sortable: true,
+      }),
+      align: 'right' as const,
+      sorter: (a: PeerRow, b: PeerRow) => parseFloat(a.percent) - parseFloat(b.percent),
+    },
+    {
+      title: t('task.task-peer-download-speed'),
+      key: 'downloadSpeed',
+      width: calcColumnWidth({
+        title: t('task.task-peer-download-speed'),
+        values: data.map((r) => r.downloadSpeed),
+        sortable: true,
+      }),
+      align: 'right' as const,
+      sorter: (a: PeerRow, b: PeerRow) => parseFloat(a.downloadSpeed) - parseFloat(b.downloadSpeed),
+    },
+    {
+      title: t('task.task-peer-upload-speed'),
+      key: 'uploadSpeed',
+      width: calcColumnWidth({
+        title: t('task.task-peer-upload-speed'),
+        values: data.map((r) => r.uploadSpeed),
+        sortable: true,
+      }),
+      align: 'right' as const,
+      sorter: (a: PeerRow, b: PeerRow) => parseFloat(a.uploadSpeed) - parseFloat(b.uploadSpeed),
+    },
+    {
+      title: t('task.task-peer-flags'),
+      key: 'flags',
+      width: calcColumnWidth({
+        title: t('task.task-peer-flags'),
+        values: ['DU', 'D', 'U', '—'],
+      }),
+      align: 'center' as const,
+      render: (row: PeerRow) => {
+        const flags: string[] = []
+        if (!row.amChoking) flags.push('D')
+        if (!row.peerChoking) flags.push('U')
+        return flags.join('') || '—'
+      },
+    },
+    {
+      title: t('task.task-peer-seeder'),
+      key: 'seeder',
+      width: calcColumnWidth({
+        title: t('task.task-peer-seeder'),
+        values: ['✓'],
+        sortable: true,
+      }),
+      align: 'center' as const,
+      sorter: (a: PeerRow, b: PeerRow) => Number(b.seeder) - Number(a.seeder),
+      render: (row: PeerRow) => (row.seeder ? '✓' : ''),
+    },
+  ]
+})
 
 const {
   statuses: trackerStatuses,
@@ -318,42 +373,58 @@ const trackerRows = computed((): TrackerRow[] => {
 /** Sort-order mapping for tracker status: lower = higher priority. */
 const TRACKER_STATUS_ORDER: Record<string, number> = { online: 0, checking: 1, unknown: 2, offline: 3 }
 
-const trackerColumns = computed(() => [
-  {
-    title: t('task.task-tracker-tier'),
-    key: 'tier',
-    minWidth: 80,
-    align: 'center' as const,
-    sorter: (a: TrackerRow, b: TrackerRow) => a.tier - b.tier,
-  },
-  { title: 'URL', key: 'url', ellipsis: { tooltip: true } },
-  {
-    title: t('task.task-tracker-protocol'),
-    key: 'protocol',
-    minWidth: 80,
-    align: 'center' as const,
-    sorter: 'default' as const,
-  },
-  {
-    title: t('task.task-tracker-status'),
-    key: 'status',
-    minWidth: 90,
-    align: 'center' as const,
-    sorter: (a: TrackerRow, b: TrackerRow) =>
-      (TRACKER_STATUS_ORDER[a.status] ?? 2) - (TRACKER_STATUS_ORDER[b.status] ?? 2),
-    render: (row: TrackerRow) =>
-      h(
-        NTag,
-        {
-          type: row.status === 'online' ? 'success' : row.status === 'offline' ? 'error' : 'default',
-          size: 'small',
-          round: true,
-          style: 'transition: all 0.3s cubic-bezier(0.05, 0.7, 0.1, 1)',
-        },
-        () => t(`task.task-tracker-${row.status}`),
-      ),
-  },
-])
+const trackerColumns = computed(() => {
+  const data = trackerRows.value
+  return [
+    {
+      title: t('task.task-tracker-tier'),
+      key: 'tier',
+      width: calcColumnWidth({
+        title: t('task.task-tracker-tier'),
+        values: data.map((r) => String(r.tier)),
+        sortable: true,
+      }),
+      align: 'center' as const,
+      sorter: (a: TrackerRow, b: TrackerRow) => a.tier - b.tier,
+    },
+    { title: 'URL', key: 'url', ellipsis: { tooltip: true } },
+    {
+      title: t('task.task-tracker-protocol'),
+      key: 'protocol',
+      width: calcColumnWidth({
+        title: t('task.task-tracker-protocol'),
+        values: data.map((r) => r.protocol),
+        sortable: true,
+      }),
+      align: 'center' as const,
+      sorter: 'default' as const,
+    },
+    {
+      title: t('task.task-tracker-status'),
+      key: 'status',
+      width: calcColumnWidth({
+        title: t('task.task-tracker-status'),
+        values: ['online', 'offline', 'checking', 'unknown'].map((s) => t(`task.task-tracker-${s}`)),
+        sortable: true,
+        extraWidth: 20,
+      }),
+      align: 'center' as const,
+      sorter: (a: TrackerRow, b: TrackerRow) =>
+        (TRACKER_STATUS_ORDER[a.status] ?? 2) - (TRACKER_STATUS_ORDER[b.status] ?? 2),
+      render: (row: TrackerRow) =>
+        h(
+          NTag,
+          {
+            type: row.status === 'online' ? 'success' : row.status === 'offline' ? 'error' : 'default',
+            size: 'small',
+            round: true,
+            style: 'transition: all 0.3s cubic-bezier(0.05, 0.7, 0.1, 1)',
+          },
+          () => t(`task.task-tracker-${row.status}`),
+        ),
+    },
+  ]
+})
 
 function handleProbeTrackers() {
   if (trackerProbing.value) {
@@ -797,5 +868,12 @@ function handleClose() {
   opacity: 0.8;
   user-select: all;
   padding: 4px 0 2px;
+}
+
+/* Allow table header text to wrap instead of truncating with "…"
+   when the column is too narrow for the translated label. */
+:deep(.n-data-table-th__title) {
+  white-space: normal;
+  word-break: break-word;
 }
 </style>

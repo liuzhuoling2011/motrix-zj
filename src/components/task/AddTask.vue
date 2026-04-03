@@ -8,6 +8,7 @@ import { useTaskStore } from '@/stores/task'
 import { usePreferenceStore } from '@/stores/preference'
 import { ADD_TASK_TYPE, ENGINE_MAX_CONNECTION_PER_SERVER } from '@shared/constants'
 import { detectResource, bytesToSize } from '@shared/utils'
+import { calcColumnWidth } from '@shared/utils/calcColumnWidth'
 import { mergeUriLines } from '@shared/utils/batchHelpers'
 import {
   buildEngineOptions,
@@ -117,20 +118,34 @@ watch(
   },
 )
 
-const fileColumns = computed<DataTableColumns>(() => [
-  { type: 'selection' },
-  { title: t('task.file-index'), key: 'idx', minWidth: 50 },
-  { title: t('task.file-name'), key: 'path', ellipsis: { tooltip: true } },
-  {
-    title: t('task.file-size'),
-    key: 'length',
-    minWidth: 100,
-    sorter: (a: Record<string, unknown>, b: Record<string, unknown>) => (a.length as number) - (b.length as number),
-    render(row: Record<string, unknown>) {
-      return bytesToSize(row.length as number)
+const fileColumns = computed<DataTableColumns>(() => {
+  const data = (selectedItem.value?.torrentMeta?.files ?? []) as Array<{ idx: number; length: number; path: string }>
+  return [
+    { type: 'selection' },
+    {
+      title: t('task.file-index'),
+      key: 'idx',
+      width: calcColumnWidth({
+        title: t('task.file-index'),
+        values: data.map((r) => String(r.idx)),
+      }),
     },
-  },
-])
+    { title: t('task.file-name'), key: 'path', ellipsis: { tooltip: true } },
+    {
+      title: t('task.file-size'),
+      key: 'length',
+      width: calcColumnWidth({
+        title: t('task.file-size'),
+        values: data.map((r) => bytesToSize(r.length)),
+        sortable: true,
+      }),
+      sorter: (a: Record<string, unknown>, b: Record<string, unknown>) => (a.length as number) - (b.length as number),
+      render(row: Record<string, unknown>) {
+        return bytesToSize(row.length as number)
+      },
+    },
+  ]
+})
 
 // ── Computed batch accessors ────────────────────────────────────────
 

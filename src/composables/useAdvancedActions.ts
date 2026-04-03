@@ -14,6 +14,7 @@ import { save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { NTag, useDialog, type DataTableColumns } from 'naive-ui'
 import { logger } from '@shared/logger'
 import { bytesToSize } from '@shared/utils/format'
+import { calcColumnWidth } from '@shared/utils/calcColumnWidth'
 import { useIpc } from '@/composables/useIpc'
 import { useEngineRestart } from '@/composables/useEngineRestart'
 import { ENGINE_RPC_PORT } from '@shared/constants'
@@ -70,45 +71,68 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
     removed: 5,
   }
 
-  const dbBrowseColumns = computed<DataTableColumns<HistoryRecord>>(() => [
-    { title: t('task.task-name'), key: 'name', ellipsis: { tooltip: true }, minWidth: 200 },
-    {
-      title: t('task.task-status'),
-      key: 'status',
-      minWidth: 90,
-      sorter: (a, b) => (DB_STATUS_ORDER[a.status] ?? 5) - (DB_STATUS_ORDER[b.status] ?? 5),
-      render: (row) =>
-        h(
-          NTag,
-          { type: row.status === 'complete' ? 'success' : row.status === 'error' ? 'error' : 'warning', size: 'small' },
-          () => t(STATUS_I18N_MAP[row.status] ?? 'task.task-removed'),
-        ),
-    },
-    {
-      title: t('task.task-file-size'),
-      key: 'total_length',
-      minWidth: 90,
-      sorter: (a, b) => (a.total_length ?? 0) - (b.total_length ?? 0),
-      render: (row) => (row.total_length ? bytesToSize(row.total_length) : '—'),
-    },
-    {
-      title: t('task.task-type'),
-      key: 'task_type',
-      minWidth: 80,
-      sorter: 'default' as const,
-    },
-    {
-      title: t('task.task-completed-at'),
-      key: 'completed_at',
-      minWidth: 160,
-      sorter: (a, b) => {
-        const ta = a.completed_at ? new Date(a.completed_at).getTime() : 0
-        const tb = b.completed_at ? new Date(b.completed_at).getTime() : 0
-        return ta - tb
+  const dbBrowseColumns = computed<DataTableColumns<HistoryRecord>>(() => {
+    const data = dbRecords.value
+    return [
+      { title: t('task.task-name'), key: 'name', ellipsis: { tooltip: true }, minWidth: 200 },
+      {
+        title: t('task.task-status'),
+        key: 'status',
+        width: calcColumnWidth({
+          title: t('task.task-status'),
+          values: Object.values(STATUS_I18N_MAP).map((k) => t(k)),
+          sortable: true,
+          extraWidth: 20,
+        }),
+        sorter: (a, b) => (DB_STATUS_ORDER[a.status] ?? 5) - (DB_STATUS_ORDER[b.status] ?? 5),
+        render: (row) =>
+          h(
+            NTag,
+            {
+              type: row.status === 'complete' ? 'success' : row.status === 'error' ? 'error' : 'warning',
+              size: 'small',
+            },
+            () => t(STATUS_I18N_MAP[row.status] ?? 'task.task-removed'),
+          ),
       },
-      render: (row) => (row.completed_at ? new Date(row.completed_at).toLocaleString() : '—'),
-    },
-  ])
+      {
+        title: t('task.task-file-size'),
+        key: 'total_length',
+        width: calcColumnWidth({
+          title: t('task.task-file-size'),
+          values: data.map((r) => (r.total_length ? bytesToSize(r.total_length) : '—')),
+          sortable: true,
+        }),
+        sorter: (a, b) => (a.total_length ?? 0) - (b.total_length ?? 0),
+        render: (row) => (row.total_length ? bytesToSize(row.total_length) : '—'),
+      },
+      {
+        title: t('task.task-type'),
+        key: 'task_type',
+        width: calcColumnWidth({
+          title: t('task.task-type'),
+          values: data.map((r) => r.task_type ?? ''),
+          sortable: true,
+        }),
+        sorter: 'default' as const,
+      },
+      {
+        title: t('task.task-completed-at'),
+        key: 'completed_at',
+        width: calcColumnWidth({
+          title: t('task.task-completed-at'),
+          values: data.map((r) => (r.completed_at ? new Date(r.completed_at).toLocaleString() : '—')),
+          sortable: true,
+        }),
+        sorter: (a, b) => {
+          const ta = a.completed_at ? new Date(a.completed_at).getTime() : 0
+          const tb = b.completed_at ? new Date(b.completed_at).getTime() : 0
+          return ta - tb
+        },
+        render: (row) => (row.completed_at ? new Date(row.completed_at).toLocaleString() : '—'),
+      },
+    ]
+  })
 
   // ── Export logs state ────────────────────────────────────────────────
   const exportingLogs = ref(false)
