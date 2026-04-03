@@ -214,6 +214,28 @@ export const useAppStore = defineStore('app', () => {
     for (const url of urls) {
       const lower = url.toLowerCase()
 
+      // ── motrixnext:// — extension-to-app communication protocol ───
+      // Bare `motrixnext://` is a wake-up signal (window focus handled
+      // by the deep-link-open listener in useAppEvents).
+      // `motrixnext://new?url=X` creates a download task from the URL.
+      if (lower.startsWith('motrixnext://')) {
+        try {
+          const parsed = new URL(url)
+          // hostname holds the action for scheme-only URLs (motrixnext://new)
+          const action = parsed.hostname || ''
+          if (action === 'new') {
+            const downloadUrl = parsed.searchParams.get('url')
+            if (downloadUrl) {
+              items.push(createBatchItem('uri', downloadUrl))
+            }
+          }
+          // motrixnext:// with no action or unrecognized action → pure wake-up
+        } catch {
+          // Malformed URL — ignore silently
+        }
+        continue
+      }
+
       // Determine if this is a local file reference (file:// protocol or raw path)
       const isFileUri = lower.startsWith('file://')
       const isRemoteUri =

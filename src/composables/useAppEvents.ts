@@ -385,7 +385,12 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
   // ─── Deep-link and single-instance listeners ─────────────────────
   async function setupExternalInputListeners() {
     const unlistenDeepLink = registerCleanup(
-      await listen<string[]>('deep-link-open', (event) => {
+      await listen<string[]>('deep-link-open', async (event) => {
+        // Always surface the window — deep-link implies user intent to
+        // interact with the app (e.g. motrixnext:// wake-up from extension).
+        const mainWindow = getCurrentWindow()
+        await mainWindow.show()
+        await mainWindow.setFocus()
         appStore.handleDeepLinkUrls(event.payload)
       }),
     )
