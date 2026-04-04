@@ -116,7 +116,7 @@ pub async fn set_default_protocol_client(app: AppHandle, protocol: String) -> Re
     #[cfg(target_os = "macos")]
     {
         let bundle_id = &app.config().identifier;
-        macos::set_as_default_handler(&protocol, bundle_id).map_err(|e| AppError::Protocol(e))?;
+        macos::set_as_default_handler(&protocol, bundle_id).map_err(AppError::Protocol)?;
 
         // Verify the registration actually took effect.
         // LSSetDefaultHandlerForURLScheme returns 0 even when macOS
