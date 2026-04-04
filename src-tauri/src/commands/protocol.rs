@@ -14,7 +14,6 @@
 /// | macOS    | `NSWorkspace.urlForApplication(toOpen:)` | `NSWorkspace.setDefaultApplication(…)`     | no-op (unsupported)  |
 /// | Windows  | `tauri-plugin-deep-link::is_registered`  | `tauri-plugin-deep-link::register`          | `…::unregister`      |
 /// | Linux    | `tauri-plugin-deep-link::is_registered`  | `tauri-plugin-deep-link::register`          | `…::unregister`      |
-
 use crate::error::AppError;
 use tauri::AppHandle;
 
@@ -58,9 +57,7 @@ mod macos {
         let ns_scheme = NSString::from_str(protocol);
 
         workspace.setDefaultApplicationAtURL_toOpenURLsWithScheme_completionHandler(
-            &app_url,
-            &ns_scheme,
-            None,
+            &app_url, &ns_scheme, None,
         );
         Ok(())
     }
@@ -110,8 +107,7 @@ pub async fn set_default_protocol_client(
     {
         let self_path = macos::current_app_bundle_path()
             .ok_or_else(|| AppError::Protocol("cannot determine app bundle path".into()))?;
-        macos::set_as_default_handler(&protocol, &self_path)
-            .map_err(|e| AppError::Protocol(e))
+        macos::set_as_default_handler(&protocol, &self_path).map_err(|e| AppError::Protocol(e))
     }
     #[cfg(not(target_os = "macos"))]
     {
