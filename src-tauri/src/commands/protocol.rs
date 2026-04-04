@@ -37,13 +37,6 @@ mod macos {
         Some(bundle_id.to_string())
     }
 
-    /// Returns the bundle identifier of the currently running application.
-    pub fn current_bundle_id() -> Option<String> {
-        let bundle = NSBundle::mainBundle();
-        let bundle_id = bundle.bundleIdentifier()?;
-        Some(bundle_id.to_string())
-    }
-
     /// Registers this application as the default handler for the given URL
     /// scheme using `LSSetDefaultHandlerForURLScheme`.
     ///
@@ -84,22 +77,22 @@ mod macos {
 
 /// Returns `true` when this application is the OS-level default handler
 /// for the given URL scheme (e.g. `"magnet"`, `"thunder"`).
+///
+/// On macOS, uses the app's configured identifier from `tauri.conf.json`
+/// (not `NSBundle.mainBundle`) to avoid inheriting the parent process's
+/// bundle ID in dev mode (e.g. Terminal.app).
 #[tauri::command]
 pub async fn is_default_protocol_client(
-    _app: AppHandle,
+    app: AppHandle,
     protocol: String,
 ) -> Result<bool, AppError> {
     #[cfg(target_os = "macos")]
     {
         let handler_id = macos::get_default_handler_bundle_id(&protocol);
-        let self_id = macos::current_bundle_id();
-        eprintln!("[protocol] is_default({protocol}): handler={handler_id:?} self={self_id:?}");
-        match (&handler_id, &self_id) {
-            (Some(handler), Some(self_app)) => Ok(handler == self_app),
-            // No handler registered → we are not the default
-            (None, _) => Ok(false),
-            // Cannot determine our own bundle id → conservative false
-            (_, None) => Ok(false),
+        let self_id = &app.config().identifier;
+        match handler_id {
+            Some(handler) => Ok(handler == *self_id),
+            None => Ok(false),
         }
     }
     #[cfg(not(target_os = "macos"))]
@@ -114,20 +107,30 @@ pub async fn is_default_protocol_client(
 /// Registers this application as the OS-level default handler for the
 /// given URL scheme.
 ///
-/// On macOS, the system may asynchronously prompt the user for confirmation
-/// before the change takes effect — this is Apple's security design.
+/// On macOS, uses `LSSetDefaultHandlerForURLScheme` with the app's
+/// configured identifier from `tauri.conf.json`. Performs a post-
+/// registration verification because the API silently succeeds even
+/// when no `.app` bundle exists for the given identifier (dev mode).
 #[tauri::command]
-pub async fn set_default_protocol_client(
-    _app: AppHandle,
-    protocol: String,
-) -> Result<(), AppError> {
+pub async fn set_default_protocol_client(app: AppHandle, protocol: String) -> Result<(), AppError> {
     #[cfg(target_os = "macos")]
     {
-        let bundle_id = macos::current_bundle_id();
-        eprintln!("[protocol] set_default({protocol}): bundle_id={bundle_id:?}");
-        let bundle_id = bundle_id
-            .ok_or_else(|| AppError::Protocol("cannot determine app bundle identifier".into()))?;
-        macos::set_as_default_handler(&protocol, &bundle_id).map_err(|e| AppError::Protocol(e))
+        let bundle_id = &app.config().identifier;
+        macos::set_as_default_handler(&protocol, bundle_id).map_err(|e| AppError::Protocol(e))?;
+
+        // Verify the registration actually took effect.
+        // LSSetDefaultHandlerForURLScheme returns 0 even when macOS
+        // cannot find a .app bundle for the given identifier, making
+        // the registration a silent no-op. We check immediately after.
+        let handler = macos::get_default_handler_bundle_id(&protocol);
+        let registered = handler.as_deref() == Some(bundle_id.as_str());
+        if registered {
+            Ok(())
+        } else {
+            Err(AppError::Protocol(format!(
+                "registration accepted but did not take effect (handler={handler:?}, expected={bundle_id})"
+            )))
+        }
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -196,14 +199,6 @@ mod tests {
                 result.is_none(),
                 "expected None for unregistered scheme, got: {result:?}"
             );
-        }
-
-        #[test]
-        fn current_bundle_id_returns_value_in_test_context() {
-            // In cargo test context, NSBundle.mainBundle may not have a
-            // bundleIdentifier (test binaries aren't .app bundles).
-            // We just verify it doesn't panic.
-            let _result = macos::current_bundle_id();
         }
     }
 

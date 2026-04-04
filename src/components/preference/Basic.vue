@@ -325,6 +325,15 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
                 : String(e)
           logger.warn('Basic.protocol', `Failed to ${enabled ? 'register' : 'unregister'} ${protocol}: ${reason}`)
           message.error(t('preferences.protocol-failed', { protocol, reason }))
+
+          // Roll back the toggle to its pre-save state and persist the
+          // reverted value so the switch doesn't stay in an inconsistent
+          // state after a failed OS registration attempt.
+          const formKey = `protocol${protocol.charAt(0).toUpperCase()}${protocol.slice(1)}` as keyof typeof f
+          ;(f as Record<string, unknown>)[formKey] = prev
+          patchSnapshot({ [formKey]: prev } as Partial<typeof form.value>)
+          const revertedProtocols = { ...preferenceStore.config.protocols, [protocol]: prev }
+          preferenceStore.updateAndSave({ protocols: revertedProtocols })
         }
       }
     }
