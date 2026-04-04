@@ -611,6 +611,9 @@ pub fn run() {
             commands::get_engine_conf_path,
             commands::is_dmabuf_renderer_disabled,
             commands::set_window_alpha,
+            commands::is_default_protocol_client,
+            commands::set_default_protocol_client,
+            commands::remove_as_default_protocol_client,
         ])
         // ── Window event interception ─────────────────────────────────
         //

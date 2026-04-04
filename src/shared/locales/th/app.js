@@ -82,4 +82,8 @@ export default {
   'migration-success': 'โครงสร้างการตั้งค่าผู้ใช้อัปเกรดเป็น {version}',
   'migration-incomplete': 'โครงสร้างการตั้งค่าผู้ใช้ไม่สามารถอัปเกรดเป็น {version} ได้อย่างสมบูรณ์',
   'db-upgraded': 'โครงสร้างฐานข้อมูลอัปเกรดเป็น {version}',
+  'protocol-hijacked-title': 'โปรแกรมเริ่มต้นถูกเปลี่ยน',
+  'protocol-hijacked-body': '{protocols} ไม่ได้เปิดด้วย Motrix Next อีกต่อไป',
+  'protocol-hijacked-dialog-content': 'โปรแกรมเริ่มต้นสำหรับ {protocols} ถูกเปลี่ยนโดยแอปพลิเคชันอื่น คลิกลิงก์เหล่านี้จะไม่เปิด Motrix Next โดยอัตโนมัติอีกต่อไป\n\nสวิตช์ที่เกี่ยวข้องถูกปิดโดยอัตโนมัติ คุณสามารถเปิดใช้งานอีกครั้งได้ในการตั้งค่า',
+  'dismiss': 'เข้าใจแล้ว',
 }

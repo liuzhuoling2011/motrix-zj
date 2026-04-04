@@ -82,4 +82,8 @@ export default {
   'migration-success': 'Kullanıcı ayarları yapısı {version} sürümüne yükseltildi',
   'migration-incomplete': 'Kullanıcı ayarları yapısı {version} sürümüne tam olarak yükseltilemedi',
   'db-upgraded': 'Veritabanı yapısı {version} sürümüne yükseltildi',
+  'protocol-hijacked-title': 'Varsayılan program değiştirildi',
+  'protocol-hijacked-body': '{protocols} artık Motrix Next tarafından açılmıyor',
+  'protocol-hijacked-dialog-content': '{protocols} için varsayılan program başka bir uygulama tarafından değiştirildi. Bu bağlantılara tıklandığında Motrix Next artık otomatik olarak açılmayacak.\n\nİlgili anahtar otomatik olarak kapatıldı. Ayarlar\'dan yeniden etkinleştirebilirsiniz.',
+  'dismiss': 'Anlaşıldı',
 }

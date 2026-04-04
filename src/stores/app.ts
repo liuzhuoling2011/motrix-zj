@@ -52,6 +52,8 @@ export const useAppStore = defineStore('app', () => {
   const engineInitializing = ref(true)
   const engineReady = ref(false)
   const pendingMagnetGids = ref<string[]>([])
+  /** Protocols detected as hijacked at startup (set by syncProtocolHandlers). */
+  const pendingProtocolHijack = ref<string[]>([])
 
   function updateInterval(millisecond: number) {
     let val = millisecond
@@ -293,5 +295,6 @@ export const useAppStore = defineStore('app', () => {
     fetchEngineInfo,
     fetchEngineOptions,
     handleDeepLinkUrls,
+    pendingProtocolHijack,
   }
 })

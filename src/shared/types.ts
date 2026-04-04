@@ -112,6 +112,7 @@ export interface ProxyConfig {
 export interface ProtocolsConfig {
   magnet: boolean
   thunder: boolean
+  motrixnext: boolean
 }
 
 /** Clipboard auto-detection filter: controls which protocol families

@@ -82,4 +82,8 @@ export default {
   'migration-success': 'Felhasználói beállítások struktúrája frissítve a(z) {version} verzióra',
   'migration-incomplete': 'A felhasználói beállítások struktúrája nem frissíthető teljesen a(z) {version} verzióra',
   'db-upgraded': 'Adatbázis struktúra frissítve a(z) {version} verzióra',
+  'protocol-hijacked-title': 'Az alapértelmezett program megváltozott',
+  'protocol-hijacked-body': 'A(z) {protocols} linkeket már nem a Motrix Next nyitja meg',
+  'protocol-hijacked-dialog-content': 'A(z) {protocols} alapértelmezett programját egy másik alkalmazás megváltoztatta. Ezek a linkek többé nem nyitják meg automatikusan a Motrix Next-et.\n\nA kapcsoló automatikusan kikapcsolt. A Beállításokban újra engedélyezheti.',
+  'dismiss': 'Értem',
 }

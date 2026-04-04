@@ -157,6 +157,54 @@ function confirmSafeLimits(f: Record<string, unknown>, exceeded: typeof safeLimi
   })
 }
 
+/**
+ * Builds dynamic VNode content for the protocol-disable confirmation dialog.
+ *
+ * Layout adapts to the combination of disabled protocols:
+ * - Single category → plain sentence (no bullet list)
+ * - Both categories → intro line + bullet list
+ */
+function buildProtocolDisableContent(disabledLinks: string[], disabledExt: boolean) {
+  const totalItems = disabledLinks.length + (disabledExt ? 1 : 0)
+  const useBullets = totalItems > 1
+
+  const items: ReturnType<typeof h>[] = []
+  for (const p of disabledLinks) {
+    const text = t('preferences.protocol-disable-link-warning', { protocols: `${p}://` })
+    items.push(h('div', useBullets ? `• ${text}` : text))
+  }
+  if (disabledExt) {
+    const text = t('preferences.protocol-disable-ext-warning')
+    items.push(h('div', useBullets ? `• ${text}` : text))
+  }
+
+  if (useBullets) {
+    return h('div', { style: 'display: flex; flex-direction: column; gap: 8px' }, [
+      h('div', t('preferences.protocol-disable-intro')),
+      ...items,
+    ])
+  }
+  return h('div', items)
+}
+
+/**
+ * Single merged confirmation dialog when one or more protocol toggles
+ * are being disabled. Returns false to abort the save.
+ */
+function confirmProtocolDisable(disabledLinks: string[], disabledExt: boolean): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    dialog.warning({
+      title: t('preferences.protocol-disable-title'),
+      content: () => buildProtocolDisableContent(disabledLinks, disabledExt),
+      positiveText: t('preferences.protocol-disable-confirm'),
+      negativeText: t('app.cancel'),
+      onPositiveClick: () => resolve(true),
+      onNegativeClick: () => resolve(false),
+      onClose: () => resolve(false),
+    })
+  })
+}
+
 const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } = usePreferenceForm({
   buildForm,
   buildSystemConfig: buildBasicSystemConfig,
@@ -168,8 +216,24 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
       return typeof v === 'number' && v > e.safe
     })
     if (exceeded.length > 0) {
-      return confirmSafeLimits(f, exceeded)
+      const ok = await confirmSafeLimits(f, exceeded)
+      if (!ok) return false
     }
+
+    // Protocol disable confirmation — single merged dialog.
+    // Separates link protocols (magnet/thunder) from extension protocol (motrixnext)
+    // to give the user distinct, understandable warnings.
+    const prev = preferenceStore.config.protocols
+    const disabledLinks: string[] = []
+    if (prev.magnet && !f.protocolMagnet) disabledLinks.push('magnet')
+    if (prev.thunder && !f.protocolThunder) disabledLinks.push('thunder')
+    const disabledExt = prev.motrixnext && !f.protocolMotrixnext
+
+    if (disabledLinks.length > 0 || disabledExt) {
+      const ok = await confirmProtocolDisable(disabledLinks, disabledExt)
+      if (!ok) return false
+    }
+
     return true
   },
   afterSave: async (f, prevConfig) => {
@@ -218,6 +282,42 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
         else if (!f.openAtLogin && currentlyEnabled) await disable()
       } catch (e) {
         console.error('Failed to sync autostart:', e)
+      }
+    }
+
+    // Sync protocol handler registration on save.
+    // Same pattern as autostart — OS side-effect only runs after the user
+    // explicitly clicks Save, so Discard remains completely safe.
+    const prevMagnet = prevConfig.protocols?.magnet ?? false
+    const prevThunder = prevConfig.protocols?.thunder ?? false
+    const prevMotrixnext = prevConfig.protocols?.motrixnext ?? true
+    if (
+      f.protocolMagnet !== prevMagnet ||
+      f.protocolThunder !== prevThunder ||
+      f.protocolMotrixnext !== prevMotrixnext
+    ) {
+      const { invoke } = await import('@tauri-apps/api/core')
+      for (const [protocol, enabled, prev] of [
+        ['magnet', f.protocolMagnet, prevMagnet],
+        ['thunder', f.protocolThunder, prevThunder],
+        ['motrixnext', f.protocolMotrixnext, prevMotrixnext],
+      ] as const) {
+        if (enabled === prev) continue
+        try {
+          if (enabled) {
+            await invoke('set_default_protocol_client', { protocol })
+            message.success(t('preferences.protocol-registered', { protocol }))
+          } else if (isMac.value) {
+            message.info(t('preferences.protocol-macos-unregister-hint', { protocol }))
+          } else {
+            await invoke('remove_as_default_protocol_client', { protocol })
+            message.success(t('preferences.protocol-unregistered', { protocol }))
+          }
+        } catch (e) {
+          const reason = e instanceof Error ? e.message : String(e)
+          logger.warn('Basic.protocol', `Failed to ${enabled ? 'register' : 'unregister'} ${protocol}: ${reason}`)
+          message.error(t('preferences.protocol-failed', { protocol, reason }))
+        }
       }
     }
   },
@@ -397,31 +497,6 @@ function handleManualRestart() {
   })
 }
 
-/**
- * Register/unregister a protocol handler immediately when the user toggles.
- * Operates independently of the form save flow — protocol registration
- * is an OS-level side-effect, not an aria2 config change.
- * On failure the switch reverts to its previous state.
- */
-async function onProtocolToggle(protocol: string, enabled: boolean) {
-  try {
-    const { register, unregister } = await import('@tauri-apps/plugin-deep-link')
-    if (enabled) {
-      await register(protocol)
-    } else {
-      await unregister(protocol)
-    }
-    message.success(t(enabled ? 'preferences.protocol-registered' : 'preferences.protocol-unregistered', { protocol }))
-  } catch (e) {
-    const reason = e instanceof Error ? e.message : String(e)
-    logger.warn('Basic.protocol', `Failed to ${enabled ? 'register' : 'unregister'} ${protocol}: ${reason}`)
-    message.error(t('preferences.protocol-failed', { protocol, reason }))
-    // Revert switch on failure
-    if (protocol === 'magnet') form.value.protocolMagnet = !enabled
-    else form.value.protocolThunder = !enabled
-  }
-}
-
 onMounted(async () => {
   try {
     defaultDownloadDir.value = await downloadDir()
@@ -453,17 +528,23 @@ onMounted(async () => {
   loadForm()
   resetSnapshot()
 
-  // Read actual OS registration state for protocol toggles (Windows/Linux).
+  // Read actual OS registration state for protocol toggles (all platforms).
+  // Uses custom Rust commands that support macOS NSWorkspace + Windows/Linux deep-link.
   // This ensures the switches reflect reality even if another app has taken
   // over the protocol association since Motrix last ran.
-  if (!isMac.value) {
-    try {
-      const { isRegistered } = await import('@tauri-apps/plugin-deep-link')
-      form.value.protocolMagnet = await isRegistered('magnet')
-      form.value.protocolThunder = await isRegistered('thunder')
-    } catch (e) {
-      logger.debug('Basic.protocolCheck', e)
-    }
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    form.value.protocolMagnet = await invoke<boolean>('is_default_protocol_client', { protocol: 'magnet' })
+    form.value.protocolThunder = await invoke<boolean>('is_default_protocol_client', { protocol: 'thunder' })
+    form.value.protocolMotrixnext = await invoke<boolean>('is_default_protocol_client', { protocol: 'motrixnext' })
+    // Patch snapshot so OS-queried values don't falsely trigger dirty state.
+    patchSnapshot({
+      protocolMagnet: form.value.protocolMagnet,
+      protocolThunder: form.value.protocolThunder,
+      protocolMotrixnext: form.value.protocolMotrixnext,
+    } as Partial<typeof form.value>)
+  } catch (e) {
+    logger.debug('Basic.protocolCheck', e)
   }
 })
 </script>
@@ -632,17 +713,6 @@ onMounted(async () => {
         <NSwitch v-model:value="form.resumeAllWhenAppLaunched" />
       </NFormItem>
 
-      <!-- ── Protocol Handlers (Windows/Linux only) ────────────────── -->
-      <template v-if="!isMac">
-        <NDivider title-placement="left">{{ t('preferences.protocol-handler') }}</NDivider>
-        <NFormItem :label="t('preferences.protocol-magnet')">
-          <NSwitch v-model:value="form.protocolMagnet" @update:value="onProtocolToggle('magnet', $event)" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.protocol-thunder')">
-          <NSwitch v-model:value="form.protocolThunder" @update:value="onProtocolToggle('thunder', $event)" />
-        </NFormItem>
-      </template>
-
       <NDivider title-placement="left">{{ t('preferences.download-path-and-speed') }}</NDivider>
       <NFormItem :label="t('preferences.default-dir')">
         <NInputGroup>
@@ -781,6 +851,18 @@ onMounted(async () => {
           <NSwitch v-model:value="form.clipboardBtHash" />
         </NFormItem>
       </NCollapseTransition>
+
+      <!-- ── Default Programs (all platforms) ─────────────────────── -->
+      <NDivider title-placement="left">{{ t('preferences.default-programs') }}</NDivider>
+      <NFormItem :label="t('preferences.protocol-magnet')">
+        <NSwitch v-model:value="form.protocolMagnet" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.protocol-thunder')">
+        <NSwitch v-model:value="form.protocolThunder" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.protocol-motrixnext')">
+        <NSwitch v-model:value="form.protocolMotrixnext" />
+      </NFormItem>
     </NForm>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
   </div>

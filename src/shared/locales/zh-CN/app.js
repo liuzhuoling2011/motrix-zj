@@ -82,4 +82,8 @@ export default {
   'migration-success': '用户设置结构已升级至 {version}',
   'migration-incomplete': '用户设置结构未能完全升级至 {version}',
   'db-upgraded': '数据库结构已升级至 {version}',
+  'protocol-hijacked-title': '默认程序已变更',
+  'protocol-hijacked-body': '{protocols} 的默认打开程序已不再是 Motrix Next',
+  'protocol-hijacked-dialog-content': '{protocols} 的默认打开程序已被其他应用更改。点击这些链接时将不再自动唤起 Motrix Next。\n\n相关开关已自动关闭，如需恢复请前往设置重新开启。',
+  'dismiss': '知道了',
 }

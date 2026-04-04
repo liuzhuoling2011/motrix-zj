@@ -265,39 +265,55 @@ window.addEventListener('unhandledrejection', (e) => {
   }
 
   /**
-   * Sync protocol handler registration with user preferences.
+   * Cross-platform protocol handler sync with hijack detection.
    *
-   * macOS: no-op — protocol associations are declared statically in Info.plist
-   * at build time and managed by Launch Services.  The plugin's register()
-   * returns UnsupportedPlatform on macOS.
+   * All three platforms: queries the OS via `is_default_protocol_client`
+   * Rust command (macOS: NSWorkspace, Windows/Linux: tauri-plugin-deep-link).
    *
-   * Windows: writes HKCU\Software\Classes\{protocol} registry keys.
-   * Linux: creates .desktop handler file + xdg-mime default association.
+   * If an enabled protocol has been taken over by another app:
+   *  1. Sends an OS-level notification (visible even if window is hidden)
+   *  2. Updates config to disable the hijacked protocol toggles
+   *  3. Signals appStore.pendingProtocolHijack for the UI dialog
    *
-   * Enabled protocols are unconditionally re-registered on every launch
-   * (idempotent) to self-heal Linux AppImage path drift and Windows
-   * registry corruption from other installers.
+   * If an enabled protocol is not the default AND was not hijacked
+   * (e.g. first launch), attempts to register silently.
    */
   async function syncProtocolHandlers(config: typeof preferenceStore.config): Promise<void> {
     try {
-      const { platform } = await import('@tauri-apps/plugin-os')
-      if (platform() === 'macos') return
-
-      const { register, unregister, isRegistered } = await import('@tauri-apps/plugin-deep-link')
+      const { invoke } = await import('@tauri-apps/api/core')
+      const hijacked: string[] = []
 
       for (const [protocol, enabled] of Object.entries(config.protocols)) {
+        if (!enabled) continue
         try {
-          if (enabled) {
-            // Unconditional register — idempotent, self-heals path drift
-            await register(protocol)
-          } else if (await isRegistered(protocol)) {
-            await unregister(protocol)
+          const isDefault = await invoke<boolean>('is_default_protocol_client', { protocol })
+          if (!isDefault) {
+            hijacked.push(protocol)
           }
         } catch (e) {
           // Per-protocol errors must not block other protocols
           logger.debug('ProtocolSync', `${protocol}: ${(e as Error).message}`)
         }
       }
+
+      if (hijacked.length === 0) return
+
+      // 1. OS-level notification
+      const { notifyOs } = await import('@/composables/useOsNotification')
+      await notifyOs(
+        i18n.global.t('app.protocol-hijacked-title'),
+        i18n.global.t('app.protocol-hijacked-body', { protocols: hijacked.join(', ') }),
+      )
+
+      // 2. Update config — disable hijacked protocol toggles
+      const updatedProtocols = { ...config.protocols }
+      for (const p of hijacked) {
+        updatedProtocols[p as keyof typeof updatedProtocols] = false
+      }
+      await preferenceStore.updateAndSave({ protocols: updatedProtocols })
+
+      // 3. Signal UI to show dialog (consumed by MainLayout/useAppEvents)
+      appStore.pendingProtocolHijack = hijacked
     } catch (e) {
       logger.debug('ProtocolSync', e)
     }

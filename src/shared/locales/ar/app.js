@@ -82,4 +82,8 @@ export default {
   'migration-success': 'تم ترقية هيكل إعدادات المستخدم إلى {version}',
   'migration-incomplete': 'لم يكتمل ترقية هيكل إعدادات المستخدم إلى {version}',
   'db-upgraded': 'تم ترقية هيكل قاعدة البيانات إلى {version}',
+  'protocol-hijacked-title': 'تم تغيير البرنامج الافتراضي',
+  'protocol-hijacked-body': '{protocols} لم يعد يفتح بواسطة Motrix Next',
+  'protocol-hijacked-dialog-content': 'تم تغيير البرنامج الافتراضي لـ {protocols} بواسطة تطبيق آخر. لن يتم فتح Motrix Next تلقائياً عند النقر على هذه الروابط.\n\nتم إيقاف المفتاح المقابل تلقائياً. يمكنك إعادة تفعيله في الإعدادات.',
+  'dismiss': 'حسناً',
 }

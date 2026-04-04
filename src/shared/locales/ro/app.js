@@ -82,4 +82,8 @@ export default {
   'migration-success': 'Structura setărilor utilizatorului actualizată la {version}',
   'migration-incomplete': 'Structura setărilor utilizatorului nu a putut fi actualizată complet la {version}',
   'db-upgraded': 'Structura bazei de date actualizată la {version}',
+  'protocol-hijacked-title': 'Programul implicit a fost schimbat',
+  'protocol-hijacked-body': '{protocols} nu mai este deschis de Motrix Next',
+  'protocol-hijacked-dialog-content': 'Programul implicit pentru {protocols} a fost schimbat de o altă aplicație. Aceste linkuri nu vor mai deschide automat Motrix Next.\n\nComutatorul corespunzător a fost dezactivat automat. Îl puteți reactiva în Setări.',
+  'dismiss': 'Am înțeles',
 }

@@ -82,4 +82,8 @@ export default {
   'migration-success': 'ユーザー設定構造が {version} にアップグレードされました',
   'migration-incomplete': 'ユーザー設定構造を {version} に完全にアップグレードできませんでした',
   'db-upgraded': 'データベース構造が {version} にアップグレードされました',
+  'protocol-hijacked-title': '既定のプログラムが変更されました',
+  'protocol-hijacked-body': '{protocols} は Motrix Next で開かれなくなりました',
+  'protocol-hijacked-dialog-content': '{protocols} の既定のプログラムが別のアプリケーションによって変更されました。これらのリンクをクリックしても Motrix Next は自動で起動しなくなります。\n\n対応するスイッチは自動的にオフになりました。設定で再度有効にできます。',
+  'dismiss': '了解',
 }

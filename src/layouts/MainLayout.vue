@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /** @fileoverview Main application layout with sidebar, subnav, and IPC event handling. */
 import { computed, ref, nextTick, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
@@ -46,6 +46,7 @@ import { loadAddedAtFromRecords } from '@/composables/useTaskOrder'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const appStore = useAppStore()
 const taskStore = useTaskStore()
 const preferenceStore = usePreferenceStore()
@@ -207,6 +208,31 @@ watch(
     preferenceStore.dbUpgradeVersion = null
   },
   { immediate: true },
+)
+
+// ── Protocol hijack detection dialog ────────────────────────────────
+// syncProtocolHandlers() in main.ts detects hijacked protocols at startup
+// and posts them to appStore.pendingProtocolHijack.  This watcher picks
+// them up once the Naive UI dialog provider is active (requires component tree).
+watch(
+  () => appStore.pendingProtocolHijack,
+  (hijacked) => {
+    if (!hijacked || hijacked.length === 0) return
+    const protocolList = hijacked.join(', ')
+    navDialog.warning({
+      title: t('app.protocol-hijacked-title'),
+      content: t('app.protocol-hijacked-dialog-content', { protocols: protocolList }),
+      positiveText: t('preferences.open-settings'),
+      negativeText: t('app.dismiss'),
+      onPositiveClick: () => {
+        if (!route.path.startsWith('/preference')) {
+          router.push('/preference')
+        }
+      },
+    })
+    appStore.pendingProtocolHijack = []
+  },
+  { deep: true, immediate: true },
 )
 
 let globalPollStopped = true

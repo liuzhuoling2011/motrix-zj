@@ -28,6 +28,9 @@ pub enum AppError {
     /// UPnP port mapping error (discovery, map, unmap).
     #[error("UPnP error: {0}")]
     Upnp(String),
+    /// Protocol handler registration/query error.
+    #[error("Protocol error: {0}")]
+    Protocol(String),
 }
 
 impl From<std::io::Error> for AppError {
@@ -84,6 +87,12 @@ mod tests {
         assert_eq!(e.to_string(), "UPnP error: gateway unreachable");
     }
 
+    #[test]
+    fn display_protocol_error() {
+        let e = AppError::Protocol("unsupported platform".into());
+        assert_eq!(e.to_string(), "Protocol error: unsupported platform");
+    }
+
     // ── From conversions ────────────────────────────────────────────
 
     #[test]
@@ -126,6 +135,7 @@ mod tests {
             ("NotFound", AppError::NotFound("n".into())),
             ("Updater", AppError::Updater("u".into())),
             ("Upnp", AppError::Upnp("p".into())),
+            ("Protocol", AppError::Protocol("r".into())),
         ];
         for (tag, err) in cases {
             let json = serde_json::to_string(&err).expect("serialize");

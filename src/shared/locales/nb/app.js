@@ -82,4 +82,8 @@ export default {
   'migration-success': 'Brukerinnstillingsstruktur oppgradert til {version}',
   'migration-incomplete': 'Brukerinnstillingsstruktur kunne ikke oppgraderes fullstendig til {version}',
   'db-upgraded': 'Databasestruktur oppgradert til {version}',
+  'protocol-hijacked-title': 'Standardprogrammet ble endret',
+  'protocol-hijacked-body': '{protocols} åpnes ikke lenger av Motrix Next',
+  'protocol-hijacked-dialog-content': 'Standardprogrammet for {protocols} ble endret av en annen applikasjon. Disse lenkene vil ikke lenger automatisk åpne Motrix Next.\n\nDen tilhørende bryteren er slått av automatisk. Du kan aktivere den igjen i Innstillinger.',
+  'dismiss': 'Forstått',
 }

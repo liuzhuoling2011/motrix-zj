@@ -184,7 +184,7 @@ export const DEFAULT_APP_CONFIG = {
   listenPort: 21301,
   dhtListenPort: 26701,
   proxy: { enable: false, server: '', bypass: '', scope: ['download', 'update-app', 'update-trackers'] },
-  protocols: { magnet: true, thunder: false },
+  protocols: { magnet: true, thunder: false, motrixnext: true },
   clipboard: { enable: true, http: true, ftp: true, magnet: true, thunder: true, btHash: true },
   userAgent:
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36',

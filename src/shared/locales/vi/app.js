@@ -82,4 +82,8 @@ export default {
   'migration-success': 'Cấu trúc cài đặt người dùng đã nâng cấp lên {version}',
   'migration-incomplete': 'Cấu trúc cài đặt người dùng không thể nâng cấp hoàn toàn lên {version}',
   'db-upgraded': 'Cấu trúc cơ sở dữ liệu đã nâng cấp lên {version}',
+  'protocol-hijacked-title': 'Chương trình mặc định đã thay đổi',
+  'protocol-hijacked-body': '{protocols} không còn được mở bằng Motrix Next',
+  'protocol-hijacked-dialog-content': 'Chương trình mặc định cho {protocols} đã bị thay đổi bởi ứng dụng khác. Nhấp vào các liên kết này sẽ không tự động mở Motrix Next nữa.\n\nCông tắc tương ứng đã tự động tắt. Bạn có thể bật lại trong Cài đặt.',
+  'dismiss': 'Đã hiểu',
 }

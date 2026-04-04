@@ -82,4 +82,8 @@ export default {
   'migration-success': 'ساختار تنظیمات کاربر به {version} ارتقا یافت',
   'migration-incomplete': 'ساختار تنظیمات کاربر به طور کامل به {version} ارتقا نیافت',
   'db-upgraded': 'ساختار پایگاه داده به {version} ارتقا یافت',
+  'protocol-hijacked-title': 'برنامه پیش‌فرض تغییر کرد',
+  'protocol-hijacked-body': '{protocols} دیگر توسط Motrix Next باز نمی‌شود',
+  'protocol-hijacked-dialog-content': 'برنامه پیش‌فرض برای {protocols} توسط برنامه دیگری تغییر کرده است. این لینک‌ها دیگر به‌طور خودکار Motrix Next را باز نمی‌کنند.\n\nسوئیچ مربوطه به‌طور خودکار غیرفعال شده است. می‌توانید آن را در تنظیمات دوباره فعال کنید.',
+  'dismiss': 'متوجه شدم',
 }

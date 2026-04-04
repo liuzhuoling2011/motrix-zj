@@ -82,4 +82,8 @@ export default {
   'migration-success': 'Struttura impostazioni utente aggiornata a {version}',
   'migration-incomplete': 'La struttura delle impostazioni utente non è stata completamente aggiornata a {version}',
   'db-upgraded': 'Struttura del database aggiornata a {version}',
+  'protocol-hijacked-title': 'Programma predefinito cambiato',
+  'protocol-hijacked-body': '{protocols} non viene più aperto da Motrix Next',
+  'protocol-hijacked-dialog-content': 'Il programma predefinito per {protocols} è stato modificato da un\'altra applicazione. Questi link non apriranno più automaticamente Motrix Next.\n\nL\'interruttore corrispondente è stato disattivato automaticamente. Puoi riattivarlo nelle Impostazioni.',
+  'dismiss': 'Capito',
 }

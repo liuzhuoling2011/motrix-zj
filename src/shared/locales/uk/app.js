@@ -82,4 +82,8 @@ export default {
   'migration-success': 'Структуру налаштувань користувача оновлено до {version}',
   'migration-incomplete': 'Структуру налаштувань користувача не вдалося повністю оновити до {version}',
   'db-upgraded': 'Структуру бази даних оновлено до {version}',
+  'protocol-hijacked-title': 'Програму за замовчуванням змінено',
+  'protocol-hijacked-body': '{protocols} більше не відкривається через Motrix Next',
+  'protocol-hijacked-dialog-content': 'Програму за замовчуванням для {protocols} було змінено іншим додатком. Ці посилання більше не відкриватимуть Motrix Next автоматично.\n\nВідповідний перемикач автоматично вимкнено. Ви можете увімкнути його знову в Налаштуваннях.',
+  'dismiss': 'Зрозуміло',
 }

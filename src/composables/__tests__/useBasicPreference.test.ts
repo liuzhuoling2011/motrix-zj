@@ -171,6 +171,7 @@ describe('buildBasicSystemConfig', () => {
     clipboardBtHash: true,
     protocolMagnet: true,
     protocolThunder: false,
+    protocolMotrixnext: true,
   }
 
   it('maps all required aria2 config keys', () => {
@@ -285,6 +286,7 @@ describe('transformBasicForStore', () => {
     clipboardBtHash: true,
     protocolMagnet: true,
     protocolThunder: false,
+    protocolMotrixnext: true,
   }
 
   it('expands btAutoDownloadContent=true into follow+resume', () => {

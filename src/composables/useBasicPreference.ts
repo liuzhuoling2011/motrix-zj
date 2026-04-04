@@ -55,6 +55,7 @@ export interface BasicForm {
   clipboardBtHash: boolean
   protocolMagnet: boolean
   protocolThunder: boolean
+  protocolMotrixnext: boolean
 }
 
 // ── Pure Functions ──────────────────────────────────────────────────
@@ -114,6 +115,7 @@ export function buildBasicForm(config: AppConfig, defaultDir: string = ''): Basi
     clipboardBtHash: config.clipboard?.btHash ?? D.clipboard.btHash,
     protocolMagnet: config.protocols?.magnet ?? D.protocols.magnet,
     protocolThunder: config.protocols?.thunder ?? D.protocols.thunder,
+    protocolMotrixnext: config.protocols?.motrixnext ?? D.protocols.motrixnext,
   }
 }
 
@@ -182,8 +184,10 @@ export function transformBasicForStore(f: BasicForm): Partial<AppConfig> {
   data.protocols = {
     magnet: f.protocolMagnet,
     thunder: f.protocolThunder,
+    motrixnext: f.protocolMotrixnext,
   }
   delete data.protocolMagnet
   delete data.protocolThunder
+  delete data.protocolMotrixnext
   return data
 }

@@ -1,6 +1,7 @@
 pub mod config;
 pub mod engine;
 pub mod fs;
+pub mod protocol;
 pub mod tracker;
 pub mod ui;
 pub mod updater;
@@ -9,6 +10,7 @@ pub mod upnp;
 pub use config::*;
 pub use engine::*;
 pub use fs::*;
+pub use protocol::*;
 pub use tracker::*;
 pub use ui::*;
 pub use updater::*;
