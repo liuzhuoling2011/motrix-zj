@@ -35,6 +35,7 @@ export default {
   'auto-delete-stale-records': 'Șterge automat înregistrările când fișierele locale lipsesc',
   'clear-completed-on-exit': 'Șterge înregistrările finalizate la ieșire',
   'continue': 'Reia descărcările',
+  'remote-time': 'Folosește data originală a fișierului în loc de data descărcării',
   'task-completed-notify': 'Notifică la finalizare',
   'auto-purge-record': 'Curăță înregistrările la ieșire',
   'ui': 'Interfață',

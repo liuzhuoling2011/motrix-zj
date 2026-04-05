@@ -35,6 +35,7 @@ export default {
   'auto-delete-stale-records': 'Auto-delete records when local files are missing',
   'clear-completed-on-exit': 'Clear completed records on exit',
   'continue': 'Resume downloads',
+  'remote-time': 'Use original file date instead of download date',
   'task-completed-notify': 'Notify on download completion',
   'auto-purge-record': 'Clear download records on exit',
   'ui': 'Interface',

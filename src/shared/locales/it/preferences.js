@@ -35,6 +35,7 @@ export default {
   'auto-delete-stale-records': 'Elimina automaticamente i record quando i file locali sono mancanti',
   'clear-completed-on-exit': 'Cancella i record completati all\'uscita',
   'continue': 'Riprendi download',
+  'remote-time': 'Usa la data originale del file anziché la data di download',
   'task-completed-notify': 'Notifica al completamento',
   'auto-purge-record': 'Cancella record all\'uscita',
   'ui': 'Interfaccia',

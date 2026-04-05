@@ -35,6 +35,7 @@ export default {
   'auto-delete-stale-records': 'Eliminar automàticament els registres quan els fitxers locals falten',
   'clear-completed-on-exit': 'Esborra els registres completats en sortir',
   'continue': 'Reprendre descàrregues',
+  'remote-time': 'Utilitza la data original del fitxer en lloc de la data de descàrrega',
   'task-completed-notify': 'Notificar en completar la descàrrega',
   'auto-purge-record': 'Esborrar registres en sortir',
   'ui': 'Interfície',

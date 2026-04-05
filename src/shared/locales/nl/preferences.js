@@ -35,6 +35,7 @@ export default {
   'auto-delete-stale-records': 'Records automatisch verwijderen wanneer lokale bestanden ontbreken',
   'clear-completed-on-exit': 'Voltooide items wissen bij afsluiten',
   'continue': 'Downloads hervatten',
+  'remote-time': 'Originele bestandsdatum gebruiken in plaats van downloaddatum',
   'task-completed-notify': 'Melden bij voltooiing',
   'auto-purge-record': 'Records wissen bij afsluiten',
   'ui': 'Interface',

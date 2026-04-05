@@ -202,6 +202,9 @@ export interface AppConfig {
   followMetalink: boolean
   pauseMetadata: boolean
   continue: boolean
+  /** When true, aria2 applies the remote server's Last-Modified timestamp
+   *  to the local file instead of using the download-completion time. */
+  remoteTime: boolean
   autoCheckUpdateInterval: number
   enableUpnp: boolean
   deleteTorrentAfterComplete: boolean

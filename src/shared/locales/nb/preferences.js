@@ -35,6 +35,7 @@ export default {
   'auto-delete-stale-records': 'Slett poster automatisk når lokale filer mangler',
   'clear-completed-on-exit': 'Fjern fullførte oppføringer ved avslutning',
   'continue': 'Gjenoppta nedlastinger',
+  'remote-time': 'Bruk opprinnelig fildato i stedet for nedlastingsdato',
   'task-completed-notify': 'Varsle ved fullført nedlasting',
   'auto-purge-record': 'Fjern oppføringer ved avslutning',
   'ui': 'Grensesnitt',

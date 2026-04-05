@@ -35,6 +35,7 @@ export default {
   'auto-delete-stale-records': 'Tự động xóa bản ghi khi tệp cục bộ bị thiếu',
   'clear-completed-on-exit': 'Xóa bản ghi đã hoàn thành khi thoát',
   'continue': 'Tiếp tục tải xuống',
+  'remote-time': 'Sử dụng ngày gốc của tệp thay vì ngày tải xuống',
   'task-completed-notify': 'Thông báo khi hoàn thành',
   'auto-purge-record': 'Xóa bản ghi khi thoát',
   'ui': 'Giao diện',

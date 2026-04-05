@@ -35,6 +35,7 @@ export default {
   'auto-delete-stale-records': 'Automatycznie usuwaj rekordy, gdy brakuje plików lokalnych',
   'clear-completed-on-exit': 'Wyczyść ukończone rekordy przy zamykaniu',
   'continue': 'Wznawianie pobierania',
+  'remote-time': 'Użyj oryginalnej daty pliku zamiast daty pobrania',
   'task-completed-notify': 'Powiadamiaj po ukończeniu pobierania',
   'auto-purge-record': 'Wyczyść wpisy przy zamykaniu',
   'ui': 'Interfejs',

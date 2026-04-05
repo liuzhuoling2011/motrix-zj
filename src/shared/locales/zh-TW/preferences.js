@@ -35,6 +35,7 @@ export default {
   'auto-delete-stale-records': '本地檔案遺失時自動刪除記錄',
   'clear-completed-on-exit': '退出時清空已完成的下載記錄',
   'continue': '斷點續傳',
+  'remote-time': '使用檔案的原始日期而非下載日期',
   'task-completed-notify': '下載完成後通知',
   'auto-purge-record': '結束時自動清除下載記錄',
   'ui': '介面',

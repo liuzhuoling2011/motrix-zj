@@ -35,6 +35,7 @@ export default {
   'auto-delete-stale-records': 'حذف خودکار رکوردها هنگام گم شدن فایل‌های محلی',
   'clear-completed-on-exit': 'پاک کردن رکوردهای تکمیل شده هنگام خروج',
   'continue': 'ادامه دانلودها',
+  'remote-time': 'استفاده از تاریخ اصلی فایل به‌جای تاریخ دانلود',
   'task-completed-notify': 'اطلاع‌رسانی هنگام تکمیل',
   'auto-purge-record': 'پاک کردن رکوردها هنگام خروج',
   'ui': 'رابط کاربری',

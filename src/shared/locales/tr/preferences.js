@@ -35,6 +35,7 @@ export default {
   'auto-delete-stale-records': 'Yerel dosyalar eksik olduğunda kayıtları otomatik sil',
   'clear-completed-on-exit': 'Çıkışta tamamlanan kayıtları temizle',
   'continue': 'İndirmeleri devam ettir',
+  'remote-time': 'İndirme tarihi yerine dosyanın orijinal tarihini kullan',
   'task-completed-notify': 'Tamamlandığında bildir',
   'auto-purge-record': 'Çıkışta kayıtları temizle',
   'ui': 'Arayüz',

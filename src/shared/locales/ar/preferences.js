@@ -35,6 +35,7 @@ export default {
   'auto-delete-stale-records': 'حذف السجلات تلقائيًا عند فقدان الملفات المحلية',
   'clear-completed-on-exit': 'مسح السجلات المكتملة عند الخروج',
   'continue': 'استئناف التنزيلات',
+  'remote-time': 'استخدام التاريخ الأصلي للملف بدلاً من تاريخ التنزيل',
   'task-completed-notify': 'الإشعار عند الاكتمال',
   'auto-purge-record': 'مسح السجلات عند الخروج',
   'ui': 'الواجهة',

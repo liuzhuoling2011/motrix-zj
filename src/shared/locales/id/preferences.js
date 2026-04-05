@@ -35,6 +35,7 @@ export default {
   'auto-delete-stale-records': 'Hapus catatan secara otomatis saat file lokal hilang',
   'clear-completed-on-exit': 'Hapus catatan selesai saat keluar',
   'continue': 'Lanjutkan unduhan',
+  'remote-time': 'Gunakan tanggal file asli alih-alih tanggal unduhan',
   'task-completed-notify': 'Beri tahu saat selesai',
   'auto-purge-record': 'Hapus catatan saat keluar',
   'ui': 'Antarmuka',

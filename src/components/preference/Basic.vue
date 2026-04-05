@@ -824,6 +824,9 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.continue')">
         <NSwitch v-model:value="form.continue" />
       </NFormItem>
+      <NFormItem :label="t('preferences.remote-time')">
+        <NSwitch v-model:value="form.remoteTime" />
+      </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.notification-and-confirm') }}</NDivider>
       <NFormItem :label="t('preferences.new-task-show-downloading')">

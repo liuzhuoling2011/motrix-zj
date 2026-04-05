@@ -44,6 +44,7 @@ export interface BasicForm {
   seedRatio: number
   seedTime: number
   continue: boolean
+  remoteTime: boolean
   deleteTorrentAfterComplete: boolean
   autoDeleteStaleRecords: boolean
   clearCompletedOnExit: boolean
@@ -104,6 +105,7 @@ export function buildBasicForm(config: AppConfig, defaultDir: string = ''): Basi
     seedRatio: config.seedRatio ?? D.seedRatio,
     seedTime: config.seedTime ?? D.seedTime,
     continue: config.continue ?? D.continue,
+    remoteTime: config.remoteTime ?? D.remoteTime,
     deleteTorrentAfterComplete: config.deleteTorrentAfterComplete ?? false,
     autoDeleteStaleRecords: config.autoDeleteStaleRecords ?? false,
     clearCompletedOnExit: config.clearCompletedOnExit ?? false,
@@ -143,6 +145,7 @@ export function buildBasicSystemConfig(f: BasicForm): Record<string, string> {
     'follow-metalink': String(autoContent),
     'pause-metadata': String(!autoContent),
     continue: String(f.continue !== false),
+    'remote-time': String(!!f.remoteTime),
   }
 }
 

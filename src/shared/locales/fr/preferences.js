@@ -35,6 +35,7 @@ export default {
   'auto-delete-stale-records': 'Supprimer automatiquement les entrées lorsque les fichiers locaux sont manquants',
   'clear-completed-on-exit': 'Effacer les enregistrements terminés à la fermeture',
   'continue': 'Reprise des téléchargements',
+  'remote-time': 'Utiliser la date originale du fichier au lieu de la date de téléchargement',
   'task-completed-notify': 'Notifier à la fin du téléchargement',
   'auto-purge-record': 'Effacer les enregistrements à la fermeture',
   'ui': 'Interface',
