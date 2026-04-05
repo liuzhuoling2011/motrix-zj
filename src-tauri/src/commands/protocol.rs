@@ -198,13 +198,7 @@ mod elevation {
             .collect();
 
         let mut hkey: HKEY = std::ptr::null_mut();
-        let status = unsafe {
-            RegCreateKeyW(
-                HKEY_CURRENT_USER,
-                path_wide.as_ptr(),
-                &mut hkey,
-            )
-        };
+        let status = unsafe { RegCreateKeyW(HKEY_CURRENT_USER, path_wide.as_ptr(), &mut hkey) };
         if status == 0 {
             Ok(hkey)
         } else {
