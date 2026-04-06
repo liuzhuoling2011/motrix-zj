@@ -14,21 +14,34 @@
   ; causing a duplicate installation.
   ;
   ; Fix: unconditionally check HKCU for a previous per-user install.
-  ; If found, copy its InstallLocation into $INSTDIR so the new
-  ; installer overwrites the existing files in-place.
+  ; If found, strip surrounding quotes from the path and copy it
+  ; into $INSTDIR so the installer overwrites the existing files
+  ; in-place.
   ;
   ; Registry key: HKCU\Software\Microsoft\Windows\CurrentVersion
-  ;                 \Uninstall\com.motrix.next
-  ; The key name matches the `identifier` field in tauri.conf.json.
+  ;                 \Uninstall\MotrixNext
+  ; Tauri uses the productName (not identifier) as the key name.
+  ; The InstallLocation value is stored WITH surrounding quotes
+  ; (e.g., "C:\Users\xxx\AppData\Local\MotrixNext"), so we must
+  ; strip them before assigning to $INSTDIR.
   ;
   ; This block is safe for fresh installs (key absent → no-op) and
   ; for users who already migrated (HKLM entry found by the "both"
   ; template before this hook even runs for file-copy decisions).
 
   ReadRegStr $R0 HKCU \
-    "Software\Microsoft\Windows\CurrentVersion\Uninstall\com.motrix.next" \
+    "Software\Microsoft\Windows\CurrentVersion\Uninstall\MotrixNext" \
     "InstallLocation"
   StrCmp $R0 "" _motrix_skip_migration 0
+    ; Strip surrounding quotes: "C:\path" → C:\path
+    StrCpy $R1 $R0 1        ; first character
+    StrCmp $R1 '"' 0 +2     ; if it starts with a quote
+      StrCpy $R0 $R0 "" 1   ; remove first char
+    StrLen $R1 $R0
+    IntOp $R1 $R1 - 1
+    StrCpy $R2 $R0 1 $R1    ; last character
+    StrCmp $R2 '"' 0 +2     ; if it ends with a quote
+      StrCpy $R0 $R0 $R1    ; remove last char
     StrCpy $INSTDIR $R0
   _motrix_skip_migration:
 
