@@ -43,6 +43,11 @@
     StrCmp $R2 '"' 0 +2     ; if it ends with a quote
       StrCpy $R0 $R0 $R1    ; remove last char
     StrCpy $INSTDIR $R0
+    ; Sync $OUTDIR — Tauri's template calls `SetOutPath $INSTDIR`
+    ; BEFORE this hook, so $OUTDIR still points to the old path.
+    ; We must re-issue SetOutPath to redirect all subsequent File
+    ; commands to the migrated directory.
+    SetOutPath $INSTDIR
   _motrix_skip_migration:
 
   ; Defense-in-depth: kill any lingering sidecar before file copy.
