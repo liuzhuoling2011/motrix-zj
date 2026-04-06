@@ -82,8 +82,8 @@ export default {
   'migration-success': '用户设置结构已升级至 {version}',
   'migration-incomplete': '用户设置结构未能完全升级至 {version}',
   'db-upgraded': '数据库结构已升级至 {version}',
-  'protocol-hijacked-title': '默认程序已变更',
-  'protocol-hijacked-body': '{protocols} 的默认打开程序已不再是 Motrix Next',
-  'protocol-hijacked-dialog-content': '{protocols} 的默认打开程序已被其他应用更改。点击这些链接时将不再自动唤起 Motrix Next。\n\n相关开关已自动关闭，如需恢复请前往设置重新开启。',
+  'protocol-hijacked-title': '链接关联需要确认',
+  'protocol-hijacked-body': '{protocols} 协议未关联到 Motrix Next',
+  'protocol-hijacked-dialog-content': '检测到 {protocols} 协议未关联到 Motrix Next，点击相关链接时将无法自动唤起本程序。\\n\\n此情况通常由首次安装、版本更新或其他下载工具抢占关联引起。你可以前往设置 → 基本设置中重新开启对应的协议关联。',
   'dismiss': '知道了',
 }

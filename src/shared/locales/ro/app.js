@@ -82,8 +82,8 @@ export default {
   'migration-success': 'Structura setărilor utilizatorului actualizată la {version}',
   'migration-incomplete': 'Structura setărilor utilizatorului nu a putut fi actualizată complet la {version}',
   'db-upgraded': 'Structura bazei de date actualizată la {version}',
-  'protocol-hijacked-title': 'Programul implicit a fost schimbat',
-  'protocol-hijacked-body': '{protocols} nu mai este deschis de Motrix Next',
-  'protocol-hijacked-dialog-content': 'Programul implicit pentru {protocols} a fost schimbat de o altă aplicație. Aceste linkuri nu vor mai deschide automat Motrix Next.\n\nComutatorul corespunzător a fost dezactivat automat. Îl puteți reactiva în Setări.',
+  'protocol-hijacked-title': 'Asocierea linkurilor necesită confirmare',
+  'protocol-hijacked-body': '{protocols} nu este asociat cu Motrix Next',
+  'protocol-hijacked-dialog-content': 'S-a detectat că protocolul {protocols} nu este asociat cu Motrix Next, iar linkurile aferente nu vor putea deschide automat programul.\\n\\nAcest lucru este cauzat de obicei de o instalare inițială, o actualizare de versiune sau un alt instrument de descărcare care a preluat asocierea. Puteți reactiva asocierea protocolului corespunzător în Setări → Setări de bază.',
   'dismiss': 'Am înțeles',
 }

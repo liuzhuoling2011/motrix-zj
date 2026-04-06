@@ -82,8 +82,8 @@ export default {
   'migration-success': 'Benutzereinstellungsstruktur auf {version} aktualisiert',
   'migration-incomplete': 'Benutzereinstellungsstruktur konnte nicht vollständig auf {version} aktualisiert werden',
   'db-upgraded': 'Datenbankstruktur auf {version} aktualisiert',
-  'protocol-hijacked-title': 'Standardprogramm geändert',
-  'protocol-hijacked-body': '{protocols} wird nicht mehr von Motrix Next geöffnet',
-  'protocol-hijacked-dialog-content': 'Das Standardprogramm für {protocols} wurde von einer anderen Anwendung geändert. Motrix Next wird beim Klicken auf diese Links nicht mehr automatisch geöffnet.\n\nDer entsprechende Schalter wurde automatisch deaktiviert. Sie können ihn in den Einstellungen erneut aktivieren.',
+  'protocol-hijacked-title': 'Linkverknüpfung muss bestätigt werden',
+  'protocol-hijacked-body': '{protocols} ist nicht mit Motrix Next verknüpft',
+  'protocol-hijacked-dialog-content': 'Es wurde erkannt, dass das Protokoll {protocols} nicht mit Motrix Next verknüpft ist. Zugehörige Links können das Programm nicht automatisch öffnen.\\n\\nDies geschieht normalerweise durch eine Erstinstallation, ein Versionsupdate oder ein anderes Download-Tool, das die Verknüpfung übernommen hat. Sie können die entsprechende Protokollverknüpfung unter Einstellungen → Grundeinstellungen erneut aktivieren.',
   'dismiss': 'Verstanden',
 }

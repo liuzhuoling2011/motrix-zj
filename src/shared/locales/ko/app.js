@@ -82,8 +82,8 @@ export default {
   'migration-success': '사용자 설정 구조가 {version}으로 업그레이드되었습니다',
   'migration-incomplete': '사용자 설정 구조를 {version}으로 완전히 업그레이드할 수 없습니다',
   'db-upgraded': '데이터베이스 구조가 {version}으로 업그레이드되었습니다',
-  'protocol-hijacked-title': '기본 프로그램이 변경되었습니다',
-  'protocol-hijacked-body': '{protocols}이(가) 더 이상 Motrix Next에서 열리지 않습니다',
-  'protocol-hijacked-dialog-content': '{protocols}의 기본 프로그램이 다른 애플리케이션에 의해 변경되었습니다. 이 링크를 클릭해도 Motrix Next가 자동으로 열리지 않습니다.\n\n해당 스위치가 자동으로 꺼졌습니다. 설정에서 다시 활성화할 수 있습니다.',
+  'protocol-hijacked-title': '링크 연결 확인이 필요합니다',
+  'protocol-hijacked-body': '{protocols}이(가) Motrix Next에 연결되어 있지 않습니다',
+  'protocol-hijacked-dialog-content': '{protocols} 프로토콜이 현재 Motrix Next에 연결되어 있지 않습니다. 관련 링크를 클릭해도 이 애플리케이션이 자동으로 열리지 않습니다.\\n\\n이는 일반적으로 처음 설치, 버전 업데이트 또는 다른 다운로드 도구가 연결을 가로챈 경우에 발생합니다. 설정 → 기본 설정에서 해당 프로토콜 연결을 다시 활성화할 수 있습니다.',
   'dismiss': '확인',
 }

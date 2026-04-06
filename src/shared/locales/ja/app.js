@@ -82,8 +82,8 @@ export default {
   'migration-success': 'ユーザー設定構造が {version} にアップグレードされました',
   'migration-incomplete': 'ユーザー設定構造を {version} に完全にアップグレードできませんでした',
   'db-upgraded': 'データベース構造が {version} にアップグレードされました',
-  'protocol-hijacked-title': '既定のプログラムが変更されました',
-  'protocol-hijacked-body': '{protocols} は Motrix Next で開かれなくなりました',
-  'protocol-hijacked-dialog-content': '{protocols} の既定のプログラムが別のアプリケーションによって変更されました。これらのリンクをクリックしても Motrix Next は自動で起動しなくなります。\n\n対応するスイッチは自動的にオフになりました。設定で再度有効にできます。',
+  'protocol-hijacked-title': 'リンクの関連付けの確認が必要です',
+  'protocol-hijacked-body': '{protocols} は Motrix Next に関連付けられていません',
+  'protocol-hijacked-dialog-content': '{protocols} プロトコルは現在 Motrix Next に関連付けられていません。関連するリンクをクリックしても、自動的にこのアプリケーションを開くことができません。\\n\\nこれは通常、初回インストール、バージョン更新、または他のダウンロードツールが関連付けを取得したことが原因です。設定 → 基本設定で対応するプロトコルの関連付けを再度有効にできます。',
   'dismiss': '了解',
 }

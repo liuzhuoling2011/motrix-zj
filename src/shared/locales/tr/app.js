@@ -82,8 +82,8 @@ export default {
   'migration-success': 'Kullanıcı ayarları yapısı {version} sürümüne yükseltildi',
   'migration-incomplete': 'Kullanıcı ayarları yapısı {version} sürümüne tam olarak yükseltilemedi',
   'db-upgraded': 'Veritabanı yapısı {version} sürümüne yükseltildi',
-  'protocol-hijacked-title': 'Varsayılan program değiştirildi',
-  'protocol-hijacked-body': '{protocols} artık Motrix Next tarafından açılmıyor',
-  'protocol-hijacked-dialog-content': '{protocols} için varsayılan program başka bir uygulama tarafından değiştirildi. Bu bağlantılara tıklandığında Motrix Next artık otomatik olarak açılmayacak.\n\nİlgili anahtar otomatik olarak kapatıldı. Ayarlar\'dan yeniden etkinleştirebilirsiniz.',
+  'protocol-hijacked-title': 'Bağlantı ilişkilendirmesi onay gerektiriyor',
+  'protocol-hijacked-body': '{protocols} Motrix Next ile ilişkilendirilmemiş',
+  'protocol-hijacked-dialog-content': '{protocols} protokolünün şu anda Motrix Next ile ilişkilendirilmediği tespit edildi ve ilgili bağlantılar programı otomatik olarak açamayacak.\\n\\nBu genellikle ilk kurulum, sürüm güncellemesi veya başka bir indirme aracının ilişkilendirmeyi devralmasından kaynaklanır. İlgili protokol ilişkilendirmesini Ayarlar → Temel Ayarlar bölümünden yeniden etkinleştirebilirsiniz.',
   'dismiss': 'Anlaşıldı',
 }

@@ -210,10 +210,11 @@ watch(
   { immediate: true },
 )
 
-// ── Protocol hijack detection dialog ────────────────────────────────
-// syncProtocolHandlers() in main.ts detects hijacked protocols at startup
-// and posts them to appStore.pendingProtocolHijack.  This watcher picks
-// them up once the Naive UI dialog provider is active (requires component tree).
+// ── Protocol association confirmation dialog ────────────────────────
+// syncProtocolHandlers() in main.ts attempts to self-heal unregistered
+// protocols.  If re-registration fails (external interference), it posts
+// the affected protocols to appStore.pendingProtocolHijack.  This watcher
+// picks them up once the Naive UI dialog provider is active.
 watch(
   () => appStore.pendingProtocolHijack,
   (hijacked) => {

@@ -81,8 +81,8 @@ export default {
   'engine-manual-retry': 'Reintentar manualment',
   'migration-success': 'L\'estructura de configuració de l\'usuari s\'ha actualitzat a {version}',
   'migration-incomplete': 'L\'estructura de configuració de l\'usuari no s\'ha pogut actualitzar completament a {version}',
-  'protocol-hijacked-title': 'El programa predeterminat ha canviat',
-  'protocol-hijacked-body': '{protocols} ja no s\'\'obre amb Motrix Next',
-  'protocol-hijacked-dialog-content': 'El programa predeterminat per a {protocols} ha estat canviat per una altra aplicació. Motrix Next ja no s\'obrirà automàticament en fer clic en aquests enllaços.\n\nEl commutador corresponent s\'ha desactivat automàticament. Podeu reactivar-lo a Configuració.',
+  'protocol-hijacked-title': 'Cal confirmar l\'associació d\'enllaços',
+  'protocol-hijacked-body': '{protocols} no està associat a Motrix Next',
+  'protocol-hijacked-dialog-content': 'S\'ha detectat que el protocol {protocols} no està associat a Motrix Next i els enllaços relacionats no podran obrir el programa automàticament.\\n\\nAixò sol passar per una instal·lació inicial, una actualització de versió o una altra eina de descàrrega que ha pres l\'associació. Podeu reactivar l\'associació del protocol corresponent a Configuració → Configuració bàsica.',
   'dismiss': 'Entesos',
 }

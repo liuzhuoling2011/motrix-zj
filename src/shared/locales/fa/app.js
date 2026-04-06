@@ -82,8 +82,8 @@ export default {
   'migration-success': 'ساختار تنظیمات کاربر به {version} ارتقا یافت',
   'migration-incomplete': 'ساختار تنظیمات کاربر به طور کامل به {version} ارتقا نیافت',
   'db-upgraded': 'ساختار پایگاه داده به {version} ارتقا یافت',
-  'protocol-hijacked-title': 'برنامه پیش‌فرض تغییر کرد',
-  'protocol-hijacked-body': '{protocols} دیگر توسط Motrix Next باز نمی‌شود',
-  'protocol-hijacked-dialog-content': 'برنامه پیش‌فرض برای {protocols} توسط برنامه دیگری تغییر کرده است. این لینک‌ها دیگر به‌طور خودکار Motrix Next را باز نمی‌کنند.\n\nسوئیچ مربوطه به‌طور خودکار غیرفعال شده است. می‌توانید آن را در تنظیمات دوباره فعال کنید.',
+  'protocol-hijacked-title': 'تأیید اتصال پیوند لازم است',
+  'protocol-hijacked-body': '{protocols} به Motrix Next متصل نیست',
+  'protocol-hijacked-dialog-content': 'تشخیص داده شد که پروتکل {protocols} به Motrix Next متصل نیست و لینک‌های مربوطه نمی‌توانند برنامه را به صورت خودکار باز کنند.\\n\\nاین معمولاً به دلیل نصب اولیه، به‌روزرسانی نسخه یا ابزار دانلود دیگری که اتصال را گرفته است رخ می‌دهد. می‌توانید اتصال پروتکل مربوطه را در تنظیمات ← تنظیمات پایه مجدداً فعال کنید.',
   'dismiss': 'متوجه شدم',
 }

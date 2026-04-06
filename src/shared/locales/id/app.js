@@ -82,8 +82,8 @@ export default {
   'migration-success': 'Struktur pengaturan pengguna ditingkatkan ke {version}',
   'migration-incomplete': 'Struktur pengaturan pengguna tidak dapat ditingkatkan sepenuhnya ke {version}',
   'db-upgraded': 'Struktur database ditingkatkan ke {version}',
-  'protocol-hijacked-title': 'Program default berubah',
-  'protocol-hijacked-body': '{protocols} tidak lagi dibuka oleh Motrix Next',
-  'protocol-hijacked-dialog-content': 'Program default untuk {protocols} telah diubah oleh aplikasi lain. Tautan ini tidak lagi akan membuka Motrix Next secara otomatis.\n\nSakelar yang sesuai telah dinonaktifkan secara otomatis. Anda dapat mengaktifkannya kembali di Pengaturan.',
+  'protocol-hijacked-title': 'Asosiasi tautan perlu dikonfirmasi',
+  'protocol-hijacked-body': '{protocols} tidak terkait dengan Motrix Next',
+  'protocol-hijacked-dialog-content': 'Terdeteksi bahwa protokol {protocols} tidak terkait dengan Motrix Next dan tautan terkait tidak dapat membuka program secara otomatis.\\n\\nHal ini biasanya disebabkan oleh instalasi pertama, pembaruan versi, atau alat unduhan lain yang mengambil alih asosiasi. Anda dapat mengaktifkan kembali asosiasi protokol terkait di Pengaturan → Pengaturan Dasar.',
   'dismiss': 'Mengerti',
 }

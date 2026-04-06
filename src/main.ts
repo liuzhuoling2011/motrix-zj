@@ -265,55 +265,63 @@ window.addEventListener('unhandledrejection', (e) => {
   }
 
   /**
-   * Cross-platform protocol handler sync with hijack detection.
+   * Cross-platform protocol handler sync with self-healing.
    *
-   * All three platforms: queries the OS via `is_default_protocol_client`
-   * Rust command (macOS: NSWorkspace, Windows/Linux: tauri-plugin-deep-link).
+   * For each enabled protocol, checks if this app is the OS-level default.
+   * If not (e.g. after OTA upgrade, fresh install, or registry loss):
+   *   1. Attempts to silently re-register the protocol handler
+   *   2. Re-checks — if still not default, another app may have taken over
+   *   3. Only then notifies the user and shows a dialog
    *
-   * If an enabled protocol has been taken over by another app:
-   *  1. Sends an OS-level notification (visible even if window is hidden)
-   *  2. Updates config to disable the hijacked protocol toggles
-   *  3. Signals appStore.pendingProtocolHijack for the UI dialog
-   *
-   * If an enabled protocol is not the default AND was not hijacked
-   * (e.g. first launch), attempts to register silently.
+   * NEVER auto-disables config toggles — the user decides in Settings.
+   * Follows the same idempotent pattern as syncAutostart().
    */
   async function syncProtocolHandlers(config: typeof preferenceStore.config): Promise<void> {
     try {
       const { invoke } = await import('@tauri-apps/api/core')
-      const hijacked: string[] = []
+      const unresolved: string[] = []
 
       for (const [protocol, enabled] of Object.entries(config.protocols)) {
         if (!enabled) continue
         try {
           const isDefault = await invoke<boolean>('is_default_protocol_client', { protocol })
-          if (!isDefault) {
-            hijacked.push(protocol)
+          if (isDefault) continue
+
+          // Not registered — attempt self-healing (handles OTA, fresh install, ProgID loss)
+          logger.info('ProtocolSync', `${protocol} not registered, attempting re-registration`)
+          try {
+            await invoke('set_default_protocol_client', { protocol })
+          } catch (regErr) {
+            logger.warn('ProtocolSync', `${protocol} re-registration failed: ${(regErr as Error).message}`)
+            unresolved.push(protocol)
+            continue
+          }
+
+          // Re-check after registration — if still not default, external interference
+          const isDefaultNow = await invoke<boolean>('is_default_protocol_client', { protocol })
+          if (isDefaultNow) {
+            logger.info('ProtocolSync', `${protocol} re-registered successfully`)
+          } else {
+            logger.warn('ProtocolSync', `${protocol} still not default after re-registration`)
+            unresolved.push(protocol)
           }
         } catch (e) {
-          // Per-protocol errors must not block other protocols
           logger.debug('ProtocolSync', `${protocol}: ${(e as Error).message}`)
         }
       }
 
-      if (hijacked.length === 0) return
+      if (unresolved.length === 0) return
 
-      // 1. OS-level notification
+      // 1. OS-level notification (visible even if window is hidden)
       const { notifyOs } = await import('@/composables/useOsNotification')
       await notifyOs(
         i18n.global.t('app.protocol-hijacked-title'),
-        i18n.global.t('app.protocol-hijacked-body', { protocols: hijacked.join(', ') }),
+        i18n.global.t('app.protocol-hijacked-body', { protocols: unresolved.join(', ') }),
       )
 
-      // 2. Update config — disable hijacked protocol toggles
-      const updatedProtocols = { ...config.protocols }
-      for (const p of hijacked) {
-        updatedProtocols[p as keyof typeof updatedProtocols] = false
-      }
-      await preferenceStore.updateAndSave({ protocols: updatedProtocols })
-
-      // 3. Signal UI to show dialog (consumed by MainLayout/useAppEvents)
-      appStore.pendingProtocolHijack = hijacked
+      // 2. Signal UI to show dialog (consumed by MainLayout/useAppEvents)
+      //    Does NOT modify config — user keeps control of their toggles.
+      appStore.pendingProtocolHijack = unresolved
     } catch (e) {
       logger.debug('ProtocolSync', e)
     }

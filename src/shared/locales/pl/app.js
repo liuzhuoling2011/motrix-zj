@@ -82,8 +82,8 @@ export default {
   'migration-success': 'Struktura ustawień użytkownika zaktualizowana do {version}',
   'migration-incomplete': 'Struktura ustawień użytkownika nie mogła zostać w pełni zaktualizowana do {version}',
   'db-upgraded': 'Struktura bazy danych zaktualizowana do {version}',
-  'protocol-hijacked-title': 'Domyślny program został zmieniony',
-  'protocol-hijacked-body': '{protocols} nie jest już otwierany przez Motrix Next',
-  'protocol-hijacked-dialog-content': 'Domyślny program dla {protocols} został zmieniony przez inną aplikację. Te linki nie będą już automatycznie otwierać Motrix Next.\n\nOdpowiedni przełącznik został automatycznie wyłączony. Możesz go ponownie włączyć w Ustawieniach.',
+  'protocol-hijacked-title': 'Powiązanie linków wymaga potwierdzenia',
+  'protocol-hijacked-body': '{protocols} nie jest powiązany z Motrix Next',
+  'protocol-hijacked-dialog-content': 'Wykryto, że protokół {protocols} nie jest powiązany z Motrix Next, a powiązane linki nie będą mogły automatycznie otwierać programu.\\n\\nJest to zwykle spowodowane pierwszą instalacją, aktualizacją wersji lub innym narzędziem do pobierania, które przejęło powiązanie. Możesz ponownie włączyć odpowiednie powiązanie protokołu w Ustawienia → Ustawienia podstawowe.',
   'dismiss': 'Rozumiem',
 }

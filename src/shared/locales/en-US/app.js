@@ -82,8 +82,8 @@ export default {
   'migration-success': 'User settings schema upgraded to {version}',
   'migration-incomplete': 'User settings schema could not be fully upgraded to {version}',
   'db-upgraded': 'Database schema upgraded to {version}',
-  'protocol-hijacked-title': 'Default program changed',
-  'protocol-hijacked-body': '{protocols} is no longer opened by Motrix Next',
-  'protocol-hijacked-dialog-content': 'The default program for {protocols} has been changed by another application. These links will no longer automatically open Motrix Next.\n\nThe corresponding toggle has been turned off. You can re-enable it in Settings.',
+  'protocol-hijacked-title': 'Link association needs confirmation',
+  'protocol-hijacked-body': '{protocols} is not associated with Motrix Next',
+  'protocol-hijacked-dialog-content': 'The {protocols} protocol is not currently associated with Motrix Next. Clicking related links will not automatically open this application.\\n\\nThis is usually caused by a fresh installation, a version update, or another download tool taking over the association. You can re-enable the corresponding protocol association in Settings → Basic Settings.',
   'dismiss': 'Got it',
 }

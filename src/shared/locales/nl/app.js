@@ -82,8 +82,8 @@ export default {
   'migration-success': 'Gebruikersinstellingenstructuur bijgewerkt naar {version}',
   'migration-incomplete': 'Gebruikersinstellingenstructuur kon niet volledig worden bijgewerkt naar {version}',
   'db-upgraded': 'Databasestructuur bijgewerkt naar {version}',
-  'protocol-hijacked-title': 'Standaardprogramma gewijzigd',
-  'protocol-hijacked-body': '{protocols} wordt niet meer geopend door Motrix Next',
-  'protocol-hijacked-dialog-content': 'Het standaardprogramma voor {protocols} is gewijzigd door een andere applicatie. Deze links openen niet langer automatisch Motrix Next.\n\nDe bijbehorende schakelaar is automatisch uitgeschakeld. U kunt deze opnieuw inschakelen in Instellingen.',
+  'protocol-hijacked-title': 'Linkkoppeling moet worden bevestigd',
+  'protocol-hijacked-body': '{protocols} is niet gekoppeld aan Motrix Next',
+  'protocol-hijacked-dialog-content': 'Er is gedetecteerd dat het protocol {protocols} niet is gekoppeld aan Motrix Next en gerelateerde links het programma niet automatisch kunnen openen.\\n\\nDit wordt meestal veroorzaakt door een eerste installatie, een versie-update of een andere downloadtool die de koppeling heeft overgenomen. U kunt de bijbehorende protocolkoppeling opnieuw inschakelen in Instellingen → Basisinstellingen.',
   'dismiss': 'Begrepen',
 }

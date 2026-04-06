@@ -82,8 +82,8 @@ export default {
   'migration-success': 'Estrutura das configurações do usuário atualizada para {version}',
   'migration-incomplete': 'A estrutura das configurações do usuário não pôde ser totalmente atualizada para {version}',
   'db-upgraded': 'Estrutura do banco de dados atualizada para {version}',
-  'protocol-hijacked-title': 'Programa padrão alterado',
-  'protocol-hijacked-body': '{protocols} não é mais aberto pelo Motrix Next',
-  'protocol-hijacked-dialog-content': 'O programa padrão para {protocols} foi alterado por outro aplicativo. Esses links não abrirão mais o Motrix Next automaticamente.\n\nO interruptor correspondente foi desativado automaticamente. Você pode reativá-lo em Configurações.',
+  'protocol-hijacked-title': 'A associação de links precisa de confirmação',
+  'protocol-hijacked-body': '{protocols} não está associado ao Motrix Next',
+  'protocol-hijacked-dialog-content': 'Foi detectado que o protocolo {protocols} não está associado ao Motrix Next e os links relacionados não poderão abrir o programa automaticamente.\\n\\nIsso geralmente é causado por uma primeira instalação, uma atualização de versão ou outra ferramenta de download que assumiu a associação. Você pode reativar a associação do protocolo correspondente em Configurações → Configurações básicas.',
   'dismiss': 'Entendi',
 }

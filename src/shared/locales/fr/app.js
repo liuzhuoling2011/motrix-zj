@@ -81,8 +81,8 @@ export default {
   'engine-manual-retry': 'Reessayer manuellement',
   'migration-success': 'Structure des paramètres utilisateur mise à jour vers {version}',
   'migration-incomplete': 'La structure des paramètres utilisateur n\'a pas pu être entièrement mise à jour vers {version}',
-  'protocol-hijacked-title': 'Programme par défaut modifié',
-  'protocol-hijacked-body': '{protocols} n\'est plus ouvert par Motrix Next',
-  'protocol-hijacked-dialog-content': 'Le programme par défaut pour {protocols} a été modifié par une autre application. Ces liens n\'ouvriront plus automatiquement Motrix Next.\n\nLe commutateur correspondant a été désactivé automatiquement. Vous pouvez le réactiver dans les Paramètres.',
+  'protocol-hijacked-title': 'L\'association de liens nécessite une confirmation',
+  'protocol-hijacked-body': '{protocols} n\'est pas associé à Motrix Next',
+  'protocol-hijacked-dialog-content': 'Le protocole {protocols} n\'est actuellement pas associé à Motrix Next. Les liens concernés ne pourront pas ouvrir automatiquement l\'application.\\n\\nCela est généralement dû à une première installation, une mise à jour de version ou un autre outil de téléchargement ayant pris le contrôle de l\'association. Vous pouvez réactiver l\'association du protocole correspondant dans Paramètres → Paramètres de base.',
   'dismiss': 'Compris',
 }

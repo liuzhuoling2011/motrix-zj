@@ -82,8 +82,8 @@ export default {
   'migration-success': 'Brukerinnstillingsstruktur oppgradert til {version}',
   'migration-incomplete': 'Brukerinnstillingsstruktur kunne ikke oppgraderes fullstendig til {version}',
   'db-upgraded': 'Databasestruktur oppgradert til {version}',
-  'protocol-hijacked-title': 'Standardprogrammet ble endret',
-  'protocol-hijacked-body': '{protocols} åpnes ikke lenger av Motrix Next',
-  'protocol-hijacked-dialog-content': 'Standardprogrammet for {protocols} ble endret av en annen applikasjon. Disse lenkene vil ikke lenger automatisk åpne Motrix Next.\n\nDen tilhørende bryteren er slått av automatisk. Du kan aktivere den igjen i Innstillinger.',
+  'protocol-hijacked-title': 'Lenketilknytning må bekreftes',
+  'protocol-hijacked-body': '{protocols} er ikke tilknyttet Motrix Next',
+  'protocol-hijacked-dialog-content': 'Det ble oppdaget at protokollen {protocols} ikke er tilknyttet Motrix Next, og relaterte lenker vil ikke kunne åpne programmet automatisk.\\n\\nDette skyldes vanligvis en førstegangsinstallasjon, en versjonsoppdatering eller et annet nedlastingsverktøy som har overtatt tilknytningen. Du kan aktivere den tilsvarende protokolltilknytningen på nytt i Innstillinger → Grunnleggende innstillinger.',
   'dismiss': 'Forstått',
 }

@@ -82,8 +82,8 @@ export default {
   'migration-success': 'Felhasználói beállítások struktúrája frissítve a(z) {version} verzióra',
   'migration-incomplete': 'A felhasználói beállítások struktúrája nem frissíthető teljesen a(z) {version} verzióra',
   'db-upgraded': 'Adatbázis struktúra frissítve a(z) {version} verzióra',
-  'protocol-hijacked-title': 'Az alapértelmezett program megváltozott',
-  'protocol-hijacked-body': 'A(z) {protocols} linkeket már nem a Motrix Next nyitja meg',
-  'protocol-hijacked-dialog-content': 'A(z) {protocols} alapértelmezett programját egy másik alkalmazás megváltoztatta. Ezek a linkek többé nem nyitják meg automatikusan a Motrix Next-et.\n\nA kapcsoló automatikusan kikapcsolt. A Beállításokban újra engedélyezheti.',
+  'protocol-hijacked-title': 'Hivatkozás-társítás megerősítése szükséges',
+  'protocol-hijacked-body': '{protocols} nincs társítva a Motrix Next-hez',
+  'protocol-hijacked-dialog-content': 'A rendszer észlelte, hogy a(z) {protocols} protokoll nincs társítva a Motrix Next-hez, és a kapcsolódó hivatkozások nem fogják automatikusan megnyitni a programot.\\n\\nEzt általában az első telepítés, verziófrissítés vagy egy másik letöltőeszköz okozza, amely átvette a társítást. A megfelelő protokoll-társítást a Beállítások → Alapbeállítások menüben engedélyezheti újra.',
   'dismiss': 'Értem',
 }
