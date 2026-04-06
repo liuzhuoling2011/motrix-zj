@@ -14,9 +14,14 @@
   ; causing a duplicate installation.
   ;
   ; Fix: unconditionally check HKCU for a previous per-user install.
-  ; If found, strip surrounding quotes from the path and copy it
-  ; into $INSTDIR so the installer overwrites the existing files
-  ; in-place.
+  ; If found:
+  ;   1. Strip surrounding quotes from InstallLocation
+  ;   2. Redirect $INSTDIR + $OUTDIR to the old path
+  ;   3. Delete the stale HKCU uninstall entry (prevents "Apps &
+  ;      Features" from showing two MotrixNext rows)
+  ;   4. Delete the orphaned MANUPRODUCTKEY left by the old
+  ;      MANUFACTURER value ("motrix" → "AnInsomniacy")
+  ;   5. Remove any Program Files residual from prior buggy installs
   ;
   ; Registry key: HKCU\Software\Microsoft\Windows\CurrentVersion
   ;                 \Uninstall\MotrixNext
@@ -25,36 +30,72 @@
   ; (e.g., "C:\Users\xxx\AppData\Local\MotrixNext"), so we must
   ; strip them before assigning to $INSTDIR.
   ;
-  ; This block is safe for fresh installs (key absent → no-op) and
-  ; for users who already migrated (HKLM entry found by the "both"
-  ; template before this hook even runs for file-copy decisions).
+  ; Safety: this hook runs inside `Section Install`, BEFORE any
+  ; File commands or registry writes.  The template's subsequent
+  ; `WriteRegStr SHCTX UNINSTKEY ...` will create the definitive
+  ; new entry — nothing between this hook and that write depends
+  ; on the HKCU data we delete here.  See installer.nsi lines
+  ; 619–700 for the authoritative execution order.
 
   ReadRegStr $R0 HKCU \
     "Software\Microsoft\Windows\CurrentVersion\Uninstall\MotrixNext" \
     "InstallLocation"
   StrCmp $R0 "" _motrix_skip_migration 0
-    ; Strip surrounding quotes: "C:\path" → C:\path
+
+    ; ── 1. Strip surrounding quotes ──────────────────────────────
+    ; "C:\path" → C:\path
     StrCpy $R1 $R0 1        ; first character
-    StrCmp $R1 '"' 0 +2     ; if it starts with a quote
+    StrCmp $R1 '"' 0 +2     ; starts with quote?
       StrCpy $R0 $R0 "" 1   ; remove first char
     StrLen $R1 $R0
     IntOp $R1 $R1 - 1
     StrCpy $R2 $R0 1 $R1    ; last character
-    StrCmp $R2 '"' 0 +2     ; if it ends with a quote
+    StrCmp $R2 '"' 0 +2     ; ends with quote?
       StrCpy $R0 $R0 $R1    ; remove last char
+
+    ; ── 2. Redirect install directory ────────────────────────────
     StrCpy $INSTDIR $R0
-    ; Sync $OUTDIR — Tauri's template calls `SetOutPath $INSTDIR`
-    ; BEFORE this hook, so $OUTDIR still points to the old path.
-    ; We must re-issue SetOutPath to redirect all subsequent File
-    ; commands to the migrated directory.
+    ; Tauri's template calls `SetOutPath $INSTDIR` BEFORE this hook,
+    ; so $OUTDIR still points to the template's default.  Re-issue
+    ; SetOutPath to sync $OUTDIR with the corrected $INSTDIR.
     SetOutPath $INSTDIR
+
+    ; ── 3. Delete stale HKCU uninstall entry ─────────────────────
+    ; This is the root cause of duplicate "Apps & Features" entries.
+    ; The Install section will write a fresh entry to SHCTX (HKLM
+    ; for "all users", HKCU for "current user") at the end.
+    DeleteRegKey HKCU \
+      "Software\Microsoft\Windows\CurrentVersion\Uninstall\MotrixNext"
+
+    ; ── 4. Delete orphaned MANUPRODUCTKEY ────────────────────────
+    ; Versions that shipped with publisher unset derived MANUFACTURER
+    ; from the identifier's second segment ("motrix"), writing the
+    ; install-location cache to HKCU\Software\motrix\MotrixNext.
+    ; Now that publisher = "AnInsomniacy", MANUPRODUCTKEY changed to
+    ; HKCU\Software\AnInsomniacy\MotrixNext.  Clean up the old one
+    ; so RestorePreviousInstallLocation does not read stale data.
+    DeleteRegKey HKCU "Software\motrix\MotrixNext"
+    DeleteRegKey /ifempty HKCU "Software\motrix"
+
+    ; ── 5. Remove Program Files residual ─────────────────────────
+    ; A prior beta with a SetOutPath bug left partial files in the
+    ; per-machine default directory while the real install lived in
+    ; AppData\Local.  Clean up only if $INSTDIR is NOT Program Files
+    ; (i.e., the migration target differs from the default location).
+    StrCpy $R3 $INSTDIR 16   ; first 16 chars of $INSTDIR
+    StrCmp $R3 "C:\Program Fi" _motrix_skip_pf_cleanup 0
+      ; $INSTDIR is NOT under Program Files — safe to remove residual
+      IfFileExists "$PROGRAMFILES64\MotrixNext\*.*" 0 _motrix_skip_pf_cleanup
+        RMDir /r "$PROGRAMFILES64\MotrixNext"
+    _motrix_skip_pf_cleanup:
+
   _motrix_skip_migration:
 
   ; Defense-in-depth: kill any lingering sidecar before file copy.
-  ; Tauri bundles externalBin as motrixnext-aria2c.exe (renamed from aria2c).
-  ; aria2 is single-process — no child processes to worry about.
-  ; On Windows, a running .exe is locked by the OS and cannot be overwritten.
-  ; taskkill exits with code 128 if the process does not exist — harmless.
+  ; Tauri bundles externalBin as motrixnext-aria2c.exe (renamed from
+  ; aria2c).  aria2 is single-process — no child processes to worry
+  ; about.  On Windows, a running .exe is locked by the OS and cannot
+  ; be overwritten.  taskkill exits 128 if the process is absent.
   nsExec::Exec 'taskkill /F /IM motrixnext-aria2c.exe'
 !macroend
 
