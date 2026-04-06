@@ -84,6 +84,6 @@ export default {
   'db-upgraded': 'Datenbankstruktur auf {version} aktualisiert',
   'protocol-hijacked-title': 'Linkverknüpfung muss bestätigt werden',
   'protocol-hijacked-body': '{protocols} ist nicht mit Motrix Next verknüpft',
-  'protocol-hijacked-dialog-content': 'Es wurde erkannt, dass das Protokoll {protocols} nicht mit Motrix Next verknüpft ist. Zugehörige Links können das Programm nicht automatisch öffnen.\\n\\nDies geschieht normalerweise durch eine Erstinstallation, ein Versionsupdate oder ein anderes Download-Tool, das die Verknüpfung übernommen hat. Sie können die entsprechende Protokollverknüpfung unter Einstellungen → Grundeinstellungen erneut aktivieren.',
+  'protocol-hijacked-dialog-content': 'Es wurde erkannt, dass das Protokoll {protocols} nicht mit Motrix Next verknüpft ist. Zugehörige Links können das Programm nicht automatisch öffnen.\nDies geschieht normalerweise durch eine Erstinstallation, ein Versionsupdate oder ein anderes Download-Tool, das die Verknüpfung übernommen hat. Sie können die entsprechende Protokollverknüpfung unter Einstellungen → Grundeinstellungen erneut aktivieren.',
   'dismiss': 'Verstanden',
 }

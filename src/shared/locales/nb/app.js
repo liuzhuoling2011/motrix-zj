@@ -84,6 +84,6 @@ export default {
   'db-upgraded': 'Databasestruktur oppgradert til {version}',
   'protocol-hijacked-title': 'Lenketilknytning må bekreftes',
   'protocol-hijacked-body': '{protocols} er ikke tilknyttet Motrix Next',
-  'protocol-hijacked-dialog-content': 'Det ble oppdaget at protokollen {protocols} ikke er tilknyttet Motrix Next, og relaterte lenker vil ikke kunne åpne programmet automatisk.\\n\\nDette skyldes vanligvis en førstegangsinstallasjon, en versjonsoppdatering eller et annet nedlastingsverktøy som har overtatt tilknytningen. Du kan aktivere den tilsvarende protokolltilknytningen på nytt i Innstillinger → Grunnleggende innstillinger.',
+  'protocol-hijacked-dialog-content': 'Det ble oppdaget at protokollen {protocols} ikke er tilknyttet Motrix Next, og relaterte lenker vil ikke kunne åpne programmet automatisk.\nDette skyldes vanligvis en førstegangsinstallasjon, en versjonsoppdatering eller et annet nedlastingsverktøy som har overtatt tilknytningen. Du kan aktivere den tilsvarende protokolltilknytningen på nytt i Innstillinger → Grunnleggende innstillinger.',
   'dismiss': 'Forstått',
 }

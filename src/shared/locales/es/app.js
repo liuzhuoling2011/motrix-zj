@@ -84,6 +84,6 @@ export default {
   'db-upgraded': 'Estructura de base de datos actualizada a {version}',
   'protocol-hijacked-title': 'La asociación de enlaces necesita confirmación',
   'protocol-hijacked-body': '{protocols} no está asociado con Motrix Next',
-  'protocol-hijacked-dialog-content': 'Se detectó que el protocolo {protocols} no está asociado con Motrix Next y los enlaces relacionados no podrán abrir el programa automáticamente.\\n\\nEsto suele ocurrir por una instalación inicial, una actualización de versión u otra herramienta de descarga que tomó la asociación. Puede reactivar la asociación del protocolo correspondiente en Configuración → Configuración básica.',
+  'protocol-hijacked-dialog-content': 'Se detectó que el protocolo {protocols} no está asociado con Motrix Next y los enlaces relacionados no podrán abrir el programa automáticamente.\nEsto suele ocurrir por una instalación inicial, una actualización de versión u otra herramienta de descarga que tomó la asociación. Puede reactivar la asociación del protocolo correspondiente en Configuración → Configuración básica.',
   'dismiss': 'Entendido',
 }

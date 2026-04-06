@@ -84,6 +84,6 @@ export default {
   'db-upgraded': 'Struktur database ditingkatkan ke {version}',
   'protocol-hijacked-title': 'Asosiasi tautan perlu dikonfirmasi',
   'protocol-hijacked-body': '{protocols} tidak terkait dengan Motrix Next',
-  'protocol-hijacked-dialog-content': 'Terdeteksi bahwa protokol {protocols} tidak terkait dengan Motrix Next dan tautan terkait tidak dapat membuka program secara otomatis.\\n\\nHal ini biasanya disebabkan oleh instalasi pertama, pembaruan versi, atau alat unduhan lain yang mengambil alih asosiasi. Anda dapat mengaktifkan kembali asosiasi protokol terkait di Pengaturan → Pengaturan Dasar.',
+  'protocol-hijacked-dialog-content': 'Terdeteksi bahwa protokol {protocols} tidak terkait dengan Motrix Next dan tautan terkait tidak dapat membuka program secara otomatis.\nHal ini biasanya disebabkan oleh instalasi pertama, pembaruan versi, atau alat unduhan lain yang mengambil alih asosiasi. Anda dapat mengaktifkan kembali asosiasi protokol terkait di Pengaturan → Pengaturan Dasar.',
   'dismiss': 'Mengerti',
 }

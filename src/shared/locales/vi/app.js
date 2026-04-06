@@ -84,6 +84,6 @@ export default {
   'db-upgraded': 'Cấu trúc cơ sở dữ liệu đã nâng cấp lên {version}',
   'protocol-hijacked-title': 'Liên kết giao thức cần được xác nhận',
   'protocol-hijacked-body': '{protocols} chưa được liên kết với Motrix Next',
-  'protocol-hijacked-dialog-content': 'Phát hiện giao thức {protocols} chưa được liên kết với Motrix Next, các liên kết liên quan sẽ không thể tự động mở ứng dụng.\\n\\nĐiều này thường do cài đặt lần đầu, cập nhật phiên bản hoặc công cụ tải xuống khác chiếm quyền liên kết. Bạn có thể bật lại liên kết giao thức tương ứng trong Cài đặt → Cài đặt cơ bản.',
+  'protocol-hijacked-dialog-content': 'Phát hiện giao thức {protocols} chưa được liên kết với Motrix Next, các liên kết liên quan sẽ không thể tự động mở ứng dụng.\nĐiều này thường do cài đặt lần đầu, cập nhật phiên bản hoặc công cụ tải xuống khác chiếm quyền liên kết. Bạn có thể bật lại liên kết giao thức tương ứng trong Cài đặt → Cài đặt cơ bản.',
   'dismiss': 'Đã hiểu',
 }

@@ -84,6 +84,6 @@ export default {
   'db-upgraded': 'Structura bazei de date actualizată la {version}',
   'protocol-hijacked-title': 'Asocierea linkurilor necesită confirmare',
   'protocol-hijacked-body': '{protocols} nu este asociat cu Motrix Next',
-  'protocol-hijacked-dialog-content': 'S-a detectat că protocolul {protocols} nu este asociat cu Motrix Next, iar linkurile aferente nu vor putea deschide automat programul.\\n\\nAcest lucru este cauzat de obicei de o instalare inițială, o actualizare de versiune sau un alt instrument de descărcare care a preluat asocierea. Puteți reactiva asocierea protocolului corespunzător în Setări → Setări de bază.',
+  'protocol-hijacked-dialog-content': 'S-a detectat că protocolul {protocols} nu este asociat cu Motrix Next, iar linkurile aferente nu vor putea deschide automat programul.\nAcest lucru este cauzat de obicei de o instalare inițială, o actualizare de versiune sau un alt instrument de descărcare care a preluat asocierea. Puteți reactiva asocierea protocolului corespunzător în Setări → Setări de bază.',
   'dismiss': 'Am înțeles',
 }

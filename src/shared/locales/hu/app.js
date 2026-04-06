@@ -84,6 +84,6 @@ export default {
   'db-upgraded': 'Adatbázis struktúra frissítve a(z) {version} verzióra',
   'protocol-hijacked-title': 'Hivatkozás-társítás megerősítése szükséges',
   'protocol-hijacked-body': '{protocols} nincs társítva a Motrix Next-hez',
-  'protocol-hijacked-dialog-content': 'A rendszer észlelte, hogy a(z) {protocols} protokoll nincs társítva a Motrix Next-hez, és a kapcsolódó hivatkozások nem fogják automatikusan megnyitni a programot.\\n\\nEzt általában az első telepítés, verziófrissítés vagy egy másik letöltőeszköz okozza, amely átvette a társítást. A megfelelő protokoll-társítást a Beállítások → Alapbeállítások menüben engedélyezheti újra.',
+  'protocol-hijacked-dialog-content': 'A rendszer észlelte, hogy a(z) {protocols} protokoll nincs társítva a Motrix Next-hez, és a kapcsolódó hivatkozások nem fogják automatikusan megnyitni a programot.\nEzt általában az első telepítés, verziófrissítés vagy egy másik letöltőeszköz okozza, amely átvette a társítást. A megfelelő protokoll-társítást a Beállítások → Alapbeállítások menüben engedélyezheti újra.',
   'dismiss': 'Értem',
 }

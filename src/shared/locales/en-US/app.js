@@ -84,6 +84,6 @@ export default {
   'db-upgraded': 'Database schema upgraded to {version}',
   'protocol-hijacked-title': 'Link association needs confirmation',
   'protocol-hijacked-body': '{protocols} is not associated with Motrix Next',
-  'protocol-hijacked-dialog-content': 'The {protocols} protocol is not currently associated with Motrix Next. Clicking related links will not automatically open this application.\\n\\nThis is usually caused by a fresh installation, a version update, or another download tool taking over the association. You can re-enable the corresponding protocol association in Settings → Basic Settings.',
+  'protocol-hijacked-dialog-content': 'The {protocols} protocol is not currently associated with Motrix Next. Clicking related links will not automatically open this application.\nThis is usually caused by a fresh installation, a version update, or another download tool taking over the association. You can re-enable the corresponding protocol association in Settings → Basic Settings.',
   'dismiss': 'Got it',
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** @fileoverview Main application layout with sidebar, subnav, and IPC event handling. */
-import { computed, ref, nextTick, watch } from 'vue'
+import { computed, h, ref, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -211,23 +211,28 @@ watch(
 )
 
 // ── Protocol association confirmation dialog ────────────────────────
-// syncProtocolHandlers() in main.ts attempts to self-heal unregistered
-// protocols.  If re-registration fails (external interference), it posts
-// the affected protocols to appStore.pendingProtocolHijack.  This watcher
+// syncProtocolHandlers() in main.ts detects unregistered protocols at
+// startup and posts them to appStore.pendingProtocolHijack.  This watcher
 // picks them up once the Naive UI dialog provider is active.
 watch(
   () => appStore.pendingProtocolHijack,
   (hijacked) => {
     if (!hijacked || hijacked.length === 0) return
     const protocolList = hijacked.join(', ')
+    const rawContent = t('app.protocol-hijacked-dialog-content', { protocols: protocolList })
     navDialog.warning({
       title: t('app.protocol-hijacked-title'),
-      content: t('app.protocol-hijacked-dialog-content', { protocols: protocolList }),
+      content: () =>
+        rawContent.split('\n').reduce<(string | ReturnType<typeof h>)[]>((acc, line, i) => {
+          if (i > 0) acc.push(h('br'))
+          if (line) acc.push(line)
+          return acc
+        }, []),
       positiveText: t('preferences.open-settings'),
       negativeText: t('app.dismiss'),
       onPositiveClick: () => {
         if (!route.path.startsWith('/preference')) {
-          router.push('/preference')
+          router.push('/preference/basic')
         }
       },
     })

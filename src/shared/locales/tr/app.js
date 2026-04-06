@@ -84,6 +84,6 @@ export default {
   'db-upgraded': 'Veritabanı yapısı {version} sürümüne yükseltildi',
   'protocol-hijacked-title': 'Bağlantı ilişkilendirmesi onay gerektiriyor',
   'protocol-hijacked-body': '{protocols} Motrix Next ile ilişkilendirilmemiş',
-  'protocol-hijacked-dialog-content': '{protocols} protokolünün şu anda Motrix Next ile ilişkilendirilmediği tespit edildi ve ilgili bağlantılar programı otomatik olarak açamayacak.\\n\\nBu genellikle ilk kurulum, sürüm güncellemesi veya başka bir indirme aracının ilişkilendirmeyi devralmasından kaynaklanır. İlgili protokol ilişkilendirmesini Ayarlar → Temel Ayarlar bölümünden yeniden etkinleştirebilirsiniz.',
+  'protocol-hijacked-dialog-content': '{protocols} protokolünün şu anda Motrix Next ile ilişkilendirilmediği tespit edildi ve ilgili bağlantılar programı otomatik olarak açamayacak.\nBu genellikle ilk kurulum, sürüm güncellemesi veya başka bir indirme aracının ilişkilendirmeyi devralmasından kaynaklanır. İlgili protokol ilişkilendirmesini Ayarlar → Temel Ayarlar bölümünden yeniden etkinleştirebilirsiniz.',
   'dismiss': 'Anlaşıldı',
 }
