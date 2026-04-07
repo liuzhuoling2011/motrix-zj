@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT kết nối nút tối đa',
   'new-task-show-downloading': 'Hiện trang tải xuống sau khi thêm tác vụ',
   'no-confirm-before-delete-task': 'Không xác nhận trước khi xóa',
+  'delete-files-when-skip-confirm': 'Xóa luôn tệp khi bỏ qua xác nhận',
   'delete-torrent-after-complete': 'Xóa tệp torrent sau khi tải xuống hoàn tất',
   'auto-delete-stale-records': 'Tự động xóa bản ghi khi tệp cục bộ bị thiếu',
   'clear-completed-on-exit': 'Xóa bản ghi đã hoàn thành khi thoát',

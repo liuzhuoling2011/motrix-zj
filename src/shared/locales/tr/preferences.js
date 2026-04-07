@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT maks. bağlı düğüm',
   'new-task-show-downloading': 'Görev ekledikten sonra indirmeleri göster',
   'no-confirm-before-delete-task': 'Silmeden önce onay isteme',
+  'delete-files-when-skip-confirm': 'Onay atlanırken dosyaları da sil',
   'delete-torrent-after-complete': 'İndirme tamamlandıktan sonra torrent dosyasını sil',
   'auto-delete-stale-records': 'Yerel dosyalar eksik olduğunda kayıtları otomatik sil',
   'clear-completed-on-exit': 'Çıkışta tamamlanan kayıtları temizle',

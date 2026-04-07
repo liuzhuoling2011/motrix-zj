@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT max. csatlakozott csomópontok',
   'new-task-show-downloading': 'Letöltések megjelenítése feladat hozzáadása után',
   'no-confirm-before-delete-task': 'Ne kérjen megerősítést törléskor',
+  'delete-files-when-skip-confirm': 'Fájlok törlése a megerősítés kihagyásakor',
   'delete-torrent-after-complete': 'Torrent fájl törlése a letöltés befejezése után',
   'auto-delete-stale-records': 'Bejegyzések automatikus törlése, ha a helyi fájlok hiányoznak',
   'clear-completed-on-exit': 'Befejezett bejegyzések törlése kilépéskor',

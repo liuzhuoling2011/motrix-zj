@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT 最大連線節點數',
   'new-task-show-downloading': '新增任務後自動跳轉到下載頁',
   'no-confirm-before-delete-task': '刪除任務時不再確認',
+  'delete-files-when-skip-confirm': '跳過確認時同時刪除檔案',
   'delete-torrent-after-complete': '下載完成後刪除種子檔案',
   'auto-delete-stale-records': '本地檔案遺失時自動刪除記錄',
   'clear-completed-on-exit': '退出時清空已完成的下載記錄',

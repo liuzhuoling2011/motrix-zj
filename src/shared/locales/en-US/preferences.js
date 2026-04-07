@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT max peer connections',
   'new-task-show-downloading': 'Show downloading page after adding task',
   'no-confirm-before-delete-task': 'Skip confirmation when deleting tasks',
+  'delete-files-when-skip-confirm': 'Also delete files when skipping confirmation',
   'delete-torrent-after-complete': 'Delete .torrent file after download completes',
   'auto-delete-stale-records': 'Auto-delete records when local files are missing',
   'clear-completed-on-exit': 'Clear completed records on exit',

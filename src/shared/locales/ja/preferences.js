@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT 最大ピア接続数',
   'new-task-show-downloading': 'タスク追加後にダウンロード画面を表示',
   'no-confirm-before-delete-task': 'タスク削除時に確認しない',
+  'delete-files-when-skip-confirm': '確認スキップ時にファイルも削除する',
   'delete-torrent-after-complete': 'ダウンロード完了後にトレントファイルを削除',
   'auto-delete-stale-records': 'ローカルファイルが見つからない場合、レコードを自動的に削除',
   'clear-completed-on-exit': '終了時に完了した記録をクリア',

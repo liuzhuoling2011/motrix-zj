@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT koneksi node maksimal',
   'new-task-show-downloading': 'Tampilkan unduhan setelah menambahkan tugas',
   'no-confirm-before-delete-task': 'Jangan konfirmasi sebelum menghapus',
+  'delete-files-when-skip-confirm': 'Hapus file juga saat melewati konfirmasi',
   'delete-torrent-after-complete': 'Hapus file torrent setelah unduhan selesai',
   'auto-delete-stale-records': 'Hapus catatan secara otomatis saat file lokal hilang',
   'clear-completed-on-exit': 'Hapus catatan selesai saat keluar',

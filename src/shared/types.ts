@@ -165,6 +165,7 @@ export interface AppConfig {
 
   newTaskShowDownloading: boolean
   noConfirmBeforeDeleteTask: boolean
+  deleteFilesWhenSkipConfirm: boolean
   resumeAllWhenAppLaunched: boolean
   taskNotification: boolean
   showProgressBar: boolean

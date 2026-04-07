@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT conexões máx. de nós',
   'new-task-show-downloading': 'Mostrar downloads após adicionar tarefa',
   'no-confirm-before-delete-task': 'Não confirmar ao excluir tarefas',
+  'delete-files-when-skip-confirm': 'Excluir arquivos também ao pular a confirmação',
   'delete-torrent-after-complete': 'Excluir arquivo torrent após conclusão do download',
   'auto-delete-stale-records': 'Excluir registros automaticamente quando arquivos locais estão ausentes',
   'clear-completed-on-exit': 'Limpar registros concluídos ao sair',

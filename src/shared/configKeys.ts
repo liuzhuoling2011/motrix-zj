@@ -10,6 +10,7 @@ const userKeys = [
   'clear-completed-on-exit',
   'color-scheme',
   'delete-torrent-after-complete',
+  'delete-files-when-skip-confirm',
   'enable-upnp',
   'engine-bin-path',
   'favorite-directories',

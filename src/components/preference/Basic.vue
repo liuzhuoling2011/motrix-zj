@@ -838,6 +838,11 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.no-confirm-before-delete-task')">
         <NSwitch v-model:value="form.noConfirmBeforeDeleteTask" />
       </NFormItem>
+      <NCollapseTransition :show="form.noConfirmBeforeDeleteTask" class="collapse-indent">
+        <NFormItem :label="t('preferences.delete-files-when-skip-confirm')">
+          <NSwitch v-model:value="form.deleteFilesWhenSkipConfirm" />
+        </NFormItem>
+      </NCollapseTransition>
 
       <NDivider title-placement="left">{{ t('preferences.auto-cleanup') }}</NDivider>
       <NFormItem :label="t('preferences.delete-torrent-after-complete')">

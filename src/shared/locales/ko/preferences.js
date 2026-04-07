@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT 최대 피어 연결 수',
   'new-task-show-downloading': '작업 추가 후 다운로드 화면 표시',
   'no-confirm-before-delete-task': '작업 삭제 시 확인 생략',
+  'delete-files-when-skip-confirm': '확인 생략 시 파일도 함께 삭제',
   'delete-torrent-after-complete': '다운로드 완료 후 토렌트 파일 삭제',
   'auto-delete-stale-records': '로컬 파일이 없을 때 기록 자동 삭제',
   'clear-completed-on-exit': '종료 시 완료된 기록 삭제',

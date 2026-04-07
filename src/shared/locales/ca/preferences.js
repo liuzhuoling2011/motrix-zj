@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT nodes connectats màxims',
   'new-task-show-downloading': 'Mostrar descàrregues després d\'afegir una tasca',
   'no-confirm-before-delete-task': 'No confirmar en eliminar tasques',
+  'delete-files-when-skip-confirm': 'Suprimeix també els fitxers en ometre la confirmació',
   'delete-torrent-after-complete': 'Eliminar el fitxer torrent després de completar la descàrrega',
   'auto-delete-stale-records': 'Eliminar automàticament els registres quan els fitxers locals falten',
   'clear-completed-on-exit': 'Esborra els registres completats en sortir',

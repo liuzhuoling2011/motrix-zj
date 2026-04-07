@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT maks. połączonych węzłów',
   'new-task-show-downloading': 'Pokaż pobieranie po dodaniu zadania',
   'no-confirm-before-delete-task': 'Nie potwierdzaj przed usunięciem',
+  'delete-files-when-skip-confirm': 'Usuń również pliki przy pomijaniu potwierdzenia',
   'delete-torrent-after-complete': 'Usuń plik torrent po zakończeniu pobierania',
   'auto-delete-stale-records': 'Automatycznie usuwaj rekordy, gdy brakuje plików lokalnych',
   'clear-completed-on-exit': 'Wyczyść ukończone rekordy przy zamykaniu',

@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT 最大连接节点数',
   'new-task-show-downloading': '新建任务后自动跳转到下载页',
   'no-confirm-before-delete-task': '删除任务时不再确认',
+  'delete-files-when-skip-confirm': '跳过确认时同时删除文件',
   'delete-torrent-after-complete': '下载完成后删除种子文件',
   'auto-delete-stale-records': '本地文件丢失时自动删除记录',
   'clear-completed-on-exit': '退出时清空已完成的下载记录',

@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT connessioni massime di nodi',
   'new-task-show-downloading': 'Mostra pagina download dopo l\'aggiunta',
   'no-confirm-before-delete-task': 'Non confermare prima dell\'eliminazione',
+  'delete-files-when-skip-confirm': 'Elimina anche i file quando si salta la conferma',
   'delete-torrent-after-complete': 'Elimina il file torrent dopo il completamento del download',
   'auto-delete-stale-records': 'Elimina automaticamente i record quando i file locali sono mancanti',
   'clear-completed-on-exit': 'Cancella i record completati all\'uscita',

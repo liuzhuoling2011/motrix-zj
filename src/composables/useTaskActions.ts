@@ -80,7 +80,13 @@ export function useTaskActions(deps: TaskActionsDeps) {
   function handleDeleteTask(task: Aria2Task) {
     const noConfirm = preferenceConfig()?.noConfirmBeforeDeleteTask
     if (noConfirm) {
-      taskStore.removeTask(task).catch((e: unknown) => logger.error('TaskView', e))
+      const alsoDeleteFiles = preferenceConfig()?.deleteFilesWhenSkipConfirm
+      taskStore
+        .removeTask(task)
+        .then(async () => {
+          if (alsoDeleteFiles) await deleteTaskFiles(task)
+        })
+        .catch((e: unknown) => logger.error('TaskView', e))
       return
     }
     const deleteFiles = ref(false)
@@ -126,13 +132,16 @@ export function useTaskActions(deps: TaskActionsDeps) {
   function handleDeleteRecord(task: Aria2Task) {
     const noConfirm = preferenceConfig()?.noConfirmBeforeDeleteTask
     if (noConfirm) {
+      const alsoDeleteFiles = preferenceConfig()?.deleteFilesWhenSkipConfirm
+      const taskRef = task
       taskStore
         .removeTaskRecord(task)
-        .then(() =>
+        .then(async () => {
+          if (alsoDeleteFiles) await deleteTaskFiles(taskRef)
           message.success(
-            t('task.remove-record-success', { taskName: getTaskDisplayName(task, { defaultName: 'Unknown' }) }),
-          ),
-        )
+            t('task.remove-record-success', { taskName: getTaskDisplayName(taskRef, { defaultName: 'Unknown' }) }),
+          )
+        })
         .catch((e: unknown) => logger.error('TaskView.deleteRecord', e))
       return
     }

@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT الحد الأقصى للعقد المتصلة',
   'new-task-show-downloading': 'إظهار التنزيلات بعد إضافة المهمة',
   'no-confirm-before-delete-task': 'عدم التأكيد قبل الحذف',
+  'delete-files-when-skip-confirm': 'حذف الملفات أيضًا عند تخطي التأكيد',
   'delete-torrent-after-complete': 'حذف ملف التورنت بعد اكتمال التنزيل',
   'auto-delete-stale-records': 'حذف السجلات تلقائيًا عند فقدان الملفات المحلية',
   'clear-completed-on-exit': 'مسح السجلات المكتملة عند الخروج',

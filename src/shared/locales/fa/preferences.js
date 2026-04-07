@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT حداکثر اتصالات گره‌ها',
   'new-task-show-downloading': 'نمایش دانلودها پس از افزودن وظیفه',
   'no-confirm-before-delete-task': 'بدون تأیید قبل از حذف',
+  'delete-files-when-skip-confirm': 'حذف فایل‌ها هنگام رد شدن از تأیید',
   'delete-torrent-after-complete': 'حذف فایل تورنت پس از اتمام دانلود',
   'auto-delete-stale-records': 'حذف خودکار رکوردها هنگام گم شدن فایل‌های محلی',
   'clear-completed-on-exit': 'پاک کردن رکوردهای تکمیل شده هنگام خروج',

@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT макс. свързани възли',
   'new-task-show-downloading': 'Покажи изтеглянията след добавяне на задача',
   'no-confirm-before-delete-task': 'Без потвърждение при изтриване',
+  'delete-files-when-skip-confirm': 'Изтриване на файловете при пропускане на потвърждението',
   'delete-torrent-after-complete': 'Изтриване на торент файла след приключване на изтеглянето',
   'auto-delete-stale-records': 'Автоматично изтриване на записите при липсващи локални файлове',
   'clear-completed-on-exit': 'Изчистване на завършените записи при изход',

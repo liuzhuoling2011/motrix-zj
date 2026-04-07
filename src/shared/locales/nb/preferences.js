@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT maks. tilkoblede noder',
   'new-task-show-downloading': 'Vis nedlastinger etter å ha lagt til oppgave',
   'no-confirm-before-delete-task': 'Ikke bekreft ved sletting',
+  'delete-files-when-skip-confirm': 'Slett også filer når bekreftelse hoppes over',
   'delete-torrent-after-complete': 'Slett torrentfilen etter at nedlastingen er ferdig',
   'auto-delete-stale-records': 'Slett poster automatisk når lokale filer mangler',
   'clear-completed-on-exit': 'Fjern fullførte oppføringer ved avslutning',

@@ -32,6 +32,7 @@ export interface BasicForm {
   taskNotification: boolean
   newTaskShowDownloading: boolean
   noConfirmBeforeDeleteTask: boolean
+  deleteFilesWhenSkipConfirm: boolean
   maxConcurrentDownloads: number
   maxConnectionPerServer: number
   split: number
@@ -93,6 +94,7 @@ export function buildBasicForm(config: AppConfig, defaultDir: string = ''): Basi
     taskNotification: config.taskNotification ?? D.taskNotification,
     newTaskShowDownloading: config.newTaskShowDownloading ?? D.newTaskShowDownloading,
     noConfirmBeforeDeleteTask: config.noConfirmBeforeDeleteTask ?? D.noConfirmBeforeDeleteTask,
+    deleteFilesWhenSkipConfirm: config.deleteFilesWhenSkipConfirm ?? D.deleteFilesWhenSkipConfirm,
     maxConcurrentDownloads: config.maxConcurrentDownloads ?? D.maxConcurrentDownloads,
     maxConnectionPerServer: config.maxConnectionPerServer ?? D.maxConnectionPerServer,
     split: config.split ?? D.split,

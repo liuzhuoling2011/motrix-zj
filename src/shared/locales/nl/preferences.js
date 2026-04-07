@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT max. verbonden knooppunten',
   'new-task-show-downloading': 'Downloads tonen na toevoegen van taak',
   'no-confirm-before-delete-task': 'Niet bevestigen bij verwijderen',
+  'delete-files-when-skip-confirm': 'Bestanden ook verwijderen bij overslaan van bevestiging',
   'delete-torrent-after-complete': 'Torrentbestand verwijderen na voltooiing van download',
   'auto-delete-stale-records': 'Records automatisch verwijderen wanneer lokale bestanden ontbreken',
   'clear-completed-on-exit': 'Voltooide items wissen bij afsluiten',

@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT max. verbundene Knoten',
   'new-task-show-downloading': 'Nach dem Hinzufügen zur Download-Seite wechseln',
   'no-confirm-before-delete-task': 'Vor dem Löschen nicht bestätigen',
+  'delete-files-when-skip-confirm': 'Dateien beim Überspringen der Bestätigung ebenfalls löschen',
   'delete-torrent-after-complete': 'Torrent-Datei nach Abschluss des Downloads löschen',
   'auto-delete-stale-records': 'Einträge automatisch löschen, wenn lokale Dateien fehlen',
   'clear-completed-on-exit': 'Abgeschlossene Einträge beim Beenden löschen',

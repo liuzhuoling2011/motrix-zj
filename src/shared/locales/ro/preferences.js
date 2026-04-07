@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT conexiuni maxime de noduri',
   'new-task-show-downloading': 'Arată descărcările după adăugarea sarcinii',
   'no-confirm-before-delete-task': 'Nu confirma la ștergere',
+  'delete-files-when-skip-confirm': 'Șterge și fișierele la omiterea confirmării',
   'delete-torrent-after-complete': 'Șterge fișierul torrent după finalizarea descărcării',
   'auto-delete-stale-records': 'Șterge automat înregistrările când fișierele locale lipsesc',
   'clear-completed-on-exit': 'Șterge înregistrările finalizate la ieșire',

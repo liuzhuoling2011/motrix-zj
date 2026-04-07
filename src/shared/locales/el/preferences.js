@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT μέγ. συνδεδεμένοι κόμβοι',
   'new-task-show-downloading': 'Εμφάνιση λήψεων μετά την προσθήκη εργασίας',
   'no-confirm-before-delete-task': 'Χωρίς επιβεβαίωση πριν τη διαγραφή',
+  'delete-files-when-skip-confirm': 'Διαγραφή αρχείων κατά την παράλειψη επιβεβαίωσης',
   'delete-torrent-after-complete': 'Διαγραφή αρχείου torrent μετά την ολοκλήρωση λήψης',
   'auto-delete-stale-records': 'Αυτόματη διαγραφή εγγραφών όταν λείπουν τοπικά αρχεία',
   'clear-completed-on-exit': 'Εκκαθάριση ολοκληρωμένων εγγραφών κατά την έξοδο',

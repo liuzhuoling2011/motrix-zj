@@ -31,6 +31,7 @@ export default {
   'bt-max-peers': 'BT การเชื่อมต่อโหนดสูงสุด',
   'new-task-show-downloading': 'แสดงการดาวน์โหลดหลังเพิ่มงาน',
   'no-confirm-before-delete-task': 'ไม่ต้องยืนยันก่อนลบ',
+  'delete-files-when-skip-confirm': 'ลบไฟล์ด้วยเมื่อข้ามการยืนยัน',
   'delete-torrent-after-complete': 'ลบไฟล์ทอร์เรนต์หลังดาวน์โหลดเสร็จ',
   'auto-delete-stale-records': 'ลบบันทึกอัตโนมัติเมื่อไฟล์ในเครื่องหายไป',
   'clear-completed-on-exit': 'ล้างรายการที่เสร็จสิ้นเมื่อออก',
