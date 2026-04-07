@@ -53,7 +53,7 @@ window.addEventListener('unhandledrejection', (e) => {
   const appStore = useAppStore()
   const historyStore = useHistoryStore()
 
-  async function waitForEngine(port: number, secret: string, maxRetries = 1): Promise<boolean> {
+  async function waitForEngine(port: number, secret: string, maxRetries = 2): Promise<boolean> {
     const { Aria2 } = await import('@shared/aria2')
     const ATTEMPT_TIMEOUT = 2000
     for (let i = 0; i < maxRetries; i++) {
