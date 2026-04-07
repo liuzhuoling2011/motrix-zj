@@ -42,6 +42,7 @@ type Phase = 'recovering' | 'recovered' | 'failed'
 const phase = ref<Phase>('recovering')
 const attempt = ref(0)
 const statusKey = ref<'engine-recovering' | 'engine-verifying-stability'>('engine-recovering')
+const rpcPort = computed(() => Number(preferenceStore.config.rpcListenPort) || 16800)
 
 // ── Right action button state machine ─────────────────────────────────
 const actionLabel = computed(() => {
@@ -158,8 +159,8 @@ watch(
 <template>
   <NModal
     :show="show"
-    :mask-closable="phase !== 'recovering'"
-    :close-on-esc="phase !== 'recovering'"
+    mask-closable
+    close-on-esc
     transform-origin="center"
     @update:show="
       (v: boolean) => {
@@ -206,6 +207,9 @@ watch(
             <div class="engine-warning-box">
               <NText depth="3" class="engine-hint">
                 {{ t('app.engine-dismiss-warning') }}
+              </NText>
+              <NText depth="3" class="engine-hint engine-port-hint">
+                {{ t('app.engine-port-conflict-hint', { port: rpcPort }) }}
               </NText>
             </div>
           </div>
@@ -312,6 +316,11 @@ watch(
 }
 .engine-hint {
   font-size: 12px;
+}
+.engine-port-hint {
+  display: block;
+  margin-top: 6px;
+  white-space: pre-line;
 }
 .engine-attempt-counter {
   font-size: 14px;

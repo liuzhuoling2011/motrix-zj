@@ -79,6 +79,7 @@ export default {
   'engine-verifying-stability': 'aria2 nedlastingsmotor startet, verifiserer stabilitet...',
   'engine-retrying': 'Prover igjen...',
   'engine-manual-retry': 'Manuelt forsok',
+  'engine-port-conflict-hint': 'Mulige årsaker:\n• Port {port} er opptatt av et annet program\n• En VPN, proxy eller nettverksakselerator fanger opp lokal kommunikasjon\n• Brannmur eller antivirus blokkerer motortilkoblingen\n\nLøsning: Endre motorporten i Avanserte innstillinger, eller lukk den motstridende programvaren midlertidig og prøv igjen.',
   'migration-success': 'Brukerinnstillingsstruktur oppgradert til {version}',
   'migration-incomplete': 'Brukerinnstillingsstruktur kunne ikke oppgraderes fullstendig til {version}',
   'db-upgraded': 'Databasestruktur oppgradert til {version}',

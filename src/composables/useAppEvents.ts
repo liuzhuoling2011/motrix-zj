@@ -123,6 +123,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
             message.success(t('app.engine-ready'))
           } else {
             message.error(t('app.engine-failed'), { duration: 8000, closable: true })
+            showEngineOverlay.value = true
           }
         }
       },
