@@ -261,7 +261,7 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
 
       const failedCount = batch.filter((i) => i.status === 'failed').length + magnetFailureCount
       if (failedCount > 0) {
-        message.warning(`${failedCount} ${t('task.failed') || 'failed'}`, { duration: 5000, closable: true })
+        message.warning(`${failedCount} ${t('task.failed') || 'failed'}`, { closable: true })
       } else {
         onClose()
         if (preferenceStore.config.newTaskShowDownloading !== false) {
@@ -273,11 +273,11 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
       const errMsg = e instanceof Error ? e.message : String(e)
       logger.error('AddTask.submit', e)
       if (category === 'engine-not-ready') {
-        message.error(t('app.engine-not-ready'), { duration: 5000, closable: true })
+        message.error(t('app.engine-not-ready'), { closable: true })
       } else if (category === 'duplicate') {
-        message.warning(errMsg, { duration: 5000, closable: true })
+        message.warning(errMsg, { closable: true })
       } else {
-        message.error(errMsg, { duration: 5000, closable: true })
+        message.error(errMsg, { closable: true })
       }
     } finally {
       submitting.value = false

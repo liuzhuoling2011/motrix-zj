@@ -507,7 +507,7 @@ function handleManualRestart() {
       d.loading = true
       d.negativeText = ''
       d.closable = false
-      message.info(t('preferences.engine-restarting'), { duration: 2000 })
+      message.info(t('preferences.engine-restarting'))
       await new Promise((r) => requestAnimationFrame(r))
       await restartEngine({ port, secret })
     },

@@ -532,7 +532,7 @@ describe('useAddTaskSubmit', () => {
     await handleSubmit()
 
     expect(onClose).not.toHaveBeenCalled()
-    expect(mockMessage.warning).toHaveBeenCalledWith('1 task.failed', { duration: 5000, closable: true })
+    expect(mockMessage.warning).toHaveBeenCalledWith('1 task.failed', { closable: true })
     expect(mockRouterPush).not.toHaveBeenCalled()
   })
 })

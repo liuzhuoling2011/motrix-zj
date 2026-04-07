@@ -215,7 +215,7 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
           d.loading = true
           d.negativeText = ''
           d.closable = false
-          message.info(t('preferences.engine-restarting'), { duration: 2000 })
+          message.info(t('preferences.engine-restarting'))
           // Yield to browser so it paints the loading spinner before the IPC call
           await nextTick()
           await new Promise((r) => requestAnimationFrame(r))

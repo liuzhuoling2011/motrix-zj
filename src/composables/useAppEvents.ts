@@ -122,7 +122,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
           if (appStore.engineReady) {
             message.success(t('app.engine-ready'))
           } else {
-            message.error(t('app.engine-failed'), { duration: 8000, closable: true })
+            message.error(t('app.engine-failed'), { closable: true })
             showEngineOverlay.value = true
           }
         }

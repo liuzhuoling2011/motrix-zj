@@ -312,7 +312,7 @@ function onItemEnter(el: Element, done: () => void) {
       { opacity: 0, transform: 'translateY(-8px)' },
       { opacity: 1, transform: 'translateY(0)' },
     ],
-    { duration: 200, easing: 'ease-out' },
+    { easing: 'ease-out', duration: 200 },
   ).onfinish = done
 
   // ── Container FLIP: animate height from snapshot → new natural height ──
@@ -322,8 +322,8 @@ function onItemEnter(el: Element, done: () => void) {
     if (savedContainerHeight !== newHeight) {
       c.style.overflow = 'hidden'
       c.animate([{ height: `${savedContainerHeight}px` }, { height: `${newHeight}px` }], {
-        duration: 200,
         easing: 'ease-out',
+        duration: 200,
       }).onfinish = () => {
         c.style.overflow = ''
       }
@@ -352,8 +352,8 @@ function onItemLeave(el: Element, done: () => void) {
   // ── Container shrink: starts IMMEDIATELY (parallel with fade) ──
   if (c) {
     c.animate([{ height: `${savedContainerHeight}px` }, { height: `${targetHeight}px` }], {
-      duration: 200,
       easing: 'ease-out',
+      duration: 200,
     }).onfinish = () => {
       c.style.height = ''
     }
@@ -361,8 +361,8 @@ function onItemLeave(el: Element, done: () => void) {
 
   // ── Item fade: runs in parallel, calls done() when finished ──
   itemEl.animate([{ opacity: 1 }, { opacity: 0 }], {
-    duration: 150,
     easing: 'ease-out',
+    duration: 150,
   }).onfinish = done
 }
 
@@ -392,7 +392,7 @@ async function handleSubmit() {
     // Validate custom proxy before building options
     if (form.value.proxyMode === 'custom' && form.value.customProxy) {
       if (!isValidAria2ProxyUrl(form.value.customProxy)) {
-        message.error(t('task.proxy-unsupported-protocol'), { duration: 5000, closable: true })
+        message.error(t('task.proxy-unsupported-protocol'), { closable: true })
         submitting.value = false
         return
       }
@@ -413,7 +413,7 @@ async function handleSubmit() {
 
     const failedCount = batch.value.filter((i) => i.status === 'failed').length + manualResult.magnetFailures.length
     if (failedCount > 0) {
-      message.warning(`${failedCount} ${t('task.failed') || 'failed'}`, { duration: 5000, closable: true })
+      message.warning(`${failedCount} ${t('task.failed') || 'failed'}`, { closable: true })
     } else {
       handleClose()
       if (preferenceStore.config.newTaskShowDownloading !== false) {
@@ -425,11 +425,11 @@ async function handleSubmit() {
     const errMsg = e instanceof Error ? e.message : String(e)
     logger.error('AddTask.submit', e)
     if (category === 'engine-not-ready') {
-      message.error(t('app.engine-not-ready'), { duration: 5000, closable: true })
+      message.error(t('app.engine-not-ready'), { closable: true })
     } else if (category === 'duplicate') {
-      message.warning(errMsg, { duration: 5000, closable: true })
+      message.warning(errMsg, { closable: true })
     } else {
-      message.error(errMsg, { duration: 5000, closable: true })
+      message.error(errMsg, { closable: true })
     }
   } finally {
     submitting.value = false
