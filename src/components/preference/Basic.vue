@@ -285,33 +285,45 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
       }
     }
 
-    // Sync protocol handler registration on save.
-    // Same pattern as autostart — OS side-effect only runs after the user
-    // explicitly clicks Save, so Discard remains completely safe.
-    const prevMagnet = prevConfig.protocols?.magnet ?? false
-    const prevThunder = prevConfig.protocols?.thunder ?? false
-    const prevMotrixnext = prevConfig.protocols?.motrixnext ?? true
-    if (
-      f.protocolMagnet !== prevMagnet ||
-      f.protocolThunder !== prevThunder ||
-      f.protocolMotrixnext !== prevMotrixnext
-    ) {
+    // Sync protocol handler registration on save (reconcile-based).
+    //
+    // For ENABLED protocols: always query OS actual state and register if
+    // not already the default handler.  This fixes the bug where config.json
+    // already says "enabled" (true) but macOS/Windows lost the association
+    // (reinstall, another app taking over).  The old diff-based approach
+    // compared form values against prevConfig and saw true===true → skipped
+    // registration silently.
+    //
+    // For DISABLED protocols: use prevConfig diff (only unregister when the
+    // user explicitly toggles ON→OFF, not on every save).
+    //
+    // This matches the autostart reconcile pattern in the same afterSave
+    // callback (L277-L286) which queries isEnabled() from the OS.
+    {
       const { invoke } = await import('@tauri-apps/api/core')
-      for (const [protocol, enabled, prev] of [
-        ['magnet', f.protocolMagnet, prevMagnet],
-        ['thunder', f.protocolThunder, prevThunder],
-        ['motrixnext', f.protocolMotrixnext, prevMotrixnext],
+      const prevProtocols = prevConfig.protocols ?? { magnet: false, thunder: false, motrixnext: true }
+      for (const [protocol, formKey, prev] of [
+        ['magnet', 'protocolMagnet', prevProtocols.magnet],
+        ['thunder', 'protocolThunder', prevProtocols.thunder],
+        ['motrixnext', 'protocolMotrixnext', prevProtocols.motrixnext],
       ] as const) {
-        if (enabled === prev) continue
+        const enabled = f[formKey] as boolean
         try {
           if (enabled) {
-            await invoke('set_default_protocol_client', { protocol })
-            message.success(t('preferences.protocol-registered', { protocol }))
-          } else if (isMac.value) {
-            message.info(t('preferences.protocol-macos-unregister-hint', { protocol }))
-          } else {
-            await invoke('remove_as_default_protocol_client', { protocol })
-            message.success(t('preferences.protocol-unregistered', { protocol }))
+            // Reconcile: query OS actual state, register only if needed.
+            const isDefault = await invoke<boolean>('is_default_protocol_client', { protocol })
+            if (!isDefault) {
+              await invoke('set_default_protocol_client', { protocol })
+              message.success(t('preferences.protocol-registered', { protocol }))
+            }
+          } else if (prev) {
+            // Explicit OFF: user toggled ON→OFF — unregister.
+            if (isMac.value) {
+              message.info(t('preferences.protocol-macos-unregister-hint', { protocol }))
+            } else {
+              await invoke('remove_as_default_protocol_client', { protocol })
+              message.success(t('preferences.protocol-unregistered', { protocol }))
+            }
           }
         } catch (e) {
           // Tauri IPC errors arrive as serialized AppError objects
@@ -329,7 +341,6 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
           // Roll back the toggle to its pre-save state and persist the
           // reverted value so the switch doesn't stay in an inconsistent
           // state after a failed OS registration attempt.
-          const formKey = `protocol${protocol.charAt(0).toUpperCase()}${protocol.slice(1)}` as keyof typeof f
           ;(f as Record<string, unknown>)[formKey] = prev
           patchSnapshot({ [formKey]: prev } as Partial<typeof form.value>)
           const revertedProtocols = { ...preferenceStore.config.protocols, [protocol]: prev }
