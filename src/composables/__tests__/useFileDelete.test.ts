@@ -206,7 +206,7 @@ describe('deleteTaskFiles', () => {
     await deleteTaskFiles(task)
 
     // Only the file and its .aria2 are trashed — download dir untouched
-    const trashedPaths = mockTrashFile.mock.calls.map((c: [Record<string, unknown>]) => c[0]?.path)
+    const trashedPaths = mockTrashFile.mock.calls.map((c) => (c[0] as Record<string, unknown>)?.path)
     expect(trashedPaths).not.toContain('/downloads')
     expect(trashedPaths).toContain('/downloads/only-file.zip')
   })
@@ -259,7 +259,7 @@ describe('deleteTaskFiles', () => {
 
     await deleteTaskFiles(task)
 
-    const trashedPaths = mockTrashFile.mock.calls.map((c: [Record<string, unknown>]) => c[0]?.path)
+    const trashedPaths = mockTrashFile.mock.calls.map((c) => (c[0] as Record<string, unknown>)?.path)
     expect(trashedPaths).not.toContain('')
     expect(trashedPaths).toContain('/downloads/valid.zip')
   })
