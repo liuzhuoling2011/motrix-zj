@@ -2,38 +2,48 @@
  * @fileoverview Tests for the deleteTaskFiles function.
  *
  * Key behaviors under test:
- * - Trashes each file referenced by the task (via trash_file IPC)
- * - Trashes companion .aria2 control files for each task file
- * - Removes empty parent directories (permanent — not trashed)
- * - Removes the named task directory if empty after file deletion
+ * - Folder downloads (BT multi-file): trashes entire directory + external .aria2 in one go
+ * - Single-file downloads: trashes file + companion .aria2 control file
+ * - BT tasks with infoHash: triggers .torrent metadata cleanup
+ * - HTTP tasks without infoHash: skips .torrent cleanup
+ * - Fallback: trashes files individually when resolveOpenTarget returns dir
+ * - Download directory is NEVER trashed (issue #167)
  * - Silently handles missing files without throwing
- * - Handles tasks with no files gracefully
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Aria2Task } from '@shared/types'
 
-// ── Mock Tauri FS, Path, and Core ───────────────────────────────────
-const mockRemove = vi.fn()
-const mockReadDir = vi.fn()
-const mockJoin = vi.fn()
+// ── Mock Tauri Core (invoke) ────────────────────────────────────────
 const mockCheckPathExists = vi.fn()
+const mockCheckPathIsDir = vi.fn()
 const mockTrashFile = vi.fn()
-
-vi.mock('@tauri-apps/plugin-fs', () => ({
-  remove: (...args: unknown[]) => mockRemove(...args),
-  readDir: (...args: unknown[]) => mockReadDir(...args),
-}))
-
-vi.mock('@tauri-apps/api/path', () => ({
-  join: (...args: unknown[]) => mockJoin(...args),
-}))
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: (cmd: string, args?: Record<string, unknown>) => {
     if (cmd === 'check_path_exists') return mockCheckPathExists(args)
+    if (cmd === 'check_path_is_dir') return mockCheckPathIsDir(args)
     if (cmd === 'trash_file') return mockTrashFile(args)
     return Promise.reject(new Error(`Unexpected invoke: ${cmd}`))
   },
+}))
+
+// ── Mock resolveOpenTarget ──────────────────────────────────────────
+const mockResolveOpenTarget = vi.fn()
+
+vi.mock('@shared/utils', () => ({
+  resolveOpenTarget: (...args: unknown[]) => mockResolveOpenTarget(...args),
+}))
+
+// ── Mock cleanupTorrentMetadataFiles ────────────────────────────────
+const mockCleanupTorrentMetadata = vi.fn()
+
+vi.mock('@/composables/useDownloadCleanup', () => ({
+  cleanupTorrentMetadataFiles: (...args: unknown[]) => mockCleanupTorrentMetadata(...args),
+}))
+
+// ── Mock Tauri path ─────────────────────────────────────────────────
+vi.mock('@tauri-apps/api/path', () => ({
+  join: (...parts: string[]) => Promise.resolve(parts.join('/')),
 }))
 
 import { deleteTaskFiles } from '../useFileDelete'
@@ -59,100 +69,54 @@ describe('deleteTaskFiles', () => {
     vi.clearAllMocks()
     mockCheckPathExists.mockResolvedValue(true)
     mockTrashFile.mockResolvedValue(undefined)
-    mockRemove.mockResolvedValue(undefined)
-    mockReadDir.mockResolvedValue([]) // empty dir by default
-    mockJoin.mockImplementation((...parts: string[]) => parts.join('/'))
+    mockCleanupTorrentMetadata.mockResolvedValue(true)
   })
 
-  it('deletes each file and its companion .aria2 control file', async () => {
-    const task = makeTask({
-      files: [
-        { index: '1', path: '/downloads/file1.zip', length: '500', completedLength: '500', selected: 'true', uris: [] },
-        { index: '2', path: '/downloads/file2.zip', length: '500', completedLength: '500', selected: 'true', uris: [] },
-      ],
-    })
+  // ── Folder download (BT multi-file) ───────────────────────────────
 
-    await deleteTaskFiles(task)
-
-    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/file1.zip' })
-    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/file1.zip.aria2' })
-    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/file2.zip' })
-    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/file2.zip.aria2' })
-  })
-
-  it('removes empty parent directories that differ from root dir', async () => {
-    const task = makeTask({
-      files: [
-        {
-          index: '1',
-          path: '/downloads/subdir/file.bin',
-          length: '100',
-          completedLength: '100',
-          selected: 'true',
-          uris: [],
-        },
-      ],
-    })
-    mockReadDir.mockResolvedValue([]) // subdir is empty
-
-    await deleteTaskFiles(task)
-
-    // Should attempt to remove /downloads/subdir (permanent, not trashed)
-    expect(mockReadDir).toHaveBeenCalledWith('/downloads/subdir')
-    expect(mockRemove).toHaveBeenCalledWith('/downloads/subdir')
-  })
-
-  it('does not remove non-empty parent directories', async () => {
-    const task = makeTask({
-      files: [
-        {
-          index: '1',
-          path: '/downloads/subdir/file.bin',
-          length: '100',
-          completedLength: '100',
-          selected: 'true',
-          uris: [],
-        },
-      ],
-    })
-    mockReadDir.mockResolvedValue([{ name: 'other.txt' }]) // not empty
-
-    await deleteTaskFiles(task)
-
-    // readDir called but remove NOT called for the subdir
-    const removeCalls = mockRemove.mock.calls.map((c: unknown[]) => c[0])
-    expect(removeCalls).not.toContain('/downloads/subdir')
-  })
-
-  it('silently handles missing files without throwing', async () => {
-    const task = makeTask({
-      files: [
-        { index: '1', path: '/downloads/gone.zip', length: '100', completedLength: '100', selected: 'true', uris: [] },
-      ],
-    })
-    mockCheckPathExists.mockResolvedValue(false)
-
-    // Should not throw
-    await expect(deleteTaskFiles(task)).resolves.toBeUndefined()
-  })
-
-  it('handles tasks with no files gracefully', async () => {
-    const task = makeTask({ files: [] })
-
-    await deleteTaskFiles(task)
-
-    // No trash calls for files (only possibly the task dir)
-    // The task has no bittorrent info, so getTaskName returns '' and no task dir removal
-    expect(mockTrashFile).not.toHaveBeenCalled()
-  })
-
-  it('removes the named task directory when it exists and is empty', async () => {
+  it('trashes entire folder + external .aria2 for multi-file BT task', async () => {
     const task = makeTask({
       bittorrent: { info: { name: 'My Torrent' } },
+      infoHash: 'abcdef1234567890abcdef1234567890abcdef12',
       files: [
         {
           index: '1',
-          path: '/downloads/My Torrent/video.mp4',
+          path: '/downloads/My Torrent/file1.mp4',
+          length: '500',
+          completedLength: '500',
+          selected: 'true',
+          uris: [],
+        },
+        {
+          index: '2',
+          path: '/downloads/My Torrent/file2.srt',
+          length: '100',
+          completedLength: '100',
+          selected: 'true',
+          uris: [],
+        },
+      ],
+    })
+    mockResolveOpenTarget.mockResolvedValue('/downloads/My Torrent')
+    mockCheckPathIsDir.mockResolvedValue(true)
+
+    await deleteTaskFiles(task)
+
+    // Folder + external .aria2
+    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/My Torrent' })
+    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/My Torrent.aria2' })
+    // .torrent metadata cleanup triggered
+    expect(mockCleanupTorrentMetadata).toHaveBeenCalledWith('/downloads', 'abcdef1234567890abcdef1234567890abcdef12')
+  })
+
+  // ── Single-file download ─────────────────────────────────────────
+
+  it('trashes file + .aria2 for single-file HTTP download', async () => {
+    const task = makeTask({
+      files: [
+        {
+          index: '1',
+          path: '/downloads/movie.mp4',
           length: '1000',
           completedLength: '1000',
           selected: 'true',
@@ -160,23 +124,143 @@ describe('deleteTaskFiles', () => {
         },
       ],
     })
-    mockReadDir.mockResolvedValue([]) // empty after file deletion
+    mockResolveOpenTarget.mockResolvedValue('/downloads/movie.mp4')
+    mockCheckPathIsDir.mockResolvedValue(false)
 
     await deleteTaskFiles(task)
 
-    // Should attempt to remove the named task dir
-    expect(mockJoin).toHaveBeenCalledWith('/downloads', 'My Torrent')
-    expect(mockReadDir).toHaveBeenCalledWith('/downloads/My Torrent')
+    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/movie.mp4' })
+    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/movie.mp4.aria2' })
+    // No infoHash → no .torrent cleanup
+    expect(mockCleanupTorrentMetadata).not.toHaveBeenCalled()
   })
 
-  it('skips files with empty path', async () => {
+  // ── Single-file BT (torrent with one file) ───────────────────────
+
+  it('trashes file + .aria2 + .torrent for single-file BT task', async () => {
     const task = makeTask({
-      files: [{ index: '1', path: '', length: '0', completedLength: '0', selected: 'true', uris: [] }],
+      bittorrent: { info: { name: 'movie.mkv' } },
+      infoHash: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+      files: [
+        {
+          index: '1',
+          path: '/downloads/movie.mkv',
+          length: '1000',
+          completedLength: '1000',
+          selected: 'true',
+          uris: [],
+        },
+      ],
     })
+    mockResolveOpenTarget.mockResolvedValue('/downloads/movie.mkv')
+    mockCheckPathIsDir.mockResolvedValue(false)
 
     await deleteTaskFiles(task)
 
-    // trashPath short-circuits on empty path — no invoke calls for files
+    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/movie.mkv' })
+    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/movie.mkv.aria2' })
+    expect(mockCleanupTorrentMetadata).toHaveBeenCalledWith('/downloads', 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef')
+  })
+
+  // ── Fallback: resolveOpenTarget returns dir ───────────────────────
+
+  it('falls back to per-file trash when resolveOpenTarget returns dir', async () => {
+    const task = makeTask({
+      dir: '/downloads',
+      files: [
+        { index: '1', path: '/downloads/file1.zip', length: '500', completedLength: '500', selected: 'true', uris: [] },
+        { index: '2', path: '/downloads/file2.zip', length: '500', completedLength: '500', selected: 'true', uris: [] },
+      ],
+    })
+    mockResolveOpenTarget.mockResolvedValue('/downloads')
+
+    await deleteTaskFiles(task)
+
+    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/file1.zip' })
+    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/file1.zip.aria2' })
+    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/file2.zip' })
+    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/file2.zip.aria2' })
+    // Fallback does NOT invoke check_path_is_dir
+    expect(mockCheckPathIsDir).not.toHaveBeenCalled()
+  })
+
+  // ── Download directory is NEVER trashed (issue #167) ──────────────
+
+  it('never trashes the download directory itself', async () => {
+    const task = makeTask({
+      dir: '/downloads',
+      files: [
+        {
+          index: '1',
+          path: '/downloads/only-file.zip',
+          length: '100',
+          completedLength: '100',
+          selected: 'true',
+          uris: [],
+        },
+      ],
+    })
+    mockResolveOpenTarget.mockResolvedValue('/downloads/only-file.zip')
+    mockCheckPathIsDir.mockResolvedValue(false)
+
+    await deleteTaskFiles(task)
+
+    // Only the file and its .aria2 are trashed — download dir untouched
+    const trashedPaths = mockTrashFile.mock.calls.map((c: [Record<string, unknown>]) => c[0]?.path)
+    expect(trashedPaths).not.toContain('/downloads')
+    expect(trashedPaths).toContain('/downloads/only-file.zip')
+  })
+
+  // ── Edge cases ────────────────────────────────────────────────────
+
+  it('silently handles missing files without throwing', async () => {
+    const task = makeTask({
+      files: [
+        { index: '1', path: '/downloads/gone.zip', length: '100', completedLength: '100', selected: 'true', uris: [] },
+      ],
+    })
+    mockResolveOpenTarget.mockResolvedValue('/downloads/gone.zip')
+    mockCheckPathIsDir.mockResolvedValue(false)
+    mockCheckPathExists.mockResolvedValue(false)
+
+    await expect(deleteTaskFiles(task)).resolves.toBeUndefined()
+  })
+
+  it('handles tasks with no files gracefully', async () => {
+    const task = makeTask({ files: [] })
+    mockResolveOpenTarget.mockResolvedValue('/downloads')
+
+    await deleteTaskFiles(task)
+
     expect(mockTrashFile).not.toHaveBeenCalled()
+  })
+
+  it('handles empty resolveOpenTarget result', async () => {
+    const task = makeTask({
+      files: [
+        { index: '1', path: '/downloads/file.zip', length: '100', completedLength: '100', selected: 'true', uris: [] },
+      ],
+    })
+    mockResolveOpenTarget.mockResolvedValue('')
+
+    await deleteTaskFiles(task)
+
+    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/file.zip' })
+  })
+
+  it('skips files with empty path in fallback mode', async () => {
+    const task = makeTask({
+      files: [
+        { index: '1', path: '', length: '0', completedLength: '0', selected: 'true', uris: [] },
+        { index: '2', path: '/downloads/valid.zip', length: '100', completedLength: '100', selected: 'true', uris: [] },
+      ],
+    })
+    mockResolveOpenTarget.mockResolvedValue('/downloads')
+
+    await deleteTaskFiles(task)
+
+    const trashedPaths = mockTrashFile.mock.calls.map((c: [Record<string, unknown>]) => c[0]?.path)
+    expect(trashedPaths).not.toContain('')
+    expect(trashedPaths).toContain('/downloads/valid.zip')
   })
 })
