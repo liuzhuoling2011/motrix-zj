@@ -151,6 +151,10 @@ export interface AppConfig {
   maxOverallUploadLimit: string
   maxDownloadLimit: string
   maxUploadLimit: string
+  /** Whether the Speedometer speed limit toggle is active.
+   *  When true, configured limits are applied to aria2 at runtime.
+   *  When false, aria2 runs with 0 (unlimited) regardless of configured values. */
+  speedLimitEnabled: boolean
   seedTime: number
   seedRatio: number
   btMaxPeers: number

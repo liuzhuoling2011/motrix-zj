@@ -1,0 +1,177 @@
+/**
+ * @fileoverview Speed limiter pure functions and integration helpers.
+ *
+ * Pure functions (testable without Vue/Pinia):
+ * - parseSpeedLimitValue   — parse aria2 config string to {num, unit}
+ * - buildSpeedLimitString  — build config string from num + unit
+ * - formatLimitBadge       — compact badge text for Speedometer display
+ * - hasConfiguredLimit     — check if config has non-zero speed limits
+ * - resolveToggleAction    — state machine: what should left-click do?
+ *
+ * Integration helpers (dependency-injected for testability):
+ * - toggleSpeedLimit       — toggle limit on/off via RPC + persist
+ * - applyCustomLimit       — set specific values via RPC + persist
+ */
+import type { AppConfig } from '@shared/types'
+
+// ── Types ────────────────────────────────────────────────────────────
+
+export interface SpeedLimitValue {
+  num: number
+  unit: string
+}
+
+export type ToggleAction = 'enable' | 'disable' | 'needs-config'
+
+/** Dependency injection interface for integration functions. */
+export interface SpeedLimiterDeps {
+  changeGlobalOption: (options: Partial<AppConfig>) => Promise<void>
+  updateAndSave: (partial: Partial<AppConfig>) => Promise<boolean>
+}
+
+// ── Pure Functions ───────────────────────────────────────────────────
+
+/**
+ * Parses an aria2 speed limit config string into a numeric value and unit.
+ *
+ * aria2 format: '0' (unlimited), '512K', '10M', '1G', or bare bytes '100'.
+ * Bare byte values are too small for practical limits, so they map to {0, 'K'}.
+ */
+export function parseSpeedLimitValue(value: string): SpeedLimitValue {
+  const str = String(value ?? '')
+  if (!str || str === '0') return { num: 0, unit: 'K' }
+
+  const match = /^(\d+\.?\d*)([KMG])$/.exec(str)
+  if (!match) return { num: 0, unit: 'K' }
+
+  return { num: parseFloat(match[1]), unit: match[2] }
+}
+
+/**
+ * Builds an aria2 speed limit config string from a numeric value and unit.
+ * Returns '0' for zero or negative values (aria2's "unlimited" sentinel).
+ */
+export function buildSpeedLimitString(num: number, unit: string): string {
+  if (num <= 0) return '0'
+  return `${num}${unit}`
+}
+
+/**
+ * Formats a speed limit config value as a compact badge for the Speedometer.
+ *
+ * Examples: '10M' → '10M', '512K' → '512K', '0' → '∞', '1024K' → '1M'.
+ * Auto-promotes round values (1024K → 1M, 1024M → 1G) for cleaner display.
+ */
+export function formatLimitBadge(value: string): string {
+  const parsed = parseSpeedLimitValue(value)
+  if (parsed.num <= 0) return '∞'
+
+  // Auto-promote: 1024K → 1M, 1024M → 1G
+  if (parsed.unit === 'K' && parsed.num >= 1024 && parsed.num % 1024 === 0) {
+    return `${parsed.num / 1024}M`
+  }
+  if (parsed.unit === 'M' && parsed.num >= 1024 && parsed.num % 1024 === 0) {
+    return `${parsed.num / 1024}G`
+  }
+
+  return `${parsed.num}${parsed.unit}`
+}
+
+/**
+ * Returns true if the config has at least one non-zero overall speed limit.
+ * Used to decide whether left-click can toggle or must prompt for values.
+ */
+export function hasConfiguredLimit(config: AppConfig): boolean {
+  const dl = parseSpeedLimitValue(config.maxOverallDownloadLimit)
+  const ul = parseSpeedLimitValue(config.maxOverallUploadLimit)
+  return dl.num > 0 || ul.num > 0
+}
+
+/**
+ * State machine resolver for the Speedometer left-click toggle.
+ *
+ * Returns:
+ * - 'disable' — limit is active, clicking should turn it off
+ * - 'enable'  — limit is inactive, config has values, clicking should apply them
+ * - 'needs-config' — limit is inactive, no values configured, must show popover
+ */
+export function resolveToggleAction(config: AppConfig): ToggleAction {
+  if (config.speedLimitEnabled) return 'disable'
+  if (hasConfiguredLimit(config)) return 'enable'
+  return 'needs-config'
+}
+
+// ── Integration Functions ────────────────────────────────────────────
+
+/**
+ * Toggles speed limit on/off. Calls aria2 RPC to apply/remove limits
+ * and persists the toggle state to the preference store.
+ *
+ * @returns The action taken: 'enabled', 'disabled', or 'needs-config'.
+ */
+export async function toggleSpeedLimit(
+  config: AppConfig,
+  deps: SpeedLimiterDeps,
+): Promise<'enabled' | 'disabled' | 'needs-config'> {
+  const action = resolveToggleAction(config)
+
+  if (action === 'needs-config') return 'needs-config'
+
+  if (action === 'disable') {
+    // Remove limits from aria2 engine
+    await deps.changeGlobalOption({
+      maxOverallDownloadLimit: '0',
+      maxOverallUploadLimit: '0',
+    })
+    await deps.updateAndSave({ speedLimitEnabled: false })
+    return 'disabled'
+  }
+
+  // action === 'enable': apply configured values
+  await deps.changeGlobalOption({
+    maxOverallDownloadLimit: config.maxOverallDownloadLimit,
+    maxOverallUploadLimit: config.maxOverallUploadLimit,
+  })
+  await deps.updateAndSave({ speedLimitEnabled: true })
+  return 'enabled'
+}
+
+/**
+ * Applies specific speed limit values to the aria2 engine and persists
+ * them to the preference store. Automatically sets speedLimitEnabled
+ * based on whether at least one limit is non-zero.
+ */
+export async function applyCustomLimit(
+  downloadLimit: string,
+  uploadLimit: string,
+  deps: SpeedLimiterDeps,
+): Promise<void> {
+  await deps.changeGlobalOption({
+    maxOverallDownloadLimit: downloadLimit,
+    maxOverallUploadLimit: uploadLimit,
+  })
+
+  const dlParsed = parseSpeedLimitValue(downloadLimit)
+  const ulParsed = parseSpeedLimitValue(uploadLimit)
+  const hasLimit = dlParsed.num > 0 || ulParsed.num > 0
+
+  await deps.updateAndSave({
+    maxOverallDownloadLimit: downloadLimit,
+    maxOverallUploadLimit: uploadLimit,
+    speedLimitEnabled: hasLimit,
+  })
+}
+
+/**
+ * One-click speed limit removal. Sends 0/0 to aria2 to lift all limits
+ * and disables the speed limit toggle, but does NOT overwrite the
+ * configured limit values in the store — they are preserved so the user
+ * can re-enable previous limits with a single left-click toggle.
+ */
+export async function removeSpeedLimit(deps: SpeedLimiterDeps): Promise<void> {
+  await deps.changeGlobalOption({
+    maxOverallDownloadLimit: '0',
+    maxOverallUploadLimit: '0',
+  })
+  await deps.updateAndSave({ speedLimitEnabled: false })
+}

@@ -15,6 +15,8 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { downloadDir } from '@tauri-apps/api/path'
 import { extractSpeedUnit } from '@shared/utils'
 import { logger } from '@shared/logger'
+import { toggleSpeedLimit } from '@/composables/useSpeedLimiter'
+import { changeGlobalOption, isEngineReady } from '@/api/aria2'
 import {
   ENGINE_RPC_PORT,
   ENGINE_MAX_CONNECTION_PER_SERVER,
@@ -525,6 +527,25 @@ function handleManualRestart() {
   })
 }
 
+async function handleSpeedLimitToggle() {
+  if (!isEngineReady()) return
+  try {
+    const result = await toggleSpeedLimit(preferenceStore.config, {
+      changeGlobalOption,
+      updateAndSave: (partial) => preferenceStore.updateAndSave(partial),
+    })
+    if (result === 'enabled') {
+      message.success(t('app.speedometer-limit-applied'))
+    } else if (result === 'disabled') {
+      message.success(t('app.speedometer-limit-removed'))
+    } else {
+      message.info(t('app.speedometer-needs-config'))
+    }
+  } catch (e) {
+    logger.error('Basic.speedLimitToggle', e)
+  }
+}
+
 onMounted(async () => {
   try {
     defaultDownloadDir.value = await downloadDir()
@@ -752,42 +773,48 @@ onMounted(async () => {
           </NButton>
         </NInputGroup>
       </NFormItem>
-      <NFormItem :label="t('preferences.transfer-speed-upload')">
-        <NInputGroup>
-          <NInputNumber
-            :value="uploadSpeedValue"
-            :min="0"
-            :max="65535"
-            :step="1"
-            style="width: 140px"
-            @update:value="handleUploadValueChange"
-          />
-          <NSelect
-            :value="uploadUnit"
-            :options="speedUnitOptions"
-            style="width: 100px"
-            @update:value="handleUploadUnitChange"
-          />
-        </NInputGroup>
+      <NFormItem :label="t('app.speedometer-enable-limit')">
+        <NSwitch :value="preferenceStore.config.speedLimitEnabled" @update:value="handleSpeedLimitToggle" />
       </NFormItem>
-      <NFormItem :label="t('preferences.transfer-speed-download')">
-        <NInputGroup>
-          <NInputNumber
-            :value="downloadSpeedValue"
-            :min="0"
-            :max="65535"
-            :step="1"
-            style="width: 140px"
-            @update:value="handleDownloadValueChange"
-          />
-          <NSelect
-            :value="downloadUnit"
-            :options="speedUnitOptions"
-            style="width: 100px"
-            @update:value="handleDownloadUnitChange"
-          />
-        </NInputGroup>
-      </NFormItem>
+
+      <NCollapseTransition :show="!!preferenceStore.config.speedLimitEnabled" class="collapse-indent">
+        <NFormItem :label="t('preferences.transfer-speed-upload')">
+          <NInputGroup>
+            <NInputNumber
+              :value="uploadSpeedValue"
+              :min="0"
+              :max="65535"
+              :step="1"
+              style="width: 140px"
+              @update:value="handleUploadValueChange"
+            />
+            <NSelect
+              :value="uploadUnit"
+              :options="speedUnitOptions"
+              style="width: 100px"
+              @update:value="handleUploadUnitChange"
+            />
+          </NInputGroup>
+        </NFormItem>
+        <NFormItem :label="t('preferences.transfer-speed-download')">
+          <NInputGroup>
+            <NInputNumber
+              :value="downloadSpeedValue"
+              :min="0"
+              :max="65535"
+              :step="1"
+              style="width: 140px"
+              @update:value="handleDownloadValueChange"
+            />
+            <NSelect
+              :value="downloadUnit"
+              :options="speedUnitOptions"
+              style="width: 100px"
+              @update:value="handleDownloadUnitChange"
+            />
+          </NInputGroup>
+        </NFormItem>
+      </NCollapseTransition>
 
       <NDivider title-placement="left">{{ t('preferences.bt-settings') }}</NDivider>
       <NFormItem :label="t('preferences.bt-auto-download-content')">

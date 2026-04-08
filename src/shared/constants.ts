@@ -133,6 +133,7 @@ export const DEFAULT_APP_CONFIG = {
   maxConnectionPerServer: ENGINE_DEFAULT_CONNECTION_PER_SERVER, // per-server connection cap; independent of split since v2
   maxOverallDownloadLimit: '0',
   maxOverallUploadLimit: '0',
+  speedLimitEnabled: false,
   maxDownloadLimit: '',
   maxUploadLimit: '',
 

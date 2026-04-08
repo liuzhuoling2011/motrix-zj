@@ -33,6 +33,7 @@ const userKeys = [
   'resume-all-when-app-launched',
   'run-mode',
   'show-progress-bar',
+  'speed-limit-enabled',
   'task-notification',
   'task-sort',
   'theme',

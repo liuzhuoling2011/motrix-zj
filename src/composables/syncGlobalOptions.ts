@@ -42,6 +42,15 @@ export async function syncGlobalOptions(config: AppConfig): Promise<void> {
   // basic wins (it's closer to the user-facing value).
   const merged = { ...advancedSystem, ...basicSystem }
 
+  // Speed limit toggle override: when the user has disabled the speed
+  // limit via the Speedometer toggle, we must send '0' (unlimited) to
+  // aria2 even though config.json retains the configured values (so the
+  // user can re-enable them with a single click).
+  if (!config.speedLimitEnabled) {
+    merged['max-overall-download-limit'] = '0'
+    merged['max-overall-upload-limit'] = '0'
+  }
+
   // Strip keys that aria2 rejects via changeGlobalOption (ports, secret,
   // log-level) — they are set at process startup via CLI args only.
   const hotKeys = filterHotReloadableKeys(merged)
