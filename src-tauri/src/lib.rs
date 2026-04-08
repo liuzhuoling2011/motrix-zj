@@ -196,14 +196,21 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // The window starts hidden (tauri.conf.json visible: false) and
     // transitions through this pipeline before becoming visible.
 
-    // Disable Windows 11 DWM rounded corners on the main window.
-    // With `transparent: true` + `decorations: false`, Windows 11
-    // applies its own ~8px corner rounding to the HWND, which
-    // conflicts with the CSS `border-radius: 12px` on #container.
-    // The mismatch creates visible desktop-color leaks at the
-    // corners.  Setting DWMWCP_DONOTROUND (value 1) tells DWM to
-    // keep the window rectangular, letting CSS handle all rounding
-    // on the transparent canvas.
+    // Force Windows 11 DWM native rounded corners on the main window.
+    //
+    // With `transparent: true` + `decorations: false`, the HWND is a
+    // layered window — DWM does NOT auto-round layered windows.  We
+    // explicitly request DWMWCP_ROUND (value 2) so DWM applies its
+    // native ~8px corner rounding, matching the original Motrix look.
+    //
+    // Previously this block used DWMWCP_DONOTROUND (value 1) to
+    // *disable* DWM corners because CSS `border-radius: 12px` was
+    // drawing its own competing rounded corners on the transparent
+    // canvas.  Now that CSS border-radius is removed, DWM handles
+    // all corner rounding natively — no CSS workarounds needed.
+    //
+    // Safe no-op on Windows 10 (DWM ignores the preference).
+    // DWM auto-disables rounding when the window is maximized.
     #[cfg(target_os = "windows")]
     {
         use windows_sys::Win32::Graphics::Dwm::{
@@ -212,7 +219,8 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(w) = app.get_webview_window("main") {
             if let Ok(hwnd_handle) = w.hwnd() {
                 let hwnd = hwnd_handle.0 as *mut std::ffi::c_void;
-                let preference: u32 = 1; // DWMWCP_DONOTROUND
+                // DWMWCP_ROUND = 2: force DWM native rounded corners
+                let preference: u32 = 2;
                 unsafe {
                     DwmSetWindowAttribute(
                         hwnd,
@@ -224,7 +232,6 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-
     // Hide Dock icon on startup when both autoHideWindow and
     // hideDockOnMinimize are enabled, AND the app was launched by
     // the OS autostart mechanism (--autostart flag).  Manual launches

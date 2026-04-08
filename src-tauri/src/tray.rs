@@ -63,7 +63,6 @@ pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::WebviewWindow
         .visible(false);
 
     // macOS: native traffic lights via overlay title bar (matches tauri.macos.conf.json).
-    // Windows/Linux: transparent frameless window with custom controls.
     #[cfg(target_os = "macos")]
     {
         use tauri::TitleBarStyle;
@@ -74,6 +73,8 @@ pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::WebviewWindow
             .title_bar_style(TitleBarStyle::Overlay)
             .shadow(true);
     }
+    // Windows/Linux: transparent frameless window with custom controls.
+    // No CSS border-radius — DWM provides native corner rounding on Win11.
     #[cfg(not(target_os = "macos"))]
     {
         builder = builder.transparent(true).decorations(false);

@@ -56,13 +56,12 @@ const message = useAppMessage()
 const isTaskPage = computed(() => route.path.startsWith('/task'))
 const isPreferencePage = computed(() => route.path.startsWith('/preference'))
 const showAbout = ref(false)
-const appReady = ref(false)
 const showExitDialog = ref(false)
 const isExiting = ref(false)
 const rememberChoice = ref(false)
 const pendingTrayHide = ref(false)
 const isMaximized = ref(false)
-const { platform: currentPlatform, isMac, isWindows, isLinux } = usePlatform()
+const { platform: currentPlatform, isMac } = usePlatform()
 const showEngineOverlay = ref(false)
 
 const updateDialogRef = ref<InstanceType<typeof UpdateDialog> | null>(null)
@@ -414,12 +413,11 @@ async function handleExitConfirm() {
   isExiting.value = true
   showExitDialog.value = false
   rememberChoice.value = false
-  appReady.value = false
 
   // ── Clear completed download records on exit (#134) ──────────
-  // Runs before the fade animation while the webview JS context is
-  // still fully functional.  Only removes 'complete' status tasks;
-  // error and removed records are preserved for diagnostics.
+  // Runs while the webview JS context is still fully functional.
+  // Only removes 'complete' status tasks; error and removed records
+  // are preserved for diagnostics.
   if (preferenceStore.config.clearCompletedOnExit) {
     try {
       const completedTasks = taskStore.taskList.filter((t) => t.status === TASK_STATUS.COMPLETE)
@@ -431,19 +429,11 @@ async function handleExitConfirm() {
     }
   }
 
-  // Fade the entire native window (including macOS traffic lights) in sync
-  // with the CSS container animation.  CSS only affects the webview content,
-  // leaving OS-rendered elements (traffic lights, shadow) to vanish abruptly.
-  // The Rust set_window_alpha command calls NSWindow.setAlphaValue() on
-  // macOS; no-op on other platforms where CSS animation suffices.
-  const { invoke } = await import('@tauri-apps/api/core')
-  const steps = 10
-  const duration = 200
-  const interval = duration / steps
-  for (let i = 1; i <= steps; i++) {
-    await new Promise((r) => setTimeout(r, interval))
-    await invoke('set_window_alpha', { alpha: 1 - i / steps })
-  }
+  // Hide the window and let the OS play its native close animation
+  // (DWM fade on Windows, AppKit transition on macOS, compositor
+  // effect on Linux).  No custom CSS or alpha animation needed.
+  const appWindow = getCurrentWindow()
+  await appWindow.hide()
 
   // exit(0) sends an IPC call to Rust — if we destroy() first,
   // the webview is gone and the IPC silently fails.
@@ -508,6 +498,7 @@ onMounted(async () => {
   // NOTE: The Rust backend logs the same detection at INFO level in
   // setup_app().  Both logs together provide a full diagnostic trace for
   // autostart bugs (e.g. --autostart flag missing on Windows cold boot).
+
   {
     const { invoke } = await import('@tauri-apps/api/core')
     const isAutostart: boolean = await invoke('is_autostart_launch')
@@ -551,9 +542,6 @@ onMounted(async () => {
     }
   }
 
-  setTimeout(() => {
-    appReady.value = true
-  }, 120)
   startGlobalPolling()
 
   // ── App-level task lifecycle service ─────────────────────────────
@@ -659,38 +647,17 @@ onMounted(async () => {
     { immediate: true },
   )
 
-  // Track maximize state to remove border-radius when maximized.
-  // Windows and Linux need this: transparent + decorations:false windows
-  // leak transparent pixels through CSS border-radius corners when maximized.
-  //
-  // macOS: Native window handles rounding; isMaximized() inside onResized
-  // triggers an infinite loop (tauri-apps/tauri#5812).
-  //
-  // Linux + WEBKIT_DISABLE_DMABUF_RENDERER=1 (default safe mode, or
-  // auto-reverted by gpu_guard after a crash):
-  // WebKitGTK software compositing loses the alpha channel after a
-  // maximize → restore cycle, breaking border-radius corners.
-  // WORKAROUND: keep border-radius at all times on affected systems.
-  // See: https://bugs.webkit.org/show_bug.cgi?id=262607 (RESOLVED WONTFIX)
-  {
+  // Track maximize state for WindowControls icon toggle (maximize ↔ restore).
+  // macOS: skipped — native traffic lights handle this; isMaximized() inside
+  // onResized triggers an infinite loop (tauri-apps/tauri#5812).
+  if (!isMac.value) {
     const appWindow = getCurrentWindow()
-
-    let shouldTrackMaximize = isWindows.value
-
-    if (isLinux.value) {
-      const { invoke } = await import('@tauri-apps/api/core')
-      const dmabufDisabled = await invoke<boolean>('is_dmabuf_renderer_disabled')
-      shouldTrackMaximize = !dmabufDisabled
-    }
-
-    if (shouldTrackMaximize) {
-      isMaximized.value = await appWindow.isMaximized()
-      unlistenResize = await appWindow.onResized(() => {
-        throttledResizeHandler(async () => {
-          isMaximized.value = await appWindow.isMaximized()
-        })
+    isMaximized.value = await appWindow.isMaximized()
+    unlistenResize = await appWindow.onResized(() => {
+      throttledResizeHandler(async () => {
+        isMaximized.value = await appWindow.isMaximized()
       })
-    }
+    })
   }
 
   // Engine-init feedback, navigation guards, IPC listeners, and crash recovery
@@ -802,15 +769,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div
-    id="container"
-    :class="{
-      'app-ready': appReady,
-      'app-closing': isExiting,
-      maximized: isMaximized,
-      'native-frame': isMac,
-    }"
-  >
+  <div id="container" :class="{ 'native-frame': isMac }">
     <!-- Minimal progress bar during engine initialization / restart -->
     <Transition name="engine-slide">
       <div v-if="appStore.engineRestarting" class="engine-banner">
@@ -906,32 +865,7 @@ onUnmounted(() => {
   display: flex;
   height: 100vh;
   position: relative;
-  border-radius: 12px;
   overflow: hidden;
-  opacity: 0;
-  transform: scale(0.96);
-  transition:
-    opacity 650ms cubic-bezier(0.05, 0.7, 0.1, 1),
-    transform 650ms cubic-bezier(0.05, 0.7, 0.1, 1),
-    border-radius 0.2s cubic-bezier(0.2, 0, 0, 1);
-}
-#container.maximized {
-  border-radius: 0;
-}
-/* macOS: native window provides its own rounding via titleBarStyle: Overlay */
-#container.native-frame {
-  border-radius: 0;
-}
-#container.app-ready {
-  opacity: 1;
-  transform: scale(1);
-}
-#container.app-closing {
-  transition:
-    opacity 200ms cubic-bezier(0.3, 0, 0.8, 0.15),
-    transform 200ms cubic-bezier(0.3, 0, 0.8, 0.15);
-  opacity: 0;
-  transform: scale(0.96);
 }
 .subnav-slot {
   width: var(--subnav-width);

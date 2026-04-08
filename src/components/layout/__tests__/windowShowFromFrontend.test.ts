@@ -159,18 +159,6 @@ describe('MainLayout.vue — show window from frontend on mount', () => {
     expect(mountedBody).toContain("get<Record<string, unknown>>('preferences')")
   })
 
-  it('show + focus happens BEFORE appReady transition', () => {
-    // The window must be visible before the CSS opacity transition
-    // starts, otherwise the animation plays invisibly.
-    const mountedBody = extractOnMountedBody(source)
-    expect(mountedBody).toBeTruthy()
-    const showIdx = mountedBody!.indexOf('.show()')
-    const readyIdx = mountedBody!.indexOf('appReady')
-    expect(showIdx).toBeGreaterThanOrEqual(0)
-    expect(readyIdx).toBeGreaterThanOrEqual(0)
-    expect(showIdx).toBeLessThan(readyIdx)
-  })
-
   it('has defense-in-depth hide() when shouldHide is true', () => {
     // When shouldHide is true, the frontend must force-hide the window
     // as a safety net in case the Rust-layer guard missed.

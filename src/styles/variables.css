@@ -469,13 +469,12 @@ pre,
 
 .n-drawer-container,
 .n-modal-mask {
-  border-radius: 12px;
   overflow: hidden;
 }
 
 /* ── Page hidden: pause all infinite animations ────────────────────── */
-/* Prevents WebView2 from re-compositing transparent layers each frame  */
-/* when the window is minimized or the user switches to another app.    */
+/* Prevents WebView2 from re-compositing layers each frame when the     */
+/* window is minimized or the user switches to another app.             */
 /* Toggled by the useVisibilityPause composable via Page Visibility API */
 .animations-paused *,
 .animations-paused *::before,
