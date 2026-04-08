@@ -46,37 +46,59 @@ const uploadSpeed = computed(() => bytesToSize(String(stat.value.uploadSpeed)))
 const dlLimitBadge = computed(() => formatLimitBadge(preferenceStore.config.maxOverallDownloadLimit))
 const ulLimitBadge = computed(() => formatLimitBadge(preferenceStore.config.maxOverallUploadLimit))
 
-// ── Adaptive width (both grow and shrink are animated) ──────────────
+// ── Adaptive width (grow instant, shrink debounced) ─────────────────
 // The outer capsule (.speedometer) uses a JS-driven `width` so that CSS
 // `transition: width` animates both expansion and contraction smoothly.
 // A separate inner wrapper (.capsule-content) is observed by
 // ResizeObserver — it has NO width constraint, so its borderBoxSize
 // always reflects true content width (no circular dependency).
+// Shrinking is debounced (800 ms) to prevent jitter from speed fluctuations.
 
 const capsuleRef = ref<HTMLElement | null>(null)
 const contentRef = ref<HTMLElement | null>(null)
 const capsuleWidth = ref(0)
+let shrinkTimer: ReturnType<typeof setTimeout> | null = null
 let resizeObserver: ResizeObserver | null = null
 
+const SHRINK_DELAY_MS = 1000
+
 const capsuleStyle = computed(() => (capsuleWidth.value > 0 ? { width: `${capsuleWidth.value}px` } : undefined))
+
+function cancelShrink() {
+  if (shrinkTimer !== null) {
+    clearTimeout(shrinkTimer)
+    shrinkTimer = null
+  }
+}
 
 onMounted(() => {
   if (!contentRef.value || !capsuleRef.value) return
   const capsuleEl = capsuleRef.value
-  const cs = getComputedStyle(capsuleEl)
-  // Pre-compute the horizontal overhead (padding + border) once
-  const hPad =
-    parseFloat(cs.paddingLeft) +
-    parseFloat(cs.paddingRight) +
-    parseFloat(cs.borderLeftWidth) +
-    parseFloat(cs.borderRightWidth)
 
   resizeObserver = new ResizeObserver((entries) => {
+    // Compute padding+border each tick so CSS changes are reflected immediately
+    const cs = getComputedStyle(capsuleEl)
+    const hPad =
+      parseFloat(cs.paddingLeft) +
+      parseFloat(cs.paddingRight) +
+      parseFloat(cs.borderLeftWidth) +
+      parseFloat(cs.borderRightWidth)
+
     for (const entry of entries) {
       const contentWidth = entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width
       const totalWidth = Math.ceil(contentWidth + hPad)
-      if (totalWidth !== capsuleWidth.value) {
+
+      if (totalWidth > capsuleWidth.value) {
+        // Growing — apply immediately
+        cancelShrink()
         capsuleWidth.value = totalWidth
+      } else if (totalWidth < capsuleWidth.value - 2 && shrinkTimer === null) {
+        // Shrinking — debounce to prevent jitter (2px hysteresis)
+        const target = totalWidth
+        shrinkTimer = setTimeout(() => {
+          capsuleWidth.value = target
+          shrinkTimer = null
+        }, SHRINK_DELAY_MS)
       }
     }
   })
@@ -84,6 +106,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  cancelShrink()
   resizeObserver?.disconnect()
   resizeObserver = null
 })
@@ -291,7 +314,7 @@ async function handleApply() {
   box-sizing: border-box;
   min-width: 100px;
   height: 46px;
-  padding: 6px 10px 6px 10px;
+  padding: 6px 14px 6px 10px;
   border-radius: 100px;
   cursor: pointer;
   user-select: none;
@@ -316,6 +339,7 @@ async function handleApply() {
   align-items: center;
   width: fit-content;
   gap: 4px;
+  padding-right: 2px;
 }
 
 /* ── IDLE — compact capsule ────────────────────────────────────── */
