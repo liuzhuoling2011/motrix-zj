@@ -289,9 +289,9 @@ async function handleApply() {
   display: flex;
   align-items: center;
   box-sizing: border-box;
-  min-width: 120px;
+  min-width: 100px;
   height: 46px;
-  padding: 6px 14px 6px 10px;
+  padding: 6px 10px 6px 10px;
   border-radius: 100px;
   cursor: pointer;
   user-select: none;
@@ -472,7 +472,7 @@ async function handleApply() {
 
 /* ── Limit zone (auto width, never truncates) ──────────────────────── */
 .limit-zone {
-  min-width: 48px;
+  min-width: 38px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
