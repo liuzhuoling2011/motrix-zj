@@ -539,7 +539,7 @@ async function handleSpeedLimitToggle() {
     } else if (result === 'disabled') {
       message.success(t('app.speedometer-limit-removed'))
     } else {
-      message.info(t('app.speedometer-needs-config'))
+      message.info(t('app.speedometer-needs-config-settings'))
     }
   } catch (e) {
     logger.error('Basic.speedLimitToggle', e)
@@ -777,7 +777,7 @@ onMounted(async () => {
         <NSwitch :value="preferenceStore.config.speedLimitEnabled" @update:value="handleSpeedLimitToggle" />
       </NFormItem>
 
-      <NCollapseTransition :show="!!preferenceStore.config.speedLimitEnabled" class="collapse-indent">
+      <div>
         <NFormItem :label="t('preferences.transfer-speed-upload')">
           <NInputGroup>
             <NInputNumber
@@ -814,7 +814,7 @@ onMounted(async () => {
             />
           </NInputGroup>
         </NFormItem>
-      </NCollapseTransition>
+      </div>
 
       <NDivider title-placement="left">{{ t('preferences.bt-settings') }}</NDivider>
       <NFormItem :label="t('preferences.bt-auto-download-content')">

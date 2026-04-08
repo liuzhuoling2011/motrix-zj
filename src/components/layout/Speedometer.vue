@@ -260,24 +260,6 @@ async function handleApply() {
 
       <div class="limit-panel-row">
         <div class="limit-panel-label">
-          <NIcon :size="12"><ArrowDownOutline /></NIcon>
-          <span>{{ t('app.speedometer-download-limit') }}</span>
-        </div>
-        <div class="limit-panel-inputs">
-          <NInputNumber
-            v-model:value="popoverDlValue"
-            :min="0"
-            :max="65535"
-            :step="1"
-            size="small"
-            style="width: 100px"
-          />
-          <NSelect v-model:value="popoverDlUnit" :options="speedUnitOptions" size="small" style="width: 88px" />
-        </div>
-      </div>
-
-      <div class="limit-panel-row">
-        <div class="limit-panel-label">
           <NIcon :size="12"><ArrowUpOutline /></NIcon>
           <span>{{ t('app.speedometer-upload-limit') }}</span>
         </div>
@@ -291,6 +273,24 @@ async function handleApply() {
             style="width: 100px"
           />
           <NSelect v-model:value="popoverUlUnit" :options="speedUnitOptions" size="small" style="width: 88px" />
+        </div>
+      </div>
+
+      <div class="limit-panel-row">
+        <div class="limit-panel-label">
+          <NIcon :size="12"><ArrowDownOutline /></NIcon>
+          <span>{{ t('app.speedometer-download-limit') }}</span>
+        </div>
+        <div class="limit-panel-inputs">
+          <NInputNumber
+            v-model:value="popoverDlValue"
+            :min="0"
+            :max="65535"
+            :step="1"
+            size="small"
+            style="width: 100px"
+          />
+          <NSelect v-model:value="popoverDlUnit" :options="speedUnitOptions" size="small" style="width: 88px" />
         </div>
       </div>
 
@@ -389,14 +389,13 @@ async function handleApply() {
 .mode i {
   font-size: 22px;
   font-style: normal;
-  line-height: 30px;
-  display: inline-block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   box-sizing: border-box;
   width: 30px;
   height: 30px;
   padding: 2px;
-  text-align: center;
-  vertical-align: top;
   position: relative;
   color: var(--color-primary);
   transition:
@@ -532,7 +531,7 @@ async function handleApply() {
 /* ── Popover panel ────────────────────────────────────────────────── */
 .limit-panel {
   padding: 4px 0;
-  min-width: 280px;
+  min-width: 290px;
 }
 .limit-panel-title {
   font-size: 13px;
@@ -551,7 +550,7 @@ async function handleApply() {
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  width: 70px;
+  min-width: 90px;
   flex-shrink: 0;
   opacity: 0.8;
 }

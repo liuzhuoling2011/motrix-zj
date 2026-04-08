@@ -5,7 +5,7 @@ import { MESSAGE_DURATION } from '@shared/timing'
 import { ellipsis } from '@shared/utils/format'
 
 /** Maximum display length for toast notification content. */
-const TOAST_MAX_LENGTH = 48
+const TOAST_MAX_LENGTH = 128
 
 /** Content accepted by message methods — plain text or VNode render function. */
 export type MessageContent = string | (() => VNodeChild)
