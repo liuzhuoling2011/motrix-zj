@@ -12,21 +12,14 @@
  *   Left-click  — toggle speed limit on/off (toast hint if unconfigured)
  *   Right-click — open speed limit configuration popover
  */
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { usePreferenceStore } from '@/stores/preference'
 import { changeGlobalOption, isEngineReady } from '@/api/aria2'
 import { bytesToSize } from '@shared/utils'
 import { NIcon, NPopover, NInputNumber, NSelect, NButton } from 'naive-ui'
-import {
-  SpeedometerOutline,
-  ArrowUpOutline,
-  ArrowDownOutline,
-  LockClosedOutline,
-  LockOpenOutline,
-  InfiniteOutline,
-} from '@vicons/ionicons5'
+import { SpeedometerOutline, ArrowUpOutline, ArrowDownOutline, LockClosedOutline } from '@vicons/ionicons5'
 import {
   formatLimitBadge,
   parseSpeedLimitValue,
@@ -52,6 +45,48 @@ const uploadSpeed = computed(() => bytesToSize(String(stat.value.uploadSpeed)))
 
 const dlLimitBadge = computed(() => formatLimitBadge(preferenceStore.config.maxOverallDownloadLimit))
 const ulLimitBadge = computed(() => formatLimitBadge(preferenceStore.config.maxOverallUploadLimit))
+
+// ── Adaptive width (both grow and shrink are animated) ──────────────
+// The outer capsule (.speedometer) uses a JS-driven `width` so that CSS
+// `transition: width` animates both expansion and contraction smoothly.
+// A separate inner wrapper (.capsule-content) is observed by
+// ResizeObserver — it has NO width constraint, so its borderBoxSize
+// always reflects true content width (no circular dependency).
+
+const capsuleRef = ref<HTMLElement | null>(null)
+const contentRef = ref<HTMLElement | null>(null)
+const capsuleWidth = ref(0)
+let resizeObserver: ResizeObserver | null = null
+
+const capsuleStyle = computed(() => (capsuleWidth.value > 0 ? { width: `${capsuleWidth.value}px` } : undefined))
+
+onMounted(() => {
+  if (!contentRef.value || !capsuleRef.value) return
+  const capsuleEl = capsuleRef.value
+  const cs = getComputedStyle(capsuleEl)
+  // Pre-compute the horizontal overhead (padding + border) once
+  const hPad =
+    parseFloat(cs.paddingLeft) +
+    parseFloat(cs.paddingRight) +
+    parseFloat(cs.borderLeftWidth) +
+    parseFloat(cs.borderRightWidth)
+
+  resizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const contentWidth = entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width
+      const totalWidth = Math.ceil(contentWidth + hPad)
+      if (totalWidth !== capsuleWidth.value) {
+        capsuleWidth.value = totalWidth
+      }
+    }
+  })
+  resizeObserver.observe(contentRef.value)
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
 
 // ── Popover state ───────────────────────────────────────────────────
 
@@ -147,35 +182,50 @@ async function handleApply() {
   >
     <template #trigger>
       <div
+        ref="capsuleRef"
         :class="['speedometer', { idle: isIdle, limited: isLimited }]"
+        :style="capsuleStyle"
         @click="handleClick"
         @contextmenu="handleContextMenu"
       >
-        <div class="mode">
-          <i>
-            <NIcon :size="22"><SpeedometerOutline /></NIcon>
-            <span :class="['lock-badge', { locked: isLimited }]">
-              <NIcon :size="10">
-                <LockClosedOutline v-if="isLimited" />
-                <LockOpenOutline v-else />
-              </NIcon>
-            </span>
-          </i>
-        </div>
-        <div class="value">
-          <div class="speed-row upload">
-            <NIcon :size="10" class="speed-arrow"><ArrowUpOutline /></NIcon>
-            <em>{{ uploadSpeed }}/s</em>
-            <span class="limit-sep">┊</span>
-            <span v-if="isLimited" class="limit-value">{{ ulLimitBadge }}</span>
-            <NIcon v-else :size="12" class="limit-inf"><InfiniteOutline /></NIcon>
+        <Transition name="lock-pop">
+          <div v-if="isLimited" class="lock-pill">
+            <NIcon :size="12"><LockClosedOutline /></NIcon>
           </div>
-          <div class="speed-row download">
-            <NIcon :size="10" class="speed-arrow"><ArrowDownOutline /></NIcon>
-            <span>{{ downloadSpeed }}/s</span>
-            <span class="limit-sep">┊</span>
-            <span v-if="isLimited" class="limit-value">{{ dlLimitBadge }}</span>
-            <NIcon v-else :size="12" class="limit-inf"><InfiniteOutline /></NIcon>
+        </Transition>
+        <div ref="contentRef" class="capsule-content">
+          <div class="mode">
+            <i>
+              <NIcon :size="22"><SpeedometerOutline /></NIcon>
+            </i>
+          </div>
+          <div class="value">
+            <div class="speed-row upload">
+              <div class="speed-text">
+                <NIcon :size="10" class="speed-arrow"><ArrowUpOutline /></NIcon>
+                <em>{{ uploadSpeed }}/s</em>
+              </div>
+              <div class="limit-zone">
+                <span class="limit-sep">┊</span>
+                <Transition name="limit-fade" mode="out-in">
+                  <span v-if="isLimited" :key="'ul-' + ulLimitBadge" class="limit-value">{{ ulLimitBadge }}</span>
+                  <span v-else key="ul-inf" class="limit-value limit-inf">∞ K</span>
+                </Transition>
+              </div>
+            </div>
+            <div class="speed-row download">
+              <div class="speed-text">
+                <NIcon :size="10" class="speed-arrow"><ArrowDownOutline /></NIcon>
+                <span>{{ downloadSpeed }}/s</span>
+              </div>
+              <div class="limit-zone">
+                <span class="limit-sep">┊</span>
+                <Transition name="limit-fade" mode="out-in">
+                  <span v-if="isLimited" :key="'dl-' + dlLimitBadge" class="limit-value">{{ dlLimitBadge }}</span>
+                  <span v-else key="dl-inf" class="limit-value limit-inf">∞ K</span>
+                </Transition>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -229,26 +279,29 @@ async function handleApply() {
 </template>
 
 <style scoped>
-/* ── Base: fixed-width capsule (205px, never shrinks) ─────────────── */
+/* ── Base: capsule (outer shell receives min-width) ───────────────── */
 .speedometer {
   font-size: 12px;
   position: fixed;
-  right: 20px;
-  bottom: 20px;
+  right: 12px;
+  bottom: 12px;
   z-index: 20;
-  display: inline-block;
+  display: flex;
+  align-items: center;
   box-sizing: border-box;
-  width: 205px;
+  min-width: 120px;
   height: 46px;
-  padding: 6px 14px 6px 44px;
+  padding: 6px 14px 6px 10px;
   border-radius: 100px;
   cursor: pointer;
   user-select: none;
   transition:
-    border-color 0.2s cubic-bezier(0.2, 0, 0, 1),
-    background 0.2s cubic-bezier(0.2, 0, 0, 1);
+    width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s ease,
+    background 0.2s ease;
   border: 1px solid var(--m3-outline-variant);
   background: var(--m3-surface-container);
+  overflow: visible;
 }
 .speedometer:hover {
   border-color: var(--m3-outline);
@@ -257,13 +310,26 @@ async function handleApply() {
   transform: scale(0.97);
 }
 
-/* ── IDLE — muted colors ─────────────────────────────────────────── */
+/* ── Inner content wrapper (observed by ResizeObserver, no min-width) ─ */
+.capsule-content {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  gap: 4px;
+}
+
+/* ── IDLE — compact capsule ────────────────────────────────────── */
 .speedometer.idle .mode i {
   color: var(--m3-outline);
   transform: rotate(-15deg);
 }
 .speedometer.idle .value {
-  opacity: 0.45;
+  opacity: 0.55;
+}
+.speedometer.idle .speed-text {
+  width: 0;
+  opacity: 0;
+  gap: 0;
 }
 .speedometer.idle .speed-row.download {
   color: var(--m3-outline);
@@ -294,10 +360,7 @@ async function handleApply() {
   font-style: normal;
 }
 .mode {
-  font-size: 0;
-  position: absolute;
-  top: 6px;
-  left: 7px;
+  flex-shrink: 0;
 }
 .mode i {
   font-size: 22px;
@@ -313,8 +376,8 @@ async function handleApply() {
   position: relative;
   color: var(--color-primary);
   transition:
-    transform 0.35s cubic-bezier(0.2, 0, 0, 1),
-    color 0.2s cubic-bezier(0.2, 0, 0, 1);
+    transform 0.35s ease,
+    color 0.2s ease;
   transform: rotate(0deg);
 }
 .value {
@@ -323,13 +386,24 @@ async function handleApply() {
   white-space: nowrap;
   text-overflow: ellipsis;
   opacity: 1;
-  transition: opacity 0.3s cubic-bezier(0.2, 0, 0, 1);
+  transition: opacity 0.3s ease;
 }
 .speed-row {
   display: flex;
   align-items: center;
-  gap: 3px;
+}
+.speed-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 3px;
+  overflow: hidden;
+  min-width: 0;
+  transition:
+    width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.3s ease,
+    gap 0.3s ease;
 }
 .speed-arrow {
   flex-shrink: 0;
@@ -349,7 +423,7 @@ async function handleApply() {
 .speed-row.download {
   color: var(--color-primary);
 }
-.speed-row.download span {
+.speed-row.download .speed-text span {
   font-size: 13px;
   line-height: 16px;
   font-weight: 500;
@@ -357,35 +431,57 @@ async function handleApply() {
 .speed-row.download .speed-arrow {
   color: var(--color-primary);
 }
+.speed-row.download .limit-value {
+  font-size: 13px;
+  font-weight: 500;
+}
 
-/* ── Lock badge (always visible on speedometer icon) ──────────────── */
-.lock-badge {
+/* ── Lock pill (top-right corner badge, visible when limited) ──────── */
+.lock-pill {
   position: absolute;
-  bottom: -2px;
-  right: -4px;
+  top: -8px;
+  left: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--m3-surface-container);
-  color: var(--m3-outline);
-  font-size: 10px;
-  transition:
-    color 0.2s cubic-bezier(0.2, 0, 0, 1),
-    background 0.2s cubic-bezier(0.2, 0, 0, 1);
-}
-.lock-badge.locked {
-  background: var(--m3-tertiary-container, var(--m3-surface-container));
+  background: color-mix(in srgb, var(--m3-tertiary) 22%, var(--m3-surface-container));
   color: var(--m3-tertiary, var(--color-primary));
+  font-size: 10px;
+  border: 1px solid color-mix(in srgb, var(--m3-tertiary) 30%, transparent);
 }
 
-/* ── Right-side limit/infinity display ────────────────────────────── */
+/* Lock pill pop animation */
+.lock-pop-enter-active {
+  transition:
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.2s ease;
+}
+.lock-pop-leave-active {
+  transition:
+    transform 0.15s cubic-bezier(0.4, 0, 1, 1),
+    opacity 0.1s ease;
+}
+.lock-pop-enter-from,
+.lock-pop-leave-to {
+  transform: scale(0);
+  opacity: 0;
+}
+
+/* ── Limit zone (auto width, never truncates) ──────────────────────── */
+.limit-zone {
+  min-width: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
 .limit-sep {
   opacity: 0.3;
   font-size: 11px;
-  margin: 0 1px;
   flex-shrink: 0;
 }
 .limit-value {
@@ -397,6 +493,16 @@ async function handleApply() {
 .limit-inf {
   opacity: 0.35;
   flex-shrink: 0;
+}
+
+/* ── Limit value crossfade transition ────────────────────────────── */
+.limit-fade-enter-active,
+.limit-fade-leave-active {
+  transition: opacity 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+.limit-fade-enter-from,
+.limit-fade-leave-to {
+  opacity: 0;
 }
 
 /* ── Popover panel ────────────────────────────────────────────────── */

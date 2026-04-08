@@ -108,7 +108,7 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
 .task-list-inner:not(:empty)::after {
   content: '';
   display: block;
-  flex: 0 0 56px;
+  flex: 0 0 48px;
 }
 
 /* ── Permanent watermark — centered, behind cards ─────────────────── */

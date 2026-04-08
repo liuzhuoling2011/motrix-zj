@@ -64,17 +64,17 @@ export function buildSpeedLimitString(num: number, unit: string): string {
  */
 export function formatLimitBadge(value: string): string {
   const parsed = parseSpeedLimitValue(value)
-  if (parsed.num <= 0) return '∞'
+  if (parsed.num <= 0) return '∞ K'
 
-  // Auto-promote: 1024K → 1M, 1024M → 1G
+  // Auto-promote: 1024K → 1 M, 1024M → 1 G
   if (parsed.unit === 'K' && parsed.num >= 1024 && parsed.num % 1024 === 0) {
-    return `${parsed.num / 1024}M`
+    return `${parsed.num / 1024} M`
   }
   if (parsed.unit === 'M' && parsed.num >= 1024 && parsed.num % 1024 === 0) {
-    return `${parsed.num / 1024}G`
+    return `${parsed.num / 1024} G`
   }
 
-  return `${parsed.num}${parsed.unit}`
+  return `${parsed.num} ${parsed.unit}`
 }
 
 /**
