@@ -286,15 +286,18 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
         const mainWindow = getCurrentWindow()
         switch (action) {
           case 'show':
+            await mainWindow.unminimize()
             await mainWindow.show()
             await mainWindow.setFocus()
             break
           case 'new-task':
+            await mainWindow.unminimize()
             await mainWindow.show()
             await mainWindow.setFocus()
             appStore.showAddTaskDialog()
             break
           case 'resume-all':
+            await mainWindow.unminimize()
             await mainWindow.show()
             await mainWindow.setFocus()
             if (!(await taskStore.hasPausedTasks())) {
@@ -319,6 +322,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
             }
             break
           case 'pause-all':
+            await mainWindow.unminimize()
             await mainWindow.show()
             await mainWindow.setFocus()
             if (!(await taskStore.hasActiveTasks())) {
