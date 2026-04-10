@@ -237,14 +237,64 @@ describe('resumeTask', () => {
 // ═══════════════════════════════════════════════════════════════════
 
 describe('pauseAllTask', () => {
-  it('calls forcePauseAllTask, then refreshes and saves', async () => {
+  it('pauses non-seeding active tasks individually via forcePauseTask', async () => {
     const api = createMockApi()
     const deps = createDeps(api)
+    deps.taskList.value = [
+      makeTask({ gid: 'dl-1', status: TASK_STATUS.ACTIVE }),
+      makeTask({ gid: 'dl-2', status: TASK_STATUS.WAITING }),
+    ] as Aria2Task[]
     const ops = createTaskOperations(deps)
     await ops.pauseAllTask()
-    expect(api.forcePauseAllTask).toHaveBeenCalledOnce()
+    expect(api.forcePauseTask).toHaveBeenCalledWith({ gid: 'dl-1' })
+    expect(api.forcePauseTask).toHaveBeenCalledWith({ gid: 'dl-2' })
     expect(deps.fetchList).toHaveBeenCalledOnce()
     expect(api.saveSession).toHaveBeenCalledOnce()
+  })
+
+  it('does NOT pause seeding tasks', async () => {
+    const api = createMockApi()
+    const deps = createDeps(api)
+    deps.taskList.value = [
+      makeTask({ gid: 'dl-1', status: TASK_STATUS.ACTIVE }),
+      makeTask({
+        gid: 'seed-1',
+        status: TASK_STATUS.ACTIVE,
+        bittorrent: { info: { name: 'movie.mkv' } },
+        seeder: 'true',
+      }),
+    ] as Aria2Task[]
+    const ops = createTaskOperations(deps)
+    await ops.pauseAllTask()
+    expect(api.forcePauseTask).toHaveBeenCalledWith({ gid: 'dl-1' })
+    expect(api.forcePauseTask).not.toHaveBeenCalledWith({ gid: 'seed-1' })
+    expect(api.forcePauseTask).toHaveBeenCalledTimes(1)
+  })
+
+  it('does nothing when only seeding tasks exist', async () => {
+    const api = createMockApi()
+    const deps = createDeps(api)
+    deps.taskList.value = [
+      makeTask({
+        gid: 'seed-only',
+        status: TASK_STATUS.ACTIVE,
+        bittorrent: { info: { name: 'iso.torrent' } },
+        seeder: 'true',
+      }),
+    ] as Aria2Task[]
+    const ops = createTaskOperations(deps)
+    await ops.pauseAllTask()
+    expect(api.forcePauseTask).not.toHaveBeenCalled()
+    expect(api.forcePauseAllTask).not.toHaveBeenCalled()
+  })
+
+  it('does not call forcePauseAllTask (replaced by per-task calls)', async () => {
+    const api = createMockApi()
+    const deps = createDeps(api)
+    deps.taskList.value = [makeTask({ gid: 'dl-1', status: TASK_STATUS.ACTIVE })] as Aria2Task[]
+    const ops = createTaskOperations(deps)
+    await ops.pauseAllTask()
+    expect(api.forcePauseAllTask).not.toHaveBeenCalled()
   })
 })
 
@@ -306,6 +356,19 @@ describe('toggleTask', () => {
     const task = makeTask({ status: TASK_STATUS.ERROR })
     ops.toggleTask(task)
     expect(api.pauseTask).not.toHaveBeenCalled()
+    expect(api.resumeTask).not.toHaveBeenCalled()
+  })
+
+  it('does nothing for a seeding task (active + seeder=true)', async () => {
+    const task = makeTask({
+      status: TASK_STATUS.ACTIVE,
+      bittorrent: { info: { name: 'movie.mkv' } },
+      seeder: 'true',
+    })
+    const result = ops.toggleTask(task)
+    expect(result).toBeUndefined()
+    expect(api.pauseTask).not.toHaveBeenCalled()
+    expect(api.forcePauseTask).not.toHaveBeenCalled()
     expect(api.resumeTask).not.toHaveBeenCalled()
   })
 })
@@ -697,7 +760,7 @@ describe('batchRemoveTask', () => {
 // ═══════════════════════════════════════════════════════════════════
 
 describe('hasActiveTasks', () => {
-  it('returns true when active tasks exist', async () => {
+  it('returns true when active non-seeding tasks exist', async () => {
     const api = createMockApi()
     ;(api.fetchTaskList as Mock).mockResolvedValueOnce([makeTask({ status: TASK_STATUS.ACTIVE })])
     const deps = createDeps(api)
@@ -711,6 +774,20 @@ describe('hasActiveTasks', () => {
     const deps = createDeps(api)
     const ops = createTaskOperations(deps)
     expect(await ops.hasActiveTasks()).toBe(true)
+  })
+
+  it('returns false when only seeding tasks exist', async () => {
+    const api = createMockApi()
+    ;(api.fetchTaskList as Mock).mockResolvedValueOnce([
+      makeTask({
+        status: TASK_STATUS.ACTIVE,
+        bittorrent: { info: { name: 'seed' } },
+        seeder: 'true',
+      }),
+    ])
+    const deps = createDeps(api)
+    const ops = createTaskOperations(deps)
+    expect(await ops.hasActiveTasks()).toBe(false)
   })
 
   it('returns false when only completed tasks exist', async () => {

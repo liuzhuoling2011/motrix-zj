@@ -8,6 +8,7 @@ import { useTaskStore } from '@/stores/task'
 import { isEngineReady } from '@/api/aria2'
 import { TASK_STATUS } from '@shared/constants'
 import { checkTaskIsSeeder } from '@shared/utils/task'
+import type { Aria2Task } from '@shared/types'
 import { deleteTaskFiles } from '@/composables/useFileDelete'
 
 import { logger } from '@shared/logger'
@@ -110,7 +111,7 @@ const allGids = computed(() => taskStore.taskList.map((t: { gid: string }) => t.
 const hasSeeders = computed(() => taskStore.taskList.some(checkTaskIsSeeder))
 const hasActiveTasks = computed(() =>
   taskStore.taskList.some(
-    (t: { status: string }) => t.status === TASK_STATUS.ACTIVE || t.status === TASK_STATUS.WAITING,
+    (t: Aria2Task) => (t.status === TASK_STATUS.ACTIVE && !checkTaskIsSeeder(t)) || t.status === TASK_STATUS.WAITING,
   ),
 )
 const hasPausedTasks = computed(() =>

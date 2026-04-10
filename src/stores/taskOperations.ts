@@ -68,7 +68,12 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
 
   async function pauseAllTask() {
     try {
-      await api.forcePauseAllTask()
+      const nonSeeders = taskList.value.filter(
+        (t) => (t.status === TASK_STATUS.ACTIVE || t.status === TASK_STATUS.WAITING) && !checkTaskIsSeeder(t),
+      )
+      if (nonSeeders.length > 0) {
+        await Promise.allSettled(nonSeeders.map((t) => api.forcePauseTask({ gid: t.gid })))
+      }
     } finally {
       await fetchList()
       await api.saveSession()
@@ -86,7 +91,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
 
   function toggleTask(task: Aria2Task) {
     const { status } = task
-    if (status === TASK_STATUS.ACTIVE) return pauseTask(task)
+    if (status === TASK_STATUS.ACTIVE && !checkTaskIsSeeder(task)) return pauseTask(task)
     if (status === TASK_STATUS.WAITING || status === TASK_STATUS.PAUSED) return resumeTask(task)
   }
 
@@ -201,7 +206,9 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
   async function hasActiveTasks(): Promise<boolean> {
     try {
       const tasks = await api.fetchTaskList({ type: TASK_STATUS.ACTIVE })
-      return tasks.some((t) => t.status === TASK_STATUS.ACTIVE || t.status === TASK_STATUS.WAITING)
+      return tasks.some(
+        (t) => (t.status === TASK_STATUS.ACTIVE && !checkTaskIsSeeder(t)) || t.status === TASK_STATUS.WAITING,
+      )
     } catch {
       return false
     }

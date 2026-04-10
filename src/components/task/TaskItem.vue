@@ -122,6 +122,7 @@ const finishedTag = computed(() => {
 })
 
 function onDblClick() {
+  if (isSeeder.value) return
   const s = props.task.status
   if (s === TASK_STATUS.COMPLETE) {
     emit('open-file', props.task)

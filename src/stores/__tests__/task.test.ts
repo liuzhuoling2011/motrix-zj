@@ -403,18 +403,29 @@ describe('TaskStore', () => {
 
   // ─── pauseAllTask / resumeAllTask ───────────────────────
 
-  it('pauseAllTask calls forcePauseAllTask directly (no graceful fallback)', async () => {
+  it('pauseAllTask pauses non-seeding tasks individually via forcePauseTask', async () => {
+    // Default mock taskList has 2 active tasks: gid1, gid2
+    await store.fetchList()
     await store.pauseAllTask()
-    expect(mockApi.forcePauseAllTask).toHaveBeenCalled()
-    expect(mockApi.pauseAllTask).not.toHaveBeenCalled()
+    expect(mockApi.forcePauseTask).toHaveBeenCalledWith({ gid: 'gid1' })
+    expect(mockApi.forcePauseTask).toHaveBeenCalledWith({ gid: 'gid2' })
+    expect(mockApi.forcePauseAllTask).not.toHaveBeenCalled()
     expect(mockApi.saveSession).toHaveBeenCalled()
   })
 
-  it('pauseAllTask refreshes list and saves session', async () => {
+  it('pauseAllTask skips seeding tasks', async () => {
+    mockApi.fetchTaskList.mockResolvedValueOnce([
+      makeMockTask('dl-1', 'active'),
+      makeMockTask('seed-1', 'active', {
+        bittorrent: { info: { name: 'movie.mkv' } },
+        seeder: 'true',
+      }),
+    ])
+    await store.fetchList()
     await store.pauseAllTask()
-    expect(mockApi.forcePauseAllTask).toHaveBeenCalled()
-    expect(mockApi.fetchTaskList).toHaveBeenCalled()
-    expect(mockApi.saveSession).toHaveBeenCalled()
+    expect(mockApi.forcePauseTask).toHaveBeenCalledWith({ gid: 'dl-1' })
+    expect(mockApi.forcePauseTask).toHaveBeenCalledTimes(1)
+    expect(mockApi.forcePauseAllTask).not.toHaveBeenCalled()
   })
 
   it('resumeAllTask calls API, refreshes, and saves session', async () => {
