@@ -13,6 +13,7 @@ import { checkTaskIsBT, checkTaskIsSeeder } from '@shared/utils'
 import { logger } from '@shared/logger'
 import { buildBtCompletionRecord } from '@/composables/useTaskLifecycle'
 import { cleanupAria2ControlFile } from '@/composables/useFileDelete'
+import { cleanupAria2MetadataFiles } from '@/composables/useDownloadCleanup'
 import { useHistoryStore } from '@/stores/history'
 import type { Aria2Task, TaskApi } from '@shared/types'
 import type { Ref } from 'vue'
@@ -127,6 +128,16 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
         await cleanupAria2ControlFile(task)
       } catch {
         /* silent — cleanup failure must not block seeding teardown */
+      }
+      // Clean up hex40-named .torrent / .meta4 metadata left by bt-save-metadata
+      // and rpc-save-upload-metadata. Covers session-restore case where onBtComplete
+      // was suppressed by initialScanDone.
+      if (task.dir && task.infoHash) {
+        try {
+          await cleanupAria2MetadataFiles(task.dir, task.infoHash)
+        } catch {
+          /* silent — metadata cleanup is best-effort */
+        }
       }
     } finally {
       await fetchList()
