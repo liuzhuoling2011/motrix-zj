@@ -16,7 +16,7 @@ export interface DownloadUpdateResult {
 }
 
 export interface UpdateProxyConfig {
-  enable?: boolean
+  mode?: import('@shared/types').ProxyMode
   server?: string
   scope?: string[]
 }
@@ -89,7 +89,7 @@ export function bytesToMB(bytes: number): string {
 
 /** Returns the proxy server URL if proxy is enabled for app updates. */
 export function getUpdateProxy(proxyConfig: UpdateProxyConfig | undefined): string | null {
-  if (!proxyConfig?.enable || !proxyConfig.server) return null
+  if (!proxyConfig || proxyConfig.mode === 'none' || !proxyConfig.mode || !proxyConfig.server) return null
   const scope = proxyConfig.scope || []
   if (!scope.includes('update-app')) return null
   return proxyConfig.server

@@ -15,6 +15,7 @@ import { relaunch } from '@tauri-apps/plugin-process'
 import { useIpc } from '@/composables/useIpc'
 import { appDataDir, appLogDir, join } from '@tauri-apps/api/path'
 import { LOG_LEVELS, PROXY_SCOPE_OPTIONS } from '@shared/constants'
+import type { SystemProxyInfo, ProxyMode } from '@shared/types'
 import { convertTrackerDataToLine } from '@shared/utils/tracker'
 import { SYNC_MIN_DURATION } from '@shared/timing'
 import {
@@ -46,6 +47,8 @@ import {
   NModal,
   NDataTable,
   NEmpty,
+  NRadioGroup,
+  NRadioButton,
   useDialog,
 } from 'naive-ui'
 import { useAppMessage } from '@/composables/useAppMessage'
@@ -86,6 +89,53 @@ const logLevelOptions = LOG_LEVELS.map((l: string) => ({ label: l, value: l }))
 
 const syncingTracker = ref(false)
 const customTrackerInput = ref('')
+const systemProxyAvailable = ref(false)
+const systemProxyInfo = ref<SystemProxyInfo | null>(null)
+
+/** Detect system proxy on mount and when user switches to system mode. */
+async function detectSystemProxy(): Promise<boolean> {
+  try {
+    const info = await invoke<SystemProxyInfo | null>('get_system_proxy')
+    if (info && info.server) {
+      if (info.isSocks) {
+        systemProxyAvailable.value = false
+        systemProxyInfo.value = null
+        message.warning(t('preferences.proxy-system-socks-rejected'))
+        return false
+      }
+      systemProxyAvailable.value = true
+      systemProxyInfo.value = info
+      return true
+    }
+    systemProxyAvailable.value = false
+    systemProxyInfo.value = null
+    return false
+  } catch {
+    systemProxyAvailable.value = false
+    systemProxyInfo.value = null
+    return false
+  }
+}
+
+/** Handle proxy mode radio group change. */
+async function onProxyModeChange(mode: ProxyMode) {
+  if (mode === 'system') {
+    const ok = await detectSystemProxy()
+    if (ok && systemProxyInfo.value) {
+      form.value.proxy.server = systemProxyInfo.value.server
+      if (systemProxyInfo.value.bypass) {
+        form.value.proxy.bypass = systemProxyInfo.value.bypass
+      }
+      // Default scope to all if empty
+      if (!form.value.proxy.scope || form.value.proxy.scope.length === 0) {
+        form.value.proxy.scope = [...PROXY_SCOPE_OPTIONS]
+      }
+    } else {
+      // Detection failed — revert to none
+      form.value.proxy.mode = 'none'
+    }
+  }
+}
 
 /** All known preset tracker source values for fast O(1) classification. */
 const presetTrackerValues = new Set(
@@ -496,6 +546,7 @@ onMounted(() => {
   loadForm()
   resetSnapshot()
   loadPaths()
+  detectSystemProxy()
 })
 </script>
 
@@ -503,10 +554,16 @@ onMounted(() => {
   <div class="preference-form-wrapper">
     <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
       <NDivider title-placement="left">{{ t('preferences.proxy') }}</NDivider>
-      <NFormItem :label="t('preferences.enable-proxy')">
-        <NSwitch v-model:value="form.proxy.enable" />
+      <NFormItem :label="t('preferences.proxy-mode')">
+        <NRadioGroup v-model:value="form.proxy.mode" @update:value="onProxyModeChange">
+          <NRadioButton value="none">{{ t('preferences.proxy-mode-none') }}</NRadioButton>
+          <NRadioButton v-if="systemProxyAvailable || form.proxy.mode === 'system'" value="system">
+            {{ t('preferences.proxy-mode-system') }}
+          </NRadioButton>
+          <NRadioButton value="manual">{{ t('preferences.proxy-mode-manual') }}</NRadioButton>
+        </NRadioGroup>
       </NFormItem>
-      <div class="proxy-collapse" :class="{ 'proxy-collapse--open': form.proxy.enable }">
+      <div class="proxy-collapse" :class="{ 'proxy-collapse--open': form.proxy.mode !== 'none' }">
         <div class="proxy-collapse__inner collapse-indent">
           <NFormItem :label="t('preferences.proxy-server')">
             <NInput v-model:value="form.proxy.server" placeholder="[http://][USER:PASSWORD@]HOST[:PORT]" />

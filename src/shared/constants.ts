@@ -119,7 +119,7 @@ export const UPDATE_CHANNELS = ['stable', 'beta'] as const
  * - `rpcSecret`     → ABSENT from defaults; auto-generated on first launch in main.ts
  */
 export const DEFAULT_APP_CONFIG = {
-  configVersion: 2,
+  configVersion: 3,
   dbSchemaVersion: 2,
   // ── Appearance ──────────────────────────────────────────────────
   theme: 'auto' as const,
@@ -186,7 +186,7 @@ export const DEFAULT_APP_CONFIG = {
   // 'abc' → user-set or auto-generated secret (kept as-is).
   listenPort: 21301,
   dhtListenPort: 26701,
-  proxy: { enable: false, server: '', bypass: '', scope: ['download', 'update-app', 'update-trackers'] },
+  proxy: { mode: 'none' as const, server: '', bypass: '', scope: ['download', 'update-app', 'update-trackers'] },
   protocols: { magnet: true, thunder: false, motrixnext: true },
   clipboard: { enable: true, http: true, ftp: true, magnet: true, thunder: true, btHash: true },
   userAgent:

@@ -21,7 +21,7 @@ import { logger } from '@shared/logger'
 import type { AppConfig } from '@shared/types'
 
 /** Current schema version. Must equal `migrations.length`. */
-export const CONFIG_VERSION = 2
+export const CONFIG_VERSION = 3
 
 /** Result returned by runMigrations for callers to act on (e.g. toast). */
 export interface MigrationResult {
@@ -83,6 +83,30 @@ const migrations: Migration[] = [
       'ConfigMigration',
       'v2: removed engineMaxConnectionPerServer — split and maxConnectionPerServer are now independent',
     )
+  },
+
+  // ── v2 → v3 ──────────────────────────────────────────────────────
+  // Convert proxy.enable (boolean) to proxy.mode (tri-state).
+  //
+  // { enable: true,  server: "..." } → { mode: 'manual', server: "..." }
+  // { enable: true,  server: ""    } → { mode: 'none' }
+  // { enable: false }                → { mode: 'none' }
+  //
+  // Idempotent: skips if `mode` already exists on the proxy object.
+  function migrateV3(config: Partial<AppConfig>): void {
+    const proxy = config.proxy
+    if (!proxy) return
+    if ('mode' in proxy) return // already migrated
+
+    // Cast to Record to access legacy fields that no longer exist on ProxyConfig
+    const rec = proxy as unknown as Record<string, unknown>
+    if (rec.enable && rec.server) {
+      rec.mode = 'manual'
+    } else {
+      rec.mode = 'none'
+    }
+    delete rec.enable
+    logger.info('ConfigMigration', 'v3: converted proxy.enable to proxy.mode')
   },
 ]
 

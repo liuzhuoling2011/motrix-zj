@@ -33,7 +33,7 @@ export function isValidTrackerSourceUrl(input: string): boolean {
 export interface AdvancedForm {
   [key: string]: unknown
   proxy: {
-    enable: boolean
+    mode: import('@shared/types').ProxyMode
     server: string
     bypass: string
     scope: string[]
@@ -81,7 +81,7 @@ export function buildAdvancedForm(config: AppConfig): { form: AdvancedForm; gene
   return {
     form: {
       proxy: {
-        enable: proxy.enable ?? D.proxy.enable,
+        mode: proxy.mode ?? D.proxy.mode,
         server: proxy.server ?? D.proxy.server,
         bypass: proxy.bypass ?? D.proxy.bypass,
         scope: proxy.scope ?? [...PROXY_SCOPE_OPTIONS],
@@ -110,7 +110,10 @@ export function buildAdvancedForm(config: AppConfig): { form: AdvancedForm; gene
  */
 export function buildAdvancedSystemConfig(f: AdvancedForm): Record<string, string> {
   const proxyForDownloads =
-    f.proxy.enable && Array.isArray(f.proxy.scope) && f.proxy.scope.includes(PROXY_SCOPES.DOWNLOAD)
+    f.proxy.mode !== 'none' &&
+    !!f.proxy.server &&
+    Array.isArray(f.proxy.scope) &&
+    f.proxy.scope.includes(PROXY_SCOPES.DOWNLOAD)
   return {
     'rpc-listen-port': String(f.rpcListenPort),
     'rpc-secret': f.rpcSecret,
@@ -194,7 +197,7 @@ export function isValidAria2ProxyUrl(url: string): boolean {
  * Returns null if valid, or an i18n error key if invalid.
  */
 export function validateAdvancedForm(f: AdvancedForm): string | null {
-  if (f.proxy.enable && f.proxy.server) {
+  if (f.proxy.mode === 'manual' && f.proxy.server) {
     if (!isValidAria2ProxyUrl(f.proxy.server)) {
       return UNSUPPORTED_PROXY_SCHEME_RE.test(f.proxy.server.trim())
         ? 'preferences.proxy-unsupported-protocol'

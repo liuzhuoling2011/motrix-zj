@@ -174,7 +174,7 @@ export const usePreferenceStore = defineStore('preference', () => {
   }
 
   async function fetchBtTracker(trackerSource: string[] = []) {
-    const proxy = config.value.proxy || ({ enable: false } as ProxyConfig)
+    const proxy = config.value.proxy || ({ mode: 'none' } as ProxyConfig)
     return fetchBtTrackerFromSource(trackerSource, proxy)
   }
 

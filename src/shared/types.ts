@@ -100,12 +100,24 @@ export interface Aria2RawGlobalStat {
   [key: string]: string
 }
 
+/** Proxy mode tri-state: direct connection, OS-level proxy, or user-specified address. */
+export type ProxyMode = 'none' | 'system' | 'manual'
+
 /** HTTP/SOCKS proxy configuration for aria2 and tracker requests. */
 export interface ProxyConfig {
-  enable: boolean
+  mode: ProxyMode
   server: string
   bypass?: string
   scope?: string[]
+  /** @deprecated Retained for v2→v3 migration only. Use `mode` instead. */
+  enable?: boolean
+}
+
+/** System-level proxy information returned by the Rust `get_system_proxy` command. */
+export interface SystemProxyInfo {
+  server: string
+  bypass: string
+  isSocks: boolean
 }
 
 /** Protocol handler registration settings (system-level). */

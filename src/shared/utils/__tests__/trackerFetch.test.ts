@@ -22,10 +22,10 @@ import { computeTrackerProxyServer, fetchBtTrackerFromSource, type FetchTrackerS
 // ── computeTrackerProxyServer ───────────────────────────────────
 
 describe('computeTrackerProxyServer', () => {
-  it('returns server when proxy enabled with UPDATE_TRACKERS scope', () => {
+  it('returns server when mode is not none with UPDATE_TRACKERS scope', () => {
     expect(
       computeTrackerProxyServer({
-        enable: true,
+        mode: 'manual',
         server: 'http://proxy.example.com:8080',
         scope: [PROXY_SCOPES.UPDATE_TRACKERS],
       }),
@@ -35,17 +35,17 @@ describe('computeTrackerProxyServer', () => {
   it('returns server when scope has multiple entries including UPDATE_TRACKERS', () => {
     expect(
       computeTrackerProxyServer({
-        enable: true,
+        mode: 'manual',
         server: 'socks5://localhost:1080',
         scope: [PROXY_SCOPES.DOWNLOAD, PROXY_SCOPES.UPDATE_TRACKERS],
       }),
     ).toBe('socks5://localhost:1080')
   })
 
-  it('returns null when proxy disabled', () => {
+  it('returns null when mode is none', () => {
     expect(
       computeTrackerProxyServer({
-        enable: false,
+        mode: 'none',
         server: 'http://proxy.example.com:8080',
         scope: [PROXY_SCOPES.UPDATE_TRACKERS],
       }),
@@ -55,7 +55,7 @@ describe('computeTrackerProxyServer', () => {
   it('returns null when scope does not include UPDATE_TRACKERS', () => {
     expect(
       computeTrackerProxyServer({
-        enable: true,
+        mode: 'manual',
         server: 'http://proxy.example.com:8080',
         scope: [PROXY_SCOPES.DOWNLOAD],
       }),
@@ -65,7 +65,7 @@ describe('computeTrackerProxyServer', () => {
   it('returns null when scope is empty', () => {
     expect(
       computeTrackerProxyServer({
-        enable: true,
+        mode: 'manual',
         server: 'http://proxy.example.com:8080',
         scope: [],
       }),
@@ -75,7 +75,7 @@ describe('computeTrackerProxyServer', () => {
   it('returns null when server is empty string', () => {
     expect(
       computeTrackerProxyServer({
-        enable: true,
+        mode: 'manual',
         server: '',
         scope: [PROXY_SCOPES.UPDATE_TRACKERS],
       }),
@@ -85,7 +85,7 @@ describe('computeTrackerProxyServer', () => {
   it('returns null when server is undefined', () => {
     expect(
       computeTrackerProxyServer({
-        enable: true,
+        mode: 'manual',
         scope: [PROXY_SCOPES.UPDATE_TRACKERS],
       }),
     ).toBeNull()
@@ -98,7 +98,7 @@ describe('computeTrackerProxyServer', () => {
   it('defaults scope to empty array when not provided', () => {
     expect(
       computeTrackerProxyServer({
-        enable: true,
+        mode: 'manual',
         server: 'http://proxy.example.com:8080',
       }),
     ).toBeNull()
@@ -123,7 +123,7 @@ describe('fetchBtTrackerFromSource', () => {
     const mockResult: FetchTrackerSourcesResult = { data: ['body1'], failures: [] }
     mockInvoke.mockResolvedValueOnce(mockResult)
 
-    await fetchBtTrackerFromSource(['https://example.com/trackers.txt'], { enable: false })
+    await fetchBtTrackerFromSource(['https://example.com/trackers.txt'], { mode: 'none' as const })
 
     expect(mockInvoke).toHaveBeenCalledTimes(1)
     expect(mockInvoke).toHaveBeenCalledWith('fetch_tracker_sources', {
@@ -144,12 +144,12 @@ describe('fetchBtTrackerFromSource', () => {
     })
   })
 
-  it('passes proxy server when proxy is enabled with correct scope', async () => {
+  it('passes proxy server when mode is not none with correct scope', async () => {
     const mockResult: FetchTrackerSourcesResult = { data: [], failures: [] }
     mockInvoke.mockResolvedValueOnce(mockResult)
 
     await fetchBtTrackerFromSource(['https://example.com/trackers.txt'], {
-      enable: true,
+      mode: 'manual',
       server: 'http://proxy:8080',
       scope: [PROXY_SCOPES.UPDATE_TRACKERS],
     })
@@ -160,12 +160,12 @@ describe('fetchBtTrackerFromSource', () => {
     })
   })
 
-  it('passes null proxy when proxy enabled but wrong scope', async () => {
+  it('passes null proxy when mode is not none but wrong scope', async () => {
     const mockResult: FetchTrackerSourcesResult = { data: [], failures: [] }
     mockInvoke.mockResolvedValueOnce(mockResult)
 
     await fetchBtTrackerFromSource(['https://example.com/trackers.txt'], {
-      enable: true,
+      mode: 'manual',
       server: 'http://proxy:8080',
       scope: [PROXY_SCOPES.DOWNLOAD],
     })

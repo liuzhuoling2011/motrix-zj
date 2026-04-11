@@ -23,12 +23,12 @@ export interface FetchTrackerSourcesResult {
 
 /**
  * Determines the proxy server URL to pass to the Rust backend.
- * Returns the server string when the proxy is enabled and the scope
+ * Returns the server string when the proxy mode is not 'none' and the scope
  * includes UPDATE_TRACKERS; otherwise returns `null`.
  */
 export function computeTrackerProxyServer(proxyConfig: Partial<ProxyConfig>): string | null {
-  const { enable, server, scope = [] as string[] } = proxyConfig
-  return enable && server && scope.includes(PROXY_SCOPES.UPDATE_TRACKERS) ? server : null
+  const { mode, server, scope = [] as string[] } = proxyConfig
+  return mode && mode !== 'none' && server && scope.includes(PROXY_SCOPES.UPDATE_TRACKERS) ? server : null
 }
 
 // ── Legacy axios proxy converter (retained for test coverage) ───

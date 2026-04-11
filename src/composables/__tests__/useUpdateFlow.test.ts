@@ -194,24 +194,28 @@ describe('getUpdateProxy', () => {
     expect(getUpdateProxy(undefined)).toBeNull()
   })
 
-  it('returns null when proxy is disabled', () => {
-    expect(getUpdateProxy({ enable: false, server: 'http://p:8080', scope: ['update-app'] })).toBeNull()
+  it('returns null when mode is none', () => {
+    expect(getUpdateProxy({ mode: 'none', server: 'http://p:8080', scope: ['update-app'] })).toBeNull()
   })
 
   it('returns null when no server', () => {
-    expect(getUpdateProxy({ enable: true, server: '', scope: ['update-app'] })).toBeNull()
+    expect(getUpdateProxy({ mode: 'manual', server: '', scope: ['update-app'] })).toBeNull()
   })
 
   it('returns null when scope does not include update-app', () => {
-    expect(getUpdateProxy({ enable: true, server: 'http://p:8080', scope: ['download'] })).toBeNull()
+    expect(getUpdateProxy({ mode: 'manual', server: 'http://p:8080', scope: ['download'] })).toBeNull()
   })
 
-  it('returns server when fully configured', () => {
-    expect(getUpdateProxy({ enable: true, server: 'http://p:8080', scope: ['update-app'] })).toBe('http://p:8080')
+  it('returns server when fully configured with manual mode', () => {
+    expect(getUpdateProxy({ mode: 'manual', server: 'http://p:8080', scope: ['update-app'] })).toBe('http://p:8080')
+  })
+
+  it('returns server when fully configured with system mode', () => {
+    expect(getUpdateProxy({ mode: 'system', server: 'http://p:7890', scope: ['update-app'] })).toBe('http://p:7890')
   })
 
   it('returns null when scope is missing', () => {
-    expect(getUpdateProxy({ enable: true, server: 'http://p:8080' })).toBeNull()
+    expect(getUpdateProxy({ mode: 'manual', server: 'http://p:8080' })).toBeNull()
   })
 })
 

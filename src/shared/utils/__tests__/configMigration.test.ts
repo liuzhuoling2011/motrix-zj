@@ -77,7 +77,7 @@ describe('runMigrations version stamping', () => {
 describe('v1 migration — proxy.scope backfill', () => {
   it('backfills empty scope array with all PROXY_SCOPE_OPTIONS', () => {
     const config: Partial<AppConfig> = {
-      proxy: { enable: true, server: 'http://127.0.0.1:7890', bypass: '', scope: [] },
+      proxy: { enable: true, server: 'http://127.0.0.1:7890', bypass: '', scope: [] } as unknown as AppConfig['proxy'],
     }
     runMigrations(config)
     expect(config.proxy!.scope).toEqual([...PROXY_SCOPE_OPTIONS])
@@ -85,7 +85,7 @@ describe('v1 migration — proxy.scope backfill', () => {
 
   it('backfills even when proxy is disabled (consistency)', () => {
     const config: Partial<AppConfig> = {
-      proxy: { enable: false, server: '', bypass: '', scope: [] },
+      proxy: { enable: false, server: '', bypass: '', scope: [] } as unknown as AppConfig['proxy'],
     }
     runMigrations(config)
     expect(config.proxy!.scope).toEqual([...PROXY_SCOPE_OPTIONS])
@@ -93,7 +93,12 @@ describe('v1 migration — proxy.scope backfill', () => {
 
   it('preserves user-selected scope values (does not overwrite)', () => {
     const config: Partial<AppConfig> = {
-      proxy: { enable: true, server: 'http://proxy:8080', bypass: '', scope: ['download'] },
+      proxy: {
+        enable: true,
+        server: 'http://proxy:8080',
+        bypass: '',
+        scope: ['download'],
+      } as unknown as AppConfig['proxy'],
     }
     runMigrations(config)
     expect(config.proxy!.scope).toEqual(['download'])
@@ -106,7 +111,7 @@ describe('v1 migration — proxy.scope backfill', () => {
         server: 'http://proxy:8080',
         bypass: '',
         scope: [...PROXY_SCOPE_OPTIONS],
-      },
+      } as unknown as AppConfig['proxy'],
     }
     runMigrations(config)
     expect(config.proxy!.scope).toEqual([...PROXY_SCOPE_OPTIONS])
@@ -120,7 +125,7 @@ describe('v1 migration — proxy.scope backfill', () => {
 
   it('handles proxy without scope field (scope is undefined)', () => {
     const config: Partial<AppConfig> = {
-      proxy: { enable: true, server: 'http://proxy:8080', bypass: '' } as AppConfig['proxy'],
+      proxy: { enable: true, server: 'http://proxy:8080', bypass: '' } as unknown as AppConfig['proxy'],
     }
     runMigrations(config)
     // No scope field to backfill — migration should not crash
@@ -133,7 +138,7 @@ describe('v1 migration — proxy.scope backfill', () => {
 describe('runMigrations idempotency', () => {
   it('running migrations twice produces identical results', () => {
     const config: Partial<AppConfig> = {
-      proxy: { enable: true, server: 'http://127.0.0.1:7890', bypass: '', scope: [] },
+      proxy: { enable: true, server: 'http://127.0.0.1:7890', bypass: '', scope: [] } as unknown as AppConfig['proxy'],
     }
     runMigrations(config)
     const snapshot = JSON.parse(JSON.stringify(config))
@@ -153,7 +158,7 @@ describe('runMigrations preserves unrelated config fields', () => {
       locale: 'zh-CN',
       split: 16,
       dir: '/downloads',
-      proxy: { enable: true, server: 'http://proxy:1080', bypass: '', scope: [] },
+      proxy: { enable: true, server: 'http://proxy:1080', bypass: '', scope: [] } as unknown as AppConfig['proxy'],
     }
     runMigrations(config)
     expect(config.theme).toBe('dark')
@@ -199,7 +204,7 @@ describe('runMigrations error isolation', () => {
         set scope(_v: string[]) {
           // no-op for the test
         },
-      },
+      } as unknown as AppConfig['proxy'],
     }
     // Suppress expected error log during test
     const logSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -225,7 +230,7 @@ describe('runMigrations error isolation', () => {
         set scope(_v: string[]) {
           // no-op
         },
-      },
+      } as unknown as AppConfig['proxy'],
     }
     const logSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(() => runMigrations(config)).not.toThrow()
@@ -281,18 +286,18 @@ describe('v2 migration — decouple split / maxConnectionPerServer', () => {
     expect(config.configVersion).toBe(CONFIG_VERSION)
   })
 
-  it('stamps configVersion to 2 after migration', () => {
+  it('stamps configVersion to CONFIG_VERSION after migration from v1', () => {
     const config = {
       configVersion: 1,
       engineMaxConnectionPerServer: 64,
     } as Partial<AppConfig>
     runMigrations(config)
-    expect(config.configVersion).toBe(2)
+    expect(config.configVersion).toBe(CONFIG_VERSION)
   })
 
-  it('is idempotent — running on already-migrated v2 config is a no-op', () => {
+  it('is idempotent — running on already-migrated config is a no-op', () => {
     const config = {
-      configVersion: 2,
+      configVersion: CONFIG_VERSION,
       split: 64,
       maxConnectionPerServer: 16,
     } as Partial<AppConfig>
@@ -303,12 +308,93 @@ describe('v2 migration — decouple split / maxConnectionPerServer', () => {
   })
 })
 
-// ── Full v0 → v2 integration ──────────────────────────────────────
+// ── v3 Migration: proxy.enable → proxy.mode ───────────────────────
 
-describe('v0 → v2 full migration path', () => {
-  it('runs both v1 and v2 migrations in sequence on fresh config', () => {
+describe('v3 migration — proxy.enable → proxy.mode', () => {
+  it('converts enable:true with server to mode:manual', () => {
     const config = {
-      proxy: { enable: true, server: 'http://proxy:1080', bypass: '', scope: [] },
+      configVersion: 2,
+      proxy: {
+        enable: true,
+        server: 'http://127.0.0.1:7890',
+        bypass: '*.local',
+        scope: ['download'],
+      } as unknown as AppConfig['proxy'],
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.proxy!.mode).toBe('manual')
+    expect(config.proxy!.server).toBe('http://127.0.0.1:7890')
+    expect(config.proxy!.bypass).toBe('*.local')
+    expect(config.proxy!.scope).toEqual(['download'])
+    expect(config.proxy!.enable).toBeUndefined()
+  })
+
+  it('converts enable:false to mode:none', () => {
+    const config = {
+      configVersion: 2,
+      proxy: { enable: false, server: '', bypass: '', scope: ['download'] } as unknown as AppConfig['proxy'],
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.proxy!.mode).toBe('none')
+    expect(config.proxy!.enable).toBeUndefined()
+  })
+
+  it('converts enable:true with empty server to mode:none', () => {
+    const config = {
+      configVersion: 2,
+      proxy: { enable: true, server: '', bypass: '', scope: [] } as unknown as AppConfig['proxy'],
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.proxy!.mode).toBe('none')
+  })
+
+  it('preserves server, bypass, and scope during conversion', () => {
+    const config = {
+      configVersion: 2,
+      proxy: {
+        enable: true,
+        server: 'http://proxy:8080',
+        bypass: '10.0.0.0/8',
+        scope: ['download', 'update-app'],
+      } as unknown as AppConfig['proxy'],
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.proxy!.server).toBe('http://proxy:8080')
+    expect(config.proxy!.bypass).toBe('10.0.0.0/8')
+    expect(config.proxy!.scope).toEqual(['download', 'update-app'])
+  })
+
+  it('is idempotent — does not re-convert if mode already exists', () => {
+    const config = {
+      configVersion: 2,
+      proxy: { mode: 'manual' as const, server: 'http://proxy:8080', bypass: '', scope: ['download'] },
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.proxy!.mode).toBe('manual')
+  })
+
+  it('does nothing when proxy is absent', () => {
+    const config = { configVersion: 2 } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.proxy).toBeUndefined()
+  })
+
+  it('stamps configVersion to 3 after migration', () => {
+    const config = {
+      configVersion: 2,
+      proxy: { enable: false, server: '', bypass: '', scope: [] } as unknown as AppConfig['proxy'],
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.configVersion).toBe(3)
+  })
+})
+
+// ── Full v0 → v3 integration ──────────────────────────────────────
+
+describe('v0 → v3 full migration path', () => {
+  it('runs all three migrations in sequence on fresh config', () => {
+    const config = {
+      proxy: { enable: true, server: 'http://proxy:1080', bypass: '', scope: [] } as unknown as AppConfig['proxy'],
       engineMaxConnectionPerServer: 64,
       split: 64,
       maxConnectionPerServer: 64,
@@ -321,6 +407,9 @@ describe('v0 → v2 full migration path', () => {
     expect(config.proxy!.scope).toEqual([...PROXY_SCOPE_OPTIONS])
     // v2: engineMaxConnectionPerServer removed
     expect((config as Record<string, unknown>).engineMaxConnectionPerServer).toBeUndefined()
+    // v3: enable converted to mode
+    expect(config.proxy!.mode).toBe('manual')
+    expect(config.proxy!.enable).toBeUndefined()
     // Both split and maxConnectionPerServer preserved
     expect(config.split).toBe(64)
     expect(config.maxConnectionPerServer).toBe(64)
