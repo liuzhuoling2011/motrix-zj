@@ -1158,46 +1158,62 @@
             hasPrimaryOS = true
           }
 
-          // Build "All platforms" grid — grouped by OS + arch
-          // Linux uses composite keys (e.g. "Linux · x64") to split by architecture
+          // Build "All platforms" pill strip — grouped by OS + arch
+          const groups = []
           let lastGroup = ''
           for (const p of PLATFORMS) {
             const isLinux = p.os === 'Linux'
             const groupKey = isLinux ? p.os + ' \u00b7 ' + p.arch : p.os
 
-            // Insert group header on boundary change
             if (groupKey !== lastGroup) {
               lastGroup = groupKey
-              const header = document.createElement('div')
-              header.className = 'dl-group-header'
-              header.textContent = groupKey
-              grid.appendChild(header)
+              groups.push({ key: groupKey, os: p.os, items: [p] })
+            } else {
+              groups[groups.length - 1].items.push(p)
+            }
+          }
+
+          let prevOS = ''
+          for (const g of groups) {
+            // Insert divider between different OS families
+            if (prevOS && prevOS !== g.os) {
+              const divider = document.createElement('div')
+              divider.className = 'dl-divider'
+              grid.appendChild(divider)
+            }
+            prevOS = g.os
+
+            const row = document.createElement('div')
+            row.className = 'dl-row'
+
+            const label = document.createElement('span')
+            label.className = 'dl-row-label'
+            label.textContent = g.key
+            row.appendChild(label)
+
+            const pills = document.createElement('div')
+            pills.className = 'dl-row-pills'
+
+            for (const p of g.items) {
+              const isLinux = p.os === 'Linux'
+              const url = resolvedUrls[p.key] || releaseUrl
+              const pill = document.createElement('a')
+              pill.href = url
+              pill.target = '_blank'
+              pill.rel = 'noopener'
+              pill.className = 'dl-pill'
+
+              // Linux: format (.AppImage/.deb/.rpm) as label
+              // macOS/Windows: architecture as label + format as muted suffix
+              const pillLabel = isLinux ? p.fmt : p.arch
+              const pillMeta = isLinux ? '' : ' ' + p.fmt
+              pill.innerHTML =
+                DL_SMALL_ICON + ' ' + pillLabel + (pillMeta ? '<span class="dl-pill-fmt">' + pillMeta + '</span>' : '')
+              pills.appendChild(pill)
             }
 
-            const url = resolvedUrls[p.key] || releaseUrl
-            const card = document.createElement('a')
-            card.href = url
-            card.target = '_blank'
-            card.rel = 'noopener'
-            card.className = 'dl-card' + (isLinux ? ' dl-card--third' : '')
-
-            // Linux sub-groups: show format as primary label (architecture is in the header)
-            // macOS / Windows: show architecture as primary label
-            const label = isLinux ? p.fmt : p.arch
-            const meta = isLinux ? p.arch : p.fmt
-            card.innerHTML =
-              '<div class="dl-card-icon">' +
-              DL_ICON +
-              '</div>' +
-              '<div class="dl-card-info">' +
-              '<div class="dl-card-name">' +
-              label +
-              '</div>' +
-              '<div class="dl-card-meta">' +
-              meta +
-              '</div>' +
-              '</div>'
-            grid.appendChild(card)
+            row.appendChild(pills)
+            grid.appendChild(row)
           }
         } catch {
           apiFailed = true
