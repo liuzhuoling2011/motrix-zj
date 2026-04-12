@@ -256,7 +256,7 @@ export default {
   'protocol-disable-link-warning': '{protocols} 링크를 클릭해도 Motrix Next가 열리지 않습니다',
   'protocol-disable-ext-warning': '브라우저 확장 프로그램이 Motrix Next에 다운로드 작업을 보낼 수 없습니다',
   'protocol-disable-confirm': '그래도 비활성화',
-  'detect-system-proxy': '감지',
+  'detect-system-proxy': '시스템 프록시 감지',
   'proxy-detected-success': '시스템 설정에서 프록시가 감지되었습니다',
   'proxy-system-not-detected': '시스템 프록시가 감지되지 않았습니다',
   'proxy-system-socks-rejected': '시스템 프록시가 SOCKS 프로토콜을 사용하며 aria2에서 지원하지 않습니다',

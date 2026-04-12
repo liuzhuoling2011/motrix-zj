@@ -11,6 +11,8 @@ import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import type { SystemProxyInfo } from '@shared/types'
 
+import { DETECT_MIN_DURATION } from '@shared/timing'
+
 export interface SystemProxyDetectCallbacks {
   /** Called with the detected proxy info when a valid HTTP/HTTPS proxy is found. */
   onSuccess: (info: SystemProxyInfo) => void
@@ -21,6 +23,9 @@ export interface SystemProxyDetectCallbacks {
   /** Called when the Tauri IPC call itself fails. */
   onError: (err: unknown) => void
 }
+
+/** Returns a promise that resolves after `ms` milliseconds. */
+const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
 /**
  * Provides a `detect()` function that reads the OS proxy via Tauri IPC,
@@ -34,7 +39,9 @@ export function useSystemProxyDetect(callbacks: SystemProxyDetectCallbacks) {
 
     detecting.value = true
     try {
-      const info = await invoke<SystemProxyInfo | null>('get_system_proxy')
+      // Run IPC and minimum-duration timer in parallel so the spinner
+      // always displays for at least DETECT_MIN_DURATION ms.
+      const [info] = await Promise.all([invoke<SystemProxyInfo | null>('get_system_proxy'), delay(DETECT_MIN_DURATION)])
 
       if (!info || !info.server?.trim()) {
         callbacks.onNotFound()

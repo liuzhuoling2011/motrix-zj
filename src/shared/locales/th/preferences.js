@@ -256,7 +256,7 @@ export default {
   'protocol-disable-link-warning': 'การคลิกลิงก์ {protocols} จะไม่เปิด Motrix Next อีกต่อไป',
   'protocol-disable-ext-warning': 'ส่วนขยายเบราว์เซอร์จะไม่สามารถส่งงานดาวน์โหลดไปยัง Motrix Next ได้',
   'protocol-disable-confirm': 'ปิดใช้งานต่อไป',
-  'detect-system-proxy': 'ตรวจจับ',
+  'detect-system-proxy': 'ตรวจจับพร็อกซีระบบ',
   'proxy-detected-success': 'ตรวจพบพร็อกซีจากการตั้งค่าระบบ',
   'proxy-system-not-detected': 'ไม่พบพร็อกซีระบบ',
   'proxy-system-socks-rejected': 'พร็อกซีระบบใช้โปรโตคอล SOCKS ซึ่ง aria2 ไม่รองรับ',

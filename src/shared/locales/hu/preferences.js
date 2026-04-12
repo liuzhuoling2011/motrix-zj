@@ -256,7 +256,7 @@ export default {
   'protocol-disable-link-warning': 'A(z) {protocols} linkek kattintása többé nem nyitja meg a Motrix Next-et',
   'protocol-disable-ext-warning': 'A böngészőbővítmények nem tudnak letöltési feladatokat küldeni a Motrix Next-nek',
   'protocol-disable-confirm': 'Letiltás mindenképp',
-  'detect-system-proxy': 'Felismerés',
+  'detect-system-proxy': 'Rendszer proxy felismerése',
   'proxy-detected-success': 'Proxy felismerve a rendszerbeállításokból',
   'proxy-system-not-detected': 'Nem található rendszer proxy',
   'proxy-system-socks-rejected': 'A rendszer proxy SOCKS protokollt használ, amelyet az aria2 nem támogat',

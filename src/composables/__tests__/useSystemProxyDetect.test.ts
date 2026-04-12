@@ -11,8 +11,9 @@
  * - Calls `onError` when invoke rejects with an exception
  * - Only one callback fires per detection (mutual exclusivity)
  * - Concurrent detect() calls are serialized (second call is no-op while detecting)
+ * - Minimum loading duration is enforced via DETECT_MIN_DURATION
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { nextTick } from 'vue'
 import type { SystemProxyInfo } from '@shared/types'
 
@@ -24,6 +25,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 
 import { useSystemProxyDetect } from '../useSystemProxyDetect'
+import { DETECT_MIN_DURATION } from '@shared/timing'
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -45,9 +47,21 @@ function makeCallbacks() {
   }
 }
 
+/** Start detect() and advance fake timers so the minimum-duration delay resolves. */
+async function detectAndFlush(detect: () => Promise<void>): Promise<void> {
+  const promise = detect()
+  await vi.advanceTimersByTimeAsync(DETECT_MIN_DURATION)
+  await promise
+}
+
 describe('useSystemProxyDetect', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   // ── Invocation ────────────────────────────────────────────────────
@@ -57,7 +71,7 @@ describe('useSystemProxyDetect', () => {
     const cbs = makeCallbacks()
     const { detect } = useSystemProxyDetect(cbs)
 
-    await detect()
+    await detectAndFlush(detect)
 
     expect(mockInvoke).toHaveBeenCalledWith('get_system_proxy')
     expect(mockInvoke).toHaveBeenCalledTimes(1)
@@ -78,6 +92,7 @@ describe('useSystemProxyDetect', () => {
     expect(detecting.value).toBe(true)
 
     resolveInvoke(makeProxyInfo())
+    await vi.advanceTimersByTimeAsync(DETECT_MIN_DURATION)
     await promise
     expect(detecting.value).toBe(false)
   })
@@ -87,7 +102,7 @@ describe('useSystemProxyDetect', () => {
     const cbs = makeCallbacks()
     const { detect, detecting } = useSystemProxyDetect(cbs)
 
-    await detect()
+    await detectAndFlush(detect)
 
     expect(detecting.value).toBe(false)
   })
@@ -97,7 +112,7 @@ describe('useSystemProxyDetect', () => {
     const cbs = makeCallbacks()
     const { detect, detecting } = useSystemProxyDetect(cbs)
 
-    await detect()
+    await detectAndFlush(detect)
 
     expect(detecting.value).toBe(false)
   })
@@ -107,9 +122,29 @@ describe('useSystemProxyDetect', () => {
     const cbs = makeCallbacks()
     const { detect, detecting } = useSystemProxyDetect(cbs)
 
-    await detect()
+    await detectAndFlush(detect)
 
     expect(detecting.value).toBe(false)
+  })
+
+  // ── Minimum duration ──────────────────────────────────────────────
+
+  it('keeps detecting true for at least DETECT_MIN_DURATION even if IPC resolves instantly', async () => {
+    mockInvoke.mockResolvedValue(makeProxyInfo())
+    const cbs = makeCallbacks()
+    const { detect, detecting } = useSystemProxyDetect(cbs)
+
+    const promise = detect()
+    await nextTick()
+    // IPC resolved immediately, but delay still pending
+    expect(detecting.value).toBe(true)
+    expect(cbs.onSuccess).not.toHaveBeenCalled()
+
+    // Advance past the minimum duration
+    await vi.advanceTimersByTimeAsync(DETECT_MIN_DURATION)
+    await promise
+    expect(detecting.value).toBe(false)
+    expect(cbs.onSuccess).toHaveBeenCalledTimes(1)
   })
 
   // ── Success path ──────────────────────────────────────────────────
@@ -120,7 +155,7 @@ describe('useSystemProxyDetect', () => {
     const cbs = makeCallbacks()
     const { detect } = useSystemProxyDetect(cbs)
 
-    await detect()
+    await detectAndFlush(detect)
 
     expect(cbs.onSuccess).toHaveBeenCalledTimes(1)
     expect(cbs.onSuccess).toHaveBeenCalledWith(info)
@@ -137,7 +172,7 @@ describe('useSystemProxyDetect', () => {
     const cbs = makeCallbacks()
     const { detect } = useSystemProxyDetect(cbs)
 
-    await detect()
+    await detectAndFlush(detect)
 
     expect(cbs.onSocks).toHaveBeenCalledTimes(1)
     // No other callbacks fired
@@ -153,7 +188,7 @@ describe('useSystemProxyDetect', () => {
     const cbs = makeCallbacks()
     const { detect } = useSystemProxyDetect(cbs)
 
-    await detect()
+    await detectAndFlush(detect)
 
     expect(cbs.onNotFound).toHaveBeenCalledTimes(1)
     expect(cbs.onSuccess).not.toHaveBeenCalled()
@@ -166,7 +201,7 @@ describe('useSystemProxyDetect', () => {
     const cbs = makeCallbacks()
     const { detect } = useSystemProxyDetect(cbs)
 
-    await detect()
+    await detectAndFlush(detect)
 
     expect(cbs.onNotFound).toHaveBeenCalledTimes(1)
     expect(cbs.onSuccess).not.toHaveBeenCalled()
@@ -177,7 +212,7 @@ describe('useSystemProxyDetect', () => {
     const cbs = makeCallbacks()
     const { detect } = useSystemProxyDetect(cbs)
 
-    await detect()
+    await detectAndFlush(detect)
 
     expect(cbs.onNotFound).toHaveBeenCalledTimes(1)
   })
@@ -190,7 +225,7 @@ describe('useSystemProxyDetect', () => {
     const cbs = makeCallbacks()
     const { detect } = useSystemProxyDetect(cbs)
 
-    await detect()
+    await detectAndFlush(detect)
 
     expect(cbs.onError).toHaveBeenCalledTimes(1)
     expect(cbs.onError).toHaveBeenCalledWith(err)
@@ -219,6 +254,7 @@ describe('useSystemProxyDetect', () => {
     expect(mockInvoke).toHaveBeenCalledTimes(1)
 
     resolveInvoke(makeProxyInfo())
+    await vi.advanceTimersByTimeAsync(DETECT_MIN_DURATION)
     await first
     await second
 

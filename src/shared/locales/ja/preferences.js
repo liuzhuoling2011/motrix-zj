@@ -256,7 +256,7 @@ export default {
   'protocol-disable-link-warning': '{protocols} リンクのクリックで Motrix Next が起動しなくなります',
   'protocol-disable-ext-warning': 'ブラウザ拡張機能から Motrix Next へダウンロードタスクを送信できなくなります',
   'protocol-disable-confirm': 'それでも無効にする',
-  'detect-system-proxy': '検出',
+  'detect-system-proxy': 'システムプロキシを検出',
   'proxy-detected-success': 'システム設定からプロキシを検出しました',
   'proxy-system-not-detected': 'システムプロキシが検出されませんでした',
   'proxy-system-socks-rejected': 'システムプロキシはSOCKSプロトコルを使用しています。aria2ではサポートされていません',

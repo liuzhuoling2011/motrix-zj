@@ -33,7 +33,6 @@ import {
   NRadioGroup,
   NRadio,
   NInput,
-  NInputGroup,
   NFormItem,
   NCollapseTransition,
   NEllipsis,
@@ -643,19 +642,19 @@ function handleClose() {
                     </div>
                   </div>
                   <NCollapseTransition :show="optForm.proxyMode === 'custom'">
-                    <NInputGroup>
+                    <div class="custom-proxy-input">
                       <NInput
                         v-model:value="optForm.customProxy"
                         :readonly="!optCanModify"
                         :placeholder="'http://host:port'"
-                        class="custom-proxy-input"
                       />
-                      <NButton :loading="detectingProxy" :disabled="!optCanModify" @click="detectProxy">
+                      <NButton :loading="detectingProxy" :disabled="!optCanModify" size="small" @click="detectProxy">
                         <template #icon>
                           <NIcon><SearchOutline /></NIcon>
                         </template>
+                        {{ t('preferences.detect-system-proxy') }}
                       </NButton>
-                    </NInputGroup>
+                    </div>
                   </NCollapseTransition>
                 </div>
               </NFormItem>
@@ -874,8 +873,14 @@ function handleClose() {
   width: 100%;
 }
 .custom-proxy-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 4px;
   margin-left: 24px;
+}
+.custom-proxy-input .n-button {
+  align-self: flex-start;
 }
 .proxy-hint-collapse {
   display: grid;

@@ -2,17 +2,7 @@
 /** @fileoverview Advanced task options panel (UA, auth, referer, cookie, proxy checkbox). */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import {
-  NFormItem,
-  NInput,
-  NCheckbox,
-  NCollapseTransition,
-  NButton,
-  NRadioGroup,
-  NRadio,
-  NInputGroup,
-  NIcon,
-} from 'naive-ui'
+import { NFormItem, NInput, NCheckbox, NCollapseTransition, NButton, NRadioGroup, NRadio, NIcon } from 'naive-ui'
 import { hasUnsafeHeaderChars, sanitizeHeaderValue } from '@shared/utils/headerSanitize'
 import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
 import { useAppMessage } from '@/composables/useAppMessage'
@@ -142,19 +132,19 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
             </div>
           </div>
           <NCollapseTransition :show="proxyMode === 'custom'">
-            <NInputGroup>
+            <div class="custom-proxy-input">
               <NInput
                 :value="customProxy"
                 placeholder="http://host:port"
-                class="custom-proxy-input"
                 @update:value="$emit('update:customProxy', $event)"
               />
-              <NButton :loading="detectingProxy" @click="detectProxy">
+              <NButton :loading="detectingProxy" size="small" @click="detectProxy">
                 <template #icon>
                   <NIcon><SearchOutline /></NIcon>
                 </template>
+                {{ t('preferences.detect-system-proxy') }}
               </NButton>
-            </NInputGroup>
+            </div>
           </NCollapseTransition>
         </div>
       </NFormItem>
@@ -227,6 +217,12 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
   padding: 4px 0 2px;
 }
 .custom-proxy-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 6px;
+}
+.custom-proxy-input .n-button {
+  align-self: flex-start;
 }
 </style>

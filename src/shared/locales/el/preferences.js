@@ -256,7 +256,7 @@ export default {
   'protocol-disable-link-warning': 'Τα κλικ σε συνδέσμους {protocols} δεν θα ανοίγουν πλέον το Motrix Next',
   'protocol-disable-ext-warning': 'Οι επεκτάσεις του προγράμματος περιήγησης δεν θα μπορούν να στείλουν εργασίες λήψης στο Motrix Next',
   'protocol-disable-confirm': 'Απενεργοποίηση παρ\' όλα αυτά',
-  'detect-system-proxy': 'Ανίχνευση',
+  'detect-system-proxy': 'Ανίχνευση proxy συστήματος',
   'proxy-detected-success': 'Εντοπίστηκε διακομιστής μεσολάβησης από τις ρυθμίσεις συστήματος',
   'proxy-system-not-detected': 'Δεν εντοπίστηκε διακομιστής μεσολάβησης συστήματος',
   'proxy-system-socks-rejected': 'Ο διακομιστής μεσολάβησης συστήματος χρησιμοποιεί πρωτόκολλο SOCKS, μη υποστηριζόμενο από aria2',

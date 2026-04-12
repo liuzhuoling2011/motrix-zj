@@ -256,7 +256,7 @@ export default {
   'protocol-disable-link-warning': '点击 {protocols} 链接将不再唤起 Motrix Next',
   'protocol-disable-ext-warning': '浏览器扩展将无法向 Motrix Next 推送下载任务',
   'protocol-disable-confirm': '仍然关闭',
-  'detect-system-proxy': '检测',
+  'detect-system-proxy': '检测系统代理',
   'proxy-detected-success': '已从系统设置读取代理',
   'proxy-system-not-detected': '未检测到系统代理',
   'proxy-system-socks-rejected': '系统代理使用 SOCKS 协议，aria2 不支持',

@@ -256,7 +256,7 @@ export default {
   'protocol-disable-link-warning': 'Nhấp vào liên kết {protocols} sẽ không mở Motrix Next nữa',
   'protocol-disable-ext-warning': 'Tiện ích mở rộng trình duyệt sẽ không thể gửi tác vụ tải xuống đến Motrix Next',
   'protocol-disable-confirm': 'Vẫn tắt',
-  'detect-system-proxy': 'Phát hiện',
+  'detect-system-proxy': 'Phát hiện proxy hệ thống',
   'proxy-detected-success': 'Đã phát hiện proxy từ cài đặt hệ thống',
   'proxy-system-not-detected': 'Không phát hiện proxy hệ thống',
   'proxy-system-socks-rejected': 'Proxy hệ thống sử dụng giao thức SOCKS, không được aria2 hỗ trợ',

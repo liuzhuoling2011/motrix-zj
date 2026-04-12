@@ -256,7 +256,7 @@ export default {
   'protocol-disable-link-warning': 'Mengklik tautan {protocols} tidak akan lagi membuka Motrix Next',
   'protocol-disable-ext-warning': 'Ekstensi browser tidak akan dapat mengirim tugas unduhan ke Motrix Next',
   'protocol-disable-confirm': 'Tetap nonaktifkan',
-  'detect-system-proxy': 'Deteksi',
+  'detect-system-proxy': 'Deteksi Proxy Sistem',
   'proxy-detected-success': 'Proxy terdeteksi dari pengaturan sistem',
   'proxy-system-not-detected': 'Proxy sistem tidak terdeteksi',
   'proxy-system-socks-rejected': 'Proxy sistem menggunakan protokol SOCKS, tidak didukung oleh aria2',

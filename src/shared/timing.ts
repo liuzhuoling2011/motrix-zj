@@ -38,3 +38,6 @@ export const DEFAULT_ARIA2_PORT = 16800
 
 /** Minimum visible loading duration for tracker sync animation (ms). */
 export const SYNC_MIN_DURATION = 600
+
+/** Minimum visible loading duration for system proxy detection (ms). */
+export const DETECT_MIN_DURATION = 500
