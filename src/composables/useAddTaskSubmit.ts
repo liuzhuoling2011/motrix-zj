@@ -98,7 +98,7 @@ function resolveAddTaskProxy(form: AddTaskForm): string {
  * Pure function — no side effects.
  */
 export function isGlobalProxyConfigured(proxy: ProxyConfig): boolean {
-  return proxy.mode !== 'none' && !!proxy.server.trim()
+  return proxy.enable && !!proxy.server.trim()
 }
 
 /**

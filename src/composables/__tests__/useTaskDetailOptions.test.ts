@@ -45,7 +45,7 @@ function makeTask(overrides: Partial<Aria2Task> = {}): Aria2Task {
 
 function makeProxy(overrides: Partial<ProxyConfig> = {}): ProxyConfig {
   return {
-    mode: 'manual',
+    enable: true,
     server: 'http://127.0.0.1:7890',
     scope: ['download', 'update-app'],
     ...overrides,
@@ -223,7 +223,7 @@ describe('useTaskDetailOptions', () => {
 
     it('sets proxyMode to custom when global proxy is not configured', async () => {
       const mocks = createMocks({
-        proxyConfig: makeProxy({ mode: 'none' }),
+        proxyConfig: makeProxy({ enable: false }),
         getTaskOption: vi.fn().mockResolvedValue({ allProxy: 'http://10.0.0.1:8080' }),
       })
       const { form } = setup(mocks)
@@ -239,7 +239,7 @@ describe('useTaskDetailOptions', () => {
     })
 
     it('globalProxyAvailable is false when disabled', () => {
-      const m = createMocks({ proxyConfig: makeProxy({ mode: 'none' }) })
+      const m = createMocks({ proxyConfig: makeProxy({ enable: false }) })
       expect(setup(m).globalProxyAvailable.value).toBe(false)
     })
 

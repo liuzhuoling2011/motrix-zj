@@ -540,33 +540,28 @@ describe('useAddTaskSubmit', () => {
 // ── isGlobalProxyConfigured ─────────────────────────────────────────
 
 describe('isGlobalProxyConfigured', () => {
-  it('returns true when mode is manual and server is non-empty', () => {
-    const proxy: ProxyConfig = { mode: 'manual', server: 'http://127.0.0.1:7890' }
+  it('returns true when proxy is enabled and server is non-empty', () => {
+    const proxy: ProxyConfig = { enable: true, server: 'http://127.0.0.1:7890' }
     expect(isGlobalProxyConfigured(proxy)).toBe(true)
   })
 
-  it('returns true when mode is system and server is non-empty', () => {
-    const proxy: ProxyConfig = { mode: 'system', server: 'http://127.0.0.1:7890' }
-    expect(isGlobalProxyConfigured(proxy)).toBe(true)
-  })
-
-  it('returns false when mode is none', () => {
-    const proxy: ProxyConfig = { mode: 'none', server: 'http://127.0.0.1:7890' }
+  it('returns false when proxy is disabled', () => {
+    const proxy: ProxyConfig = { enable: false, server: 'http://127.0.0.1:7890' }
     expect(isGlobalProxyConfigured(proxy)).toBe(false)
   })
 
   it('returns false when server is empty', () => {
-    const proxy: ProxyConfig = { mode: 'manual', server: '' }
+    const proxy: ProxyConfig = { enable: true, server: '' }
     expect(isGlobalProxyConfigured(proxy)).toBe(false)
   })
 
   it('returns false when server is whitespace-only', () => {
-    const proxy: ProxyConfig = { mode: 'manual', server: '   ' }
+    const proxy: ProxyConfig = { enable: true, server: '   ' }
     expect(isGlobalProxyConfigured(proxy)).toBe(false)
   })
 
-  it('returns false when mode is none and empty server', () => {
-    const proxy: ProxyConfig = { mode: 'none', server: '' }
+  it('returns false when both disabled and empty server', () => {
+    const proxy: ProxyConfig = { enable: false, server: '' }
     expect(isGlobalProxyConfigured(proxy)).toBe(false)
   })
 })
@@ -574,36 +569,27 @@ describe('isGlobalProxyConfigured', () => {
 // ── isGlobalDownloadProxyActive ─────────────────────────────────────
 
 describe('isGlobalDownloadProxyActive', () => {
-  it('returns true when mode is manual, server set, and scope includes download', () => {
+  it('returns true when proxy enabled, server set, and scope includes download', () => {
     const proxy: ProxyConfig = {
-      mode: 'manual',
+      enable: true,
       server: 'http://proxy:8080',
       scope: ['download', 'update-app'],
     }
     expect(isGlobalDownloadProxyActive(proxy)).toBe(true)
   })
 
-  it('returns true when mode is system, server set, and scope includes download', () => {
-    const proxy: ProxyConfig = {
-      mode: 'system',
-      server: 'http://127.0.0.1:7890',
-      scope: ['download'],
-    }
-    expect(isGlobalDownloadProxyActive(proxy)).toBe(true)
-  })
-
   it('returns false when scope does not include download', () => {
     const proxy: ProxyConfig = {
-      mode: 'manual',
+      enable: true,
       server: 'http://proxy:8080',
       scope: ['update-app', 'update-trackers'],
     }
     expect(isGlobalDownloadProxyActive(proxy)).toBe(false)
   })
 
-  it('returns false when mode is none', () => {
+  it('returns false when proxy is disabled', () => {
     const proxy: ProxyConfig = {
-      mode: 'none',
+      enable: false,
       server: 'http://proxy:8080',
       scope: ['download'],
     }
@@ -612,7 +598,7 @@ describe('isGlobalDownloadProxyActive', () => {
 
   it('returns false when server is empty', () => {
     const proxy: ProxyConfig = {
-      mode: 'manual',
+      enable: true,
       server: '',
       scope: ['download'],
     }
@@ -621,7 +607,7 @@ describe('isGlobalDownloadProxyActive', () => {
 
   it('returns false when scope is undefined', () => {
     const proxy: ProxyConfig = {
-      mode: 'manual',
+      enable: true,
       server: 'http://proxy:8080',
     }
     expect(isGlobalDownloadProxyActive(proxy)).toBe(false)
@@ -629,7 +615,7 @@ describe('isGlobalDownloadProxyActive', () => {
 
   it('returns false when scope is empty array', () => {
     const proxy: ProxyConfig = {
-      mode: 'manual',
+      enable: true,
       server: 'http://proxy:8080',
       scope: [],
     }
