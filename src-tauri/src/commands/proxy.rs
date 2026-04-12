@@ -459,7 +459,7 @@ mod tests {
             bypass: "*.local".into(),
             is_socks: false,
         };
-        let json = serde_json::to_string(&info).unwrap();
+        let json = serde_json::to_string(&info).expect("SystemProxyInfo should serialize");
         assert!(json.contains("\"isSocks\""));
         assert!(json.contains("\"server\""));
         assert!(json.contains("\"bypass\""));
@@ -570,10 +570,10 @@ mod tests {
 }
 "#;
         let props = parse_scutil_dict(output);
-        assert_eq!(props.get("HTTPEnable").unwrap(), "1");
-        assert_eq!(props.get("HTTPProxy").unwrap(), "127.0.0.1");
-        assert_eq!(props.get("HTTPPort").unwrap(), "7897");
-        assert_eq!(props.get("SOCKSEnable").unwrap(), "0");
+        assert_eq!(props.get("HTTPEnable").expect("HTTPEnable"), "1");
+        assert_eq!(props.get("HTTPProxy").expect("HTTPProxy"), "127.0.0.1");
+        assert_eq!(props.get("HTTPPort").expect("HTTPPort"), "7897");
+        assert_eq!(props.get("SOCKSEnable").expect("SOCKSEnable"), "0");
         // Array indices should be skipped
         assert!(!props.contains_key("0"));
     }
@@ -584,7 +584,8 @@ mod tests {
         let mut props = std::collections::HashMap::new();
         props.insert("HTTPProxy".into(), "10.0.0.1".into());
         props.insert("HTTPPort".into(), "8080".into());
-        let info = build_proxy_from_scutil(&props, "HTTPProxy", "HTTPPort", false).unwrap();
+        let info = build_proxy_from_scutil(&props, "HTTPProxy", "HTTPPort", false)
+            .expect("HTTP proxy should be built");
         assert_eq!(info.server, "http://10.0.0.1:8080");
         assert!(!info.is_socks);
     }
