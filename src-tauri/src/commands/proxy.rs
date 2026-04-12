@@ -214,11 +214,7 @@ fn parse_scutil_dict(text: &str) -> std::collections::HashMap<String, String> {
             continue;
         }
         // Skip numbered array indices like "0 : 127.0.0.1"
-        if trimmed
-            .chars()
-            .next()
-            .is_none_or(|c| c.is_ascii_digit())
-        {
+        if trimmed.chars().next().is_none_or(|c| c.is_ascii_digit()) {
             continue;
         }
         if let Some((key, val)) = trimmed.split_once(':') {
@@ -370,7 +366,11 @@ fn proxy_from_gsettings() -> Option<SystemProxyInfo> {
         let ignore_hosts =
             try_gsettings_get("org.gnome.system.proxy", "ignore-hosts").unwrap_or_default();
         let bypass = parse_gnome_ignore_hosts(&ignore_hosts);
-        log::debug!("proxy:linux gsettings HTTP server={} bypass={}", server, bypass);
+        log::debug!(
+            "proxy:linux gsettings HTTP server={} bypass={}",
+            server,
+            bypass
+        );
         return Some(SystemProxyInfo {
             server,
             bypass,
