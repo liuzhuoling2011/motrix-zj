@@ -2,8 +2,21 @@
 /** @fileoverview Advanced task options panel (UA, auth, referer, cookie, proxy checkbox). */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NFormItem, NInput, NCheckbox, NCollapseTransition, NButton, NRadioGroup, NRadio } from 'naive-ui'
+import {
+  NFormItem,
+  NInput,
+  NCheckbox,
+  NCollapseTransition,
+  NButton,
+  NRadioGroup,
+  NRadio,
+  NInputGroup,
+  NIcon,
+} from 'naive-ui'
 import { hasUnsafeHeaderChars, sanitizeHeaderValue } from '@shared/utils/headerSanitize'
+import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
+import { useAppMessage } from '@/composables/useAppMessage'
+import { SearchOutline } from '@vicons/ionicons5'
 
 const { t } = useI18n()
 
@@ -38,6 +51,23 @@ const uaHasIssue = computed(() => !!props.userAgent && hasUnsafeHeaderChars(prop
 function cleanUserAgent() {
   emit('update:userAgent', sanitizeHeaderValue(props.userAgent))
 }
+
+const message = useAppMessage()
+const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect({
+  onSuccess(info) {
+    emit('update:customProxy', info.server)
+    message.success(t('preferences.proxy-detected-success'))
+  },
+  onSocks() {
+    message.warning(t('preferences.proxy-system-socks-rejected'))
+  },
+  onNotFound() {
+    message.info(t('preferences.proxy-system-not-detected'))
+  },
+  onError() {
+    message.error(t('preferences.proxy-system-detect-failed'))
+  },
+})
 </script>
 
 <template>
@@ -112,12 +142,19 @@ function cleanUserAgent() {
             </div>
           </div>
           <NCollapseTransition :show="proxyMode === 'custom'">
-            <NInput
-              :value="customProxy"
-              placeholder="http://host:port"
-              class="custom-proxy-input"
-              @update:value="$emit('update:customProxy', $event)"
-            />
+            <NInputGroup>
+              <NInput
+                :value="customProxy"
+                placeholder="http://host:port"
+                class="custom-proxy-input"
+                @update:value="$emit('update:customProxy', $event)"
+              />
+              <NButton :loading="detectingProxy" @click="detectProxy">
+                <template #icon>
+                  <NIcon><SearchOutline /></NIcon>
+                </template>
+              </NButton>
+            </NInputGroup>
           </NCollapseTransition>
         </div>
       </NFormItem>

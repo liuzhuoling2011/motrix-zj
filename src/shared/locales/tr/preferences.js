@@ -256,4 +256,9 @@ export default {
   'protocol-disable-link-warning': '{protocols} bağlantılarına tıklamak artık Motrix Next\'i açmayacak',
   'protocol-disable-ext-warning': 'Tarayıcı eklentileri Motrix Next\'e indirme görevi gönderemeyecek',
   'protocol-disable-confirm': 'Yine de devre dışı bırak',
+  'detect-system-proxy': 'Algıla',
+  'proxy-detected-success': 'Sistem ayarlarından proxy algılandı',
+  'proxy-system-not-detected': 'Sistem proxy algılanmadı',
+  'proxy-system-socks-rejected': 'Sistem proxy SOCKS protokolü kullanıyor, aria2 tarafından desteklenmiyor',
+  'proxy-system-detect-failed': 'Sistem proxy algılanamadı',
 }

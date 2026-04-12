@@ -256,4 +256,9 @@ export default {
   'protocol-disable-link-warning': 'کلیک روی لینک‌های {protocols} دیگر Motrix Next را باز نمی‌کند',
   'protocol-disable-ext-warning': 'افزونه‌های مرورگر نمی‌توانند وظایف دانلود را به Motrix Next ارسال کنند',
   'protocol-disable-confirm': 'با این حال غیرفعال کن',
+  'detect-system-proxy': 'شناسایی',
+  'proxy-detected-success': 'پروکسی از تنظیمات سیستم شناسایی شد',
+  'proxy-system-not-detected': 'پروکسی سیستم شناسایی نشد',
+  'proxy-system-socks-rejected': 'پروکسی سیستم از پروتکل SOCKS استفاده می‌کند، توسط aria2 پشتیبانی نمی‌شود',
+  'proxy-system-detect-failed': 'شناسایی پروکسی سیستم ناموفق بود',
 }

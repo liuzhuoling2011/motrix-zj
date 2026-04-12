@@ -108,6 +108,17 @@ export interface ProxyConfig {
   scope?: string[]
 }
 
+/** Result from the `get_system_proxy` Tauri command.
+ *  Mirrors the Rust `SystemProxyInfo` struct (camelCase via serde). */
+export interface SystemProxyInfo {
+  /** Proxy URL, e.g. "http://127.0.0.1:7890" */
+  server: string
+  /** OS bypass list (comma-separated domains/CIDRs) */
+  bypass: string
+  /** True when the detected proxy uses a SOCKS protocol (unsupported by aria2) */
+  isSocks: boolean
+}
+
 /** Protocol handler registration settings (system-level). */
 export interface ProtocolsConfig {
   magnet: boolean

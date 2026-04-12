@@ -256,4 +256,9 @@ export default {
   'protocol-disable-link-warning': 'Клік на посилання {protocols} більше не відкриватиме Motrix Next',
   'protocol-disable-ext-warning': 'Розширення браузера не зможуть надсилати завдання завантаження до Motrix Next',
   'protocol-disable-confirm': 'Все одно вимкнути',
+  'detect-system-proxy': 'Виявити',
+  'proxy-detected-success': 'Проксі виявлено з налаштувань системи',
+  'proxy-system-not-detected': 'Системний проксі не виявлено',
+  'proxy-system-socks-rejected': 'Системний проксі використовує протокол SOCKS, який не підтримується aria2',
+  'proxy-system-detect-failed': 'Не вдалося виявити системний проксі',
 }

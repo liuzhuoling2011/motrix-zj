@@ -33,6 +33,7 @@ import {
   NRadioGroup,
   NRadio,
   NInput,
+  NInputGroup,
   NFormItem,
   NCollapseTransition,
   NEllipsis,
@@ -44,6 +45,7 @@ import {
   PeopleOutline,
   ServerOutline,
   SettingsOutline,
+  SearchOutline,
 } from '@vicons/ionicons5'
 import TaskGraphic from './TaskGraphic.vue'
 import { useTrackerProbe, buildTrackerRows, type TrackerRow } from '@/composables/useTrackerProbe'
@@ -51,6 +53,7 @@ import { useTaskDetailOptions } from '@/composables/useTaskDetailOptions'
 import { usePreferenceStore } from '@/stores/preference'
 import { useTaskStore } from '@/stores/task'
 import { useAppMessage } from '@/composables/useAppMessage'
+import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
 import type { Aria2Task, Aria2File, Aria2Peer } from '@shared/types'
 
 const props = defineProps<{
@@ -81,6 +84,22 @@ const {
   proxyConfig: () => preferenceStore.config.proxy,
   message,
   t,
+})
+
+const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect({
+  onSuccess(info) {
+    optForm.customProxy = info.server
+    message.success(t('preferences.proxy-detected-success'))
+  },
+  onSocks() {
+    message.warning(t('preferences.proxy-system-socks-rejected'))
+  },
+  onNotFound() {
+    message.info(t('preferences.proxy-system-not-detected'))
+  },
+  onError() {
+    message.error(t('preferences.proxy-system-detect-failed'))
+  },
 })
 
 const activeTab = ref('general')
@@ -624,12 +643,19 @@ function handleClose() {
                     </div>
                   </div>
                   <NCollapseTransition :show="optForm.proxyMode === 'custom'">
-                    <NInput
-                      v-model:value="optForm.customProxy"
-                      :readonly="!optCanModify"
-                      :placeholder="'http://host:port'"
-                      class="custom-proxy-input"
-                    />
+                    <NInputGroup>
+                      <NInput
+                        v-model:value="optForm.customProxy"
+                        :readonly="!optCanModify"
+                        :placeholder="'http://host:port'"
+                        class="custom-proxy-input"
+                      />
+                      <NButton :loading="detectingProxy" :disabled="!optCanModify" @click="detectProxy">
+                        <template #icon>
+                          <NIcon><SearchOutline /></NIcon>
+                        </template>
+                      </NButton>
+                    </NInputGroup>
                   </NCollapseTransition>
                 </div>
               </NFormItem>

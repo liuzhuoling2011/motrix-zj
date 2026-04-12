@@ -3,6 +3,7 @@
 import { ref, computed, nextTick, onMounted, h } from 'vue'
 import type { VNodeChild } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
 import { usePlatform } from '@/composables/usePlatform'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
@@ -58,6 +59,7 @@ import {
   CopyOutline,
   AddCircleOutline,
   CloseCircleOutline,
+  SearchOutline,
 } from '@vicons/ionicons5'
 import { logger } from '@shared/logger'
 import PreferenceActionBar from './PreferenceActionBar.vue'
@@ -86,6 +88,24 @@ const logLevelOptions = LOG_LEVELS.map((l: string) => ({ label: l, value: l }))
 
 const syncingTracker = ref(false)
 const customTrackerInput = ref('')
+
+const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect({
+  onSuccess(info) {
+    form.value.proxy.server = info.server
+    if (info.bypass) form.value.proxy.bypass = info.bypass
+    if (!form.value.proxy.enable) form.value.proxy.enable = true
+    message.success(t('preferences.proxy-detected-success'))
+  },
+  onSocks() {
+    message.warning(t('preferences.proxy-system-socks-rejected'))
+  },
+  onNotFound() {
+    message.info(t('preferences.proxy-system-not-detected'))
+  },
+  onError() {
+    message.error(t('preferences.proxy-system-detect-failed'))
+  },
+})
 
 /** All known preset tracker source values for fast O(1) classification. */
 const presetTrackerValues = new Set(
@@ -509,7 +529,15 @@ onMounted(() => {
       <div class="proxy-collapse" :class="{ 'proxy-collapse--open': form.proxy.enable }">
         <div class="proxy-collapse__inner collapse-indent">
           <NFormItem :label="t('preferences.proxy-server')">
-            <NInput v-model:value="form.proxy.server" placeholder="[http://][USER:PASSWORD@]HOST[:PORT]" />
+            <NInputGroup>
+              <NInput v-model:value="form.proxy.server" placeholder="[http://][USER:PASSWORD@]HOST[:PORT]" />
+              <NButton :loading="detectingProxy" @click="detectProxy">
+                <template #icon>
+                  <NIcon><SearchOutline /></NIcon>
+                </template>
+                {{ t('preferences.detect-system-proxy') }}
+              </NButton>
+            </NInputGroup>
           </NFormItem>
           <NFormItem :show-label="false">
             <div class="info-text">{{ t('preferences.proxy-http-only-hint') }}</div>

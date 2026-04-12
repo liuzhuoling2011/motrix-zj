@@ -256,4 +256,9 @@ export default {
   'protocol-disable-link-warning': 'Kliknięcie linków {protocols} nie będzie już otwierać Motrix Next',
   'protocol-disable-ext-warning': 'Rozszerzenia przeglądarki nie będą mogły wysyłać zadań pobierania do Motrix Next',
   'protocol-disable-confirm': 'Mimo to wyłącz',
+  'detect-system-proxy': 'Wykryj',
+  'proxy-detected-success': 'Proxy wykryto z ustawień systemowych',
+  'proxy-system-not-detected': 'Nie wykryto systemowego proxy',
+  'proxy-system-socks-rejected': 'Systemowe proxy używa protokołu SOCKS, nieobsługiwanego przez aria2',
+  'proxy-system-detect-failed': 'Nie udało się wykryć systemowego proxy',
 }

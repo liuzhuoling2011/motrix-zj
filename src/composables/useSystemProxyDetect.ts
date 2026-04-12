@@ -1,0 +1,58 @@
+/**
+ * @fileoverview Composable for detecting the OS-level system proxy.
+ *
+ * Calls the Rust `get_system_proxy` Tauri command and routes the result
+ * through one of four callbacks: onSuccess, onSocks, onNotFound, onError.
+ *
+ * Exposes a `detecting` ref for loading-state UI binding and guards
+ * against concurrent invocations.
+ */
+import { ref } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
+import type { SystemProxyInfo } from '@shared/types'
+
+export interface SystemProxyDetectCallbacks {
+  /** Called with the detected proxy info when a valid HTTP/HTTPS proxy is found. */
+  onSuccess: (info: SystemProxyInfo) => void
+  /** Called when the detected proxy uses SOCKS (unsupported by aria2). */
+  onSocks: () => void
+  /** Called when no proxy is configured or the server field is empty. */
+  onNotFound: () => void
+  /** Called when the Tauri IPC call itself fails. */
+  onError: (err: unknown) => void
+}
+
+/**
+ * Provides a `detect()` function that reads the OS proxy via Tauri IPC,
+ * and a reactive `detecting` flag for loading spinners.
+ */
+export function useSystemProxyDetect(callbacks: SystemProxyDetectCallbacks) {
+  const detecting = ref(false)
+
+  async function detect(): Promise<void> {
+    if (detecting.value) return
+
+    detecting.value = true
+    try {
+      const info = await invoke<SystemProxyInfo | null>('get_system_proxy')
+
+      if (!info || !info.server?.trim()) {
+        callbacks.onNotFound()
+        return
+      }
+
+      if (info.isSocks) {
+        callbacks.onSocks()
+        return
+      }
+
+      callbacks.onSuccess(info)
+    } catch (err: unknown) {
+      callbacks.onError(err)
+    } finally {
+      detecting.value = false
+    }
+  }
+
+  return { detecting, detect }
+}

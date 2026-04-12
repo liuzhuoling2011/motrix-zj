@@ -256,4 +256,9 @@ export default {
   'protocol-disable-link-warning': 'لن يؤدي النقر على روابط {protocols} إلى فتح Motrix Next بعد الآن',
   'protocol-disable-ext-warning': 'لن تتمكن إضافات المتصفح من إرسال مهام التنزيل إلى Motrix Next',
   'protocol-disable-confirm': 'تعطيل على أي حال',
+  'detect-system-proxy': 'كشف',
+  'proxy-detected-success': 'تم اكتشاف الوكيل من إعدادات النظام',
+  'proxy-system-not-detected': 'لم يتم اكتشاف وكيل النظام',
+  'proxy-system-socks-rejected': 'وكيل النظام يستخدم بروتوكول SOCKS، غير مدعوم بواسطة aria2',
+  'proxy-system-detect-failed': 'فشل اكتشاف وكيل النظام',
 }
