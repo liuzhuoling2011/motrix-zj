@@ -532,12 +532,17 @@ async function handleScheduleToggle(enabled: boolean) {
   border: 1px solid color-mix(in srgb, var(--m3-primary) 30%, transparent);
 }
 
-/* Lock pill pop animation — bouncy enter AND exit */
-.lock-pop-enter-active,
-.lock-pop-leave-active {
+/* Lock pill pop animation — bouncy enter, smooth exit */
+.lock-pop-enter-active {
   transition:
     transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
     opacity 0.2s ease;
+}
+.lock-pop-leave-active {
+  transition:
+    transform 0.25s cubic-bezier(0.4, 0, 1, 1),
+    opacity 0.2s ease;
+  pointer-events: none;
 }
 .lock-pop-enter-from,
 .lock-pop-leave-to {
