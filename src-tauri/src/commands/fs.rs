@@ -493,6 +493,89 @@ pub fn trash_file(path: String) -> Result<(), AppError> {
     trash::delete(&path).map_err(|e| AppError::Io(e.to_string()))
 }
 
+/// Moves a file to a target directory, creating the directory if needed.
+///
+/// Uses `std::fs::rename` for same-filesystem moves (zero-copy, atomic).
+/// Falls back to copy+delete for cross-filesystem moves (e.g. NAS, external drives).
+/// Returns the absolute path of the moved file.
+///
+/// Used by the auto-archive feature to relocate completed downloads into
+/// category directories based on file extension classification.
+#[tauri::command]
+pub fn move_file(source: String, target_dir: String) -> Result<String, AppError> {
+    let src = Path::new(&source);
+    if !src.is_file() {
+        return Err(AppError::Io(format!("Source is not a file: {source:?}")));
+    }
+
+    let target = Path::new(&target_dir);
+    if !target.exists() {
+        std::fs::create_dir_all(target)
+            .map_err(|e| AppError::Io(format!("Failed to create directory {target_dir:?}: {e}")))?;
+    }
+
+    let file_name = src
+        .file_name()
+        .ok_or_else(|| AppError::Io(format!("Cannot extract filename from {source:?}")))?;
+    let dest = target.join(file_name);
+
+    // Avoid overwriting existing files — append (1), (2), etc.
+    let dest = if dest.exists() {
+        let stem = dest
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+        let ext = dest.extension().map(|e| e.to_string_lossy().to_string());
+        let mut counter = 1u32;
+        loop {
+            let new_name = match &ext {
+                Some(e) => format!("{stem} ({counter}).{e}"),
+                None => format!("{stem} ({counter})"),
+            };
+            let candidate = target.join(&new_name);
+            if !candidate.exists() {
+                break candidate;
+            }
+            counter += 1;
+            if counter > 999 {
+                return Err(AppError::Io(format!(
+                    "Too many name collisions for {file_name:?} in {target_dir:?}"
+                )));
+            }
+        }
+    } else {
+        dest
+    };
+
+    log::info!("file:move {source:?} → {dest:?}");
+
+    // Try rename first (same filesystem = atomic, zero-copy)
+    match std::fs::rename(src, &dest) {
+        Ok(()) => {}
+        Err(e)
+            if e.raw_os_error() == Some(18 /* EXDEV */)
+                || e.kind() == std::io::ErrorKind::Other =>
+        {
+            // Cross-filesystem: copy + delete
+            std::fs::copy(src, &dest)
+                .map_err(|e| AppError::Io(format!("Failed to copy {source:?} to {dest:?}: {e}")))?;
+            std::fs::remove_file(src).map_err(|e| {
+                AppError::Io(format!(
+                    "File copied to {dest:?} but failed to remove source {source:?}: {e}"
+                ))
+            })?;
+        }
+        Err(e) => {
+            return Err(AppError::Io(format!(
+                "Failed to move {source:?} to {dest:?}: {e}"
+            )));
+        }
+    }
+
+    Ok(crate::engine::path_to_safe_string(&dest))
+}
+
 /// Permanently deletes a file from disk (NOT move to trash).
 ///
 /// Used for internal aria2 metadata files that have no user value:

@@ -27,6 +27,7 @@ export default {
   'task-split': '分割数',
   'split-limit-hint': 'エンジンの上限に達しました。変更できません',
   'task-dir': '保存先',
+  'task-custom-dir': 'カスタムパス',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': '認証情報',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'サイズ',
   'sort-progress': '進捗',
   'sort-speed': '速度',
+  'category-hint-active': '自動分類が有効です。ファイルはカテゴリフォルダに保存されます',
+  'category-hint-overridden': 'カスタムパスが指定されました。分類ルールはスキップされます',
+  'category-dir-placeholder': '空欄のままで自動分類',
 }

@@ -5,8 +5,13 @@
  * The btAutoDownloadContent ↔ followTorrent/followMetalink/pauseMetadata
  * mapping is the key business logic tested here.
  */
-import type { AppConfig } from '@shared/types'
-import { DEFAULT_APP_CONFIG as D } from '@shared/constants'
+import type { AppConfig, FileCategory } from '@shared/types'
+import {
+  DEFAULT_APP_CONFIG as D,
+  buildDefaultCategories,
+  BUILTIN_CATEGORY_LABELS,
+  BUILTIN_CATEGORY_TEMPLATES,
+} from '@shared/constants'
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -53,6 +58,8 @@ export interface BasicForm {
   deleteTorrentAfterComplete: boolean
   autoDeleteStaleRecords: boolean
   clearCompletedOnExit: boolean
+  fileCategoryEnabled: boolean
+  fileCategories: FileCategory[]
   clipboardEnable: boolean
   clipboardHttp: boolean
   clipboardFtp: boolean
@@ -65,6 +72,29 @@ export interface BasicForm {
 }
 
 // ── Pure Functions ──────────────────────────────────────────────────
+
+/**
+ * Hydrates categories loaded from persisted config with missing fields.
+ * - `builtIn`: inferred from label matching against BUILTIN_CATEGORY_TEMPLATES
+ * - `directory`: filled from baseDir + template subdirName (built-in) or baseDir (custom)
+ * Empty directories would cause aria2 to fail, so this is safety-critical.
+ */
+function hydrateCategories(categories: FileCategory[], baseDir: string): FileCategory[] {
+  const normalizedBase = baseDir.replace(/[\\/]+$/, '')
+  const templateMap: ReadonlyMap<string, string> = new Map(
+    BUILTIN_CATEGORY_TEMPLATES.map((t) => [t.label, t.subdirName]),
+  )
+
+  return categories.map((cat) => {
+    const isBuiltIn = cat.builtIn ?? BUILTIN_CATEGORY_LABELS.has(cat.label)
+    let directory = cat.directory
+    if (!directory) {
+      const subdirName = templateMap.get(cat.label)
+      directory = subdirName ? `${normalizedBase}/${subdirName}` : normalizedBase
+    }
+    return { ...cat, builtIn: isBuiltIn, directory }
+  })
+}
 
 /**
  * Builds the basic form state from the preference store config.
@@ -119,6 +149,11 @@ export function buildBasicForm(config: AppConfig, defaultDir: string = ''): Basi
     deleteTorrentAfterComplete: config.deleteTorrentAfterComplete ?? false,
     autoDeleteStaleRecords: config.autoDeleteStaleRecords ?? false,
     clearCompletedOnExit: config.clearCompletedOnExit ?? false,
+    fileCategoryEnabled: config.fileCategoryEnabled ?? D.fileCategoryEnabled,
+    fileCategories:
+      config.fileCategories && config.fileCategories.length > 0
+        ? hydrateCategories(config.fileCategories, config.dir || defaultDir)
+        : buildDefaultCategories(config.dir || defaultDir),
     clipboardEnable: config.clipboard?.enable ?? D.clipboard.enable,
     clipboardHttp: config.clipboard?.http ?? D.clipboard.http,
     clipboardFtp: config.clipboard?.ftp ?? D.clipboard.ftp,

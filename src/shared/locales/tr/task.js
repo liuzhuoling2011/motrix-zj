@@ -26,7 +26,8 @@ export default {
   'task-out-tips': 'İsteğe bağlı',
   'task-split': 'Segmentler',
   'split-limit-hint': 'Motor sabit sınırına ulaşıldı — değiştirilemez',
-  'task-dir': 'Kayıt yeri',
+  'task-dir': 'Kaydet',
+  'task-custom-dir': 'Özel Yol',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Yetkilendirme',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Boyut',
   'sort-progress': 'İlerleme',
   'sort-speed': 'Hız',
+  'category-hint-active': 'Otomatik sınıflandırma etkin, dosyalar ilgili kategori klasörlerine kaydedilecek',
+  'category-hint-overridden': 'Özel yol belirtildi, sınıflandırma kuralları atlanacak',
+  'category-dir-placeholder': 'Otomatik sınıflandırma için boş bırakın',
 }

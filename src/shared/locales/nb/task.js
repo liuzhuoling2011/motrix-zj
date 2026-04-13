@@ -26,7 +26,8 @@ export default {
   'task-out-tips': 'Valgfritt',
   'task-split': 'Segmenter',
   'split-limit-hint': 'Motoren har nådd hardgrensen, kan ikke endres',
-  'task-dir': 'Lagre i',
+  'task-dir': 'Lagre til',
+  'task-custom-dir': 'Egendefinert sti',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Autorisasjon',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Størrelse',
   'sort-progress': 'Fremgang',
   'sort-speed': 'Hastighet',
+  'category-hint-active': 'Automatisk klassifisering er aktiv, filer lagres i sine kategorimapper',
+  'category-hint-overridden': 'Egendefinert sti angitt, klassifiseringsregler vil bli hoppet over',
+  'category-dir-placeholder': 'La stå tomt for automatisk klassifisering',
 }

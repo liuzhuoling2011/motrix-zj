@@ -26,7 +26,8 @@ export default {
   'task-out-tips': 'ไม่บังคับ',
   'task-split': 'เซ็กเมนต์',
   'split-limit-hint': 'ถึงขีดจำกัดสูงสุดของเอนจิน ไม่สามารถเปลี่ยนแปลงได้',
-  'task-dir': 'บันทึกที่',
+  'task-dir': 'บันทึกไปยัง',
+  'task-custom-dir': 'เส้นทางที่กำหนดเอง',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'การยืนยันตัวตน',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'ขนาด',
   'sort-progress': 'ความคืบหน้า',
   'sort-speed': 'ความเร็ว',
+  'category-hint-active': 'การจำแนกอัตโนมัติเปิดใช้งาน ไฟล์จะถูกบันทึกลงในโฟลเดอร์หมวดหมู่ที่เกี่ยวข้อง',
+  'category-hint-overridden': 'ระบุเส้นทางที่กำหนดเอง กฎการจำแนกจะถูกข้าม',
+  'category-dir-placeholder': 'เว้นว่างสำหรับการจำแนกอัตโนมัติ',
 }

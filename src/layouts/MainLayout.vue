@@ -44,6 +44,7 @@ import { NModal, NButton, NSpace, NIcon, NCheckbox, useDialog } from 'naive-ui'
 import { WarningOutline } from '@vicons/ionicons5'
 import { useAppEvents } from '@/composables/useAppEvents'
 import { loadAddedAtFromRecords } from '@/composables/useTaskOrder'
+import { resolveArchiveAction } from '@shared/utils/autoArchive'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -581,7 +582,7 @@ onMounted(async () => {
         taskNotification: true,
       })
     },
-    onTaskComplete: (task) => {
+    onTaskComplete: async (task) => {
       if (isMetadataTask(task)) return
       const record = buildHistoryRecord(task)
       // BT tasks: clean up stale DB records from previous sessions where
@@ -598,6 +599,27 @@ onMounted(async () => {
         onOpenFile: openFileFromNotification,
         onShowInFolder: showInFolderFromNotification,
       })
+
+      // ── Auto-archive: move file to category directory if applicable ──
+      const archiveAction = resolveArchiveAction(
+        task,
+        preferenceStore.config.fileCategoryEnabled,
+        preferenceStore.config.fileCategories,
+      )
+      if (archiveAction) {
+        try {
+          const { invoke } = await import('@tauri-apps/api/core')
+          const newPath = await invoke<string>('move_file', {
+            source: archiveAction.source,
+            targetDir: archiveAction.targetDir,
+          })
+          logger.info('AutoArchive.moved', `${archiveAction.source} → ${newPath}`)
+        } catch (e) {
+          // Archive failure is non-critical — file remains at download location
+          logger.warn('AutoArchive.failed', e instanceof Error ? e.message : String(e))
+        }
+      }
+
       // Clean up .aria2 control file for BT tasks that auto-completed seeding
       // (seed-ratio or seed-time threshold reached). Best-effort, never throws.
       if (task.bittorrent) {

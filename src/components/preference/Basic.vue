@@ -26,6 +26,8 @@ import {
   SAFE_LIMIT_BT_MAX_PEERS,
   COLOR_SCHEMES,
   SCHEDULE_DAY,
+  buildDefaultCategories,
+  MAX_FILE_CATEGORIES,
 } from '@shared/constants'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { buildBasicForm, buildBasicSystemConfig, transformBasicForStore } from '@/composables/useBasicPreference'
@@ -41,6 +43,7 @@ import {
   NInputGroup,
   NText,
   NCollapseTransition,
+  NDynamicTags,
   NTag,
   NSpace,
   NRadioGroup,
@@ -509,6 +512,45 @@ async function handleSelectDir() {
   if (typeof selected === 'string') form.value.dir = selected
 }
 
+async function handleSelectCategoryDir(index: number) {
+  const selected = await openDialog({ directory: true, multiple: false })
+  if (typeof selected === 'string') {
+    form.value.fileCategories[index].directory = selected
+  }
+}
+
+function handleCategoryExtChange(index: number, extensions: string[]) {
+  form.value.fileCategories[index].extensions = extensions.map((e) => e.toLowerCase().replace(/^\./, ''))
+}
+
+function handleDeleteCategory(index: number) {
+  form.value.fileCategories.splice(index, 1)
+}
+
+function handleAddCategory() {
+  if (form.value.fileCategories.length >= MAX_FILE_CATEGORIES) return
+  const baseDir = form.value.dir || defaultDownloadDir.value
+  form.value.fileCategories.push({
+    label: '',
+    extensions: [],
+    directory: baseDir,
+    builtIn: false,
+  })
+}
+
+function handleResetCategories() {
+  const baseDir = form.value.dir || defaultDownloadDir.value
+  form.value.fileCategories = buildDefaultCategories(baseDir)
+}
+
+function handleCategoryLabelChange(index: number, label: string) {
+  form.value.fileCategories[index].label = label
+}
+
+function handleCategoryDirInput(index: number, value: string) {
+  form.value.fileCategories[index].directory = value
+}
+
 function loadForm() {
   Object.assign(form.value, buildForm())
 
@@ -791,8 +833,8 @@ onMounted(async () => {
         <NSwitch v-model:value="form.resumeAllWhenAppLaunched" />
       </NFormItem>
 
-      <NDivider title-placement="left">{{ t('preferences.download-path-and-speed') }}</NDivider>
-      <NFormItem :label="t('preferences.default-dir')">
+      <NDivider title-placement="left">{{ t('preferences.download-path') }}</NDivider>
+      <NFormItem :label="t('preferences.default-path')">
         <NInputGroup>
           <NInput v-model:value="form.dir" style="flex: 1" />
           <NButton style="padding: 0 12px" @click="handleSelectDir">
@@ -802,6 +844,68 @@ onMounted(async () => {
           </NButton>
         </NInputGroup>
       </NFormItem>
+      <NFormItem :label="t('preferences.file-category-save')">
+        <NSwitch v-model:value="form.fileCategoryEnabled" />
+      </NFormItem>
+      <NCollapseTransition :show="form.fileCategoryEnabled">
+        <NFormItem :show-label="false">
+          <div class="file-category-list">
+            <div v-for="(cat, idx) in form.fileCategories" :key="idx" class="file-category-card">
+              <div class="file-category-header">
+                <span v-if="cat.builtIn" class="file-category-label">{{ t(`preferences.${cat.label}`) }}</span>
+                <NInput
+                  v-else
+                  :value="cat.label"
+                  size="small"
+                  :placeholder="t('preferences.file-category-custom-label')"
+                  style="width: 120px"
+                  @update:value="(v: string) => handleCategoryLabelChange(idx, v)"
+                />
+                <NButton
+                  size="tiny"
+                  quaternary
+                  type="error"
+                  style="margin-left: auto"
+                  @click="handleDeleteCategory(idx)"
+                >
+                  ✕
+                </NButton>
+              </div>
+              <NDynamicTags
+                :value="cat.extensions.map((e: string) => `.${e}`)"
+                size="small"
+                @update:value="(tags: string[]) => handleCategoryExtChange(idx, tags)"
+              />
+              <NInputGroup>
+                <NInput
+                  :value="cat.directory"
+                  size="small"
+                  style="flex: 1"
+                  @update:value="(v: string) => handleCategoryDirInput(idx, v)"
+                />
+                <NButton size="small" style="padding: 0 8px" @click="handleSelectCategoryDir(idx)">
+                  <template #icon>
+                    <NIcon :size="14"><FolderOpenOutline /></NIcon>
+                  </template>
+                </NButton>
+              </NInputGroup>
+            </div>
+            <div class="file-category-actions">
+              <NButton size="small" dashed @click="handleAddCategory">
+                {{ t('preferences.file-category-add') }}
+              </NButton>
+              <NButton size="small" quaternary @click="handleResetCategories">
+                ↺ {{ t('preferences.file-category-reset') }}
+              </NButton>
+            </div>
+            <NText depth="3" style="font-size: 12px; display: block; margin-top: 4px">
+              ⓘ {{ t('preferences.file-category-auto-archive-hint') }}
+            </NText>
+          </div>
+        </NFormItem>
+      </NCollapseTransition>
+
+      <NDivider title-placement="left">{{ t('preferences.speed-limit') }}</NDivider>
       <NFormItem :label="t('app.speedometer-enable-limit')">
         <NSwitch :value="preferenceStore.config.speedLimitEnabled" @update:value="handleSpeedLimitToggle" />
       </NFormItem>
@@ -1122,5 +1226,42 @@ onMounted(async () => {
   width: 14px;
   height: 14px;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+/* ── File Category List ──────────────────────────────────────────── */
+.file-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+  width: 100%;
+}
+.file-category-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--n-color, var(--m3-surface-container-low));
+  border: 1px solid var(--n-border-color, var(--m3-outline-variant));
+  transition: border-color 0.2s ease;
+}
+.file-category-card:hover {
+  border-color: var(--color-primary);
+}
+.file-category-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.file-category-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+.file-category-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
 }
 </style>

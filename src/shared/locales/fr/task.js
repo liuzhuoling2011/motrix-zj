@@ -27,6 +27,7 @@ export default {
   'task-split': 'Segments',
   'split-limit-hint': 'Limite maximale du moteur atteinte — non modifiable',
   'task-dir': 'Enregistrer dans',
+  'task-custom-dir': 'Chemin personnalisé',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Autorisation',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Taille',
   'sort-progress': 'Progression',
   'sort-speed': 'Vitesse',
+  'category-hint-active': 'La classification automatique est active, les fichiers seront enregistrés dans leurs dossiers de catégorie',
+  'category-hint-overridden': 'Chemin personnalisé spécifié, les règles de classification seront ignorées',
+  'category-dir-placeholder': 'Laisser vide pour la classification automatique',
 }

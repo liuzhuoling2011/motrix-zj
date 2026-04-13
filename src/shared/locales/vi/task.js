@@ -27,6 +27,7 @@ export default {
   'task-split': 'Phân đoạn',
   'split-limit-hint': 'Đã đạt giới hạn cứng của engine — không thể thay đổi',
   'task-dir': 'Lưu vào',
+  'task-custom-dir': 'Đường dẫn tùy chỉnh',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Xác thực',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Kích thước',
   'sort-progress': 'Tiến trình',
   'sort-speed': 'Tốc độ',
+  'category-hint-active': 'Phân loại tự động đang hoạt động, tệp sẽ được lưu vào thư mục danh mục tương ứng',
+  'category-hint-overridden': 'Đã chỉ định đường dẫn tùy chỉnh, quy tắc phân loại sẽ bị bỏ qua',
+  'category-dir-placeholder': 'Để trống để phân loại tự động',
 }

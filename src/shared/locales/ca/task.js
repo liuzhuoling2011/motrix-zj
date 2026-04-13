@@ -27,6 +27,7 @@ export default {
   'task-split': 'Segments',
   'split-limit-hint': 'S\'ha assolit el límit màxim del motor, no es pot modificar',
   'task-dir': 'Desa a',
+  'task-custom-dir': 'Ruta personalitzada',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Autorització',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Mida',
   'sort-progress': 'Progrés',
   'sort-speed': 'Velocitat',
+  'category-hint-active': 'La classificació automàtica està activa, els fitxers es desaran a les carpetes corresponents',
+  'category-hint-overridden': 'S\'ha especificat una ruta personalitzada, les regles de classificació s\'ometran',
+  'category-dir-placeholder': 'Deixeu buit per a la classificació automàtica',
 }

@@ -27,6 +27,7 @@ export default {
   'task-split': '分片数',
   'split-limit-hint': '已达引擎硬上限，无法修改',
   'task-dir': '存储路径',
+  'task-custom-dir': '自定义路径',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': '认证信息',
@@ -241,4 +242,7 @@ export default {
   'sort-size': '大小',
   'sort-progress': '进度',
   'sort-speed': '速度',
+  'category-hint-active': '已开启自动分类，文件将按类型保存到对应目录',
+  'category-hint-overridden': '已指定自定义路径，将优先使用此路径',
+  'category-dir-placeholder': '留空则自动分类',
 }

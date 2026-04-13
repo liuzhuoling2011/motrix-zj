@@ -181,7 +181,12 @@ export const useTaskStore = defineStore('task', () => {
     }
   }
 
-  async function addUri(data: { uris: string[]; outs: string[]; options: Aria2EngineOptions }) {
+  async function addUri(data: {
+    uris: string[]
+    outs: string[]
+    options: Aria2EngineOptions
+    fileCategory?: { enabled: boolean; categories: import('@shared/types').FileCategory[] }
+  }) {
     const gids = await api.addUri(data)
     const now = new Date().toISOString()
     const historyStore = useHistoryStore()

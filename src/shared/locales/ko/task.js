@@ -27,6 +27,7 @@ export default {
   'task-split': '분할 수',
   'split-limit-hint': '엔진 최대 한도에 도달했습니다. 변경할 수 없습니다',
   'task-dir': '저장 위치',
+  'task-custom-dir': '사용자 지정 경로',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': '인증 정보',
@@ -241,4 +242,7 @@ export default {
   'sort-size': '크기',
   'sort-progress': '진행률',
   'sort-speed': '속도',
+  'category-hint-active': '자동 분류가 활성화되어 파일이 카테고리 폴더에 저장됩니다',
+  'category-hint-overridden': '사용자 지정 경로가 지정되어 분류 규칙이 건너뛰어집니다',
+  'category-dir-placeholder': '자동 분류를 위해 비워두세요',
 }

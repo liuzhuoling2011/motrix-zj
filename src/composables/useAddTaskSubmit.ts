@@ -19,7 +19,7 @@ import { isEngineReady } from '@/api/aria2'
 import { normalizeUriLines } from '@shared/utils/batchHelpers'
 import { buildOuts } from '@shared/utils/rename'
 import { logger } from '@shared/logger'
-import type { Aria2EngineOptions, BatchItem, ProxyConfig } from '@shared/types'
+import type { Aria2EngineOptions, BatchItem, FileCategory, ProxyConfig } from '@shared/types'
 import { isMagnetUri } from '@/composables/useMagnetFlow'
 
 export interface AddTaskForm {
@@ -180,6 +180,7 @@ export async function submitManualUris(
   form: AddTaskForm,
   options: Aria2EngineOptions,
   taskStore: ReturnType<typeof useTaskStore>,
+  fileCategory?: { enabled: boolean; categories: FileCategory[] },
 ): Promise<ManualUriSubmitResult> {
   if (!form.uris.trim()) return { magnetGids: [], magnetFailures: [] }
   const allUris = normalizeUriLines(form.uris)
@@ -200,14 +201,14 @@ export async function submitManualUris(
         const ext = dotIdx > 0 ? form.out.substring(dotIdx) : ''
         outs = regularUris.map((_, i) => `${base}_${i + 1}${ext}`)
       }
-      await taskStore.addUri({ uris: regularUris, outs, options: regularOptions })
+      await taskStore.addUri({ uris: regularUris, outs, options: regularOptions, fileCategory })
     } else {
       // Let aria2 handle filename resolution natively:
       // 1. Content-Disposition header (highest priority)
       // 2. Redirected URL filename
       // 3. URL path segment with built-in percentDecode
       // See: aria2 HttpResponse.cc:determineFilename()
-      await taskStore.addUri({ uris: regularUris, outs: [], options })
+      await taskStore.addUri({ uris: regularUris, outs: [], options, fileCategory })
     }
   }
 
@@ -254,7 +255,10 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
         await submitBatchItems(batch, options, taskStore)
       }
       if (form.value.uris.trim()) {
-        const manualResult = await submitManualUris(form.value, options, taskStore)
+        const manualResult = await submitManualUris(form.value, options, taskStore, {
+          enabled: preferenceStore.config.fileCategoryEnabled,
+          categories: preferenceStore.config.fileCategories,
+        })
         magnetFailureCount = manualResult.magnetFailures.length
         // pendingMagnetGids is set directly inside addMagnetUri (task store)
       }

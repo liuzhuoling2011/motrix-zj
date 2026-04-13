@@ -27,6 +27,7 @@ export default {
   'task-split': 'الأجزاء',
   'split-limit-hint': 'تم الوصول للحد الأقصى للمحرك، لا يمكن تعديله',
   'task-dir': 'حفظ في',
+  'task-custom-dir': 'مسار مخصص',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'التفويض',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'الحجم',
   'sort-progress': 'التقدم',
   'sort-speed': 'السرعة',
+  'category-hint-active': 'تم تفعيل التصنيف التلقائي، سيتم حفظ الملفات في المجلدات المقابلة',
+  'category-hint-overridden': 'تم تحديد مسار مخصص، سيتم تجاهل قواعد التصنيف',
+  'category-dir-placeholder': 'اتركه فارغاً للتصنيف التلقائي',
 }

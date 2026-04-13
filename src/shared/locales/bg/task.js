@@ -27,6 +27,7 @@ export default {
   'task-split': 'Сегменти',
   'split-limit-hint': 'Достигнат е хардуерният лимит на двигателя, не може да бъде променен',
   'task-dir': 'Запиши в',
+  'task-custom-dir': 'Потребителски път',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Оторизация',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Размер',
   'sort-progress': 'Напредък',
   'sort-speed': 'Скорост',
+  'category-hint-active': 'Автоматичната класификация е активна, файловете ще бъдат запазени в съответните директории',
+  'category-hint-overridden': 'Зададен е потребителски път, правилата за класификация ще бъдат пропуснати',
+  'category-dir-placeholder': 'Оставете празно за автоматична класификация',
 }

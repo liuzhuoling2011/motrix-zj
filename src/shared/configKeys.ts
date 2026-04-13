@@ -14,6 +14,8 @@ const userKeys = [
   'enable-upnp',
   'engine-bin-path',
   'favorite-directories',
+  'file-category-enabled',
+  'file-categories',
   'hardware-rendering',
   'hide-dock-on-minimize',
   'history-directories',

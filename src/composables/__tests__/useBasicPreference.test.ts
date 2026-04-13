@@ -11,6 +11,7 @@ import { buildBasicForm, buildBasicSystemConfig, transformBasicForStore, type Ba
 import type { AppConfig } from '@shared/types'
 import {
   DEFAULT_APP_CONFIG,
+  buildDefaultCategories,
   ENGINE_DEFAULT_CONNECTION_PER_SERVER,
   ENGINE_DEFAULT_SPLIT,
   ENGINE_DEFAULT_BT_MAX_PEERS,
@@ -169,6 +170,8 @@ describe('buildBasicSystemConfig', () => {
     deleteTorrentAfterComplete: false,
     autoDeleteStaleRecords: false,
     clearCompletedOnExit: false,
+    fileCategoryEnabled: false,
+    fileCategories: buildDefaultCategories('/downloads'),
     clipboardEnable: true,
     clipboardHttp: true,
     clipboardFtp: true,
@@ -290,6 +293,8 @@ describe('transformBasicForStore', () => {
     deleteTorrentAfterComplete: false,
     autoDeleteStaleRecords: false,
     clearCompletedOnExit: false,
+    fileCategoryEnabled: false,
+    fileCategories: buildDefaultCategories('/downloads'),
     clipboardEnable: true,
     clipboardHttp: true,
     clipboardFtp: true,

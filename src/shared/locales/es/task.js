@@ -27,6 +27,7 @@ export default {
   'task-split': 'Segmentos',
   'split-limit-hint': 'Límite máximo del motor alcanzado, no se puede modificar',
   'task-dir': 'Guardar en',
+  'task-custom-dir': 'Ruta personalizada',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Autorización',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Tamaño',
   'sort-progress': 'Progreso',
   'sort-speed': 'Velocidad',
+  'category-hint-active': 'La clasificación automática está activa, los archivos se guardarán en sus carpetas de categoría',
+  'category-hint-overridden': 'Ruta personalizada especificada, las reglas de clasificación se omitirán',
+  'category-dir-placeholder': 'Dejar vacío para clasificación automática',
 }

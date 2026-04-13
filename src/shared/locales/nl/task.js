@@ -27,6 +27,7 @@ export default {
   'task-split': 'Segmenten',
   'split-limit-hint': 'Engine-hardlimiet bereikt — kan niet worden gewijzigd',
   'task-dir': 'Opslaan in',
+  'task-custom-dir': 'Aangepast pad',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Autorisatie',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Grootte',
   'sort-progress': 'Voortgang',
   'sort-speed': 'Snelheid',
+  'category-hint-active': 'Automatische classificatie is actief, bestanden worden opgeslagen in hun categoriemappen',
+  'category-hint-overridden': 'Aangepast pad opgegeven, classificatieregels worden overgeslagen',
+  'category-dir-placeholder': 'Laat leeg voor automatische classificatie',
 }

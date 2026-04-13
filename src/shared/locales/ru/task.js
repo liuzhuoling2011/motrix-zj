@@ -27,6 +27,7 @@ export default {
   'task-split': 'Сегменты',
   'split-limit-hint': 'Достигнут жёсткий лимит движка — нельзя изменить',
   'task-dir': 'Сохранить в',
+  'task-custom-dir': 'Пользовательский путь',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Авторизация',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Размер',
   'sort-progress': 'Прогресс',
   'sort-speed': 'Скорость',
+  'category-hint-active': 'Автоклассификация активна, файлы будут сохранены в соответствующие папки категорий',
+  'category-hint-overridden': 'Указан пользовательский путь, правила классификации будут пропущены',
+  'category-dir-placeholder': 'Оставьте пустым для автоклассификации',
 }

@@ -26,7 +26,8 @@ export default {
   'task-out-tips': 'Opsional',
   'task-split': 'Segmen',
   'split-limit-hint': 'Batas maksimum engine tercapai, tidak dapat diubah',
-  'task-dir': 'Simpan di',
+  'task-dir': 'Simpan ke',
+  'task-custom-dir': 'Jalur Kustom',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Otorisasi',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Ukuran',
   'sort-progress': 'Progres',
   'sort-speed': 'Kecepatan',
+  'category-hint-active': 'Klasifikasi otomatis aktif, file akan disimpan ke folder kategorinya',
+  'category-hint-overridden': 'Jalur kustom ditentukan, aturan klasifikasi akan dilewati',
+  'category-dir-placeholder': 'Kosongkan untuk klasifikasi otomatis',
 }

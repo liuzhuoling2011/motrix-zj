@@ -26,7 +26,8 @@ export default {
   'task-out-tips': 'Opcjonalnie',
   'task-split': 'Segmenty',
   'split-limit-hint': 'Osiągnięto twardy limit silnika, nie można zmienić',
-  'task-dir': 'Zapisz w',
+  'task-dir': 'Zapisz do',
+  'task-custom-dir': 'Ścieżka niestandardowa',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Autoryzacja',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Rozmiar',
   'sort-progress': 'Postęp',
   'sort-speed': 'Prędkość',
+  'category-hint-active': 'Automatyczna klasyfikacja jest aktywna, pliki zostaną zapisane w odpowiednich folderach kategorii',
+  'category-hint-overridden': 'Określono ścieżkę niestandardową, reguły klasyfikacji zostaną pominięte',
+  'category-dir-placeholder': 'Pozostaw puste dla automatycznej klasyfikacji',
 }

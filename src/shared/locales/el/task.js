@@ -27,6 +27,7 @@ export default {
   'task-split': 'Τμήματα',
   'split-limit-hint': 'Συμπληρώθηκε το σκληρό όριο του μηχανισμού, δεν μπορεί να αλλάξει',
   'task-dir': 'Αποθήκευση σε',
+  'task-custom-dir': 'Προσαρμοσμένη διαδρομή',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Εξουσιοδότηση',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Μέγεθος',
   'sort-progress': 'Πρόοδος',
   'sort-speed': 'Ταχύτητα',
+  'category-hint-active': 'Η αυτόματη ταξινόμηση είναι ενεργή, τα αρχεία θα αποθηκευτούν στους αντίστοιχους φακέλους',
+  'category-hint-overridden': 'Καθορίστηκε προσαρμοσμένη διαδρομή, οι κανόνες ταξινόμησης θα παραλειφθούν',
+  'category-dir-placeholder': 'Αφήστε κενό για αυτόματη ταξινόμηση',
 }

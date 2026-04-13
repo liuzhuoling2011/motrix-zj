@@ -143,6 +143,18 @@ export interface ClipboardConfig {
   btHash: boolean
 }
 
+/** A file category rule mapping extensions to a download directory. */
+export interface FileCategory {
+  /** Display label — i18n key suffix for built-in categories, user-provided name for custom ones. */
+  label: string
+  /** File extensions (lowercase, no dot prefix) belonging to this category. */
+  extensions: string[]
+  /** Absolute directory path where matching files are saved. */
+  directory: string
+  /** Whether this is a built-in category (cannot be deleted, label resolved via i18n). */
+  builtIn?: boolean
+}
+
 /** Application user preferences with full type coverage. */
 export interface AppConfig {
   /** Schema version for config migration. Absent in pre-migration configs (treated as 0). */
@@ -176,6 +188,11 @@ export interface AppConfig {
   /** Day-of-week bitmask: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64.
    *  0 = every day. Weekdays = 31. Weekends = 96. */
   speedScheduleDays: number
+  /** Whether smart file classification is active.
+   *  When true, downloads are routed to subdirectories by extension. */
+  fileCategoryEnabled: boolean
+  /** User-configurable file classification rules. */
+  fileCategories: FileCategory[]
   seedTime: number
   seedRatio: number
   btMaxPeers: number
@@ -251,6 +268,8 @@ export interface AddUriParams {
   uris: string[]
   outs: string[]
   options: Aria2EngineOptions
+  /** Optional file classification config for per-URI directory routing. */
+  fileCategory?: { enabled: boolean; categories: FileCategory[] }
 }
 
 /** Parameters for adding a torrent-based download task. */

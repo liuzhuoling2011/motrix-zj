@@ -27,6 +27,7 @@ export default {
   'task-split': 'Segmente',
   'split-limit-hint': 'Limita maximă a motorului atinsă — nu poate fi modificată',
   'task-dir': 'Salvează în',
+  'task-custom-dir': 'Cale personalizată',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Autorizare',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Dimensiune',
   'sort-progress': 'Progres',
   'sort-speed': 'Viteză',
+  'category-hint-active': 'Clasificarea automată este activă, fișierele vor fi salvate în folderele de categorie',
+  'category-hint-overridden': 'Cale personalizată specificată, regulile de clasificare vor fi omise',
+  'category-dir-placeholder': 'Lăsați gol pentru clasificare automată',
 }

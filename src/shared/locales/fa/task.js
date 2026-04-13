@@ -27,6 +27,7 @@ export default {
   'task-split': 'بخش‌ها',
   'split-limit-hint': 'به حداکثر محدودیت موتور رسیده‌اید، امکان تغییر وجود ندارد',
   'task-dir': 'ذخیره در',
+  'task-custom-dir': 'مسیر سفارشی',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'احراز هویت',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'اندازه',
   'sort-progress': 'پیشرفت',
   'sort-speed': 'سرعت',
+  'category-hint-active': 'طبقه‌بندی خودکار فعال است، فایل‌ها در پوشه‌های مربوطه ذخیره می‌شوند',
+  'category-hint-overridden': 'مسیر سفارشی مشخص شده، قوانین طبقه‌بندی نادیده گرفته می‌شوند',
+  'category-dir-placeholder': 'برای طبقه‌بندی خودکار خالی بگذارید',
 }

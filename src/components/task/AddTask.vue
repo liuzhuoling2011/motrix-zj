@@ -56,6 +56,8 @@ const appStore = useAppStore()
 const taskStore = useTaskStore()
 const preferenceStore = usePreferenceStore()
 const message = useAppMessage()
+/** Tracks whether the user manually edited the download directory in this session. */
+const dirUserModified = ref(false)
 
 const activeTab = ref(ADD_TASK_TYPE.URI)
 const showAdvanced = ref(false)
@@ -161,9 +163,17 @@ watch(
   () => props.show,
   (visible) => {
     if (visible) {
-      form.value.dir = preferenceStore.config.dir || form.value.dir
+      // When classification is enabled, clear the dir so user sees it's optional;
+      // otherwise sync from preferences as usual.
+      if (preferenceStore.config.fileCategoryEnabled) {
+        form.value.dir = ''
+      } else {
+        form.value.dir = preferenceStore.config.dir || form.value.dir
+      }
       // Sync split from the user's Basic preference value
       form.value.split = preferenceStore.config.split ?? form.value.split
+      // Reset the manual-override flag each time the dialog opens
+      dirUserModified.value = false
     }
   },
 )
@@ -183,6 +193,25 @@ const submitLabel = computed(() => {
   if (count > 1) return `${t('app.submit')} (${count})`
   return t('app.submit')
 })
+
+/** Whether file classification is currently enabled in preferences. */
+const categoryEnabled = computed(() => preferenceStore.config.fileCategoryEnabled)
+
+/** Dynamic label: switches between original 'Save to' and 'Custom Path' based on classification state. */
+const dirLabel = computed(() => (categoryEnabled.value ? t('task.task-custom-dir') : t('task.task-dir')))
+
+/** The resolved hint text key: changes based on whether user manually overrode the path. */
+const categoryHintKey = computed(() =>
+  dirUserModified.value ? 'task.category-hint-overridden' : 'task.category-hint-active',
+)
+
+/** Handles user manually editing the dir field. */
+function onDirInput(value: string) {
+  form.value.dir = value
+  // Empty = user hasn't specified a custom path (auto-classification will handle it).
+  // Non-empty = explicit user override, classification rules will be skipped.
+  dirUserModified.value = value.trim().length > 0
+}
 
 // ── Lifecycle ───────────────────────────────────────────────────────
 
@@ -282,7 +311,11 @@ async function chooseTorrentFile() {
 async function chooseDirectory() {
   try {
     const selected = await openDialog({ directory: true })
-    if (typeof selected === 'string') form.value.dir = selected
+    if (typeof selected === 'string') {
+      form.value.dir = selected
+      // Only mark as user-override when classification is active
+      dirUserModified.value = categoryEnabled.value && selected.trim().length > 0
+    }
   } catch (e) {
     logger.debug('AddTask.chooseDirectory', e)
   }
@@ -408,7 +441,10 @@ async function handleSubmit() {
       await submitBatchItems(batch.value, options, taskStore)
     }
     if (form.value.uris.trim()) {
-      manualResult = await submitManualUris(form.value, options, taskStore)
+      manualResult = await submitManualUris(form.value, options, taskStore, {
+        enabled: preferenceStore.config.fileCategoryEnabled,
+        categories: preferenceStore.config.fileCategories,
+      })
     }
 
     const failedCount = batch.value.filter((i) => i.status === 'failed').length + manualResult.magnetFailures.length
@@ -589,15 +625,25 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
               </div>
             </div>
           </NFormItem>
-          <NFormItem :label="t('task.task-dir') + ':'">
-            <NInputGroup>
-              <NInput v-model:value="form.dir" style="flex: 1" />
-              <NButton @click="chooseDirectory">
-                <template #icon>
-                  <NIcon><FolderOpenOutline /></NIcon>
-                </template>
-              </NButton>
-            </NInputGroup>
+          <NFormItem :label="dirLabel + ':'">
+            <div style="width: 100%">
+              <NInputGroup>
+                <NInput
+                  :value="form.dir"
+                  style="flex: 1"
+                  :placeholder="categoryEnabled ? t('task.category-dir-placeholder') : ''"
+                  @update:value="onDirInput"
+                />
+                <NButton @click="chooseDirectory">
+                  <template #icon>
+                    <NIcon><FolderOpenOutline /></NIcon>
+                  </template>
+                </NButton>
+              </NInputGroup>
+              <Transition name="category-hint">
+                <div v-if="categoryEnabled" class="category-hint-text">ⓘ {{ t(categoryHintKey) }}</div>
+              </Transition>
+            </div>
           </NFormItem>
           <AdvancedOptions
             v-model:show="showAdvanced"
@@ -776,5 +822,28 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
   position: absolute;
   left: 0;
   right: 0;
+}
+
+/* ── Category hint below dir field ────────────────────────────────── */
+.category-hint-text {
+  font-size: var(--font-size-sm, 12px);
+  color: var(--n-text-color-3, #999);
+  margin-top: 4px;
+  padding-left: 2px;
+}
+.category-hint-enter-active {
+  transition:
+    opacity 0.25s cubic-bezier(0.2, 0, 0, 1),
+    transform 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+.category-hint-leave-active {
+  transition:
+    opacity 0.15s cubic-bezier(0.3, 0, 0.8, 0.15),
+    transform 0.15s cubic-bezier(0.3, 0, 0.8, 0.15);
+}
+.category-hint-enter-from,
+.category-hint-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 </style>

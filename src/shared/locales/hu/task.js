@@ -27,6 +27,7 @@ export default {
   'task-split': 'Szegmensek',
   'split-limit-hint': 'Motor hardlimit elérve, nem módosítható',
   'task-dir': 'Mentés ide',
+  'task-custom-dir': 'Egyéni útvonal',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Hitelesítés',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Méret',
   'sort-progress': 'Haladás',
   'sort-speed': 'Sebesség',
+  'category-hint-active': 'Az automatikus osztályozás aktív, a fájlok a megfelelő kategóriamappákba kerülnek',
+  'category-hint-overridden': 'Egyéni útvonal megadva, az osztályozási szabályok kihagyásra kerülnek',
+  'category-dir-placeholder': 'Hagyja üresen az automatikus osztályozáshoz',
 }

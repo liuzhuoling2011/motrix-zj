@@ -27,6 +27,7 @@ export default {
   'task-split': 'Segmente',
   'split-limit-hint': 'Engine-Hardlimit erreicht, kann nicht geändert werden',
   'task-dir': 'Speichern unter',
+  'task-custom-dir': 'Benutzerdefinierter Pfad',
   'task-ua': 'User-Agent',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Autorisierung',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Größe',
   'sort-progress': 'Fortschritt',
   'sort-speed': 'Geschwindigkeit',
+  'category-hint-active': 'Automatische Klassifizierung aktiv, Dateien werden in entsprechende Ordner gespeichert',
+  'category-hint-overridden': 'Benutzerdefinierter Pfad angegeben, Klassifizierungsregeln werden übersprungen',
+  'category-dir-placeholder': 'Leer lassen für automatische Klassifizierung',
 }

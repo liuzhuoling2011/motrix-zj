@@ -136,6 +136,62 @@ export const SCHEDULE_DAY = {
   WEEKENDS: 32 + 64, // 96
 } as const
 
+/** Built-in file category templates for smart path classification (Issue #94).
+ *  Extensions are lowercase without dot prefix.  `subdirName` is a fixed English
+ *  directory name (filesystem paths should not change with locale).
+ *  Use `buildDefaultCategories(baseDir)` to produce runtime FileCategory[]. */
+export const BUILTIN_CATEGORY_TEMPLATES = [
+  {
+    label: 'file-category-videos',
+    extensions: ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'ts', 'm4v', 'rmvb'],
+    subdirName: 'Videos',
+  },
+  {
+    label: 'file-category-music',
+    extensions: ['mp3', 'flac', 'aac', 'ogg', 'wav', 'wma', 'm4a', 'opus', 'ape'],
+    subdirName: 'Music',
+  },
+  {
+    label: 'file-category-images',
+    extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'ico', 'tiff', 'psd', 'raw'],
+    subdirName: 'Images',
+  },
+  {
+    label: 'file-category-documents',
+    extensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'epub', 'md', 'rtf'],
+    subdirName: 'Documents',
+  },
+  {
+    label: 'file-category-archives',
+    extensions: ['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'dmg', 'iso', 'zst'],
+    subdirName: 'Archives',
+  },
+  {
+    label: 'file-category-programs',
+    extensions: ['exe', 'msi', 'deb', 'rpm', 'appimage', 'pkg', 'apk', 'snap'],
+    subdirName: 'Programs',
+  },
+] as const
+
+/** Builds the default FileCategory[] with absolute directory paths derived from `baseDir`.
+ *  Called when the user first enables classification or clicks "Restore Defaults". */
+export function buildDefaultCategories(baseDir: string): import('@shared/types').FileCategory[] {
+  const normalizedBase = baseDir.replace(/[\\/]+$/, '')
+  return BUILTIN_CATEGORY_TEMPLATES.map((t) => ({
+    label: t.label,
+    extensions: [...t.extensions],
+    directory: `${normalizedBase}/${t.subdirName}`,
+    builtIn: true,
+  }))
+}
+
+/** Maximum number of file categories a user can create (built-in + custom). */
+export const MAX_FILE_CATEGORIES = 20
+
+/** Set of built-in category label keys — used to hydrate the `builtIn` flag
+ *  on categories loaded from persisted config (which may lack the field). */
+export const BUILTIN_CATEGORY_LABELS: ReadonlySet<string> = new Set(BUILTIN_CATEGORY_TEMPLATES.map((t) => t.label))
+
 export const DEFAULT_APP_CONFIG = {
   configVersion: 2,
   dbSchemaVersion: 2,
@@ -158,6 +214,10 @@ export const DEFAULT_APP_CONFIG = {
   speedScheduleDays: 0, // 0 = every day
   maxDownloadLimit: '',
   maxUploadLimit: '',
+
+  // ── File Classification (IDM-style pre-download routing) ──────
+  fileCategoryEnabled: false, // opt-in: does not affect existing users until enabled
+  fileCategories: [] as import('@shared/types').FileCategory[],
 
   // ── BitTorrent (qBT/Transmission/Deluge conventions) ──────────
   btMaxPeers: ENGINE_DEFAULT_BT_MAX_PEERS, // aria2 default=55; qBT=100, Transmission=60, Deluge=200

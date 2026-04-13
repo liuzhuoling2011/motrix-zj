@@ -27,6 +27,7 @@ export default {
   'task-split': 'Splits',
   'split-limit-hint': 'Engine hard limit reached — cannot be modified',
   'task-dir': 'Save to',
+  'task-custom-dir': 'Custom Path',
   'task-ua': 'UA',
   'task-user-agent': 'User-Agent',
   'task-authorization': 'Authorization',
@@ -241,4 +242,7 @@ export default {
   'sort-size': 'Size',
   'sort-progress': 'Progress',
   'sort-speed': 'Speed',
+  'category-hint-active': 'Auto-classification is active, files will be saved to their category folders',
+  'category-hint-overridden': 'Custom path specified, classification rules will be skipped',
+  'category-dir-placeholder': 'Leave empty for auto-classification',
 }

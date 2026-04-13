@@ -5,6 +5,7 @@ import { changeKeysToCamelCase, formatOptionsForEngine } from '@shared/utils'
 import type { Aria2Task, Aria2RawGlobalStat, Aria2Peer, Aria2EngineOptions, Aria2File, AppConfig } from '@shared/types'
 import { isAria2Task, isAria2GlobalStat } from '@shared/guards'
 import { logger } from '@shared/logger'
+import { resolveDownloadDir } from '@shared/utils/fileCategory'
 
 let client: Aria2 | null = null
 let engineReady = false
@@ -187,17 +188,26 @@ export async function fetchTaskItemWithPeers(params: { gid: string }): Promise<A
   return { ...task, peers }
 }
 
-/** Adds one or more URI downloads with per-URI output filename overrides. */
+/** Adds one or more URI downloads with per-URI output filename overrides.
+ *  When fileCategory is provided, each URI's `dir` is resolved independently
+ *  based on its file extension — enabling smart path classification. */
 export async function addUri(params: {
   uris: string[]
   outs: string[]
   options: Aria2EngineOptions
+  fileCategory?: { enabled: boolean; categories: import('@shared/types').FileCategory[] }
 }): Promise<string[]> {
-  const { uris, outs, options } = params
+  const { uris, outs, options, fileCategory } = params
   const engineOptions = formatOptionsForEngine(options)
   const tasks = uris.map((uri, index) => {
     const opts: Record<string, string> = { ...engineOptions }
     if (outs[index]) opts.out = outs[index]
+
+    // Smart file classification: resolve per-URI download directory
+    if (fileCategory?.enabled && opts.dir) {
+      opts.dir = resolveDownloadDir(uri, opts.dir, true, fileCategory.categories)
+    }
+
     return getClient().call<string>('addUri', [uri], opts)
   })
   const gids = await Promise.all(tasks)
