@@ -849,14 +849,13 @@ onMounted(async () => {
         <NSwitch :value="preferenceStore.config.speedScheduleEnabled" @update:value="handleScheduleToggle" />
       </NFormItem>
       <NCollapseTransition :show="preferenceStore.config.speedScheduleEnabled" class="collapse-indent">
-        <NText
-          v-if="!preferenceStore.config.speedLimitEnabled"
-          depth="3"
-          type="warning"
-          style="font-size: 12px; display: block; margin-bottom: 8px"
-        >
-          {{ t('preferences.schedule-needs-limit') }}
-        </NText>
+        <Transition name="schedule-warn">
+          <NFormItem v-if="!preferenceStore.config.speedLimitEnabled" :show-label="false">
+            <NText depth="3" type="warning" style="font-size: 12px">
+              {{ t('preferences.schedule-needs-limit') }}
+            </NText>
+          </NFormItem>
+        </Transition>
         <NFormItem :label="t('preferences.schedule-from')">
           <NSelect v-model:value="form.speedScheduleFrom" :options="timeOptions" style="width: 120px" />
         </NFormItem>
@@ -1060,6 +1059,26 @@ onMounted(async () => {
 .form-preference :deep(.collapse-indent) {
   position: relative;
   margin-left: 16px;
+}
+
+/* ── Schedule warning slide-fade transition ──────────────────────── */
+.schedule-warn-enter-active,
+.schedule-warn-leave-active {
+  transition:
+    opacity 0.25s cubic-bezier(0.2, 0, 0, 1),
+    transform 0.25s cubic-bezier(0.2, 0, 0, 1),
+    max-height 0.25s cubic-bezier(0.2, 0, 0, 1);
+  overflow: hidden;
+}
+.schedule-warn-enter-from,
+.schedule-warn-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+  max-height: 0;
+}
+.schedule-warn-enter-to,
+.schedule-warn-leave-from {
+  max-height: 60px;
 }
 
 /* ── Color Scheme Swatch Picker ───────────────────────────────────── */

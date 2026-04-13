@@ -226,11 +226,13 @@ async function handleScheduleToggle(enabled: boolean) {
         @click="handleClick"
         @contextmenu="handleContextMenu"
       >
-        <Transition name="lock-pop" mode="out-in">
-          <div v-if="isScheduleEffective" key="clock" class="clock-pill">
+        <Transition name="lock-pop" appear>
+          <div v-if="isScheduleEffective" class="clock-pill">
             <NIcon :size="12"><TimerOutline /></NIcon>
           </div>
-          <div v-else-if="isLimited" key="lock" class="lock-pill">
+        </Transition>
+        <Transition name="lock-pop" appear>
+          <div v-if="isLimited && !isScheduleEffective" class="lock-pill">
             <NIcon :size="12"><LockClosedOutline /></NIcon>
           </div>
         </Transition>
@@ -528,16 +530,12 @@ async function handleScheduleToggle(enabled: boolean) {
   border: 1px solid color-mix(in srgb, var(--m3-primary) 30%, transparent);
 }
 
-/* Lock pill pop animation */
-.lock-pop-enter-active {
+/* Lock pill pop animation — bouncy enter AND exit */
+.lock-pop-enter-active,
+.lock-pop-leave-active {
   transition:
     transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
     opacity 0.2s ease;
-}
-.lock-pop-leave-active {
-  transition:
-    transform 0.15s cubic-bezier(0.4, 0, 1, 1),
-    opacity 0.1s ease;
 }
 .lock-pop-enter-from,
 .lock-pop-leave-to {
