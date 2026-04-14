@@ -37,6 +37,7 @@ import {
   NFormItem,
   NCollapseTransition,
   NEllipsis,
+  NTooltip,
 } from 'naive-ui'
 import {
   InformationCircleOutline,
@@ -339,11 +340,15 @@ const peerColumns = computed(() => {
         const geo = geoCache.value[ip]
         if (!geo) return String(row.index)
         const flag = countryCodeToFlag(geo.country_code)
-        return h('span', { title: `${geo.country_name} · ${geo.continent}`, style: 'cursor: default' }, [
-          String(row.index),
-          ' ',
-          flag,
-        ])
+        const label = `${geo.country_name} · ${geo.continent}`
+        return h(
+          NTooltip,
+          { delay: 500, placement: 'right' },
+          {
+            trigger: () => h('span', { style: 'cursor: default' }, [String(row.index), ' ', flag]),
+            default: () => label,
+          },
+        )
       },
     },
     { title: t('task.task-peer-host'), key: 'host', minWidth: 140 },

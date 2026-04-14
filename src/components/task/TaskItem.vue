@@ -15,6 +15,7 @@ import {
 import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@shared/logger'
 import { NProgress, NIcon } from 'naive-ui'
+import MTooltip from '@/components/common/MTooltip.vue'
 import {
   ArrowUpOutline,
   ArrowDownOutline,
@@ -252,32 +253,37 @@ onBeforeUnmount(() => {
     @pointerleave="onCardRelease"
     @animationend="seedingEnter = false"
   >
-    <div class="task-name" :title="taskFullName">
-      <!-- Crossfade: old name fades out, then new name fades in.
-           :key ensures transition only fires when the text actually changes.
-           Polling-safe: computed returns the same string each cycle → no key change. -->
-      <Transition name="name-crossfade" mode="out-in">
-        <span :key="taskFullName">{{ taskFullName }}</span>
-      </Transition>
-      <div class="tags-wrapper" :class="{ 'has-tags': isSeeder || finishedTag || fileMissing }">
-        <div class="tags-inner">
-          <div v-if="isSeeder || finishedTag || fileMissing" class="task-tags">
-            <span v-if="isSeeder" class="seeding-tag">
-              <NIcon :size="13"><CloudUploadOutline /></NIcon>
-              {{ t('task.seeding') || 'Seeding' }}
-            </span>
-            <span v-else-if="finishedTag" class="status-tag" :style="{ color: finishedTag.color }">
-              <NIcon :size="13"><component :is="finishedTag.icon" /></NIcon>
-              {{ finishedTag.label }}
-            </span>
-            <span v-if="fileMissing" class="file-missing-tag">
-              <NIcon :size="13"><AlertCircleOutline /></NIcon>
-              {{ t('task.file-missing') || 'File missing' }}
-            </span>
+    <MTooltip placement="bottom-start">
+      <template #trigger>
+        <div class="task-name">
+          <!-- Crossfade: old name fades out, then new name fades in.
+               :key ensures transition only fires when the text actually changes.
+               Polling-safe: computed returns the same string each cycle → no key change. -->
+          <Transition name="name-crossfade" mode="out-in">
+            <span :key="taskFullName">{{ taskFullName }}</span>
+          </Transition>
+          <div class="tags-wrapper" :class="{ 'has-tags': isSeeder || finishedTag || fileMissing }">
+            <div class="tags-inner">
+              <div v-if="isSeeder || finishedTag || fileMissing" class="task-tags">
+                <span v-if="isSeeder" class="seeding-tag">
+                  <NIcon :size="13"><CloudUploadOutline /></NIcon>
+                  {{ t('task.seeding') || 'Seeding' }}
+                </span>
+                <span v-else-if="finishedTag" class="status-tag" :style="{ color: finishedTag.color }">
+                  <NIcon :size="13"><component :is="finishedTag.icon" /></NIcon>
+                  {{ finishedTag.label }}
+                </span>
+                <span v-if="fileMissing" class="file-missing-tag">
+                  <NIcon :size="13"><AlertCircleOutline /></NIcon>
+                  {{ t('task.file-missing') || 'File missing' }}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </template>
+      {{ taskFullName }}
+    </MTooltip>
     <TaskItemActions
       :task="task"
       :status="taskStatus"

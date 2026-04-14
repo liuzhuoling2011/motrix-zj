@@ -3,6 +3,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NModal, NIcon } from 'naive-ui'
+import MTooltip from '@/components/common/MTooltip.vue'
 import { LogoGithub, HeartOutline, DocumentTextOutline, RocketOutline } from '@vicons/ionicons5'
 import { open } from '@tauri-apps/plugin-shell'
 import { getVersion } from '@tauri-apps/api/app'
@@ -147,18 +148,19 @@ function openUrl(url: string) {
 
       <!-- Version Badges (stacked, prominent) -->
       <div class="about-versions stagger stagger-2">
-        <button
-          class="version-badge"
-          :title="t('about.click-to-copy')"
-          @click="copyToClipboard(`Motrix Next v${appVersion}`, 'Motrix Next')"
-        >
-          <span class="version-label">{{ t('about.app-version') }}</span>
-          <span class="version-value">v{{ appVersion }}</span>
-          <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
-            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
-          </svg>
-        </button>
+        <MTooltip>
+          <template #trigger>
+            <button class="version-badge" @click="copyToClipboard(`Motrix Next v${appVersion}`, 'Motrix Next')">
+              <span class="version-label">{{ t('about.app-version') }}</span>
+              <span class="version-value">v{{ appVersion }}</span>
+              <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
+              </svg>
+            </button>
+          </template>
+          {{ t('about.click-to-copy') }}
+        </MTooltip>
         <Transition name="version-swap" mode="out-in">
           <!-- Loading -->
           <div v-if="aria2Loading" key="loading" class="version-badge version-badge--loading">
@@ -177,20 +179,19 @@ function openUrl(url: string) {
             <span class="version-error">{{ t('about.unavailable') }}</span>
           </div>
           <!-- Success -->
-          <button
-            v-else
-            key="loaded"
-            class="version-badge"
-            :title="t('about.click-to-copy')"
-            @click="copyToClipboard(`aria2 v${aria2Version}`, 'aria2')"
-          >
-            <span class="version-label">{{ t('about.aria2-version') }}</span>
-            <span class="version-value">v{{ aria2Version }}</span>
-            <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
-              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
-            </svg>
-          </button>
+          <MTooltip v-else key="loaded">
+            <template #trigger>
+              <button class="version-badge" @click="copyToClipboard(`aria2 v${aria2Version}`, 'aria2')">
+                <span class="version-label">{{ t('about.aria2-version') }}</span>
+                <span class="version-value">v{{ aria2Version }}</span>
+                <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
+                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
+                </svg>
+              </button>
+            </template>
+            {{ t('about.click-to-copy') }}
+          </MTooltip>
         </Transition>
       </div>
 

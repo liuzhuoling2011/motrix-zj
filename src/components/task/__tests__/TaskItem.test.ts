@@ -25,6 +25,7 @@ vi.mock('@shared/logger', () => ({
 vi.mock('naive-ui', () => ({
   NProgress: { template: '<div class="progress-stub" />' },
   NIcon: { template: '<span><slot /></span>' },
+  NTooltip: { template: '<span><slot name="trigger" /><slot /></span>' },
 }))
 
 vi.mock('@vicons/ionicons5', () => ({

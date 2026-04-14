@@ -696,31 +696,35 @@ onMounted(async () => {
         </NSpace>
       </NFormItem>
       <NFormItem :label="t('about.app-version')">
-        <button
-          class="sysinfo-ver-badge"
-          :title="t('about.click-to-copy')"
-          @click="copyVersionToClipboard(`Motrix Next v${sysAppVersion}`, 'Motrix Next')"
-        >
-          <span class="sysinfo-ver-value">v{{ sysAppVersion || '\u2014' }}</span>
-          <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
-            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
-          </svg>
-        </button>
+        <MTooltip>
+          <template #trigger>
+            <button
+              class="sysinfo-ver-badge"
+              @click="copyVersionToClipboard(`Motrix Next v${sysAppVersion}`, 'Motrix Next')"
+            >
+              <span class="sysinfo-ver-value">v{{ sysAppVersion || '\u2014' }}</span>
+              <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
+              </svg>
+            </button>
+          </template>
+          {{ t('about.click-to-copy') }}
+        </MTooltip>
       </NFormItem>
       <NFormItem :label="t('about.aria2-version')">
-        <button
-          v-if="sysAria2Version"
-          class="sysinfo-ver-badge"
-          :title="t('about.click-to-copy')"
-          @click="copyVersionToClipboard(`aria2 v${sysAria2Version}`, 'aria2')"
-        >
-          <span class="sysinfo-ver-value">v{{ sysAria2Version }}</span>
-          <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
-            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
-          </svg>
-        </button>
+        <MTooltip v-if="sysAria2Version">
+          <template #trigger>
+            <button class="sysinfo-ver-badge" @click="copyVersionToClipboard(`aria2 v${sysAria2Version}`, 'aria2')">
+              <span class="sysinfo-ver-value">v{{ sysAria2Version }}</span>
+              <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
+              </svg>
+            </button>
+          </template>
+          {{ t('about.click-to-copy') }}
+        </MTooltip>
         <div v-else class="sysinfo-ver-badge sysinfo-ver-badge--muted">
           <span class="sysinfo-ver-muted">{{ t('about.unavailable') }}</span>
         </div>
