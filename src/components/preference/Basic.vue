@@ -31,6 +31,8 @@ import {
 } from '@shared/constants'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { buildBasicForm, buildBasicSystemConfig, transformBasicForStore } from '@/composables/useBasicPreference'
+import type { FileCategory } from '@shared/types'
+import { vAutoAnimate } from '@formkit/auto-animate'
 import {
   NForm,
   NFormItem,
@@ -543,6 +545,19 @@ function handleResetCategories() {
   form.value.fileCategories = buildDefaultCategories(baseDir)
 }
 
+// ── Category card stable key ────────────────────────────────────────
+// Uses non-enumerable _uid to avoid polluting serialization / dirty state.
+
+let categoryUid = 0
+
+function ensureCategoryUid(cat: FileCategory): string {
+  const record = cat as unknown as Record<string, unknown>
+  if (!record._uid) {
+    Object.defineProperty(cat, '_uid', { value: `cat-${++categoryUid}`, enumerable: false })
+  }
+  return record._uid as string
+}
+
 function handleCategoryLabelChange(index: number, label: string) {
   form.value.fileCategories[index].label = label
 }
@@ -850,45 +865,47 @@ onMounted(async () => {
       <NCollapseTransition :show="form.fileCategoryEnabled">
         <NFormItem :show-label="false">
           <div class="file-category-list">
-            <div v-for="(cat, idx) in form.fileCategories" :key="idx" class="file-category-card">
-              <div class="file-category-header">
-                <span v-if="cat.builtIn" class="file-category-label">{{ t(`preferences.${cat.label}`) }}</span>
-                <NInput
-                  v-else
-                  :value="cat.label"
+            <div v-auto-animate="{ duration: 250, easing: 'ease-out' }" class="file-category-cards">
+              <div v-for="(cat, idx) in form.fileCategories" :key="ensureCategoryUid(cat)" class="file-category-card">
+                <div class="file-category-header">
+                  <span v-if="cat.builtIn" class="file-category-label">{{ t(`preferences.${cat.label}`) }}</span>
+                  <NInput
+                    v-else
+                    :value="cat.label"
+                    size="small"
+                    :placeholder="t('preferences.file-category-custom-label')"
+                    style="width: 120px"
+                    @update:value="(v: string) => handleCategoryLabelChange(idx, v)"
+                  />
+                  <NButton
+                    class="ghost-btn--danger"
+                    size="tiny"
+                    ghost
+                    style="margin-left: auto"
+                    @click="handleDeleteCategory(idx)"
+                  >
+                    {{ t('edit.delete') }}
+                  </NButton>
+                </div>
+                <NDynamicTags
+                  :value="cat.extensions.map((e: string) => `.${e}`)"
                   size="small"
-                  :placeholder="t('preferences.file-category-custom-label')"
-                  style="width: 120px"
-                  @update:value="(v: string) => handleCategoryLabelChange(idx, v)"
+                  @update:value="(tags: string[]) => handleCategoryExtChange(idx, tags)"
                 />
-                <NButton
-                  class="ghost-btn--danger"
-                  size="tiny"
-                  ghost
-                  style="margin-left: auto"
-                  @click="handleDeleteCategory(idx)"
-                >
-                  {{ t('edit.delete') }}
-                </NButton>
+                <NInputGroup>
+                  <NInput
+                    :value="cat.directory"
+                    size="small"
+                    style="flex: 1"
+                    @update:value="(v: string) => handleCategoryDirInput(idx, v)"
+                  />
+                  <NButton size="small" style="padding: 0 8px" @click="handleSelectCategoryDir(idx)">
+                    <template #icon>
+                      <NIcon :size="14"><FolderOpenOutline /></NIcon>
+                    </template>
+                  </NButton>
+                </NInputGroup>
               </div>
-              <NDynamicTags
-                :value="cat.extensions.map((e: string) => `.${e}`)"
-                size="small"
-                @update:value="(tags: string[]) => handleCategoryExtChange(idx, tags)"
-              />
-              <NInputGroup>
-                <NInput
-                  :value="cat.directory"
-                  size="small"
-                  style="flex: 1"
-                  @update:value="(v: string) => handleCategoryDirInput(idx, v)"
-                />
-                <NButton size="small" style="padding: 0 8px" @click="handleSelectCategoryDir(idx)">
-                  <template #icon>
-                    <NIcon :size="14"><FolderOpenOutline /></NIcon>
-                  </template>
-                </NButton>
-              </NInputGroup>
             </div>
             <div class="file-category-actions">
               <NButton size="small" dashed @click="handleAddCategory">
@@ -909,6 +926,31 @@ onMounted(async () => {
       <NFormItem :label="t('app.speedometer-enable-limit')">
         <NSwitch :value="preferenceStore.config.speedLimitEnabled" @update:value="handleSpeedLimitToggle" />
       </NFormItem>
+
+      <NFormItem :label="t('preferences.speed-schedule-enabled')">
+        <NSwitch :value="preferenceStore.config.speedScheduleEnabled" @update:value="handleScheduleToggle" />
+      </NFormItem>
+      <NCollapseTransition :show="preferenceStore.config.speedScheduleEnabled" class="collapse-indent">
+        <Transition name="schedule-warn">
+          <NFormItem v-if="!preferenceStore.config.speedLimitEnabled" :show-label="false">
+            <NText depth="3" type="warning" style="font-size: 12px">
+              {{ t('preferences.schedule-needs-limit') }}
+            </NText>
+          </NFormItem>
+        </Transition>
+        <NFormItem :label="t('preferences.schedule-from')">
+          <NSelect v-model:value="form.speedScheduleFrom" :options="timeOptions" style="width: 120px" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.schedule-to')">
+          <NSelect v-model:value="form.speedScheduleTo" :options="timeOptions" style="width: 120px" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.schedule-days')">
+          <NSelect v-model:value="form.speedScheduleDays" :options="scheduleDayOptions" style="width: 160px" />
+        </NFormItem>
+        <NText depth="3" style="font-size: 12px; display: block; margin-top: -8px; margin-bottom: 8px">
+          {{ t('preferences.schedule-hint') }}
+        </NText>
+      </NCollapseTransition>
 
       <div>
         <NFormItem :label="t('preferences.transfer-speed-upload')">
@@ -948,31 +990,6 @@ onMounted(async () => {
           </NInputGroup>
         </NFormItem>
       </div>
-
-      <NFormItem :label="t('preferences.speed-schedule-enabled')">
-        <NSwitch :value="preferenceStore.config.speedScheduleEnabled" @update:value="handleScheduleToggle" />
-      </NFormItem>
-      <NCollapseTransition :show="preferenceStore.config.speedScheduleEnabled" class="collapse-indent">
-        <Transition name="schedule-warn">
-          <NFormItem v-if="!preferenceStore.config.speedLimitEnabled" :show-label="false">
-            <NText depth="3" type="warning" style="font-size: 12px">
-              {{ t('preferences.schedule-needs-limit') }}
-            </NText>
-          </NFormItem>
-        </Transition>
-        <NFormItem :label="t('preferences.schedule-from')">
-          <NSelect v-model:value="form.speedScheduleFrom" :options="timeOptions" style="width: 120px" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.schedule-to')">
-          <NSelect v-model:value="form.speedScheduleTo" :options="timeOptions" style="width: 120px" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.schedule-days')">
-          <NSelect v-model:value="form.speedScheduleDays" :options="scheduleDayOptions" style="width: 160px" />
-        </NFormItem>
-        <NText depth="3" style="font-size: 12px; display: block; margin-top: -8px; margin-bottom: 8px">
-          {{ t('preferences.schedule-hint') }}
-        </NText>
-      </NCollapseTransition>
 
       <NDivider title-placement="left">{{ t('preferences.bt-settings') }}</NDivider>
       <NFormItem :label="t('preferences.bt-auto-download-content')">
@@ -1235,6 +1252,11 @@ onMounted(async () => {
   gap: 10px;
   padding: 4px 0;
   width: 100%;
+}
+.file-category-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .file-category-card {
   display: flex;
