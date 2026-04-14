@@ -39,7 +39,7 @@ describe('countryCodeToFlag', () => {
 describe('lookupPeerIps', () => {
   it('returns empty object for empty input without invoking IPC', async () => {
     // Empty array short-circuits before invoke() is called
-    const result = await lookupPeerIps([])
+    const result = await lookupPeerIps([], 'en-US')
     expect(result).toEqual({})
   })
 })
