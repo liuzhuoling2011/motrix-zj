@@ -524,6 +524,7 @@ pub fn run() {
                 .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepOne)
                 .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
                 .level(log_level)
+                .level_for("maxminddb", log::LevelFilter::Warn)
                 .filter(|metadata| {
                     !metadata.target().starts_with("tao")
                         && !metadata.target().starts_with("tracing")

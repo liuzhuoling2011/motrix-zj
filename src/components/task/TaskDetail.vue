@@ -37,7 +37,6 @@ import {
   NFormItem,
   NCollapseTransition,
   NEllipsis,
-  NTooltip,
 } from 'naive-ui'
 import {
   InformationCircleOutline,
@@ -331,38 +330,23 @@ const peerColumns = computed(() => {
     {
       title: t('task.task-tracker-tier'),
       key: 'index',
-      width: calcColumnWidth({
-        title: t('task.task-tracker-tier'),
-        values: data.map((r) => String(r.index)),
-        sortable: true,
-      }),
+      width: 64,
       align: 'center' as const,
       sorter: (a: PeerRow, b: PeerRow) => a.index - b.index,
       defaultSortOrder: 'ascend' as const,
-    },
-    {
-      title: t('task.task-peer-host'),
-      key: 'host',
-      minWidth: 160,
       render: (row: PeerRow) => {
         const ip = row.host.split(':')[0]
         const geo = geoCache.value[ip]
-        if (!geo) return row.host
+        if (!geo) return String(row.index)
         const flag = countryCodeToFlag(geo.country_code)
-        return h('span', { style: 'white-space: nowrap' }, [
-          h(
-            NTooltip,
-            { placement: 'top' },
-            {
-              trigger: () => h('span', { style: 'cursor: default' }, flag),
-              default: () => `${geo.country_name} · ${geo.continent}`,
-            },
-          ),
+        return h('span', { title: `${geo.country_name} · ${geo.continent}`, style: 'cursor: default' }, [
+          String(row.index),
           ' ',
-          row.host,
+          flag,
         ])
       },
     },
+    { title: t('task.task-peer-host'), key: 'host', minWidth: 140 },
     {
       title: t('task.task-peer-client'),
       key: 'client',
