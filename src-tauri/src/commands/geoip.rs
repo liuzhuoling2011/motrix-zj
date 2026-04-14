@@ -75,20 +75,46 @@ pub fn init_geoip(app: &tauri::AppHandle) -> GeoIpState {
     }
 }
 
+// ── Locale-aware name resolution ─────────────────────────────────────
+
+/// Selects the best available localised name from the MMDB `Names` struct.
+///
+/// DB-IP Lite ships 8 languages: de, en, es, fr, ja, pt-BR, ru, zh-CN.
+/// The frontend's i18n locale is mapped to the closest available field;
+/// unsupported locales (18 of 26) fall back to English.
+fn pick_name<'a>(names: &maxminddb::geoip2::Names<'a>, locale: &str) -> &'a str {
+    let localised = match locale {
+        "de" => names.german,
+        "es" => names.spanish,
+        "fr" => names.french,
+        "ja" => names.japanese,
+        "pt-BR" => names.brazilian_portuguese,
+        "ru" => names.russian,
+        "zh-CN" | "zh-TW" => names.simplified_chinese,
+        _ => None, // 18 other locales → English fallback
+    };
+    localised.or(names.english).unwrap_or("")
+}
+
 // ── Tauri command ────────────────────────────────────────────────────
 
 /// Batch-resolves peer IP addresses to country information.
 ///
-/// Accepts a list of IP strings (IPv4 or IPv6), returns a map of
-/// successfully resolved IPs to their `GeoInfo`.  IPs that cannot be
-/// parsed or are not found in the database are silently omitted —
-/// the frontend treats missing keys as "unknown".
+/// Accepts a list of IP strings (IPv4 or IPv6) and the user's current
+/// locale (e.g. `"zh-CN"`, `"ja"`, `"en-US"`).  Country and continent
+/// names are returned in the closest available language, with English
+/// as the fallback for unsupported locales.
+///
+/// Returns a map of successfully resolved IPs to their `GeoInfo`.
+/// IPs that cannot be parsed or are not found in the database are
+/// silently omitted — the frontend treats missing keys as "unknown".
 ///
 /// Design: single IPC round-trip for all peers, avoiding N individual
 /// calls that would thrash the IPC bridge on swarms with 100+ peers.
 #[tauri::command]
 pub fn lookup_peer_ips(
     ips: Vec<String>,
+    locale: String,
     state: tauri::State<'_, GeoIpState>,
 ) -> Result<HashMap<String, GeoInfo>, AppError> {
     let reader: &maxminddb::Reader<Vec<u8>> = match state.0.as_ref() {
@@ -124,8 +150,8 @@ pub fn lookup_peer_ips(
         // country::Country.iso_code is Option<&str>.
         // country::Country.names is a Names struct with .english: Option<&str>.
         let country_code = record.country.iso_code.unwrap_or("").to_string();
-        let country_name = record.country.names.english.unwrap_or("").to_string();
-        let continent = record.continent.names.english.unwrap_or("").to_string();
+        let country_name = pick_name(&record.country.names, &locale).to_string();
+        let continent = pick_name(&record.continent.names, &locale).to_string();
 
         if !country_code.is_empty() {
             result.insert(

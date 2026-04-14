@@ -42,9 +42,12 @@ export function countryCodeToFlag(code: string): string {
  * Single IPC round-trip for all peers — avoids N individual calls that
  * would thrash the IPC bridge on swarms with 100+ peers.
  *
+ * Country and continent names are returned in the user's locale when
+ * available (de/en/es/fr/ja/pt-BR/ru/zh-CN), with English fallback.
+ *
  * IPs that cannot be resolved are silently omitted from the result.
  */
-export async function lookupPeerIps(ips: string[]): Promise<Record<string, GeoInfo>> {
+export async function lookupPeerIps(ips: string[], locale: string): Promise<Record<string, GeoInfo>> {
   if (ips.length === 0) return {}
-  return invoke<Record<string, GeoInfo>>('lookup_peer_ips', { ips })
+  return invoke<Record<string, GeoInfo>>('lookup_peer_ips', { ips, locale })
 }

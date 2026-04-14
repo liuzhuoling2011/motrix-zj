@@ -316,7 +316,7 @@ watch(
       return
     }
     try {
-      geoCache.value = await lookupPeerIps(uniqueIps)
+      geoCache.value = await lookupPeerIps(uniqueIps, locale.value)
     } catch {
       // Graceful degradation: flags show nothing when lookup fails
     }
