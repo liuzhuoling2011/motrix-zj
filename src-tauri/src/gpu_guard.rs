@@ -32,6 +32,8 @@
 //! making them appear unused — hence the module-level allow.
 #![cfg_attr(not(target_os = "linux"), allow(dead_code))]
 
+use std::io::Write;
+
 /// Sentinel file name — written before WebKitGTK init, deleted on success.
 const SENTINEL_NAME: &str = ".gpu-crash-sentinel";
 
@@ -52,6 +54,35 @@ const SELF_SET_MARKER: &str = "_MOTRIX_DMABUF_SELF_SET";
 /// `tauri-plugin-store` is unavailable before `Builder.build()`.
 fn data_dir() -> Option<std::path::PathBuf> {
     dirs::data_dir().map(|d| d.join("com.motrix.next"))
+}
+
+/// Persistent logging for pre-flight — appends to the main application log.
+///
+/// `pre_flight()` executes before `tauri-plugin-log` is initialised, so
+/// `log::info!` / `log::warn!` are unavailable.  This function writes
+/// directly to the same `motrix-next.log` that `tauri-plugin-log` uses,
+/// with a matching timestamp format so the entries blend in naturally.
+///
+/// `tauri-plugin-log` with `KeepOne` rotation does **not** truncate on
+/// startup — it only rotates when `max_file_size` is reached — so these
+/// pre-flight lines survive into the diagnostic export.
+///
+/// Output is also mirrored to stderr for developer convenience.
+fn guard_log(message: &str) {
+    eprintln!("[motrix-next] {message}");
+    if let Some(dir) = data_dir() {
+        let log_dir = dir.join("logs");
+        let _ = std::fs::create_dir_all(&log_dir);
+        let log_path = log_dir.join("motrix-next.log");
+        let timestamp = chrono::Local::now().format("%Y-%m-%d][%H:%M:%S");
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+        {
+            let _ = writeln!(file, "[{timestamp}][INFO][gpu_guard] {message}");
+        }
+    }
 }
 
 /// Reads the `hardwareRendering` preference from raw `config.json`.
@@ -93,7 +124,7 @@ fn write_back_hardware_rendering_disabled(data_dir: &std::path::Path) {
         Ok(())
     })();
     if let Err(e) = result {
-        eprintln!("[motrix-next] gpu_guard: failed to write back config: {e}");
+        guard_log(&format!("gpu_guard: failed to write back config: {e}"));
     }
 }
 
@@ -142,9 +173,9 @@ pub fn pre_flight() -> bool {
             std::env::remove_var(SELF_SET_MARKER);
             std::env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER");
         }
-        eprintln!(
-            "[motrix-next] gpu_guard: cleared inherited env vars from relaunch — \
-             using config as source of truth"
+        guard_log(
+            "gpu_guard: cleared inherited env vars from relaunch — \
+             using config as source of truth",
         );
         // Fall through to config-based logic below.
     }
@@ -162,9 +193,9 @@ pub fn pre_flight() -> bool {
         if disabled {
             if let Some(dir) = data_dir() {
                 write_back_hardware_rendering_disabled(&dir);
-                eprintln!(
-                    "[motrix-next] gpu_guard: external env override detected — \
-                     synced hardwareRendering=false to config"
+                guard_log(
+                    "gpu_guard: external env override detected — \
+                     synced hardwareRendering=false to config",
                 );
             }
         }
@@ -172,7 +203,7 @@ pub fn pre_flight() -> bool {
     }
 
     let Some(dir) = data_dir() else {
-        eprintln!("[motrix-next] gpu_guard: cannot resolve data dir — defaulting to safe mode");
+        guard_log("gpu_guard: cannot resolve data dir — defaulting to safe mode");
         disable_dmabuf_with_marker();
         return true;
     };
@@ -182,11 +213,13 @@ pub fn pre_flight() -> bool {
     // ── Crash recovery ─────────────────────────────────────────────
     let crash_detected = sentinel.exists();
     if crash_detected {
-        let _ = std::fs::remove_file(&sentinel);
+        if let Err(e) = std::fs::remove_file(&sentinel) {
+            guard_log(&format!("gpu_guard: failed to remove sentinel: {e}"));
+        }
         write_back_hardware_rendering_disabled(&dir);
-        eprintln!(
-            "[motrix-next] GPU crash detected on previous launch — \
-             hardware rendering auto-disabled"
+        guard_log(
+            "GPU crash detected on previous launch — \
+             hardware rendering auto-disabled",
         );
     }
 
@@ -199,12 +232,14 @@ pub fn pre_flight() -> bool {
 
     if hw_rendering {
         // Hardware rendering ON — write sentinel; delete on successful startup.
-        let _ = std::fs::write(&sentinel, "");
-        eprintln!("[motrix-next] Hardware rendering enabled — sentinel written");
+        if let Err(e) = std::fs::write(&sentinel, "") {
+            guard_log(&format!("gpu_guard: failed to write sentinel: {e}"));
+        }
+        guard_log("Hardware rendering enabled — sentinel written");
         false // DMA-BUF NOT disabled
     } else {
         disable_dmabuf_with_marker();
-        eprintln!("[motrix-next] Hardware rendering disabled — using software compositing");
+        guard_log("Hardware rendering disabled — using software compositing");
         true // DMA-BUF disabled
     }
 }

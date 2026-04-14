@@ -289,7 +289,7 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
         if (f.openAtLogin && !currentlyEnabled) await enable()
         else if (!f.openAtLogin && currentlyEnabled) await disable()
       } catch (e) {
-        console.error('Failed to sync autostart:', e)
+        logger.error('Preference.autostart', e)
       }
     }
 

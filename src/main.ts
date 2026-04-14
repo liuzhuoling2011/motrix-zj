@@ -59,7 +59,7 @@ window.addEventListener('unhandledrejection', (e) => {
     for (let i = 0; i < maxRetries; i++) {
       const probe = new Aria2({ host: '127.0.0.1', port, secret })
       try {
-        console.log(`[waitForEngine] attempt ${i + 1}/${maxRetries} connecting to port ${port}...`)
+        logger.debug('waitForEngine', `attempt ${i + 1}/${maxRetries} connecting to port ${port}`)
         await Promise.race([
           (async () => {
             await probe.open()
@@ -68,7 +68,7 @@ window.addEventListener('unhandledrejection', (e) => {
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error('attempt timeout')), ATTEMPT_TIMEOUT)),
         ])
         await probe.close()
-        console.log(`[waitForEngine] connected on attempt ${i + 1}`)
+        logger.info('waitForEngine', `connected on attempt ${i + 1}`)
         return true
       } catch (e) {
         // Force-close the socket — it may still be in CONNECTING state
@@ -78,12 +78,11 @@ window.addEventListener('unhandledrejection', (e) => {
           /* ignore */
         }
         const delay = Math.min(100 * 2 ** i, 2000)
-        console.log(`[waitForEngine] attempt ${i + 1}/${maxRetries} failed: ${e}, retry in ${delay}ms`)
         logger.debug('waitForEngine', `attempt ${i + 1}/${maxRetries} failed, retry in ${delay}ms: ${e}`)
         await new Promise((r) => setTimeout(r, delay))
       }
     }
-    console.log(`[waitForEngine] all ${maxRetries} attempts failed`)
+    logger.warn('waitForEngine', `all ${maxRetries} attempts failed`)
     return false
   }
 
