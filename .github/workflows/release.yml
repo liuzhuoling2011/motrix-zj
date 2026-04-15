@@ -32,7 +32,7 @@ jobs:
           - platform: ubuntu-22.04
             args: --target x86_64-unknown-linux-gnu
             label: linux-x86_64
-          - platform: ubuntu-24.04-arm
+          - platform: ubuntu-22.04-arm
             args: --target aarch64-unknown-linux-gnu
             label: linux-aarch64
 
@@ -63,8 +63,8 @@ jobs:
 
       - uses: swatinem/rust-cache@v2
 
-      # Suppress Ubuntu 24.04 needrestart daemon (auto-restarts services on
-      # package install, can kill the runner agent and cause "operation canceled").
+      # Suppress needrestart daemon (auto-restarts services on package
+      # install, can kill the runner agent and cause "operation canceled").
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -83,7 +83,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          NO_STRIP: ${{ contains(matrix.args, 'aarch64-unknown-linux') && 'true' || '' }}
         with:
           tagName: ${{ github.event.release.tag_name || '' }}
           releaseId: ${{ github.event_name == 'release' && github.event.release.id || '' }}
