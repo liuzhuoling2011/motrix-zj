@@ -1,16 +1,25 @@
 //! Runtime services orchestration layer.
 //!
-//! Coordinates post-engine-start initialization:
+//! Groups all background services that share the engine lifecycle:
+//! - `config` — RuntimeConfig cache (refreshed on engine ready)
+//! - `stat` — Global stat polling (download/upload speed)
+//! - `speed` — Speed limit scheduler (time-of-day limits)
+//! - `monitor` — Task lifecycle monitor (completion/error notifications)
+//!
+//! The `on_engine_ready()` function orchestrates post-start initialization:
 //! 1. Updates `Aria2Client` credentials to match the just-started engine
 //! 2. Refreshes `RuntimeConfig` from the store
 //! 3. Syncs global options to aria2 via `changeGlobalOption`
-//!
-//! Called by `start_engine_command` and `restart_engine_command`,
-//! and by the updater recovery path.
+//! 4. Stops old background services and spawns fresh ones
+
+pub mod config;
+pub mod monitor;
+pub mod speed;
+pub mod stat;
 
 use crate::aria2::client::Aria2State;
 use crate::error::AppError;
-use crate::runtime_config::RuntimeConfigState;
+use config::RuntimeConfigState;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
@@ -154,9 +163,9 @@ pub async fn on_engine_ready(app: &tauri::AppHandle) -> Result<(), AppError> {
 ///
 /// Safe to call multiple times — idempotent stop + fresh spawn.
 async fn spawn_background_services(app: &tauri::AppHandle) {
-    use crate::speed_scheduler::{self, SpeedSchedulerState};
-    use crate::stat_service::{self, StatServiceState};
-    use crate::task_monitor::{self, TaskMonitorState};
+    use monitor::{self, TaskMonitorState};
+    use speed::{self, SpeedSchedulerState};
+    use stat::{self, StatServiceState};
 
     let aria2_arc = match app.try_state::<Aria2State>() {
         Some(s) => s.0.clone(),
@@ -190,17 +199,17 @@ async fn spawn_background_services(app: &tauri::AppHandle) {
     }
 
     // Spawn fresh services
-    let stat_handle = stat_service::spawn_stat_service(app.clone(), aria2_arc.clone());
+    let stat_handle = stat::spawn_stat_service(app.clone(), aria2_arc.clone());
     if let Some(ss) = app.try_state::<StatServiceState>() {
         *ss.0.lock().await = Some(stat_handle);
     }
 
-    let scheduler_handle = speed_scheduler::spawn_speed_scheduler(app.clone(), aria2_arc.clone());
+    let scheduler_handle = speed::spawn_speed_scheduler(app.clone(), aria2_arc.clone());
     if let Some(ss) = app.try_state::<SpeedSchedulerState>() {
         *ss.0.lock().await = Some(scheduler_handle);
     }
 
-    let monitor_handle = task_monitor::spawn_task_monitor(app.clone(), aria2_arc);
+    let monitor_handle = monitor::spawn_task_monitor(app.clone(), aria2_arc);
     if let Some(ts) = app.try_state::<TaskMonitorState>() {
         *ts.0.lock().await = Some(monitor_handle);
     }

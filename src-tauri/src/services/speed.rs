@@ -9,9 +9,9 @@
 //! **The scheduler never modifies `speedLimitEnabled`.** It is a passive
 //! layer that only controls WHEN already-enabled limits are enforced.
 
+use super::config::RuntimeConfigState;
+use super::is_in_scheduled_period;
 use crate::aria2::client::Aria2Client;
-use crate::runtime_config::RuntimeConfigState;
-use crate::runtime_services::is_in_scheduled_period;
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::Manager;

@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::runtime_config::RuntimeConfigState;
+use crate::services::config::RuntimeConfigState;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 

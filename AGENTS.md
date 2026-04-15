@@ -35,7 +35,7 @@ src/
 │       ├── configMigration.ts  # Config schema migration engine (see Section C′)
 │       ├── config.ts           # Config key-value transform utilities
 │       └── tracker.ts          # BT tracker fetching with proxy support
-├── stores/                     # Pinia stores (app.ts, preference.ts)
+├── stores/                     # Pinia stores (app.ts, preference.ts, task/)
 ├── views/                      # Page-level route views
 └── main.ts                     # App entry, auto-update check
 
@@ -58,6 +58,12 @@ src-tauri/
 │   │   ├── args.rs             # aria2 command-line argument builder
 │   │   ├── cleanup.rs          # Engine cleanup utilities
 │   │   └── state.rs            # Engine state management
+│   ├── services/
+│   │   ├── mod.rs              # Runtime services orchestration (on_engine_ready)
+│   │   ├── config.rs           # RuntimeConfig cache (refreshed per engine cycle)
+│   │   ├── stat.rs             # Global stat polling (download/upload speed)
+│   │   ├── speed.rs            # Speed limit scheduler (time-of-day limits)
+│   │   └── monitor.rs          # Task lifecycle monitor (completion/error events)
 │   ├── error.rs                # AppError enum (Store, Engine, Io, NotFound, Updater, Upnp)
 │   ├── menu.rs                 # Native menu builder (macOS only, cfg-gated)
 │   ├── tray.rs                 # System tray setup

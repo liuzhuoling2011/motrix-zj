@@ -13,7 +13,7 @@
  * The stopped slice is limited to the 50 most recent entries to avoid
  * scanning the entire download history on every tick.
  */
-import { createTaskNotifier } from '@/stores/taskNotifications'
+import { createTaskNotifier } from '@/stores/task/notifications'
 import { isEngineReady } from '@/api/aria2'
 import { logger } from '@shared/logger'
 import type { Aria2Task } from '@shared/types'

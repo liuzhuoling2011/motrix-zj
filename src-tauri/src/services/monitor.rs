@@ -238,7 +238,7 @@ async fn monitor_loop(
         // Gate on user preference — skip notification events when disabled
         if !events.is_empty() {
             let notifications_enabled = app
-                .try_state::<crate::runtime_config::RuntimeConfigState>()
+                .try_state::<super::config::RuntimeConfigState>()
                 .map(|rc| {
                     // Use try_read to avoid blocking the async loop
                     rc.0.try_read().map_or(true, |cfg| cfg.task_notification)

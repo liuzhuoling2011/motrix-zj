@@ -7,11 +7,7 @@ mod gpu_guard;
 mod history;
 #[cfg(target_os = "macos")]
 mod menu;
-mod runtime_config;
-mod runtime_services;
-mod speed_scheduler;
-mod stat_service;
-mod task_monitor;
+mod services;
 mod tray;
 mod upnp;
 
@@ -72,13 +68,13 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(aria2_state);
 
     // Runtime config cache — refreshed by frontend after each config save.
-    app.manage(runtime_config::RuntimeConfigState::new());
+    app.manage(services::config::RuntimeConfigState::new());
 
     // Background services — handles stored here so on_engine_ready can
     // stop old tasks before spawning new ones on restart.
-    app.manage(stat_service::StatServiceState::new());
-    app.manage(speed_scheduler::SpeedSchedulerState::new());
-    app.manage(task_monitor::TaskMonitorState::new());
+    app.manage(services::stat::StatServiceState::new());
+    app.manage(services::speed::SpeedSchedulerState::new());
+    app.manage(services::monitor::TaskMonitorState::new());
 
     // History database — opens the same DB as tauri-plugin-sql migrations.
     {

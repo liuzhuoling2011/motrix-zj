@@ -1,7 +1,7 @@
 use crate::aria2::client::Aria2State;
 use crate::engine;
 use crate::error::AppError;
-use crate::runtime_services;
+use crate::services;
 use tauri::AppHandle;
 
 use super::config::get_system_config;
@@ -68,7 +68,7 @@ pub async fn wait_for_engine(app: AppHandle) -> Result<bool, AppError> {
     const MAX_RETRIES: u32 = 5;
     const BASE_DELAY_MS: u64 = 200;
 
-    let (port, secret) = runtime_services::read_engine_credentials_from_app(&app)?;
+    let (port, secret) = services::read_engine_credentials_from_app(&app)?;
 
     // Update Aria2Client credentials BEFORE probing so the probe
     // targets the correct port/secret.
@@ -86,7 +86,7 @@ pub async fn wait_for_engine(app: AppHandle) -> Result<bool, AppError> {
                 log::info!("wait_for_engine: connected on attempt {}", i + 1);
 
                 // aria2c is confirmed ready — NOW safe to sync options.
-                if let Err(e) = runtime_services::on_engine_ready(&app).await {
+                if let Err(e) = services::on_engine_ready(&app).await {
                     log::warn!("wait_for_engine: on_engine_ready failed: {e}");
                     // Non-fatal: engine is usable even if option sync fails.
                     // User can manually trigger re-sync from preferences.

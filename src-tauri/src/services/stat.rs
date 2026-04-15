@@ -6,8 +6,8 @@
 //!
 //! Port of the frontend `fetchGlobalStat` in `stores/app.ts`.
 
+use super::config::RuntimeConfigState;
 use crate::aria2::client::Aria2Client;
-use crate::runtime_config::RuntimeConfigState;
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::Emitter;

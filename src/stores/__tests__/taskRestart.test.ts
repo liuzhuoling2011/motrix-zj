@@ -11,7 +11,7 @@
  *   7. Refreshes the task list and saves session on success.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { restartTask } from '../taskRestart'
+import { restartTask } from '../task/restart'
 import type { Aria2Task, TaskStatus } from '@shared/types'
 
 const makeMockTask = (gid: string, status: TaskStatus = 'active', extra: Partial<Aria2Task> = {}): Aria2Task => ({

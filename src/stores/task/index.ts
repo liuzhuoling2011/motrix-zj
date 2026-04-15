@@ -20,8 +20,8 @@ import { DEFAULT_TASK_SORT } from '@/composables/useTaskSort'
 import { useHistoryStore } from '@/stores/history'
 import { usePreferenceStore } from '@/stores/preference'
 
-import { restartTask as restartTaskImpl } from './taskRestart'
-import { createTaskOperations } from './taskOperations'
+import { restartTask as restartTaskImpl } from './restart'
+import { createTaskOperations } from './operations'
 
 export type { Aria2Task, Aria2File, Aria2Peer }
 

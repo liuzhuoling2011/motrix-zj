@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { ref } from 'vue'
 import { TASK_STATUS } from '@shared/constants'
 import type { Aria2Task, TaskApi, TaskStatus } from '@shared/types'
-import { createTaskOperations } from '../taskOperations'
+import { createTaskOperations } from '../task/operations'
 
 // ── Mock history store ─────────────────────────────────────────────
 const mockAddRecord = vi.fn().mockResolvedValue(undefined)
