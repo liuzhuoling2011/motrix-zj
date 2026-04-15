@@ -10,6 +10,7 @@ mod menu;
 mod services;
 mod tray;
 mod upnp;
+mod ytdlp;
 
 // Re-export the Windows elevation entry point at the crate root so that
 // main.rs can call it before Tauri initialises.  The `commands` module
