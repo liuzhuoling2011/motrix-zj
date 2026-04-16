@@ -232,6 +232,7 @@ export default {
   'magnet-start-download': 'بدء التنزيل',
   'select-files': 'اختيار الملفات',
   'task-type': 'النوع',
+  'task-added-at': 'وقت الإضافة',
   'task-completed-at': 'وقت الاكتمال',
   'restart-not-available': 'لا تتوفر روابط تحميل لإعادة التشغيل',
   'torrent-trashed': 'اكتمل تنزيل "{taskName}"، تم نقل ملف التورنت إلى سلة المهملات',

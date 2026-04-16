@@ -232,6 +232,7 @@ export default {
   'magnet-start-download': 'Mulai Unduhan',
   'select-files': 'Pilih File',
   'task-type': 'Tipe',
+  'task-added-at': 'Ditambahkan Pada',
   'task-completed-at': 'Selesai Pada',
   'restart-not-available': 'Tidak ada URL unduhan untuk memulai ulang',
   'torrent-trashed': 'Unduhan "{taskName}" selesai, file torrent dipindahkan ke tempat sampah',

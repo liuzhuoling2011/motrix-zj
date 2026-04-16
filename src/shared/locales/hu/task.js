@@ -232,6 +232,7 @@ export default {
   'magnet-start-download': 'Letöltés indítása',
   'select-files': 'Fájlok kiválasztása',
   'task-type': 'Típus',
+  'task-added-at': 'Hozzáadva',
   'task-completed-at': 'Befejezve',
   'restart-not-available': 'Nincs elérhető letöltési link az újraindításhoz',
   'torrent-trashed': 'A(z) "{taskName}" letöltése kész, a torrent fájl a kukába került',

@@ -232,6 +232,7 @@ export default {
   'magnet-start-download': 'Începe descărcarea',
   'select-files': 'Selectare fișiere',
   'task-type': 'Tip',
+  'task-added-at': 'Adăugat la',
   'task-completed-at': 'Finalizat la',
   'restart-not-available': 'Nu există linkuri de descărcare disponibile pentru repornire',
   'torrent-trashed': 'Descărcarea "{taskName}" finalizată, fișierul torrent a fost mutat în coșul de reciclare',

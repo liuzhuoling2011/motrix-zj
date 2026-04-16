@@ -232,6 +232,7 @@ export default {
   'magnet-start-download': 'Download starten',
   'select-files': 'Bestanden selecteren',
   'task-type': 'Type',
+  'task-added-at': 'Toegevoegd op',
   'task-completed-at': 'Voltooid op',
   'restart-not-available': 'Geen downloadlinks beschikbaar om opnieuw te starten',
   'torrent-trashed': 'Download van "{taskName}" voltooid, torrentbestand verplaatst naar de prullenbak',

@@ -232,6 +232,7 @@ export default {
   'magnet-start-download': 'İndirmeyi Başlat',
   'select-files': 'Dosyaları seç',
   'task-type': 'Tür',
+  'task-added-at': 'Eklenme Tarihi',
   'task-completed-at': 'Tamamlanma Tarihi',
   'restart-not-available': 'Yeniden başlatmak için indirme bağlantısı yok',
   'torrent-trashed': '"{taskName}" indirmesi tamamlandı, torrent dosyası çöp kutusuna taşındı',

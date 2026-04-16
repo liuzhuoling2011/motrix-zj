@@ -232,6 +232,7 @@ export default {
   'magnet-start-download': 'Start nedlasting',
   'select-files': 'Velg filer',
   'task-type': 'Type',
+  'task-added-at': 'Lagt til',
   'task-completed-at': 'Fullført',
   'restart-not-available': 'Ingen nedlastingslenker tilgjengelig for omstart',
   'torrent-trashed': 'Nedlasting av "{taskName}" fullført, torrentfilen er flyttet til papirkurven',

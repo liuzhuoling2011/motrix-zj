@@ -232,6 +232,7 @@ export default {
   'magnet-start-download': 'Iniciar descàrrega',
   'select-files': 'Seleccionar fitxers',
   'task-type': 'Tipus',
+  'task-added-at': 'Afegit el',
   'task-completed-at': 'Completat el',
   'restart-not-available': 'No hi ha enllaços disponibles per reiniciar',
   'torrent-trashed': 'Descàrrega de "{taskName}" completada, el fitxer torrent s\'ha mogut a la paperera',

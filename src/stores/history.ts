@@ -166,6 +166,14 @@ export const useHistoryStore = defineStore('history', () => {
     return (await getDb()).select<HistoryRecord[]>(`SELECT * FROM download_history ${orderBy}${limitClause}`, [])
   }
 
+  /** Retrieve a single record by GID, or null if not found. */
+  async function getRecordByGid(gid: string): Promise<HistoryRecord | null> {
+    const rows = await (
+      await getDb()
+    ).select<HistoryRecord[]>('SELECT * FROM download_history WHERE gid = $1 LIMIT 1', [gid])
+    return rows[0] ?? null
+  }
+
   /** Remove a single record by GID. */
   async function removeRecord(gid: string): Promise<void> {
     await (await getDb()).execute('DELETE FROM download_history WHERE gid = $1', [gid])
@@ -262,6 +270,7 @@ export const useHistoryStore = defineStore('history', () => {
     init,
     addRecord,
     getRecords,
+    getRecordByGid,
     removeRecord,
     clearRecords,
     removeStaleRecords,

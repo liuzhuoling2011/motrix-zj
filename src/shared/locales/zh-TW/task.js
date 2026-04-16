@@ -232,6 +232,7 @@ export default {
   'magnet-start-download': '開始下載',
   'select-files': '選擇檔案',
   'task-type': '類型',
+  'task-added-at': '新增時間',
   'task-completed-at': '完成時間',
   'restart-not-available': '沒有可用的下載連結，無法重新下載',
   'torrent-trashed': '「{taskName}」下載完成，種子檔案已移至回收桶',

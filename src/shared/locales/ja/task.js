@@ -232,6 +232,7 @@ export default {
   'magnet-start-download': 'ダウンロード開始',
   'select-files': 'ファイルを選択',
   'task-type': '種類',
+  'task-added-at': '追加日時',
   'task-completed-at': '完了日時',
   'restart-not-available': '再ダウンロードに利用できるURLがありません',
   'torrent-trashed': '"{taskName}" のダウンロードが完了しました。トレントファイルはゴミ箱に移動されました',

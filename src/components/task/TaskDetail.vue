@@ -53,8 +53,10 @@ import { useTrackerProbe, buildTrackerRows, type TrackerRow } from '@/composable
 import { useTaskDetailOptions } from '@/composables/useTaskDetailOptions'
 import { usePreferenceStore } from '@/stores/preference'
 import { useTaskStore } from '@/stores/task'
+import { useHistoryStore } from '@/stores/history'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
+import { getAddedAt } from '@/composables/useTaskOrder'
 import type { Aria2Task, Aria2File, Aria2Peer } from '@shared/types'
 
 const props = defineProps<{
@@ -67,6 +69,7 @@ const emit = defineEmits<{ close: [] }>()
 const { t, locale } = useI18n()
 const preferenceStore = usePreferenceStore()
 const taskStore = useTaskStore()
+const historyStore = useHistoryStore()
 const message = useAppMessage()
 const taskRef = computed(() => props.task)
 
@@ -153,6 +156,36 @@ const taskStatus = computed(() => {
 })
 const isActive = computed(() => props.task?.status === TASK_STATUS.ACTIVE)
 const taskFullName = computed(() => (props.task ? getTaskDisplayName(props.task, { defaultName: 'Unknown' }) : ''))
+
+// ── Task date display ────────────────────────────────────────────────
+const taskAddedAt = computed(() => {
+  if (!props.task) return ''
+  const iso = getAddedAt(props.task.gid)
+  if (!iso) return ''
+  return localeDateTimeFormat(new Date(iso).getTime(), locale.value)
+})
+
+const taskCompletedAt = ref('')
+watch(
+  () => props.task?.gid,
+  async (gid) => {
+    if (!gid) {
+      taskCompletedAt.value = ''
+      return
+    }
+    try {
+      const record = await historyStore.getRecordByGid(gid)
+      if (record?.completed_at) {
+        taskCompletedAt.value = localeDateTimeFormat(new Date(record.completed_at).getTime(), locale.value)
+      } else {
+        taskCompletedAt.value = ''
+      }
+    } catch {
+      taskCompletedAt.value = ''
+    }
+  },
+  { immediate: true },
+)
 const percent = computed(() => (props.task ? calcProgress(props.task.totalLength, props.task.completedLength) : 0))
 
 const remaining = computed(() => {
@@ -555,6 +588,12 @@ function handleClose() {
                   :label="t('task.task-error-info') || 'Error'"
                 >
                   {{ task.errorCode }} {{ task.errorMessage }}
+                </NDescriptionsItem>
+                <NDescriptionsItem v-if="taskAddedAt" :label="t('task.task-added-at') || 'Added At'">
+                  {{ taskAddedAt }}
+                </NDescriptionsItem>
+                <NDescriptionsItem v-if="taskCompletedAt" :label="t('task.task-completed-at') || 'Completed At'">
+                  {{ taskCompletedAt }}
                 </NDescriptionsItem>
               </NDescriptions>
               <template v-if="isBT && btInfo">

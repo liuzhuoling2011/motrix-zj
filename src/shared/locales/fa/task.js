@@ -232,6 +232,7 @@ export default {
   'magnet-start-download': 'شروع دانلود',
   'select-files': 'انتخاب فایل‌ها',
   'task-type': 'نوع',
+  'task-added-at': 'زمان افزودن',
   'task-completed-at': 'زمان اتمام',
   'restart-not-available': 'لینک دانلود برای شروع مجدد موجود نیست',
   'torrent-trashed': 'دانلود "{taskName}" کامل شد، فایل تورنت به سطل زباله منتقل شد',

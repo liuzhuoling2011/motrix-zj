@@ -232,6 +232,7 @@ export default {
   'magnet-start-download': 'Почати завантаження',
   'select-files': 'Вибір файлів',
   'task-type': 'Тип',
+  'task-added-at': 'Додано',
   'task-completed-at': 'Завершено',
   'restart-not-available': 'Немає доступних посилань для повторного завантаження',
   'torrent-trashed': 'Завантаження "{taskName}" завершено — торент-файл переміщено до кошика',
