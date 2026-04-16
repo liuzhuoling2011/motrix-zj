@@ -154,9 +154,22 @@ export function useVideoFlow() {
     if (!info) throw new Error('no video info')
 
     if (needsDirectDownload(fmtId)) {
+      const format = info.formats.find((f: VideoFormat) => f.formatId === fmtId)
+      const meta = {
+        video_title: info.title,
+        extractor: info.extractor,
+        thumbnail: info.thumbnail,
+        duration: info.duration,
+        resolution: format?.resolution,
+        filesize: format?.filesize,
+        filesizeApprox: format?.filesizeApprox,
+        download_mode: 'ytdlp_direct',
+      }
       return ytdlpApi.downloadDirect({
         url: info.url,
         formatId: fmtId,
+        title: info.title,
+        meta,
         options,
       })
     }
