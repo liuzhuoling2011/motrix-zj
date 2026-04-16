@@ -22,12 +22,13 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use tokio::sync::Mutex;
 
 use super::types::{YtdlpProgress, YtdlpTaskStatus};
+use crate::history::HistoryDbState;
 use crate::error::AppError;
 
 /// Progress template passed to yt-dlp via `--progress-template`.
@@ -166,6 +167,20 @@ pub async fn start_download(
 
                     if let Err(e) = app_handle.emit("ytdlp-progress", &final_progress) {
                         log::warn!("failed to emit final ytdlp-progress: {e}");
+                    }
+
+                    // Update the corresponding history record (no-op if
+                    // ytdlp_download_direct didn't create one yet).
+                    if let Some(history_state) = app_handle.try_state::<HistoryDbState>() {
+                        let status_str = if exit_code == 0 { "complete" } else { "error" };
+                        let completed_at = chrono::Utc::now().to_rfc3339();
+                        if let Err(e) = history_state
+                            .0
+                            .update_status(&task_id_for_monitor, status_str, Some(&completed_at))
+                            .await
+                        {
+                            log::warn!("failed to update ytdlp history status: {e}");
+                        }
                     }
 
                     let mut map = processes.lock().await;

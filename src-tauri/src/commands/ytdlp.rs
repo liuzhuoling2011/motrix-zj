@@ -14,6 +14,7 @@ use tauri::State;
 
 use crate::aria2::client::Aria2State;
 use crate::error::AppError;
+use crate::history::{HistoryDbState, HistoryRecord};
 use crate::ytdlp;
 use crate::ytdlp::{ParseResult, YtdlpState};
 
@@ -96,6 +97,7 @@ pub async fn ytdlp_download_via_aria2(
 pub async fn ytdlp_download_direct(
     app: tauri::AppHandle,
     state: State<'_, YtdlpState>,
+    history: State<'_, HistoryDbState>,
     url: String,
     format_id: String,
     options: serde_json::Value,
@@ -115,7 +117,41 @@ pub async fn ytdlp_download_direct(
 
     // `start_download` takes `AppHandle` by value; `parse_playlist_item`
     // above borrowed it, so the handle is still owned here and can be moved.
-    ytdlp::downloader::start_download(app, &state, url, format_id, output_str).await
+    let task_id =
+        ytdlp::downloader::start_download(app, &state, url.clone(), format_id, output_str).await?;
+
+    // Record the task in history.db so it appears in the task list immediately.
+    // The downloader's monitor task will update status to 'complete' / 'error'
+    // via HistoryDb::update_status on termination.
+    let now = chrono::Utc::now().to_rfc3339();
+    let meta_json = serde_json::json!({
+        "video_title": video.title,
+        "extractor": video.extractor,
+        "thumbnail": video.thumbnail,
+        "duration": video.duration,
+        "resolution": format.and_then(|f| f.resolution.clone()),
+        "download_mode": "ytdlp_direct",
+    })
+    .to_string();
+    let record = HistoryRecord {
+        id: None,
+        gid: task_id.clone(),
+        name: video.title.clone(),
+        uri: Some(url),
+        dir: Some(dir),
+        total_length: format.and_then(|f| f.filesize.map(|v| v as i64)),
+        status: "active".into(),
+        task_type: Some("video".into()),
+        added_at: Some(now.clone()),
+        created_at: None,
+        completed_at: None,
+        meta: Some(meta_json),
+    };
+    if let Err(e) = history.0.add_record(&record).await {
+        log::warn!("failed to record initial ytdlp history: {e}");
+    }
+
+    Ok(task_id)
 }
 
 /// Cancels an active yt-dlp direct download.

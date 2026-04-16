@@ -166,6 +166,22 @@ impl HistoryDb {
         Ok(())
     }
 
+    /// Update status (and optional completed_at) for an existing record by GID.
+    /// No-op if the GID isn't present.
+    pub async fn update_status(
+        &self,
+        gid: &str,
+        status: &str,
+        completed_at: Option<&str>,
+    ) -> Result<(), AppError> {
+        let conn = self.conn.lock().await;
+        conn.execute(
+            "UPDATE download_history SET status = ?1, completed_at = COALESCE(?2, completed_at) WHERE gid = ?3",
+            params![status, completed_at, gid],
+        )?;
+        Ok(())
+    }
+
     /// Clear all records, optionally filtered by status.
     pub async fn clear_records(&self, status: Option<&str>) -> Result<(), AppError> {
         let conn = self.conn.lock().await;
