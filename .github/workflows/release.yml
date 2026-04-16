@@ -77,6 +77,15 @@ jobs:
 
       - run: pnpm install
 
+      # Fetch yt-dlp / deno / ffmpeg sidecar binaries for the matrix target.
+      # Tauri's externalBin requires each binary to exist with the target
+      # triple suffix before bundling, so this must run before tauri-action.
+      - name: Fetch sidecar binaries
+        shell: bash
+        run: |
+          TARGET=$(echo '${{ matrix.args }}' | sed 's/.*--target \([^ ]*\).*/\1/')
+          pnpm fetch-sidecars "$TARGET"
+
       - uses: tauri-apps/tauri-action@v0
         id: tauri
         env:

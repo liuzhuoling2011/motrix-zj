@@ -15,6 +15,7 @@
     "format": "prettier --write 'src/**/*.{ts,vue,css,json}'",
     "format:check": "prettier --check 'src/**/*.{ts,vue,css,json}'",
     "tauri": "tauri",
+    "fetch-sidecars": "node scripts/fetch-sidecars.mjs",
     "prepare": "husky"
   },
   "packageManager": "pnpm@10.30.3",
