@@ -14,7 +14,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, chmodSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -85,8 +85,17 @@ const FFMPEG = {
     'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip',
 }
 
-function run(cmd) {
-  execSync(cmd, { stdio: 'inherit', shell: true })
+function run(cmd, opts = {}) {
+  execSync(cmd, { stdio: 'inherit', shell: true, ...opts })
+}
+
+/**
+ * Extracts a .zip / .tar.xz archive using the system `tar`. Must be invoked
+ * with the archive filename (no path) and a cwd so that Windows bsdtar
+ * doesn't misinterpret drive letters like "C:" as remote hosts.
+ */
+function extract(archivePath, workDir) {
+  run(`tar -xf "${basename(archivePath)}"`, { cwd: workDir })
 }
 
 /**
@@ -141,7 +150,7 @@ function fetchDeno() {
   const zip = join(work, 'deno.zip')
   console.log(`[fetch-sidecars] deno → ${out}`)
   download(url, zip)
-  run(`tar -xf "${zip}" -C "${work}"`)
+  extract(zip, work)
   const binName = isWindows ? 'deno.exe' : 'deno'
   const bin = findFile(work, binName)
   if (!bin) throw new Error(`deno binary not found in archive`)
@@ -164,11 +173,11 @@ function fetchFfmpeg() {
   if (url.endsWith('.tar.xz')) {
     const tar = join(work, 'ffmpeg.tar.xz')
     download(url, tar)
-    run(`tar -xJf "${tar}" -C "${work}"`)
+    extract(tar, work)
   } else {
     const zip = join(work, 'ffmpeg.zip')
     download(url, zip)
-    run(`tar -xf "${zip}" -C "${work}"`)
+    extract(zip, work)
   }
   const binName = isWindows ? 'ffmpeg.exe' : 'ffmpeg'
   const bin = findFile(work, binName)
