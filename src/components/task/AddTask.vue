@@ -578,6 +578,18 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
               <!-- Video detection -->
               <div v-if="videoFlow.isParsing.value" class="video-loading">正在解析视频信息...</div>
 
+              <div
+                v-if="
+                  !videoFlow.isParsing.value &&
+                  videoFlow.parseError.value &&
+                  !videoFlow.isVideo.value &&
+                  !videoFlow.isPlaylist.value
+                "
+                class="video-error"
+              >
+                视频解析失败：{{ videoFlow.parseError.value }}。将按普通链接处理。
+              </div>
+
               <VideoInfoPanel
                 v-if="videoFlow.isVideo.value && videoFlow.videoInfo.value"
                 :video="videoFlow.videoInfo.value"
@@ -827,6 +839,14 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
   text-align: center;
   font-size: 13px;
   opacity: 0.7;
+}
+.video-error {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--n-warning-color-suppl, #fcf3cf);
+  color: var(--n-warning-color, #f0a020);
+  font-size: 12px;
+  line-height: 1.5;
 }
 </style>
 

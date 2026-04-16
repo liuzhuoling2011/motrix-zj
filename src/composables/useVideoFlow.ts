@@ -112,8 +112,20 @@ export function useVideoFlow() {
         return true
       }
       return false
-    } catch {
-      // Silent fallback — non-video URLs should just go through aria2
+    } catch (err: unknown) {
+      // Capture the error so UI can distinguish "real parse failure"
+      // (anti-bot, unsupported site, network) from "not a video URL".
+      // The aria2 flow can still handle the URL — this is just a hint.
+      let raw: string
+      if (typeof err === 'object' && err !== null) {
+        const e = err as Record<string, unknown>
+        if (typeof e.YtdlpParse === 'string') raw = e.YtdlpParse
+        else if (typeof e.YtdlpTimeout === 'string' || 'YtdlpTimeout' in e) raw = '解析超时'
+        else raw = err instanceof Error ? err.message : String(err)
+      } else {
+        raw = err instanceof Error ? err.message : String(err)
+      }
+      parseError.value = raw.trim() || '视频解析失败'
       parseResult.value = { type: 'NotMedia' }
       return false
     } finally {
