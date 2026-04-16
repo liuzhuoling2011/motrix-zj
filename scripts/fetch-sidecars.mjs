@@ -90,7 +90,10 @@ const FFMPEG = {
 // them as separate archives.
 const FFPROBE_STANDALONE = {
   'aarch64-apple-darwin': 'https://www.osxexperts.net/ffprobe81arm.zip',
-  'x86_64-apple-darwin': 'https://evermeet.cx/ffprobe/getrelease/zip',
+  // evermeet's /ffprobe/getrelease path mistakenly redirects to the
+  // ffmpeg archive; /ffmpeg/getrelease/ffprobe/zip is the actual
+  // ffprobe endpoint.
+  'x86_64-apple-darwin': 'https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip',
 }
 
 function run(cmd, opts = {}) {
