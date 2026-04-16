@@ -89,7 +89,7 @@ pub async fn start_download(
 ) -> Result<String, AppError> {
     let task_id = state.generate_task_id();
 
-    let mut args: Vec<String> = headers.to_args();
+    let mut args: Vec<String> = headers.resolve_args(&app, &url).await?;
     args.extend([
         "-f".to_string(),
         format_id,

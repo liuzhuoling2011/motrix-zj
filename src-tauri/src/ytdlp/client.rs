@@ -1,4 +1,6 @@
+use std::path::PathBuf;
 use std::time::Duration;
+use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 
 use super::types::{ParseResult, PlaylistInfo, PlaylistItem, VideoInfo};
@@ -21,19 +23,81 @@ pub struct YtdlpHeaders {
 }
 
 impl YtdlpHeaders {
-    /// Builds `--add-header` / `--user-agent` CLI args from non-empty fields.
-    pub fn to_args(&self) -> Vec<String> {
+    /// Builds `--user-agent` / `--cookies <file>` CLI args.
+    ///
+    /// If `cookie` is set, parses the `name=value; name=value; …` string into
+    /// a Netscape-format `cookies.txt` under the app data dir and passes it via
+    /// `--cookies`.  YouTube rejects `--add-header Cookie:…` entirely and
+    /// demands a cookies file, so we always take the file route when the user
+    /// provides cookies. The domain is derived from `target_url` so the cookies
+    /// are scoped correctly.
+    pub async fn resolve_args(
+        &self,
+        app: &tauri::AppHandle,
+        target_url: &str,
+    ) -> Result<Vec<String>, AppError> {
         let mut args = Vec::new();
         if let Some(ua) = self.user_agent.as_ref().filter(|s| !s.trim().is_empty()) {
             args.push("--user-agent".to_string());
             args.push(ua.clone());
         }
         if let Some(cookie) = self.cookie.as_ref().filter(|s| !s.trim().is_empty()) {
-            args.push("--add-header".to_string());
-            args.push(format!("Cookie:{cookie}"));
+            let path = write_cookies_file(app, target_url, cookie).await?;
+            args.push("--cookies".to_string());
+            args.push(path.to_string_lossy().into_owned());
         }
-        args
+        Ok(args)
     }
+}
+
+/// Writes a Netscape-format cookies file containing every `name=value` pair
+/// from `cookie_str`, scoped to the URL's domain.
+///
+/// Persists under `<app_data>/ytdlp-cookies.txt` (overwritten each call).
+/// Returns the absolute path so callers can pass it to `yt-dlp --cookies`.
+async fn write_cookies_file(
+    app: &tauri::AppHandle,
+    target_url: &str,
+    cookie_str: &str,
+) -> Result<PathBuf, AppError> {
+    let host = url::Url::parse(target_url)
+        .ok()
+        .and_then(|u| u.host_str().map(String::from))
+        .ok_or_else(|| AppError::YtdlpParse(format!("invalid URL for cookie scoping: {target_url}")))?;
+    let domain = format!(".{host}");
+
+    let mut contents = String::from("# Netscape HTTP Cookie File\n");
+    for pair in cookie_str.split(';') {
+        let trimmed = pair.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let eq_at = match trimmed.find('=') {
+            Some(i) => i,
+            None => continue,
+        };
+        let (name, value_raw) = trimmed.split_at(eq_at);
+        let value = &value_raw[1..]; // skip '='
+        // Netscape fields, TAB-separated:
+        // domain, includeSubdomains, path, secure, expires, name, value.
+        // includeSubdomains=TRUE since we prefix domain with '.'; secure=TRUE
+        // is safe for HTTPS-only sites like YouTube/Bilibili; expires=0 means
+        // session (yt-dlp accepts this for login-scoped cookies).
+        contents.push_str(&format!("{domain}\tTRUE\t/\tTRUE\t0\t{name}\t{value}\n"));
+    }
+
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| AppError::YtdlpParse(format!("app_data_dir: {e}")))?;
+    tokio::fs::create_dir_all(&data_dir)
+        .await
+        .map_err(|e| AppError::YtdlpParse(format!("create data dir: {e}")))?;
+    let path = data_dir.join("ytdlp-cookies.txt");
+    tokio::fs::write(&path, contents)
+        .await
+        .map_err(|e| AppError::YtdlpParse(format!("write cookies file: {e}")))?;
+    Ok(path)
 }
 
 /// Spawns the yt-dlp sidecar, waits for completion, and returns stdout.
@@ -71,7 +135,7 @@ pub async fn parse_url(
     url: &str,
     headers: &YtdlpHeaders,
 ) -> Result<ParseResult, AppError> {
-    let mut args: Vec<String> = headers.to_args();
+    let mut args: Vec<String> = headers.resolve_args(app, url).await?;
     args.extend([
         "--dump-json".into(),
         "--no-download".into(),
@@ -142,7 +206,7 @@ pub async fn parse_playlist_item(
     url: &str,
     headers: &YtdlpHeaders,
 ) -> Result<VideoInfo, AppError> {
-    let mut args: Vec<String> = headers.to_args();
+    let mut args: Vec<String> = headers.resolve_args(app, url).await?;
     args.extend(["--dump-json".into(), "--no-download".into(), url.into()]);
     let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
     let stdout = run_ytdlp(app, &arg_refs).await?;
