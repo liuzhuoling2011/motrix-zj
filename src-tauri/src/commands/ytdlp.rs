@@ -16,15 +16,74 @@ use crate::aria2::client::Aria2State;
 use crate::error::AppError;
 use crate::history::{HistoryDbState, HistoryRecord};
 use crate::ytdlp;
+use crate::ytdlp::client::YtdlpHeaders;
 use crate::ytdlp::{ParseResult, YtdlpState};
 
+/// Extracts `Cookie` and `User-Agent` from an aria2-shaped options JSON into
+/// a [`YtdlpHeaders`] for bot-detection bypass. Both fields are optional.
+///
+/// `buildEngineOptions` on the frontend places the cookie inside the
+/// `header` array as `"Cookie: <value>"` (an aria2 convention), so we scan
+/// that array for a case-insensitive `Cookie:` prefix.
+fn headers_from_options(options: &serde_json::Value) -> YtdlpHeaders {
+    let user_agent = options
+        .get("user-agent")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .map(String::from);
+
+    // Cookie may live either as a top-level `cookie` field OR inside the
+    // `header` array. Accept both for forward compatibility.
+    let cookie_from_top = options
+        .get("cookie")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .map(String::from);
+
+    let cookie_from_headers = options
+        .get("header")
+        .and_then(|v| v.as_array())
+        .and_then(|arr| {
+            arr.iter()
+                .filter_map(|h| h.as_str())
+                .find_map(|h| {
+                    let trimmed = h.trim();
+                    if trimmed.len() < 7 {
+                        return None;
+                    }
+                    let (prefix, value) = trimmed.split_at(7);
+                    if prefix.eq_ignore_ascii_case("Cookie:") {
+                        Some(value.trim().to_string())
+                    } else {
+                        None
+                    }
+                })
+                .filter(|s: &String| !s.is_empty())
+        });
+
+    let cookie = cookie_from_top.or(cookie_from_headers);
+
+    YtdlpHeaders { cookie, user_agent }
+}
+
 /// Parses a URL with yt-dlp to detect video/playlist content.
+///
+/// Optional `cookie` and `user_agent` let the frontend supply bot-detection
+/// bypass credentials from the Add Task dialog's advanced options before the
+/// user has clicked download — useful for YouTube / Bilibili where anonymous
+/// parse is rejected.
 #[tauri::command]
 pub async fn ytdlp_parse_url(
     app: tauri::AppHandle,
     url: String,
+    cookie: Option<String>,
+    user_agent: Option<String>,
 ) -> Result<ParseResult, AppError> {
-    ytdlp::client::parse_url(&app, &url).await
+    let headers = YtdlpHeaders {
+        cookie,
+        user_agent,
+    };
+    ytdlp::client::parse_url(&app, &url, &headers).await
 }
 
 /// Downloads a video via aria2 (for direct-link formats).
@@ -47,8 +106,10 @@ pub async fn ytdlp_download_via_aria2(
     format_id: String,
     options: serde_json::Value,
 ) -> Result<String, AppError> {
-    // Resolve the format to get direct URL
-    let video = ytdlp::client::parse_playlist_item(&app, &url).await?;
+    // Resolve the format to get direct URL. Pass the caller's cookie/UA so
+    // the re-parse can also bypass bot detection.
+    let headers = headers_from_options(&options);
+    let video = ytdlp::client::parse_playlist_item(&app, &url, &headers).await?;
 
     let format = video
         .formats
@@ -115,6 +176,7 @@ pub async fn ytdlp_download_direct(
     // template, so we don't need to re-parse the video metadata here — the
     // frontend already has it from the initial ytdlp_parse_url call.
     let output_template = format!("{}/%(title)s.%(ext)s", dir.trim_end_matches(['/', '\\']));
+    let headers = headers_from_options(&options);
 
     let task_id = ytdlp::downloader::start_download(
         app,
@@ -122,6 +184,7 @@ pub async fn ytdlp_download_direct(
         url.clone(),
         format_id,
         output_template,
+        headers,
     )
     .await?;
 

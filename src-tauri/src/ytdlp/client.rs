@@ -10,6 +10,32 @@ use crate::error::AppError;
 /// maps to [`AppError::YtdlpTimeout`].
 const PARSE_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// Optional HTTP headers passed to yt-dlp via `--add-header`.
+///
+/// Used primarily to bypass bot detection on sites like YouTube and Bilibili
+/// by supplying the user's browser `Cookie` and matching `User-Agent`.
+#[derive(Debug, Default, Clone)]
+pub struct YtdlpHeaders {
+    pub cookie: Option<String>,
+    pub user_agent: Option<String>,
+}
+
+impl YtdlpHeaders {
+    /// Builds `--add-header` / `--user-agent` CLI args from non-empty fields.
+    pub fn to_args(&self) -> Vec<String> {
+        let mut args = Vec::new();
+        if let Some(ua) = self.user_agent.as_ref().filter(|s| !s.trim().is_empty()) {
+            args.push("--user-agent".to_string());
+            args.push(ua.clone());
+        }
+        if let Some(cookie) = self.cookie.as_ref().filter(|s| !s.trim().is_empty()) {
+            args.push("--add-header".to_string());
+            args.push(format!("Cookie:{cookie}"));
+        }
+        args
+    }
+}
+
 /// Spawns the yt-dlp sidecar, waits for completion, and returns stdout.
 ///
 /// Wraps the sidecar call in a 30-second timeout. On non-zero exit status,
@@ -40,12 +66,20 @@ async fn run_ytdlp(app: &tauri::AppHandle, args: &[&str]) -> Result<String, AppE
 /// - [`ParseResult::Playlist`] when the first JSON line is a playlist descriptor.
 /// - [`ParseResult::Video`] when exactly one JSON line describing a video is emitted.
 /// - [`ParseResult::NotMedia`] when stdout is empty or the shape is unrecognised.
-pub async fn parse_url(app: &tauri::AppHandle, url: &str) -> Result<ParseResult, AppError> {
-    let stdout = run_ytdlp(
-        app,
-        &["--dump-json", "--no-download", "--flat-playlist", url],
-    )
-    .await?;
+pub async fn parse_url(
+    app: &tauri::AppHandle,
+    url: &str,
+    headers: &YtdlpHeaders,
+) -> Result<ParseResult, AppError> {
+    let mut args: Vec<String> = headers.to_args();
+    args.extend([
+        "--dump-json".into(),
+        "--no-download".into(),
+        "--flat-playlist".into(),
+        url.into(),
+    ]);
+    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let stdout = run_ytdlp(app, &arg_refs).await?;
 
     let lines: Vec<&str> = stdout.lines().filter(|l| !l.trim().is_empty()).collect();
 
@@ -106,8 +140,12 @@ pub async fn parse_url(app: &tauri::AppHandle, url: &str) -> Result<ParseResult,
 pub async fn parse_playlist_item(
     app: &tauri::AppHandle,
     url: &str,
+    headers: &YtdlpHeaders,
 ) -> Result<VideoInfo, AppError> {
-    let stdout = run_ytdlp(app, &["--dump-json", "--no-download", url]).await?;
+    let mut args: Vec<String> = headers.to_args();
+    args.extend(["--dump-json".into(), "--no-download".into(), url.into()]);
+    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let stdout = run_ytdlp(app, &arg_refs).await?;
 
     let first_line = stdout
         .lines()

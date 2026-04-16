@@ -110,22 +110,21 @@ watch(globalProxyAvailable, (available) => {
   }
 })
 
-// Auto-detect video URLs when user types/pastes a single URL
-watch(
-  () => form.value.uris,
-  (newVal) => {
-    if (parseTimer) clearTimeout(parseTimer)
-    videoFlow.reset()
+// Auto-detect video URLs when user types/pastes a single URL.
+// Re-parse when cookie / user-agent change so users can paste the URL first,
+// then add their browser cookies in advanced options to bypass bot detection.
+watch([() => form.value.uris, () => form.value.cookie, () => form.value.userAgent], ([newUris, newCookie, newUa]) => {
+  if (parseTimer) clearTimeout(parseTimer)
+  videoFlow.reset()
 
-    const trimmed = (newVal ?? '').trim()
-    // Only try to parse single URLs (no newlines) that look like web URLs
-    if (trimmed && !trimmed.includes('\n') && /^https?:\/\//i.test(trimmed)) {
-      parseTimer = setTimeout(() => {
-        void videoFlow.tryParseUrl(trimmed)
-      }, 500)
-    }
-  },
-)
+  const trimmed = (newUris ?? '').trim()
+  // Only try to parse single URLs (no newlines) that look like web URLs
+  if (trimmed && !trimmed.includes('\n') && /^https?:\/\//i.test(trimmed)) {
+    parseTimer = setTimeout(() => {
+      void videoFlow.tryParseUrl(trimmed, newCookie, newUa)
+    }, 500)
+  }
+})
 
 const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
 

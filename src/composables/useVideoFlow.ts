@@ -87,8 +87,9 @@ export function useVideoFlow() {
     return presets
   })
 
-  /** Attempts to parse a URL. Returns true if it's a video/playlist. */
-  async function tryParseUrl(url: string): Promise<boolean> {
+  /** Attempts to parse a URL. Returns true if it's a video/playlist.
+   *  `cookie` and `userAgent` are forwarded to yt-dlp to bypass bot detection. */
+  async function tryParseUrl(url: string, cookie?: string, userAgent?: string): Promise<boolean> {
     if (!url.trim()) return false
 
     isParsing.value = true
@@ -99,7 +100,7 @@ export function useVideoFlow() {
     showAllFormats.value = false
 
     try {
-      const result = await ytdlpApi.parseUrl(url)
+      const result = await ytdlpApi.parseUrl(url, cookie, userAgent)
       parseResult.value = result
 
       if (result.type === 'Video') {
