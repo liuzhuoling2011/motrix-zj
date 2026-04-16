@@ -2,7 +2,17 @@
 /** @fileoverview Advanced task options panel (UA, auth, referer, cookie, proxy checkbox). */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NFormItem, NInput, NCheckbox, NCollapseTransition, NButton, NRadioGroup, NRadio, NIcon } from 'naive-ui'
+import {
+  NFormItem,
+  NInput,
+  NCheckbox,
+  NCollapseTransition,
+  NButton,
+  NRadioGroup,
+  NRadio,
+  NIcon,
+  NSelect,
+} from 'naive-ui'
 import { hasUnsafeHeaderChars, sanitizeHeaderValue } from '@shared/utils/headerSanitize'
 import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
 import { useAppMessage } from '@/composables/useAppMessage'
@@ -16,6 +26,9 @@ const props = defineProps<{
   authorization: string
   referer: string
   cookie: string
+  /** yt-dlp-only: name of a local browser to read live cookies from.
+   *  Empty string means unset; otherwise one of chrome/firefox/safari/edge/… */
+  cookiesFromBrowser: string
   /** Proxy mode: 'none' | 'global' | 'custom'. */
   proxyMode: 'none' | 'global' | 'custom'
   /** Custom proxy address when proxyMode is 'custom'. */
@@ -32,9 +45,22 @@ const emit = defineEmits<{
   'update:authorization': [value: string]
   'update:referer': [value: string]
   'update:cookie': [value: string]
+  'update:cookiesFromBrowser': [value: string]
   'update:proxyMode': [value: 'none' | 'global' | 'custom']
   'update:customProxy': [value: string]
 }>()
+
+const browserCookieOptions = [
+  { label: '不使用（默认）', value: '' },
+  { label: 'Chrome', value: 'chrome' },
+  { label: 'Firefox', value: 'firefox' },
+  { label: 'Safari', value: 'safari' },
+  { label: 'Edge', value: 'edge' },
+  { label: 'Brave', value: 'brave' },
+  { label: 'Opera', value: 'opera' },
+  { label: 'Vivaldi', value: 'vivaldi' },
+  { label: 'Chromium', value: 'chromium' },
+]
 
 const uaHasIssue = computed(() => !!props.userAgent && hasUnsafeHeaderChars(props.userAgent))
 
@@ -112,6 +138,20 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
           :autosize="{ minRows: 1, maxRows: 3 }"
           @update:value="$emit('update:cookie', $event)"
         />
+      </NFormItem>
+      <NFormItem label="浏览器 Cookie（仅视频解析）:">
+        <div class="browser-cookie-wrapper">
+          <NSelect
+            :value="cookiesFromBrowser"
+            :options="browserCookieOptions"
+            size="small"
+            style="max-width: 220px"
+            @update:value="$emit('update:cookiesFromBrowser', $event || '')"
+          />
+          <div class="browser-cookie-hint">
+            YouTube 等站点会使"粘贴 cookie"方式失效。选一个正在运行的浏览器，yt-dlp 会直接读取它的 cookie 数据库。
+          </div>
+        </div>
       </NFormItem>
       <NFormItem :label="t('task.task-proxy-label') + ':'">
         <div class="proxy-radio-group">
@@ -224,5 +264,16 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
 }
 .custom-proxy-input .n-button {
   align-self: flex-start;
+}
+.browser-cookie-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+.browser-cookie-hint {
+  font-size: 12px;
+  opacity: 0.65;
+  line-height: 1.5;
 }
 </style>
