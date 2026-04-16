@@ -189,6 +189,12 @@ pub async fn ytdlp_download_direct(
     // frontend already has it from the initial ytdlp_parse_url call.
     let output_template = format!("{}/%(title)s.%(ext)s", dir.trim_end_matches(['/', '\\']));
     let headers = headers_from_options(&options);
+    log::info!(
+        "ytdlp_download_direct options.header={:?} cookie_set={} ua_set={}",
+        options.get("header"),
+        headers.cookie.is_some(),
+        headers.user_agent.is_some(),
+    );
 
     let task_id = ytdlp::downloader::start_download(
         app,
