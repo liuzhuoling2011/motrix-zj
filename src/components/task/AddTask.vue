@@ -432,6 +432,14 @@ async function handleSubmit() {
               await ytdlpApi.downloadDirect({
                 url: entry.url,
                 formatId: videoFlow.selectedFormatId.value || 'bestvideo+bestaudio/best',
+                title: entry.title || entry.url,
+                meta: {
+                  video_title: entry.title,
+                  thumbnail: entry.thumbnail,
+                  duration: entry.duration,
+                  playlist_title: pl.title,
+                  download_mode: 'ytdlp_direct',
+                },
                 options: videoOptions,
               })
             } catch (err) {

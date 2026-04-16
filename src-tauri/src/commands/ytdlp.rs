@@ -100,6 +100,8 @@ pub async fn ytdlp_download_direct(
     history: State<'_, HistoryDbState>,
     url: String,
     format_id: String,
+    title: String,
+    meta: serde_json::Value,
     options: serde_json::Value,
 ) -> Result<String, AppError> {
     let dir = options
@@ -108,41 +110,38 @@ pub async fn ytdlp_download_direct(
         .ok_or_else(|| AppError::YtdlpDownload("missing 'dir' in options".into()))?
         .to_string();
 
-    let video = ytdlp::client::parse_playlist_item(&app, &url).await?;
-    let format = video.formats.iter().find(|f| f.format_id == format_id);
-    let ext = format.map(|f| f.ext.as_str()).unwrap_or("mp4");
-    let filename = sanitize_filename(&video.title, ext);
-    let output_path = std::path::Path::new(&dir).join(&filename);
-    let output_str = output_path.to_string_lossy().to_string();
+    // yt-dlp handles title sanitization and extension selection via its output
+    // template, so we don't need to re-parse the video metadata here — the
+    // frontend already has it from the initial ytdlp_parse_url call.
+    let output_template = format!("{}/%(title)s.%(ext)s", dir.trim_end_matches(['/', '\\']));
 
-    // `start_download` takes `AppHandle` by value; `parse_playlist_item`
-    // above borrowed it, so the handle is still owned here and can be moved.
     let task_id =
-        ytdlp::downloader::start_download(app, &state, url.clone(), format_id, output_str).await?;
+        ytdlp::downloader::start_download(app, &state, url.clone(), format_id, output_template)
+            .await?;
 
     // Record the task in history.db so it appears in the task list immediately.
-    // The downloader's monitor task will update status to 'complete' / 'error'
-    // via HistoryDb::update_status on termination.
+    // The downloader's monitor task updates status to 'complete' / 'error' on
+    // termination via HistoryDb::update_status.
     let now = chrono::Utc::now().to_rfc3339();
-    let meta_json = serde_json::json!({
-        "video_title": video.title,
-        "extractor": video.extractor,
-        "thumbnail": video.thumbnail,
-        "duration": video.duration,
-        "resolution": format.and_then(|f| f.resolution.clone()),
-        "download_mode": "ytdlp_direct",
-    })
-    .to_string();
+    let meta_json = if meta.is_object() {
+        meta.to_string()
+    } else {
+        serde_json::json!({ "download_mode": "ytdlp_direct" }).to_string()
+    };
+    let total_length = meta
+        .get("filesize")
+        .and_then(|v| v.as_i64())
+        .or_else(|| meta.get("filesizeApprox").and_then(|v| v.as_i64()));
     let record = HistoryRecord {
         id: None,
         gid: task_id.clone(),
-        name: video.title.clone(),
+        name: title,
         uri: Some(url),
         dir: Some(dir),
-        total_length: format.and_then(|f| f.filesize.map(|v| v as i64)),
+        total_length,
         status: "active".into(),
         task_type: Some("video".into()),
-        added_at: Some(now.clone()),
+        added_at: Some(now),
         created_at: None,
         completed_at: None,
         meta: Some(meta_json),

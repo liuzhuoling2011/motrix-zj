@@ -24,11 +24,15 @@ export async function downloadViaAria2(params: {
 export async function downloadDirect(params: {
   url: string
   formatId: string
+  title: string
+  meta: Record<string, unknown>
   options: Record<string, string>
 }): Promise<string> {
   return invoke<string>('ytdlp_download_direct', {
     url: params.url,
     formatId: params.formatId,
+    title: params.title,
+    meta: params.meta,
     options: params.options,
   })
 }
