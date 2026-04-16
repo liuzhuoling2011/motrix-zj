@@ -6,6 +6,19 @@ use tauri_plugin_shell::ShellExt;
 use super::types::{ParseResult, PlaylistInfo, PlaylistItem, VideoInfo};
 use crate::error::AppError;
 
+/// Resolves the path of a Tauri-bundled sidecar binary for the current
+/// platform. Tauri places each sidecar alongside the main executable with
+/// the platform-specific triple suffix stripped (and `.exe` added on
+/// Windows). Returns `None` if the binary isn't found — callers should
+/// fall back to system PATH lookup via yt-dlp's own discovery.
+pub fn resolve_sidecar_path(name: &str) -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?;
+    let suffix = if cfg!(windows) { ".exe" } else { "" };
+    let path = dir.join(format!("{name}{suffix}"));
+    path.exists().then_some(path)
+}
+
 /// Timeout for a single yt-dlp parse operation.
 ///
 /// Applied to `run_ytdlp` via `tokio::time::timeout`; exceeding this
@@ -61,6 +74,19 @@ impl YtdlpHeaders {
             args.push("--cookies".to_string());
             args.push(path.to_string_lossy().into_owned());
         }
+
+        // Point yt-dlp at the bundled ffmpeg / deno sidecars so video+audio
+        // merging and YouTube signature/n-challenge solving work without any
+        // user setup. Missing binaries fall back to yt-dlp's own PATH lookup.
+        if let Some(path) = resolve_sidecar_path("motrixnext-ffmpeg") {
+            args.push("--ffmpeg-location".to_string());
+            args.push(path.to_string_lossy().into_owned());
+        }
+        if let Some(path) = resolve_sidecar_path("motrixnext-deno") {
+            args.push("--js-runtimes".to_string());
+            args.push(format!("deno:{}", path.to_string_lossy()));
+        }
+
         Ok(args)
     }
 }

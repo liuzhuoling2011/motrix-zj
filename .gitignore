@@ -64,3 +64,8 @@ src-tauri/gen/
 *.seed
 *.pid.lock
 .omx/
+
+# Sidecar binaries fetched at build time via scripts/fetch-sidecars.mjs
+src-tauri/binaries/motrixnext-ytdlp-*
+src-tauri/binaries/motrixnext-deno-*
+src-tauri/binaries/motrixnext-ffmpeg-*
