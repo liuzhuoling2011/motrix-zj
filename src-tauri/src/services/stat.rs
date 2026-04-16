@@ -97,13 +97,17 @@ pub(crate) fn set_dock_badge(label: Option<&str>) {
     dock_tile.display();
 }
 
-/// Sets the macOS Dock progress bar via `NSDockTile` + `NSProgressIndicator`.
+/// Sets the macOS Dock progress bar via `NSDockTile` + custom `NSProgressIndicator`.
 ///
-/// This replicates tao's `set_progress_indicator` implementation which uses
-/// `NSApplication.sharedApplication().dockTile()` — an **app-level** API
-/// that does NOT require a Window object. Tauri's `window.set_progress_bar()`
-/// internally delegates to this same tao function, but our code path goes
-/// through `get_webview_window("main")` which returns None in lightweight mode.
+/// A plain `NSProgressIndicator` does not render inside `NSDockTile` because
+/// dock tiles use image-based compositing: `display()` calls `drawRect:` to
+/// capture a bitmap snapshot, but `NSProgressIndicator`'s `drawRect:` relies on
+/// the window compositor's CALayer tree which doesn't exist for dock tiles.
+///
+/// The fix: register a custom `NSProgressIndicator` subclass (`MotrixProgressIndicator`)
+/// with a `drawRect:` override that manually paints using `NSBezierPath`.  This is
+/// the same approach used by tao's `TaoProgressIndicator` — the industry-standard
+/// workaround for dock tile progress rendering.
 ///
 /// Pass `None` to hide the progress bar, or `Some(0..=100)` to show it.
 ///
@@ -116,7 +120,6 @@ pub(crate) fn set_dock_progress(progress: Option<u64>) {
     use objc2::runtime::AnyObject;
 
     // SAFETY: All NSApplication/NSDockTile APIs must be called from the main thread.
-    // We verify this at runtime and bail if not on main.
     unsafe {
         let ns_app: *mut AnyObject = msg_send![objc2::class!(NSApplication), sharedApplication];
         let dock_tile: *mut AnyObject = msg_send![ns_app, dockTile];
@@ -145,8 +148,15 @@ pub(crate) fn set_dock_progress(progress: Option<u64>) {
     }
 }
 
-/// Finds an existing NSProgressIndicator in the dock tile's content view,
-/// or creates one if none exists. Mirrors tao's implementation.
+/// Finds an existing `NSProgressIndicator` subclass in the dock tile's content view,
+/// or creates a new `MotrixProgressIndicator` (custom subclass with `drawRect:` override).
+///
+/// A plain `NSProgressIndicator` is invisible in dock tiles because `NSDockTile.display()`
+/// captures a bitmap by calling `drawRect:` on the content view hierarchy, and the stock
+/// `NSProgressIndicator.drawRect:` depends on the window compositor's CALayer tree.
+///
+/// Our custom subclass overrides `drawRect:` to manually paint the progress bar using
+/// `NSBezierPath` — the same technique used by tao's `TaoProgressIndicator`.
 #[cfg(target_os = "macos")]
 unsafe fn get_or_create_progress_indicator(
     ns_app: *mut objc2::runtime::AnyObject,
@@ -156,7 +166,7 @@ unsafe fn get_or_create_progress_indicator(
     use objc2::runtime::AnyObject;
     use objc2_foundation::{NSPoint, NSRect, NSSize};
 
-    // Try to find existing indicator
+    // Try to find existing indicator (ours or tao's — both are NSProgressIndicator subclasses)
     let content_view: *mut AnyObject = msg_send![dock_tile, contentView];
     if !content_view.is_null() {
         let subviews: *mut AnyObject = msg_send![content_view, subviews];
@@ -173,7 +183,7 @@ unsafe fn get_or_create_progress_indicator(
         }
     }
 
-    // No existing indicator — create one
+    // No existing indicator — create one with custom drawRect:
     let mut image_view: *mut AnyObject = msg_send![dock_tile, contentView];
     if image_view.is_null() {
         let app_icon: *mut AnyObject = msg_send![ns_app, applicationIconImage];
@@ -184,15 +194,116 @@ unsafe fn get_or_create_progress_indicator(
     let dock_size: NSSize = msg_send![dock_tile, size];
     let frame = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(dock_size.width, 15.0));
 
-    let indicator: *mut AnyObject = msg_send![objc2::class!(NSProgressIndicator), alloc];
+    let progress_class = register_progress_indicator_class();
+    let indicator: *mut AnyObject = msg_send![progress_class, alloc];
     let indicator: *mut AnyObject = msg_send![indicator, initWithFrame: frame];
     let _: *mut AnyObject = msg_send![indicator, autorelease];
-    let _: () = msg_send![indicator, setMinValue: 0.0_f64];
-    let _: () = msg_send![indicator, setMaxValue: 100.0_f64];
-    let _: () = msg_send![indicator, setIndeterminate: false];
 
     let _: () = msg_send![image_view, addSubview: indicator];
     indicator
+}
+
+/// Registers the `MotrixProgressIndicator` ObjC class (once) — a custom
+/// `NSProgressIndicator` subclass with a `drawRect:` override for dock tile rendering.
+///
+/// The class draws a rounded progress bar using `NSBezierPath`:
+/// - Gray track (semi-transparent white)
+/// - Blue fill proportional to `doubleValue / 100.0`
+#[cfg(target_os = "macos")]
+fn register_progress_indicator_class() -> *const objc2::runtime::AnyClass {
+    use objc2::runtime::{AnyClass, ClassBuilder, Sel};
+    use objc2_foundation::NSRect;
+    use std::ffi::CStr;
+    use std::sync::Once;
+
+    static mut CLASS: *const AnyClass = std::ptr::null();
+    static INIT: Once = Once::new();
+
+    INIT.call_once(|| unsafe {
+        let superclass = objc2::class!(NSProgressIndicator);
+        let mut decl = ClassBuilder::new(
+            CStr::from_bytes_with_nul(b"MotrixProgressIndicator\0").unwrap(),
+            superclass,
+        )
+        .expect("Failed to create MotrixProgressIndicator class");
+
+        // Register the custom drawRect: method.
+        // Uses raw pointer (*mut AnyObject) to satisfy the HRTB lifetime
+        // bound on objc2's MethodImplementation trait.
+        decl.add_method(
+            objc2::sel!(drawRect:),
+            draw_progress_bar as unsafe extern "C" fn(*mut objc2::runtime::AnyObject, Sel, NSRect),
+        );
+
+        CLASS = decl.register();
+    });
+
+    unsafe { CLASS }
+}
+
+/// Custom `drawRect:` implementation for the dock tile progress indicator.
+///
+/// Draws a rounded progress bar at the bottom of the dock icon:
+/// - Semi-transparent white background track
+/// - Blue fill bar proportional to progress
+///
+/// This is necessary because `NSDockTile.display()` uses image-based compositing —
+/// it calls `drawRect:` to capture a bitmap, but the stock `NSProgressIndicator`
+/// rendering depends on the window compositor's CALayer tree which doesn't exist
+/// for dock tiles.
+#[cfg(target_os = "macos")]
+unsafe extern "C" fn draw_progress_bar(
+    this: *mut objc2::runtime::AnyObject,
+    _sel: objc2::runtime::Sel,
+    rect: objc2_foundation::NSRect,
+) {
+    use objc2::msg_send;
+    use objc2::runtime::AnyObject;
+    use objc2_foundation::{NSInsetRect, NSPoint, NSRect, NSSize};
+
+    // Track bar: 8px tall, positioned 4px from the bottom
+    let bar = NSRect::new(
+        NSPoint { x: 0.0, y: 4.0 },
+        NSSize {
+            width: rect.size.width,
+            height: 8.0,
+        },
+    );
+    let bar_inner = NSInsetRect(bar, 0.5, 0.5);
+    let mut bar_progress = NSInsetRect(bar, 1.0, 1.0);
+
+    // Scale progress width
+    let current_progress: f64 = msg_send![this, doubleValue];
+    let normalized = (current_progress / 100.0).clamp(0.0, 1.0);
+    bar_progress.size.width *= normalized;
+
+    // Draw background track (semi-transparent white)
+    let bg_color: *mut AnyObject =
+        msg_send![objc2::class!(NSColor), colorWithWhite: 1.0_f64, alpha: 0.05_f64];
+    let _: () = msg_send![bg_color, set];
+    draw_rounded_rect(bar);
+    draw_rounded_rect(bar_inner);
+
+    // Draw progress fill (system blue)
+    let fill_color: *mut AnyObject = msg_send![objc2::class!(NSColor), systemBlueColor];
+    let _: () = msg_send![fill_color, set];
+    draw_rounded_rect(bar_progress);
+}
+
+/// Helper: draw a filled rounded rectangle using NSBezierPath.
+#[cfg(target_os = "macos")]
+unsafe fn draw_rounded_rect(rect: objc2_foundation::NSRect) {
+    use objc2::msg_send;
+    use objc2::runtime::AnyObject;
+
+    let radius = rect.size.height / 2.0;
+    let bezier_path: *mut AnyObject = msg_send![
+        objc2::class!(NSBezierPath),
+        bezierPathWithRoundedRect: rect,
+        xRadius: radius,
+        yRadius: radius
+    ];
+    let _: () = msg_send![bezier_path, fill];
 }
 
 /// Handle for controlling the background stat service.

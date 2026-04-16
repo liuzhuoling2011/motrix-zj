@@ -520,7 +520,7 @@ mod tests {
     /// BT downloads with multiple files need a `files` snapshot in meta
     /// for correct deletion (single trash call) and folder-opening.
     fn make_multi_file_bt_task(gid: &str) -> Aria2Task {
-        let mut task = Aria2Task {
+        let task = Aria2Task {
             gid: gid.to_string(),
             status: "active".to_string(),
             total_length: "2048".to_string(),
