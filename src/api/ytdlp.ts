@@ -2,9 +2,15 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import type { ParseResult, YtdlpProgress } from '@shared/types'
 
-/** Parses a URL with yt-dlp to detect video/playlist content. */
-export async function parseUrl(url: string): Promise<ParseResult> {
-  return invoke<ParseResult>('ytdlp_parse_url', { url })
+/** Parses a URL with yt-dlp to detect video/playlist content.
+ *  `cookie` and `userAgent` are forwarded as `--add-header Cookie:…` and
+ *  `--user-agent …` to bypass bot detection on YouTube / Bilibili. */
+export async function parseUrl(url: string, cookie?: string, userAgent?: string): Promise<ParseResult> {
+  return invoke<ParseResult>('ytdlp_parse_url', {
+    url,
+    cookie: cookie?.trim() ? cookie : null,
+    userAgent: userAgent?.trim() ? userAgent : null,
+  })
 }
 
 /** Downloads a video through aria2 (for direct-link formats). */

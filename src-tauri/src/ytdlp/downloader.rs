@@ -27,6 +27,7 @@ use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use tokio::sync::Mutex;
 
+use super::client::YtdlpHeaders;
 use super::types::{YtdlpProgress, YtdlpTaskStatus};
 use crate::history::HistoryDbState;
 use crate::error::AppError;
@@ -84,10 +85,12 @@ pub async fn start_download(
     url: String,
     format_id: String,
     output_path: String,
+    headers: YtdlpHeaders,
 ) -> Result<String, AppError> {
     let task_id = state.generate_task_id();
 
-    let args = vec![
+    let mut args: Vec<String> = headers.to_args();
+    args.extend([
         "-f".to_string(),
         format_id,
         "--newline".to_string(),
@@ -97,7 +100,7 @@ pub async fn start_download(
         "-o".to_string(),
         output_path,
         url,
-    ];
+    ]);
 
     log::info!("yt-dlp spawn args: {:?}", args);
 
