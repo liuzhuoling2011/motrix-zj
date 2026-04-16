@@ -33,13 +33,18 @@ pub async fn ytdlp_parse_url(
 /// from the video title. Fails with [`AppError::YtdlpParse`] if the format
 /// is not found or lacks a direct URL (manifest-only formats such as HLS
 /// must use [`ytdlp_download_direct`] instead).
+///
+/// The caller-supplied `options` are the base aria2 preferences (dir, proxy,
+/// split, user-agent, headers, etc.); we only overlay `out` (sanitized
+/// filename) and `referer` (source URL for anti-hotlink) on top so that
+/// frontend-configured settings are preserved.
 #[tauri::command]
 pub async fn ytdlp_download_via_aria2(
     app: tauri::AppHandle,
     aria2: State<'_, Aria2State>,
     url: String,
     format_id: String,
-    dir: String,
+    options: serde_json::Value,
 ) -> Result<String, AppError> {
     // Resolve the format to get direct URL
     let video = ytdlp::client::parse_playlist_item(&app, &url).await?;
@@ -60,18 +65,19 @@ pub async fn ytdlp_download_via_aria2(
         })?
         .clone();
 
-    let mut opts = serde_json::json!({
-        "dir": dir,
-        "out": sanitize_filename(&video.title, &format.ext),
-        "referer": url,
-    });
+    // Start from the caller's options (dir, proxy, split, headers, etc.)
+    let mut opts = options;
+    if !opts.is_object() {
+        opts = serde_json::json!({});
+    }
 
-    // Add user-agent if we have one (could be refined later)
+    // Overlay video-specific fields: sanitized output filename + referer for anti-hotlink.
     if let Some(obj) = opts.as_object_mut() {
         obj.insert(
-            "user-agent".to_string(),
-            serde_json::json!("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"),
+            "out".to_string(),
+            serde_json::json!(sanitize_filename(&video.title, &format.ext)),
         );
+        obj.insert("referer".to_string(), serde_json::json!(url));
     }
 
     aria2.0.add_uri(vec![direct_url], opts).await
@@ -82,14 +88,24 @@ pub async fn ytdlp_download_via_aria2(
 /// Spawns the `motrixnext-ytdlp` sidecar via [`ytdlp::downloader::start_download`]
 /// and returns a generated task id immediately. Progress events are emitted on
 /// the `ytdlp-progress` channel until the download completes or is cancelled.
+///
+/// Accepts `options` (the same shape the frontend passes to `aria2_add_uri`)
+/// to keep the IPC surface consistent; the download directory is extracted
+/// from `options.dir`.
 #[tauri::command]
 pub async fn ytdlp_download_direct(
     app: tauri::AppHandle,
     state: State<'_, YtdlpState>,
     url: String,
     format_id: String,
-    dir: String,
+    options: serde_json::Value,
 ) -> Result<String, AppError> {
+    let dir = options
+        .get("dir")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError::YtdlpDownload("missing 'dir' in options".into()))?
+        .to_string();
+
     let video = ytdlp::client::parse_playlist_item(&app, &url).await?;
     let format = video.formats.iter().find(|f| f.format_id == format_id);
     let ext = format.map(|f| f.ext.as_str()).unwrap_or("mp4");
