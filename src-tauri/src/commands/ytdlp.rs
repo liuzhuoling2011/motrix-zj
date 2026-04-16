@@ -40,26 +40,38 @@ fn headers_from_options(options: &serde_json::Value) -> YtdlpHeaders {
         .filter(|s| !s.trim().is_empty())
         .map(String::from);
 
-    let cookie_from_headers = options
-        .get("header")
-        .and_then(|v| v.as_array())
-        .and_then(|arr| {
+    // `options.header` may arrive as either a JSON array (aria2 native shape)
+    // OR a `\n`-joined string (the frontend's flattened `Record<string,string>`
+    // form when handed off to ytdlp). Handle both.
+    fn find_cookie_in_line(h: &str) -> Option<String> {
+        let trimmed = h.trim();
+        if trimmed.len() < 7 {
+            return None;
+        }
+        let (prefix, value) = trimmed.split_at(7);
+        if prefix.eq_ignore_ascii_case("Cookie:") {
+            let v = value.trim();
+            if v.is_empty() {
+                None
+            } else {
+                Some(v.to_string())
+            }
+        } else {
+            None
+        }
+    }
+
+    let cookie_from_headers = options.get("header").and_then(|v| {
+        if let Some(arr) = v.as_array() {
             arr.iter()
                 .filter_map(|h| h.as_str())
-                .find_map(|h| {
-                    let trimmed = h.trim();
-                    if trimmed.len() < 7 {
-                        return None;
-                    }
-                    let (prefix, value) = trimmed.split_at(7);
-                    if prefix.eq_ignore_ascii_case("Cookie:") {
-                        Some(value.trim().to_string())
-                    } else {
-                        None
-                    }
-                })
-                .filter(|s: &String| !s.is_empty())
-        });
+                .find_map(find_cookie_in_line)
+        } else if let Some(s) = v.as_str() {
+            s.split('\n').find_map(find_cookie_in_line)
+        } else {
+            None
+        }
+    });
 
     let cookie = cookie_from_top.or(cookie_from_headers);
 
