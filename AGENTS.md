@@ -22,7 +22,7 @@
 
 ```
 src/
-├── api/                        # Aria2 JSON-RPC client
+├── api/                        # Aria2 JSON-RPC client (frontend wrapper)
 ├── components/preference/      # Settings UI (Basic.vue, Advanced.vue, UpdateDialog.vue)
 ├── composables/                # Vue composables — business logic extracted from components
 ├── layouts/                    # Page-level layouts (MainLayout.vue)
@@ -30,12 +30,22 @@ src/
 │   ├── types.ts                # All TypeScript interfaces (AppConfig, TauriUpdate, etc.)
 │   ├── constants.ts            # DEFAULT_APP_CONFIG, proxy scopes, tracker URLs, timing constants
 │   ├── configKeys.ts           # Config key lists (userKeys, systemKeys, needRestartKeys)
+│   ├── logger.ts               # Structured logging (console + webview bridge)
+│   ├── timing.ts               # Timing constants (polling intervals, debounce delays)
+│   ├── guards.ts               # Type guard utilities
 │   ├── locales/                # 26 locale directories (see Section D)
 │   └── utils/
 │       ├── configMigration.ts  # Config schema migration engine (see Section C′)
 │       ├── config.ts           # Config key-value transform utilities
-│       └── tracker.ts          # BT tracker fetching with proxy support
-├── stores/                     # Pinia stores (app.ts, preference.ts, task/)
+│       ├── tracker.ts          # BT tracker fetching with proxy support
+│       ├── geoip.ts            # GeoIP peer lookup (country code → flag)
+│       ├── fileCategory.ts     # File type classification by extension
+│       ├── autoArchive.ts      # Auto-archive completed tasks
+│       ├── format.ts           # Number/date/speed formatting (bytesToSize, localeDateTimeFormat)
+│       ├── task.ts             # Task status helpers (checkTaskIsBT, getTaskDisplayName)
+│       ├── peer.ts             # Peer ID parsing and client identification
+│       └── semver.ts           # Semantic version comparison for update channel
+├── stores/                     # Pinia stores (app.ts, preference.ts, history.ts, task/)
 ├── views/                      # Page-level route views
 └── main.ts                     # App entry, auto-update check
 
@@ -43,13 +53,24 @@ src-tauri/
 ├── src/
 │   ├── lib.rs                  # Tauri builder, plugin registration, invoke_handler
 │   ├── main.rs                 # Tauri entry point
+│   ├── aria2/                  # Native Rust aria2 JSON-RPC client
+│   │   ├── mod.rs              # Module re-exports
+│   │   ├── client.rs           # WebSocket JSON-RPC client (connect, call, subscribe)
+│   │   └── types.rs            # Aria2 response types (Aria2Task, Aria2File, Aria2BtInfo, etc.)
 │   ├── commands/
 │   │   ├── mod.rs              # Command module re-exports
+│   │   ├── aria2.rs            # aria2 JSON-RPC forwarding (tell_active, global_stat, etc.)
 │   │   ├── config.rs           # Config CRUD, session, factory reset commands
 │   │   ├── engine.rs           # Engine start/stop/restart commands
-│   │   ├── ui.rs               # Tray, menu, dock, progress bar commands
-│   │   ├── tracker.rs          # Tracker probing and protocol classification
 │   │   ├── fs.rs               # File system ops, diagnostics, platform code
+│   │   ├── geoip.rs            # GeoIP database loading and peer IP lookup
+│   │   ├── history.rs          # History DB read/write commands
+│   │   ├── net.rs              # Network utility commands
+│   │   ├── protocol.rs         # Default protocol handler detection and registration
+│   │   ├── proxy.rs            # System proxy detection (PAC, WPAD, env)
+│   │   ├── runtime_config.rs   # RuntimeConfig refresh command
+│   │   ├── tracker.rs          # Tracker probing and protocol classification
+│   │   ├── ui.rs               # Tray, menu, dock, progress bar commands
 │   │   ├── updater.rs          # check_for_update, download_update, apply_update, cancel_update
 │   │   └── upnp.rs             # UPnP port mapping commands
 │   ├── engine/
@@ -61,13 +82,19 @@ src-tauri/
 │   ├── services/
 │   │   ├── mod.rs              # Runtime services orchestration (on_engine_ready)
 │   │   ├── config.rs           # RuntimeConfig cache (refreshed per engine cycle)
-│   │   ├── stat.rs             # Global stat polling (download/upload speed)
+│   │   ├── stat.rs             # Global stat polling, Dock badge, Dock progress bar (custom NSProgressIndicator)
 │   │   ├── speed.rs            # Speed limit scheduler (time-of-day limits)
-│   │   └── monitor.rs          # Task lifecycle monitor (completion/error events)
+│   │   └── monitor.rs          # Task lifecycle monitor, history DB persistence, event emission
+│   ├── db_guard.rs             # Database health check, corruption detection, and auto-rebuild
+│   ├── gpu_guard.rs            # GPU compatibility detection and WebView renderer fallback
+│   ├── history.rs              # HistoryDbState: Rust-side SQLite history record persistence
 │   ├── error.rs                # AppError enum (Store, Engine, Io, NotFound, Updater, Upnp)
 │   ├── menu.rs                 # Native menu builder (macOS only, cfg-gated)
-│   ├── tray.rs                 # System tray setup
+│   ├── tray.rs                 # System tray setup + native event handling (lightweight mode safe)
 │   └── upnp.rs                 # UPnP/IGD port mapping with renewal loop
+├── migrations/
+│   ├── 001_download_history.sql  # Initial history table schema
+│   └── 002_add_added_at.sql      # Added added_at column + task_birth table
 ├── nsis/
 │   ├── hooks.nsh              # Windows installer hooks (compat shim + icon refresh)
 │   ├── header.bmp             # Installer header image (150×57, 24-bit BMP)
