@@ -2,7 +2,13 @@ use serde::{Deserialize, Serialize};
 
 /// yt-dlp `--dump-json` output — only the fields we consume.
 /// Uses `#[serde(default)]` so missing keys get zero-values instead of errors.
+///
+/// `rename_all(serialize = "camelCase")` applies only on the Rust → frontend
+/// edge so TypeScript receives idiomatic camelCase keys. Deserialization
+/// (yt-dlp JSON → Rust) keeps the default snake_case matching since the Rust
+/// field names already use snake_case.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(serialize = "camelCase"))]
 pub struct VideoInfo {
     pub id: String,
     pub title: String,
@@ -23,6 +29,7 @@ pub struct VideoInfo {
 
 /// A single available format from yt-dlp.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(serialize = "camelCase"))]
 pub struct VideoFormat {
     pub format_id: String,
     #[serde(default)]
@@ -54,6 +61,7 @@ pub enum ParseResult {
 
 /// Playlist metadata from `--flat-playlist`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(serialize = "camelCase"))]
 pub struct PlaylistInfo {
     pub id: String,
     pub title: String,
@@ -63,6 +71,7 @@ pub struct PlaylistInfo {
 
 /// Single entry within a playlist (from `--flat-playlist`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(serialize = "camelCase"))]
 pub struct PlaylistItem {
     pub id: String,
     #[serde(default)]
