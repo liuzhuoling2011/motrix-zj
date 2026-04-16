@@ -26,6 +26,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_store::StoreExt;
 use upnp::UpnpState;
+use ytdlp::YtdlpState;
 
 /// Pre-reads the user's log-level preference from the raw config.json file.
 ///
@@ -801,6 +802,7 @@ pub fn run() {
     builder
         .manage(EngineState::new())
         .manage(UpnpState::new())
+        .manage(YtdlpState::new())
         .manage(std::sync::Arc::new(UpdateCancelState::new()))
         .manage(std::sync::Arc::new(DownloadedUpdate::new()))
         .manage(std::sync::Arc::new(ShutdownCancelState::new()))
@@ -889,6 +891,10 @@ pub fn run() {
             commands::wait_for_engine,
             commands::system_shutdown,
             commands::cancel_shutdown,
+            commands::ytdlp_parse_url,
+            commands::ytdlp_download_via_aria2,
+            commands::ytdlp_download_direct,
+            commands::ytdlp_cancel_download,
         ])
         // ── Window event interception ─────────────────────────────────
         //

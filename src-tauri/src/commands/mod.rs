@@ -14,6 +14,7 @@ pub mod tracker;
 pub mod ui;
 pub mod updater;
 pub mod upnp;
+pub mod ytdlp;
 
 pub use aria2::*;
 pub use config::*;
@@ -31,3 +32,4 @@ pub use tracker::*;
 pub use ui::*;
 pub use updater::*;
 pub use upnp::*;
+pub use ytdlp::*;
