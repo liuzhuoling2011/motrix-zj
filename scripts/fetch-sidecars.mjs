@@ -85,6 +85,14 @@ const FFMPEG = {
     'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip',
 }
 
+// ffprobe sources. BtbN's Linux/Windows ffmpeg archives already bundle
+// ffprobe, so those targets reuse the FFMPEG entries. macOS upstream ships
+// them as separate archives.
+const FFPROBE_STANDALONE = {
+  'aarch64-apple-darwin': 'https://www.osxexperts.net/ffprobe81arm.zip',
+  'x86_64-apple-darwin': 'https://evermeet.cx/ffprobe/getrelease/zip',
+}
+
 function run(cmd, opts = {}) {
   execSync(cmd, { stdio: 'inherit', shell: true, ...opts })
 }
@@ -170,6 +178,27 @@ function fetchDeno() {
   rmSync(work, { recursive: true, force: true })
 }
 
+/**
+ * Extracts a named binary from `archiveUrl` into `outPath`. If the archive
+ * is missing the requested binary, throws.
+ */
+function fetchFromArchive(archiveUrl, binName, outPath, label) {
+  const work = join(tmpdir(), `motrix-${label}-${Date.now()}`)
+  mkdirSync(work, { recursive: true })
+  const ext = archiveUrl.endsWith('.tar.xz') ? 'tar.xz' : 'zip'
+  const archive = join(work, `${label}.${ext}`)
+  download(archiveUrl, archive)
+  extract(archive, work)
+  const bin = findFile(work, binName)
+  if (!bin) {
+    rmSync(work, { recursive: true, force: true })
+    throw new Error(`${binName} not found in ${archiveUrl}`)
+  }
+  renameSync(bin, outPath)
+  chmodSync(outPath, 0o755)
+  rmSync(work, { recursive: true, force: true })
+}
+
 function fetchFfmpeg() {
   const out = join(BIN_DIR, `motrixnext-ffmpeg-${target}${exeSuffix}`)
   if (existsSync(out)) {
@@ -178,24 +207,31 @@ function fetchFfmpeg() {
   }
   const url = FFMPEG[target]
   if (!url) throw new Error(`No ffmpeg URL for ${target}`)
-  const work = join(tmpdir(), `motrix-ffmpeg-${Date.now()}`)
-  mkdirSync(work, { recursive: true })
   console.log(`[fetch-sidecars] ffmpeg → ${out}`)
-  if (url.endsWith('.tar.xz')) {
-    const tar = join(work, 'ffmpeg.tar.xz')
-    download(url, tar)
-    extract(tar, work)
-  } else {
-    const zip = join(work, 'ffmpeg.zip')
-    download(url, zip)
-    extract(zip, work)
-  }
   const binName = isWindows ? 'ffmpeg.exe' : 'ffmpeg'
-  const bin = findFile(work, binName)
-  if (!bin) throw new Error(`ffmpeg binary not found in archive`)
-  renameSync(bin, out)
-  chmodSync(out, 0o755)
-  rmSync(work, { recursive: true, force: true })
+  fetchFromArchive(url, binName, out, 'ffmpeg')
+}
+
+/**
+ * Place ffprobe as `ffprobe[.exe]` in the sidecar dir. yt-dlp looks for a
+ * file literally named `ffprobe` next to the ffmpeg binary — so we keep
+ * the platform-specific triple in the filename (Tauri's required format)
+ * but drop the `motrixnext-` prefix so yt-dlp discovers it.
+ */
+function fetchFfprobe() {
+  const out = join(BIN_DIR, `ffprobe-${target}${exeSuffix}`)
+  if (existsSync(out)) {
+    console.log(`[fetch-sidecars] ffprobe already present, skipping`)
+    return
+  }
+  console.log(`[fetch-sidecars] ffprobe → ${out}`)
+  const binName = isWindows ? 'ffprobe.exe' : 'ffprobe'
+  // BtbN Linux/Windows archives bundle ffprobe alongside ffmpeg.
+  // macOS upstream ships them separately.
+  const standalone = FFPROBE_STANDALONE[target]
+  const url = standalone || FFMPEG[target]
+  if (!url) throw new Error(`No ffprobe URL for ${target}`)
+  fetchFromArchive(url, binName, out, 'ffprobe')
 }
 
 // ── Main ──────────────────────────────────────────────────────────────
@@ -206,10 +242,17 @@ try {
   fetchYtdlp()
   fetchDeno()
   fetchFfmpeg()
+  fetchFfprobe()
 
   console.log('[fetch-sidecars] done')
-  for (const name of ['ytdlp', 'deno', 'ffmpeg']) {
-    const p = join(BIN_DIR, `motrixnext-${name}-${target}${exeSuffix}`)
+  const entries = [
+    ['ytdlp', `motrixnext-ytdlp-${target}${exeSuffix}`],
+    ['deno', `motrixnext-deno-${target}${exeSuffix}`],
+    ['ffmpeg', `motrixnext-ffmpeg-${target}${exeSuffix}`],
+    ['ffprobe', `ffprobe-${target}${exeSuffix}`],
+  ]
+  for (const [, file] of entries) {
+    const p = join(BIN_DIR, file)
     const sz = (statSync(p).size / (1024 * 1024)).toFixed(1)
     console.log(`  ${p} (${sz} MB)`)
   }

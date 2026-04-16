@@ -39,7 +39,8 @@
       "binaries/motrixnext-aria2c",
       "binaries/motrixnext-ytdlp",
       "binaries/motrixnext-deno",
-      "binaries/motrixnext-ffmpeg"
+      "binaries/motrixnext-ffmpeg",
+      "binaries/ffprobe"
     ],
     "resources": [
       "binaries/aria2.conf",

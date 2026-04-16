@@ -69,3 +69,4 @@ src-tauri/gen/
 src-tauri/binaries/motrixnext-ytdlp-*
 src-tauri/binaries/motrixnext-deno-*
 src-tauri/binaries/motrixnext-ffmpeg-*
+src-tauri/binaries/ffprobe-*
