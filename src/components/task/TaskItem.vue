@@ -15,7 +15,7 @@ import {
 import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@shared/logger'
 import { resolveTaskFilePath, recheckTrigger } from '@/composables/useArchivedPaths'
-import { NProgress, NIcon } from 'naive-ui'
+import { NProgress, NIcon, NTag } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
 import {
   ArrowUpOutline,
@@ -48,6 +48,32 @@ const { t } = useI18n()
 const taskFullName = computed(() =>
   getTaskDisplayName(props.task, { defaultName: t('task.get-task-name') || 'Unknown' }),
 )
+
+interface VideoMetaPayload {
+  video_title?: string
+  extractor?: string
+  resolution?: string
+  thumbnail?: string
+  duration?: number
+  download_mode?: string
+}
+
+const videoMeta = computed<VideoMetaPayload | null>(() => {
+  // Video metadata is stored in history.db's `meta` field as JSON.
+  // Tasks merged from history in stopped/all tab carry this field.
+  // Regular aria2 tasks (no history) have no meta field.
+  const rawMeta = (props.task as unknown as { meta?: string }).meta
+  if (!rawMeta || typeof rawMeta !== 'string') return null
+  try {
+    const parsed = JSON.parse(rawMeta) as VideoMetaPayload
+    if (parsed && typeof parsed === 'object' && parsed.video_title) {
+      return parsed
+    }
+  } catch {
+    /* non-video task meta */
+  }
+  return null
+})
 
 const isSeeder = computed(() => checkTaskIsSeeder(props.task))
 const isBT = computed(() => checkTaskIsBT(props.task))
@@ -258,9 +284,9 @@ onBeforeUnmount(() => {
           <Transition name="name-crossfade" mode="out-in">
             <span :key="taskFullName">{{ taskFullName }}</span>
           </Transition>
-          <div class="tags-wrapper" :class="{ 'has-tags': isSeeder || finishedTag || fileMissing }">
+          <div class="tags-wrapper" :class="{ 'has-tags': isSeeder || finishedTag || fileMissing || videoMeta }">
             <div class="tags-inner">
-              <div v-if="isSeeder || finishedTag || fileMissing" class="task-tags">
+              <div v-if="isSeeder || finishedTag || fileMissing || videoMeta" class="task-tags">
                 <span v-if="isSeeder" class="seeding-tag">
                   <NIcon :size="13"><CloudUploadOutline /></NIcon>
                   {{ t('task.seeding') || 'Seeding' }}
@@ -273,6 +299,14 @@ onBeforeUnmount(() => {
                   <NIcon :size="13"><AlertCircleOutline /></NIcon>
                   {{ t('task.file-missing') || 'File missing' }}
                 </span>
+                <template v-if="videoMeta">
+                  <NTag v-if="videoMeta.extractor" size="tiny" :bordered="false" type="info" class="video-tag">
+                    {{ videoMeta.extractor }}
+                  </NTag>
+                  <NTag v-if="videoMeta.resolution" size="tiny" :bordered="false" class="video-tag">
+                    {{ videoMeta.resolution }}
+                  </NTag>
+                </template>
               </div>
             </div>
           </div>
@@ -555,6 +589,10 @@ onBeforeUnmount(() => {
   opacity: 0.9;
   vertical-align: middle;
   animation: m3-tag-enter 0.35s cubic-bezier(0.05, 0.7, 0.1, 1);
+}
+.video-tag {
+  margin-left: 4px;
+  vertical-align: middle;
 }
 .error-message {
   flex-basis: 100%;
