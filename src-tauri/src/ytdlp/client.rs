@@ -202,6 +202,33 @@ pub async fn parse_url(
         }));
     }
 
+    // YouTube mix playlists (e.g. ?list=RD…) emit multiple lines of
+    // `_type: "url"` under --flat-playlist with no top-level playlist
+    // wrapper. Collect them as entries so the UI shows a playlist panel
+    // instead of silently falling back to "not media".
+    let first_type = first.get("_type").and_then(|v| v.as_str());
+    if lines.len() > 1 && first_type == Some("url") {
+        let entries: Vec<PlaylistItem> = lines
+            .iter()
+            .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+            .filter_map(|v| serde_json::from_value(v).ok())
+            .collect();
+        let derived_id = url::Url::parse(url)
+            .ok()
+            .and_then(|u| {
+                u.query_pairs()
+                    .find(|(k, _)| k == "list")
+                    .map(|(_, v)| v.to_string())
+            })
+            .unwrap_or_else(|| "mix".to_string());
+        return Ok(ParseResult::Playlist(PlaylistInfo {
+            id: derived_id,
+            title: "YouTube 播放列表".to_string(),
+            uploader: None,
+            entries,
+        }));
+    }
+
     if lines.len() == 1 {
         let video: VideoInfo =
             serde_json::from_str(lines[0]).map_err(|e| AppError::YtdlpParse(e.to_string()))?;
