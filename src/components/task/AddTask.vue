@@ -433,6 +433,7 @@ async function handleSubmit() {
                 url: entry.url,
                 formatId: videoFlow.selectedFormatId.value || 'bestvideo+bestaudio/best',
                 title: entry.title || entry.url,
+                ext: 'mp4',
                 meta: {
                   video_title: entry.title,
                   thumbnail: entry.thumbnail,

@@ -25,6 +25,7 @@ export async function downloadDirect(params: {
   url: string
   formatId: string
   title: string
+  ext: string
   meta: Record<string, unknown>
   options: Record<string, string>
 }): Promise<string> {
@@ -32,6 +33,7 @@ export async function downloadDirect(params: {
     url: params.url,
     formatId: params.formatId,
     title: params.title,
+    ext: params.ext,
     meta: params.meta,
     options: params.options,
   })

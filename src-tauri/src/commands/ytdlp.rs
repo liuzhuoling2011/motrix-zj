@@ -101,6 +101,7 @@ pub async fn ytdlp_download_direct(
     url: String,
     format_id: String,
     title: String,
+    ext: String,
     meta: serde_json::Value,
     options: serde_json::Value,
 ) -> Result<String, AppError> {
@@ -115,13 +116,27 @@ pub async fn ytdlp_download_direct(
     // frontend already has it from the initial ytdlp_parse_url call.
     let output_template = format!("{}/%(title)s.%(ext)s", dir.trim_end_matches(['/', '\\']));
 
-    let task_id =
-        ytdlp::downloader::start_download(app, &state, url.clone(), format_id, output_template)
-            .await?;
+    let task_id = ytdlp::downloader::start_download(
+        app,
+        &state,
+        url.clone(),
+        format_id,
+        output_template,
+    )
+    .await?;
 
     // Record the task in history.db so it appears in the task list immediately.
     // The downloader's monitor task updates status to 'complete' / 'error' on
     // termination via HistoryDb::update_status.
+    //
+    // The stored `name` includes the extension so the UI's file-exists check
+    // and "open folder" actions resolve to the actual on-disk file, which
+    // yt-dlp writes as "<title>.<ext>".
+    let display_name = if ext.is_empty() {
+        title.clone()
+    } else {
+        format!("{title}.{ext}")
+    };
     let now = chrono::Utc::now().to_rfc3339();
     let meta_json = if meta.is_object() {
         meta.to_string()
@@ -135,7 +150,7 @@ pub async fn ytdlp_download_direct(
     let record = HistoryRecord {
         id: None,
         gid: task_id.clone(),
-        name: title,
+        name: display_name,
         uri: Some(url),
         dir: Some(dir),
         total_length,
