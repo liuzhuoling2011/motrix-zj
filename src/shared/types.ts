@@ -445,3 +445,68 @@ export interface TaskApi {
   purgeTaskRecord: () => Promise<string>
   saveSession: () => Promise<string>
 }
+
+// ── yt-dlp types ───────────────────────────────────────────────────
+
+export interface VideoFormat {
+  formatId: string
+  ext: string
+  resolution?: string
+  height?: number
+  fps?: number
+  vcodec?: string
+  acodec?: string
+  filesize?: number
+  filesizeApprox?: number
+  tbr?: number
+  url?: string
+  protocol: string
+}
+
+export interface VideoInfo {
+  id: string
+  title: string
+  url: string
+  thumbnail?: string
+  duration?: number
+  uploader?: string
+  extractor: string
+  formats: VideoFormat[]
+  isLive?: boolean
+  playlistIndex?: number
+}
+
+export interface PlaylistItem {
+  id: string
+  title: string
+  url: string
+  duration?: number
+  thumbnail?: string
+}
+
+export interface PlaylistInfo {
+  id: string
+  title: string
+  uploader?: string
+  entries: PlaylistItem[]
+}
+
+export type ParseResult = ({ type: 'Video' } & VideoInfo) | ({ type: 'Playlist' } & PlaylistInfo) | { type: 'NotMedia' }
+
+export interface FormatPreset {
+  label: string
+  formatId: string
+  estimatedSize?: number
+}
+
+export type YtdlpTaskStatus = 'Downloading' | 'Merging' | 'Complete' | 'Error'
+
+export interface YtdlpProgress {
+  taskId: string
+  status: YtdlpTaskStatus
+  percent: number
+  downloadedBytes?: number
+  totalBytes?: number
+  speed?: string
+  eta?: string
+}
