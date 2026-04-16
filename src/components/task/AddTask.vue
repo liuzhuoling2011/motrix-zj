@@ -72,7 +72,6 @@ const submitting = ref(false)
 const selectedBatchIndex = ref(0)
 
 const videoFlow = useVideoFlow()
-let parseTimer: ReturnType<typeof setTimeout> | null = null
 
 const form = ref({
   uris: '',
@@ -110,21 +109,27 @@ watch(globalProxyAvailable, (available) => {
   }
 })
 
-// Auto-detect video URLs when user types/pastes a single URL.
-// Re-parse when cookie / user-agent change so users can paste the URL first,
-// then add their browser cookies in advanced options to bypass bot detection.
-watch([() => form.value.uris, () => form.value.cookie, () => form.value.userAgent], ([newUris, newCookie, newUa]) => {
-  if (parseTimer) clearTimeout(parseTimer)
-  videoFlow.reset()
+// Reset video parse state whenever the URL changes so a stale result from
+// a previous URL doesn't linger under the Parse Media button.
+watch(
+  () => form.value.uris,
+  () => videoFlow.reset(),
+)
 
-  const trimmed = (newUris ?? '').trim()
-  // Only try to parse single URLs (no newlines) that look like web URLs
-  if (trimmed && !trimmed.includes('\n') && /^https?:\/\//i.test(trimmed)) {
-    parseTimer = setTimeout(() => {
-      void videoFlow.tryParseUrl(trimmed, newCookie, newUa)
-    }, 500)
+/** Explicit user-triggered parse — wired to the "Parse Media" button inside
+ *  the advanced options panel. Unlike the previous auto-parse-on-paste,
+ *  this only fires when the user clicks, so pasting a plain download URL
+ *  never incurs yt-dlp latency. */
+async function handleParseMedia() {
+  const trimmed = form.value.uris.trim()
+  if (!trimmed || trimmed.includes('\n') || !/^https?:\/\//i.test(trimmed)) {
+    message.warning(t('task.video-parse-needs-single-url') || '请先填入一个以 http/https 开头的视频链接', {
+      closable: true,
+    })
+    return
   }
-})
+  await videoFlow.tryParseUrl(trimmed, form.value.cookie, form.value.userAgent)
+}
 
 const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
 
@@ -582,42 +587,6 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
                   :placeholder="t('task.uri-task-tips') || 'One URL per line'"
                 />
               </NFormItem>
-
-              <!-- Video detection -->
-              <div v-if="videoFlow.isParsing.value" class="video-loading">正在解析视频信息...</div>
-
-              <div
-                v-if="
-                  !videoFlow.isParsing.value &&
-                  videoFlow.parseError.value &&
-                  !videoFlow.isVideo.value &&
-                  !videoFlow.isPlaylist.value
-                "
-                class="video-error"
-              >
-                视频解析失败：{{ videoFlow.parseError.value }}。将按普通链接处理。
-              </div>
-
-              <VideoInfoPanel
-                v-if="videoFlow.isVideo.value && videoFlow.videoInfo.value"
-                :video="videoFlow.videoInfo.value"
-                :presets="videoFlow.formatPresets.value"
-                :selected-format-id="videoFlow.selectedFormatId.value"
-                :show-all-formats="videoFlow.showAllFormats.value"
-                @update:selected-format-id="(id: string) => (videoFlow.selectedFormatId.value = id)"
-                @update:show-all-formats="(show: boolean) => (videoFlow.showAllFormats.value = show)"
-              />
-
-              <PlaylistPanel
-                v-if="videoFlow.isPlaylist.value && videoFlow.playlistInfo.value"
-                :playlist="videoFlow.playlistInfo.value"
-                :selected-items="videoFlow.selectedPlaylistItems.value"
-                :presets="videoFlow.formatPresets.value"
-                :selected-format-id="videoFlow.selectedFormatId.value"
-                @toggle-item="videoFlow.togglePlaylistItem"
-                @toggle-select-all="videoFlow.toggleSelectAll"
-                @update:selected-format-id="(id: string) => (videoFlow.selectedFormatId.value = id)"
-              />
             </div>
           </NTabPane>
 
@@ -737,6 +706,51 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
             :global-proxy-available="globalProxyAvailable"
             :global-proxy-server="globalProxyServer"
           />
+
+          <!-- ── Media parser (manual trigger) ───────────────────────── -->
+          <div v-if="showAdvanced" class="media-parse-section">
+            <NButton
+              size="small"
+              :loading="videoFlow.isParsing.value"
+              :disabled="videoFlow.isParsing.value"
+              @click="handleParseMedia"
+            >
+              {{ videoFlow.isParsing.value ? '正在解析...' : '解析媒体' }}
+            </NButton>
+
+            <div
+              v-if="
+                !videoFlow.isParsing.value &&
+                videoFlow.parseError.value &&
+                !videoFlow.isVideo.value &&
+                !videoFlow.isPlaylist.value
+              "
+              class="video-error"
+            >
+              视频解析失败：{{ videoFlow.parseError.value }}。将按普通链接处理。
+            </div>
+
+            <VideoInfoPanel
+              v-if="videoFlow.isVideo.value && videoFlow.videoInfo.value"
+              :video="videoFlow.videoInfo.value"
+              :presets="videoFlow.formatPresets.value"
+              :selected-format-id="videoFlow.selectedFormatId.value"
+              :show-all-formats="videoFlow.showAllFormats.value"
+              @update:selected-format-id="(id: string) => (videoFlow.selectedFormatId.value = id)"
+              @update:show-all-formats="(show: boolean) => (videoFlow.showAllFormats.value = show)"
+            />
+
+            <PlaylistPanel
+              v-if="videoFlow.isPlaylist.value && videoFlow.playlistInfo.value"
+              :playlist="videoFlow.playlistInfo.value"
+              :selected-items="videoFlow.selectedPlaylistItems.value"
+              :presets="videoFlow.formatPresets.value"
+              :selected-format-id="videoFlow.selectedFormatId.value"
+              @toggle-item="videoFlow.togglePlaylistItem"
+              @toggle-select-all="videoFlow.toggleSelectAll"
+              @update:selected-format-id="(id: string) => (videoFlow.selectedFormatId.value = id)"
+            />
+          </div>
         </div>
       </NForm>
       <template #footer>
@@ -841,12 +855,14 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
   flex: 1;
 }
 
-/* ── Video detection loading hint ─────────────────────────────────── */
-.video-loading {
-  padding: 12px;
-  text-align: center;
-  font-size: 13px;
-  opacity: 0.7;
+/* ── Media parser (manual trigger inside advanced options) ────────── */
+.media-parse-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--n-border-color, rgba(128, 128, 128, 0.2));
 }
 .video-error {
   padding: 8px 12px;
