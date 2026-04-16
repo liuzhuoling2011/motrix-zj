@@ -258,7 +258,7 @@ watch(
       try {
         const { readText } = await import('@tauri-apps/plugin-clipboard-manager')
         const text = await readText()
-        if (text && detectResource(text)) {
+        if (text && detectResource(text, preferenceStore.config.clipboard)) {
           form.value.uris = text.trim()
         }
       } catch (e) {

@@ -78,9 +78,13 @@ export const detectResource = (content: string, filter?: ClipboardConfig): boole
   const allowedTags = buildAllowedTags(filter)
   const allowHash = filter ? filter.btHash : true
 
-  return lines.every(
-    (line) => allowedTags.some((tag) => line.startsWith(tag)) || (allowHash && BARE_INFO_HASH_RE.test(line)),
-  )
+  return lines.every((line) => {
+    const lower = line.toLowerCase()
+    return (
+      allowedTags.some((tag) => lower.startsWith(tag) && line.length > tag.length) ||
+      (allowHash && BARE_INFO_HASH_RE.test(line))
+    )
+  })
 }
 
 export const needCheckCopyright = (links = ''): boolean => {
