@@ -182,6 +182,19 @@ impl HistoryDb {
         Ok(())
     }
 
+    /// Replace the `name` of an existing record by GID. No-op if absent.
+    /// Used by the yt-dlp monitor to align the stored filename with what
+    /// yt-dlp actually wrote to disk (its sanitization can differ from
+    /// our pre-computed `<title>.<ext>`).
+    pub async fn update_name(&self, gid: &str, name: &str) -> Result<(), AppError> {
+        let conn = self.conn.lock().await;
+        conn.execute(
+            "UPDATE download_history SET name = ?1 WHERE gid = ?2",
+            params![name, gid],
+        )?;
+        Ok(())
+    }
+
     /// Clear all records, optionally filtered by status.
     pub async fn clear_records(&self, status: Option<&str>) -> Result<(), AppError> {
         let conn = self.conn.lock().await;

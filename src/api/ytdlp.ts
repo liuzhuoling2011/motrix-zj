@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import type { ParseResult, YtdlpProgress } from '@shared/types'
+import type { ParseResult, YtdlpProgress, YtdlpLog } from '@shared/types'
 
 /** Parses a URL with yt-dlp to detect video/playlist content.
  *  `cookie` / `userAgent` are forwarded as `--cookies` (Netscape file) and
@@ -65,6 +65,13 @@ export async function cancelDownload(taskId: string): Promise<void> {
 /** Subscribes to yt-dlp download progress events. Returns an unlisten function. */
 export async function onProgress(callback: (progress: YtdlpProgress) => void): Promise<() => void> {
   return listen<YtdlpProgress>('ytdlp-progress', (event) => {
+    callback(event.payload)
+  })
+}
+
+/** Subscribes to yt-dlp raw log lines (stdout / stderr). One event per line. */
+export async function onLog(callback: (entry: YtdlpLog) => void): Promise<() => void> {
+  return listen<YtdlpLog>('ytdlp-log', (event) => {
     callback(event.payload)
   })
 }

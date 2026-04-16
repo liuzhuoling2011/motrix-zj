@@ -510,3 +510,9 @@ export interface YtdlpProgress {
   speed?: string
   eta?: string
 }
+
+export interface YtdlpLog {
+  taskId: string
+  stream: 'stdout' | 'stderr'
+  line: string
+}

@@ -28,7 +28,7 @@ use tauri_plugin_shell::ShellExt;
 use tokio::sync::Mutex;
 
 use super::client::YtdlpHeaders;
-use super::types::{YtdlpProgress, YtdlpTaskStatus};
+use super::types::{YtdlpLog, YtdlpProgress, YtdlpTaskStatus};
 use crate::history::HistoryDbState;
 use crate::error::AppError;
 
@@ -127,6 +127,11 @@ pub async fn start_download(
     let app_handle = app.clone();
 
     tauri::async_runtime::spawn(async move {
+        // Tracks the most recent filename yt-dlp announced via "[Merger]
+        // Merging formats into ..." or "[download] Destination: ...".
+        // Used on Terminated to align history.name with what's on disk.
+        let mut last_filename: Option<String> = None;
+
         while let Some(event) = rx.recv().await {
             match event {
                 CommandEvent::Stdout(line) => {
@@ -135,18 +140,40 @@ pub async fn start_download(
                     if trimmed.is_empty() {
                         continue;
                     }
+
+                    if let Some(name) = extract_destination(trimmed) {
+                        last_filename = Some(name);
+                    }
+
                     if let Some(progress) = parse_progress_line(trimmed, &task_id_for_monitor) {
                         if let Err(e) = app_handle.emit("ytdlp-progress", &progress) {
                             log::warn!("failed to emit ytdlp-progress: {e}");
                         }
+                    } else {
+                        // Non-progress lines (status messages, warnings) — surface
+                        // them to the UI so the user knows what's happening when
+                        // the progress bar is still at 0%.
+                        let log_event = YtdlpLog {
+                            task_id: task_id_for_monitor.clone(),
+                            stream: "stdout".to_string(),
+                            line: trimmed.to_string(),
+                        };
+                        let _ = app_handle.emit("ytdlp-log", &log_event);
                     }
                 }
                 CommandEvent::Stderr(line) => {
                     let text = String::from_utf8_lossy(&line);
                     let trimmed = text.trim();
-                    if !trimmed.is_empty() {
-                        log::warn!("yt-dlp stderr [{task_id_for_monitor}]: {trimmed}");
+                    if trimmed.is_empty() {
+                        continue;
                     }
+                    log::warn!("yt-dlp stderr [{task_id_for_monitor}]: {trimmed}");
+                    let log_event = YtdlpLog {
+                        task_id: task_id_for_monitor.clone(),
+                        stream: "stderr".to_string(),
+                        line: trimmed.to_string(),
+                    };
+                    let _ = app_handle.emit("ytdlp-log", &log_event);
                 }
                 CommandEvent::Terminated(payload) => {
                     let exit_code = payload.code.unwrap_or(-1);
@@ -185,6 +212,24 @@ pub async fn start_download(
                             .await
                         {
                             log::warn!("failed to update ytdlp history status: {e}");
+                        }
+
+                        // Sync stored filename with what yt-dlp wrote so the UI's
+                        // file-exists check resolves correctly. yt-dlp's own
+                        // sanitization may differ from our pre-computed name.
+                        if let Some(path) = last_filename.as_ref() {
+                            if let Some(basename) = std::path::Path::new(path)
+                                .file_name()
+                                .and_then(|s| s.to_str())
+                            {
+                                if let Err(e) = history_state
+                                    .0
+                                    .update_name(&task_id_for_monitor, basename)
+                                    .await
+                                {
+                                    log::warn!("failed to sync ytdlp filename: {e}");
+                                }
+                            }
                         }
                     }
 
@@ -292,6 +337,31 @@ fn kill_pid(pid: u32) -> Result<(), AppError> {
 ///
 /// `downloaded_bytes` and `total_bytes` are raw `u64` integers coming from the
 /// `%(progress.downloaded_bytes)d` / `%(progress.total_bytes)d` template
+/// Extracts the on-disk destination path that yt-dlp announces in lines like:
+///   `[download] Destination: /path/to/file.mp4`
+///   `[Merger] Merging formats into "/path/to/file.mp4"`
+///
+/// Returns the path as written by yt-dlp (with whatever sanitization yt-dlp
+/// applied to the title), or `None` if the line doesn't match either form.
+fn extract_destination(line: &str) -> Option<String> {
+    let trimmed = line.trim();
+    if let Some(rest) = trimmed.strip_prefix("[download] Destination:") {
+        let s = rest.trim();
+        if !s.is_empty() {
+            return Some(s.to_string());
+        }
+    }
+    if let Some(rest) = trimmed.strip_prefix("[Merger] Merging formats into") {
+        let s = rest.trim().trim_matches('"').trim();
+        if !s.is_empty() {
+            return Some(s.to_string());
+        }
+    }
+    None
+}
+
+/// Parses a yt-dlp progress line emitted by `--progress-template`. Splits on
+/// whitespace and reads percent / downloaded / total / speed / eta from fixed
 /// fields.
 ///
 /// Returns:
