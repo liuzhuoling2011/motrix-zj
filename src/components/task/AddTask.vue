@@ -26,6 +26,10 @@ import { downloadDir } from '@tauri-apps/api/path'
 import { logger } from '@shared/logger'
 
 import { resolveUnresolvedItems, chooseTorrentFile as chooseTorrentFileImpl } from '@/composables/useAddTaskFileOps'
+import { useVideoFlow } from '@/composables/useVideoFlow'
+import * as ytdlpApi from '@/api/ytdlp'
+import VideoInfoPanel from './VideoInfoPanel.vue'
+import PlaylistPanel from './PlaylistPanel.vue'
 import {
   NModal,
   NCard,
@@ -67,6 +71,9 @@ const showAdvanced = ref(false)
 const submitting = ref(false)
 const selectedBatchIndex = ref(0)
 
+const videoFlow = useVideoFlow()
+let parseTimer: ReturnType<typeof setTimeout> | null = null
+
 const form = ref({
   uris: '',
   out: '',
@@ -102,6 +109,23 @@ watch(globalProxyAvailable, (available) => {
     form.value.proxyMode = 'none'
   }
 })
+
+// Auto-detect video URLs when user types/pastes a single URL
+watch(
+  () => form.value.uris,
+  (newVal) => {
+    if (parseTimer) clearTimeout(parseTimer)
+    videoFlow.reset()
+
+    const trimmed = (newVal ?? '').trim()
+    // Only try to parse single URLs (no newlines) that look like web URLs
+    if (trimmed && !trimmed.includes('\n') && /^https?:\/\//i.test(trimmed)) {
+      parseTimer = setTimeout(() => {
+        void videoFlow.tryParseUrl(trimmed)
+      }, 500)
+    }
+  },
+)
 
 const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
 
@@ -356,6 +380,7 @@ function handleClose() {
   })
   submitting.value = false
   selectedBatchIndex.value = 0
+  videoFlow.reset()
 }
 
 async function handleSubmit() {
@@ -381,6 +406,54 @@ async function handleSubmit() {
     }
     const options = buildEngineOptions(effectiveForm)
     let manualResult = { magnetGids: [] as string[], magnetFailures: [] as { uri: string; error: string }[] }
+
+    // ── yt-dlp video/playlist branch ──────────────────────────────────
+    if (videoFlow.isVideo.value || videoFlow.isPlaylist.value) {
+      // Flatten Aria2EngineOptions (string | string[] | undefined) to Record<string, string>
+      // required by the yt-dlp bridge — arrays are joined with newlines (aria2 convention),
+      // and undefined values are dropped.
+      const videoOptions: Record<string, string> = {}
+      for (const [k, v] of Object.entries(options)) {
+        if (v === undefined) continue
+        videoOptions[k] = Array.isArray(v) ? v.join('\n') : v
+      }
+      if (!videoOptions.dir) videoOptions.dir = effectiveForm.dir
+
+      try {
+        if (videoFlow.isVideo.value) {
+          await videoFlow.submitVideoDownload(videoOptions)
+        } else if (videoFlow.isPlaylist.value && videoFlow.playlistInfo.value) {
+          const pl = videoFlow.playlistInfo.value
+          const indices = Array.from(videoFlow.selectedPlaylistItems.value).sort((a, b) => a - b)
+          for (const i of indices) {
+            const entry = pl.entries[i]
+            if (!entry) continue
+            try {
+              await ytdlpApi.downloadDirect({
+                url: entry.url,
+                formatId: videoFlow.selectedFormatId.value || 'bestvideo+bestaudio/best',
+                options: videoOptions,
+              })
+            } catch (err) {
+              logger.error('AddTask.playlistItemDownload', { title: entry.title, err })
+            }
+          }
+        }
+        await taskStore.fetchList()
+        handleClose()
+        if (preferenceStore.config.newTaskShowDownloading !== false) {
+          router.push({ path: '/task/all' }).catch(() => {})
+        }
+        return
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err)
+        logger.error('AddTask.videoSubmit', err)
+        message.error(errMsg, { closable: true })
+        submitting.value = false
+        return
+      }
+    }
+    // ── End yt-dlp branch ─────────────────────────────────────────────
 
     if (hasBatch.value) {
       await submitBatchItems(batch.value, options, taskStore)
@@ -501,6 +574,30 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
                   :placeholder="t('task.uri-task-tips') || 'One URL per line'"
                 />
               </NFormItem>
+
+              <!-- Video detection -->
+              <div v-if="videoFlow.isParsing.value" class="video-loading">正在解析视频信息...</div>
+
+              <VideoInfoPanel
+                v-if="videoFlow.isVideo.value && videoFlow.videoInfo.value"
+                :video="videoFlow.videoInfo.value"
+                :presets="videoFlow.formatPresets.value"
+                :selected-format-id="videoFlow.selectedFormatId.value"
+                :show-all-formats="videoFlow.showAllFormats.value"
+                @update:selected-format-id="(id: string) => (videoFlow.selectedFormatId.value = id)"
+                @update:show-all-formats="(show: boolean) => (videoFlow.showAllFormats.value = show)"
+              />
+
+              <PlaylistPanel
+                v-if="videoFlow.isPlaylist.value && videoFlow.playlistInfo.value"
+                :playlist="videoFlow.playlistInfo.value"
+                :selected-items="videoFlow.selectedPlaylistItems.value"
+                :presets="videoFlow.formatPresets.value"
+                :selected-format-id="videoFlow.selectedFormatId.value"
+                @toggle-item="videoFlow.togglePlaylistItem"
+                @toggle-select-all="videoFlow.toggleSelectAll"
+                @update:selected-format-id="(id: string) => (videoFlow.selectedFormatId.value = id)"
+              />
             </div>
           </NTabPane>
 
@@ -722,6 +819,14 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
   font-size: var(--font-size-sm);
   color: var(--m3-error);
   flex: 1;
+}
+
+/* ── Video detection loading hint ─────────────────────────────────── */
+.video-loading {
+  padding: 12px;
+  text-align: center;
+  font-size: 13px;
+  opacity: 0.7;
 }
 </style>
 
