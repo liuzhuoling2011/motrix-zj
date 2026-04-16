@@ -20,17 +20,24 @@ const PARSE_TIMEOUT: Duration = Duration::from_secs(30);
 pub struct YtdlpHeaders {
     pub cookie: Option<String>,
     pub user_agent: Option<String>,
+    /// Name of a local browser whose cookie store yt-dlp should read
+    /// (e.g. "chrome", "firefox", "safari"). When set, takes precedence
+    /// over `cookie` because it avoids YouTube's session-bound cookie
+    /// rotation that invalidates copy-pasted cookies.
+    pub cookies_from_browser: Option<String>,
 }
 
 impl YtdlpHeaders {
-    /// Builds `--user-agent` / `--cookies <file>` CLI args.
+    /// Builds `--user-agent` / `--cookies-from-browser` / `--cookies <file>` args.
     ///
-    /// If `cookie` is set, parses the `name=value; name=value; …` string into
-    /// a Netscape-format `cookies.txt` under the app data dir and passes it via
-    /// `--cookies`.  YouTube rejects `--add-header Cookie:…` entirely and
-    /// demands a cookies file, so we always take the file route when the user
-    /// provides cookies. The domain is derived from `target_url` so the cookies
-    /// are scoped correctly.
+    /// Precedence for cookie sources:
+    ///   1. `cookies_from_browser` — `--cookies-from-browser <name>`; reads
+    ///      the user's live browser cookie DB (best for YouTube).
+    ///   2. `cookie` — parsed into a Netscape `cookies.txt` and passed via
+    ///      `--cookies`; scoped to the URL's domain.
+    ///
+    /// When both are set, the browser source wins and the pasted cookie is
+    /// ignored to keep the final CLI unambiguous.
     pub async fn resolve_args(
         &self,
         app: &tauri::AppHandle,
@@ -41,7 +48,14 @@ impl YtdlpHeaders {
             args.push("--user-agent".to_string());
             args.push(ua.clone());
         }
-        if let Some(cookie) = self.cookie.as_ref().filter(|s| !s.trim().is_empty()) {
+        if let Some(browser) = self
+            .cookies_from_browser
+            .as_ref()
+            .filter(|s| !s.trim().is_empty())
+        {
+            args.push("--cookies-from-browser".to_string());
+            args.push(browser.clone());
+        } else if let Some(cookie) = self.cookie.as_ref().filter(|s| !s.trim().is_empty()) {
             let path = write_cookies_file(app, target_url, cookie).await?;
             args.push("--cookies".to_string());
             args.push(path.to_string_lossy().into_owned());

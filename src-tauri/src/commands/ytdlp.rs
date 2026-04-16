@@ -75,7 +75,11 @@ fn headers_from_options(options: &serde_json::Value) -> YtdlpHeaders {
 
     let cookie = cookie_from_top.or(cookie_from_headers);
 
-    YtdlpHeaders { cookie, user_agent }
+    YtdlpHeaders {
+        cookie,
+        user_agent,
+        cookies_from_browser: None,
+    }
 }
 
 /// Parses a URL with yt-dlp to detect video/playlist content.
@@ -90,10 +94,12 @@ pub async fn ytdlp_parse_url(
     url: String,
     cookie: Option<String>,
     user_agent: Option<String>,
+    cookies_from_browser: Option<String>,
 ) -> Result<ParseResult, AppError> {
     let headers = YtdlpHeaders {
         cookie,
         user_agent,
+        cookies_from_browser,
     };
     ytdlp::client::parse_url(&app, &url, &headers).await
 }
@@ -117,10 +123,13 @@ pub async fn ytdlp_download_via_aria2(
     url: String,
     format_id: String,
     options: serde_json::Value,
+    cookies_from_browser: Option<String>,
 ) -> Result<String, AppError> {
     // Resolve the format to get direct URL. Pass the caller's cookie/UA so
-    // the re-parse can also bypass bot detection.
-    let headers = headers_from_options(&options);
+    // the re-parse can also bypass bot detection; browser cookies take
+    // precedence for sites that invalidate exported cookies (YouTube).
+    let mut headers = headers_from_options(&options);
+    headers.cookies_from_browser = cookies_from_browser;
     let video = ytdlp::client::parse_playlist_item(&app, &url, &headers).await?;
 
     let format = video
@@ -177,6 +186,7 @@ pub async fn ytdlp_download_direct(
     ext: String,
     meta: serde_json::Value,
     options: serde_json::Value,
+    cookies_from_browser: Option<String>,
 ) -> Result<String, AppError> {
     let dir = options
         .get("dir")
@@ -188,12 +198,14 @@ pub async fn ytdlp_download_direct(
     // template, so we don't need to re-parse the video metadata here — the
     // frontend already has it from the initial ytdlp_parse_url call.
     let output_template = format!("{}/%(title)s.%(ext)s", dir.trim_end_matches(['/', '\\']));
-    let headers = headers_from_options(&options);
+    let mut headers = headers_from_options(&options);
+    headers.cookies_from_browser = cookies_from_browser;
     log::info!(
-        "ytdlp_download_direct options.header={:?} cookie_set={} ua_set={}",
+        "ytdlp_download_direct options.header={:?} cookie_set={} ua_set={} browser={:?}",
         options.get("header"),
         headers.cookie.is_some(),
         headers.user_agent.is_some(),
+        headers.cookies_from_browser,
     );
 
     let task_id = ytdlp::downloader::start_download(

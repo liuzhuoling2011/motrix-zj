@@ -3,13 +3,21 @@ import { listen } from '@tauri-apps/api/event'
 import type { ParseResult, YtdlpProgress } from '@shared/types'
 
 /** Parses a URL with yt-dlp to detect video/playlist content.
- *  `cookie` and `userAgent` are forwarded as `--add-header Cookie:…` and
- *  `--user-agent …` to bypass bot detection on YouTube / Bilibili. */
-export async function parseUrl(url: string, cookie?: string, userAgent?: string): Promise<ParseResult> {
+ *  `cookie` / `userAgent` are forwarded as `--cookies` (Netscape file) and
+ *  `--user-agent` respectively. `cookiesFromBrowser` (chrome/firefox/…) takes
+ *  priority over `cookie` — yt-dlp reads the live cookie store directly, which
+ *  avoids YouTube's cookie-rotation anti-abuse. */
+export async function parseUrl(
+  url: string,
+  cookie?: string,
+  userAgent?: string,
+  cookiesFromBrowser?: string,
+): Promise<ParseResult> {
   return invoke<ParseResult>('ytdlp_parse_url', {
     url,
     cookie: cookie?.trim() ? cookie : null,
     userAgent: userAgent?.trim() ? userAgent : null,
+    cookiesFromBrowser: cookiesFromBrowser?.trim() ? cookiesFromBrowser : null,
   })
 }
 
@@ -18,11 +26,13 @@ export async function downloadViaAria2(params: {
   url: string
   formatId: string
   options: Record<string, string>
+  cookiesFromBrowser?: string
 }): Promise<string> {
   return invoke<string>('ytdlp_download_via_aria2', {
     url: params.url,
     formatId: params.formatId,
     options: params.options,
+    cookiesFromBrowser: params.cookiesFromBrowser?.trim() ? params.cookiesFromBrowser : null,
   })
 }
 
@@ -34,6 +44,7 @@ export async function downloadDirect(params: {
   ext: string
   meta: Record<string, unknown>
   options: Record<string, string>
+  cookiesFromBrowser?: string
 }): Promise<string> {
   return invoke<string>('ytdlp_download_direct', {
     url: params.url,
@@ -42,6 +53,7 @@ export async function downloadDirect(params: {
     ext: params.ext,
     meta: params.meta,
     options: params.options,
+    cookiesFromBrowser: params.cookiesFromBrowser?.trim() ? params.cookiesFromBrowser : null,
   })
 }
 

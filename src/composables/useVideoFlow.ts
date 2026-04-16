@@ -88,8 +88,14 @@ export function useVideoFlow() {
   })
 
   /** Attempts to parse a URL. Returns true if it's a video/playlist.
-   *  `cookie` and `userAgent` are forwarded to yt-dlp to bypass bot detection. */
-  async function tryParseUrl(url: string, cookie?: string, userAgent?: string): Promise<boolean> {
+   *  `cookie`, `userAgent`, and `cookiesFromBrowser` are forwarded to yt-dlp
+   *  to bypass bot detection. */
+  async function tryParseUrl(
+    url: string,
+    cookie?: string,
+    userAgent?: string,
+    cookiesFromBrowser?: string,
+  ): Promise<boolean> {
     if (!url.trim()) return false
 
     isParsing.value = true
@@ -100,7 +106,7 @@ export function useVideoFlow() {
     showAllFormats.value = false
 
     try {
-      const result = await ytdlpApi.parseUrl(url, cookie, userAgent)
+      const result = await ytdlpApi.parseUrl(url, cookie, userAgent, cookiesFromBrowser)
       parseResult.value = result
 
       if (result.type === 'Video') {
@@ -148,8 +154,9 @@ export function useVideoFlow() {
     return format.protocol !== 'https' && format.protocol !== 'http'
   }
 
-  /** Submits a single video download using the provided aria2 options. */
-  async function submitVideoDownload(options: Record<string, string>): Promise<string> {
+  /** Submits a single video download using the provided aria2 options.
+   *  `cookiesFromBrowser` is yt-dlp-only and bypasses pasted cookies. */
+  async function submitVideoDownload(options: Record<string, string>, cookiesFromBrowser?: string): Promise<string> {
     const fmtId = selectedFormatId.value
     const info = videoInfo.value
     if (!info) throw new Error('no video info')
@@ -176,12 +183,14 @@ export function useVideoFlow() {
         ext,
         meta,
         options,
+        cookiesFromBrowser,
       })
     }
     return ytdlpApi.downloadViaAria2({
       url: info.url,
       formatId: fmtId,
       options,
+      cookiesFromBrowser,
     })
   }
 

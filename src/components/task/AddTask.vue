@@ -82,6 +82,7 @@ const form = ref({
   authorization: '',
   referer: '',
   cookie: '',
+  cookiesFromBrowser: '',
   proxyMode: (isGlobalDownloadProxyActive(preferenceStore.config.proxy) ? 'global' : 'none') as
     | 'none'
     | 'global'
@@ -128,7 +129,7 @@ async function handleParseMedia() {
     })
     return
   }
-  await videoFlow.tryParseUrl(trimmed, form.value.cookie, form.value.userAgent)
+  await videoFlow.tryParseUrl(trimmed, form.value.cookie, form.value.userAgent, form.value.cookiesFromBrowser)
 }
 
 const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
@@ -379,6 +380,7 @@ function handleClose() {
     authorization: '',
     referer: '',
     cookie: '',
+    cookiesFromBrowser: '',
     proxyMode: isGlobalDownloadProxyActive(preferenceStore.config.proxy) ? 'global' : 'none',
     customProxy: '',
   })
@@ -425,7 +427,7 @@ async function handleSubmit() {
 
       try {
         if (videoFlow.isVideo.value) {
-          await videoFlow.submitVideoDownload(videoOptions)
+          await videoFlow.submitVideoDownload(videoOptions, form.value.cookiesFromBrowser)
         } else if (videoFlow.isPlaylist.value && videoFlow.playlistInfo.value) {
           const pl = videoFlow.playlistInfo.value
           const indices = Array.from(videoFlow.selectedPlaylistItems.value).sort((a, b) => a - b)
@@ -446,6 +448,7 @@ async function handleSubmit() {
                   download_mode: 'ytdlp_direct',
                 },
                 options: videoOptions,
+                cookiesFromBrowser: form.value.cookiesFromBrowser,
               })
             } catch (err) {
               logger.error('AddTask.playlistItemDownload', { title: entry.title, err })
@@ -701,6 +704,7 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
             v-model:authorization="form.authorization"
             v-model:referer="form.referer"
             v-model:cookie="form.cookie"
+            v-model:cookies-from-browser="form.cookiesFromBrowser"
             v-model:proxy-mode="form.proxyMode"
             v-model:custom-proxy="form.customProxy"
             :global-proxy-available="globalProxyAvailable"
