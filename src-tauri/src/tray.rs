@@ -192,6 +192,34 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
                         }
                     });
                 }
+                "tray-quit" => {
+                    // Handle quit directly — do NOT emit to frontend.
+                    // In lightweight mode the WebView is destroyed (window.destroy()),
+                    // so app.emit() would silently fail. app.exit(0) triggers the
+                    // RunEvent::Exit handler for full cleanup (save session,
+                    // stop engine, unmap UPnP). issue #194.
+                    log::info!("tray:quit — exiting app");
+                    app.exit(0);
+                }
+                "tray-new-task" => {
+                    // Ensure the window exists before emitting the "new-task" event.
+                    // In lightweight mode, destroy() killed the WebView — emit would
+                    // go nowhere. Recreate the window first so the newly loaded
+                    // frontend can receive the event and open the Add Task dialog.
+                    log::info!("tray:new-task — ensuring window exists");
+                    #[cfg(target_os = "macos")]
+                    {
+                        use tauri::ActivationPolicy;
+                        let _ = app.set_activation_policy(ActivationPolicy::Regular);
+                    }
+                    if let Some(window) = get_or_create_main_window(app) {
+                        let _ = window.unminimize();
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                    // Emit to the (now existing) frontend to open the Add Task dialog
+                    let _ = app.emit("tray-menu-action", "new-task");
+                }
                 _ => {
                     if let Some(action) = resolve_tray_action(id) {
                         let _ = app.emit("tray-menu-action", action);
@@ -208,16 +236,18 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
 
 /// Maps a tray menu event ID to the action string emitted to the frontend.
 ///
-/// Returns `None` for actions handled natively (show, pause-all, resume-all)
-/// and for unknown IDs.
+/// Returns `None` for actions handled natively in `on_menu_event`
+/// (show, pause-all, resume-all, quit, new-task) and for unknown IDs.
 ///
-/// This is a pure function extracted from the `on_menu_event` closure
-/// so it can be unit-tested without a Tauri runtime.
+/// All tray actions are now handled directly in Rust to work correctly
+/// when the WebView is destroyed in lightweight mode (issue #194).
+/// This function remains as a fallback for future extensibility.
 pub fn resolve_tray_action(menu_id: &str) -> Option<&str> {
     match menu_id {
-        "tray-new-task" => Some("new-task"),
-        "tray-quit" => Some("quit"),
-        // "show", "tray-pause-all", "tray-resume-all" are handled natively
+        // All known tray actions are handled natively in on_menu_event.
+        // "show", "tray-pause-all", "tray-resume-all" — direct aria2/window ops
+        // "tray-quit" — app.exit(0)
+        // "tray-new-task" — get_or_create_main_window + emit
         _ => None,
     }
 }
@@ -227,25 +257,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn resolve_new_task() {
-        assert_eq!(resolve_tray_action("tray-new-task"), Some("new-task"));
+    fn resolve_quit_handled_natively() {
+        // tray-quit is handled directly by app.exit(0) in on_menu_event,
+        // not routed through resolve_tray_action → emit to frontend.
+        // This ensures quit works even when the WebView is destroyed
+        // (lightweight mode). See issue #194.
+        assert_eq!(resolve_tray_action("tray-quit"), None);
+    }
+
+    #[test]
+    fn resolve_new_task_handled_natively() {
+        // tray-new-task is handled directly in on_menu_event:
+        // get_or_create_main_window() + emit. Not routed through
+        // resolve_tray_action. Ensures window is recreated in
+        // lightweight mode before the event is emitted.
+        assert_eq!(resolve_tray_action("tray-new-task"), None);
     }
 
     #[test]
     fn resolve_pause_all_handled_natively() {
-        // pause-all is now handled directly in on_menu_event, not emitted
         assert_eq!(resolve_tray_action("tray-pause-all"), None);
     }
 
     #[test]
     fn resolve_resume_all_handled_natively() {
-        // resume-all is now handled directly in on_menu_event, not emitted
         assert_eq!(resolve_tray_action("tray-resume-all"), None);
-    }
-
-    #[test]
-    fn resolve_quit() {
-        assert_eq!(resolve_tray_action("tray-quit"), Some("quit"));
     }
 
     #[test]

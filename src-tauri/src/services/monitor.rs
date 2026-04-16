@@ -2,12 +2,18 @@
 //!
 //! Runs as a background tokio task, scanning active + stopped slices
 //! for new completions, errors, and BT-seeding transitions.
-//! Emits Tauri events to the frontend for notification display and
-//! history persistence.
+//!
+//! Persists history records to the Rust-side `HistoryDb` directly,
+//! ensuring task completion data survives even when the WebView is
+//! destroyed in lightweight mode (issue #194).
+//!
+//! Also emits Tauri events to the frontend for notification display
+//! when the WebView is available.
 //!
 //! Port of the frontend `createTaskLifecycleService`.
 
 use crate::aria2::types::Aria2Task;
+use crate::history::HistoryDbState;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
@@ -85,6 +91,50 @@ impl TaskEvent {
             }
         }
         String::new()
+    }
+}
+
+/// Converts a [`TaskEvent`] into a [`HistoryRecord`] for Rust-side DB persistence.
+///
+/// This enables the task monitor to write history records directly to the database,
+/// bypassing the frontend. Critical for lightweight mode where the WebView is
+/// destroyed — without this, task completions during headless operation would
+/// be silently lost (issue #194 follow-up).
+///
+/// The resulting record uses `ON CONFLICT(gid) DO UPDATE` when inserted,
+/// so duplicate writes from both Rust and frontend are idempotent.
+pub fn build_history_record(event: &TaskEvent, event_name: &str) -> crate::history::HistoryRecord {
+    let status = match event_name {
+        events::TASK_COMPLETE | events::BT_COMPLETE => "complete",
+        events::TASK_ERROR => "error",
+        _ => "unknown",
+    };
+
+    let task_type = if event.is_bt {
+        Some("bt".to_string())
+    } else {
+        Some("uri".to_string())
+    };
+
+    let total_length = event.total_length.parse::<i64>().ok();
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Store infoHash in meta for BT deduplication (matches frontend behavior)
+    let meta = event.info_hash.clone();
+
+    crate::history::HistoryRecord {
+        id: None,
+        gid: event.gid.clone(),
+        name: event.name.clone(),
+        uri: None,
+        dir: Some(event.dir.clone()),
+        total_length,
+        status: status.to_string(),
+        task_type,
+        added_at: Some(now.clone()),
+        created_at: None,
+        completed_at: Some(now),
+        meta,
     }
 }
 
@@ -237,6 +287,33 @@ async fn monitor_loop(
 
         // Gate on user preference — skip notification events when disabled
         if !events.is_empty() {
+            // ── Rust-side history persistence (lightweight mode safety) ──
+            // Write completion/error records directly to the DB so they
+            // survive even when the WebView is destroyed. Uses UPSERT
+            // (ON CONFLICT DO UPDATE) so duplicate writes from both Rust
+            // and frontend are idempotent.
+            if let Some(db_state) = app.try_state::<HistoryDbState>() {
+                for (event_name, payload) in &events {
+                    if event_name == events::TASK_COMPLETE
+                        || event_name == events::BT_COMPLETE
+                        || event_name == events::TASK_ERROR
+                    {
+                        let record = build_history_record(payload, event_name);
+                        let db = db_state.0.clone();
+                        // Spawn a non-blocking write — monitor loop must not
+                        // block on DB I/O to keep polling responsive.
+                        let event_name_owned = event_name.clone();
+                        tokio::spawn(async move {
+                            if let Err(e) = db.add_record(&record).await {
+                                log::warn!(
+                                    "task_monitor: history write failed for {event_name_owned}: {e}"
+                                );
+                            }
+                        });
+                    }
+                }
+            }
+
             let notifications_enabled = app
                 .try_state::<super::config::RuntimeConfigState>()
                 .map(|rc| {
@@ -516,5 +593,87 @@ mod tests {
         assert!(types.contains(&events::TASK_COMPLETE));
         assert!(types.contains(&events::TASK_ERROR));
         assert!(types.contains(&events::BT_COMPLETE));
+    }
+
+    // ── build_history_record unit tests ─────────────────────────────
+    //
+    // Validates the pure conversion from TaskEvent → HistoryRecord.
+    // This function enables Rust-side DB persistence so that history
+    // records are written even when the WebView is destroyed in
+    // lightweight mode (issue #194 follow-up).
+
+    #[test]
+    fn build_history_record_sets_complete_status_for_task_complete() {
+        let task = make_task("g1", "complete");
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::TASK_COMPLETE);
+
+        assert_eq!(record.gid, "g1");
+        assert_eq!(record.status, "complete");
+        assert_eq!(record.name, "test.zip");
+        assert!(record.completed_at.is_some());
+    }
+
+    #[test]
+    fn build_history_record_sets_complete_status_for_bt_complete() {
+        let task = make_bt_task("g2", "active", true);
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::BT_COMPLETE);
+
+        assert_eq!(record.gid, "g2");
+        assert_eq!(record.status, "complete");
+        assert_eq!(record.name, "Ubuntu.iso");
+        assert!(record.completed_at.is_some());
+        // BT tasks store infoHash in the meta field for deduplication
+        assert_eq!(record.meta, Some("abcdef1234567890".to_string()));
+    }
+
+    #[test]
+    fn build_history_record_sets_error_status_for_task_error() {
+        let task = make_error_task("g3", "5");
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::TASK_ERROR);
+
+        assert_eq!(record.gid, "g3");
+        assert_eq!(record.status, "error");
+        assert!(record.completed_at.is_some());
+    }
+
+    #[test]
+    fn build_history_record_populates_dir_and_total_length() {
+        let task = make_task("g1", "complete");
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::TASK_COMPLETE);
+
+        assert_eq!(record.dir, Some("/tmp".to_string()));
+        assert_eq!(record.total_length, Some(1024));
+    }
+
+    #[test]
+    fn build_history_record_derives_task_type_for_bt() {
+        let task = make_bt_task("g1", "active", true);
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::BT_COMPLETE);
+
+        assert_eq!(record.task_type, Some("bt".to_string()));
+    }
+
+    #[test]
+    fn build_history_record_derives_task_type_for_uri() {
+        let task = make_task("g1", "complete");
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::TASK_COMPLETE);
+
+        assert_eq!(record.task_type, Some("uri".to_string()));
+    }
+
+    #[test]
+    fn build_history_record_id_is_none() {
+        let task = make_task("g1", "complete");
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::TASK_COMPLETE);
+
+        // DB auto-assigns the id via AUTOINCREMENT
+        assert!(record.id.is_none());
     }
 }

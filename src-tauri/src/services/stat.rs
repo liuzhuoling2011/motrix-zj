@@ -14,12 +14,16 @@ use tauri::Emitter;
 use tauri::Manager;
 use tokio::sync::watch;
 
-/// Adaptive polling interval constants (matching TypeScript STAT_* constants).
-const STAT_BASE_INTERVAL_MS: u64 = 3000;
-const STAT_PER_TASK_INTERVAL_MS: u64 = 200;
+/// Adaptive polling interval constants — aligned with `src/shared/timing.ts`.
+///
+/// These MUST stay in sync with the frontend `STAT_*` constants.
+/// Mismatched values cause noticeable UI update rate differences
+/// between normal and lightweight mode.
+const STAT_BASE_INTERVAL_MS: u64 = 500;
+const STAT_PER_TASK_INTERVAL_MS: u64 = 100;
 const STAT_MIN_INTERVAL_MS: u64 = 500;
 const STAT_MAX_INTERVAL_MS: u64 = 6000;
-const STAT_IDLE_INCREMENT_MS: u64 = 500;
+const STAT_IDLE_INCREMENT_MS: u64 = 100;
 
 /// Payload emitted to the frontend via `stat:update`.
 #[derive(Debug, Clone, serde::Serialize)]
@@ -51,6 +55,46 @@ fn compact_size(bytes: u64) -> String {
     } else {
         format!("{b}B")
     }
+}
+
+/// Sets the macOS Dock badge label using `NSApp().dockTile().setBadgeLabel()`.
+///
+/// This is an **app-level** API that accesses `NSApplication.sharedApplication()`
+/// directly — it does NOT require a `WebviewWindow` handle.  This is critical
+/// because in lightweight mode `window.destroy()` kills the WebView, making
+/// `get_webview_window("main")` return `None`.  The previous implementation
+/// used `window.set_badge_label()` which silently failed in that case.
+///
+/// Pass `None` to clear the badge.
+///
+/// # Safety
+///
+/// Must be called from the main thread (macOS UI thread requirement).
+/// The caller is responsible for dispatching via `app.run_on_main_thread()`
+/// when invoking from an async tokio worker.
+///
+/// # Platform
+///
+/// Compiles only on macOS (`#[cfg(target_os = "macos")]`).  On other
+/// platforms, callers gate the call with `#[cfg(...)]` at the call site.
+#[cfg(target_os = "macos")]
+pub(crate) fn set_dock_badge(label: Option<&str>) {
+    use objc2_app_kit::NSApplication;
+    use objc2_foundation::{MainThreadMarker, NSString};
+
+    // SAFETY: Caller must ensure this runs on the main thread.
+    // MainThreadMarker::new() returns None on background threads,
+    // so we try it first and bail with a warning if not on main.
+    let Some(mtm) = MainThreadMarker::new() else {
+        log::warn!("set_dock_badge called from non-main thread — badge not updated");
+        return;
+    };
+
+    let app = NSApplication::sharedApplication(mtm);
+    let dock_tile = app.dockTile();
+    let ns_label = label.map(NSString::from_str);
+    dock_tile.setBadgeLabel(ns_label.as_deref());
+    dock_tile.display();
 }
 
 /// Handle for controlling the background stat service.
@@ -133,12 +177,22 @@ async fn stat_loop(
         };
 
         // Parse string values to u64
-        let download_speed = stat.download_speed.parse::<u64>().unwrap_or(0);
+        let download_speed_raw = stat.download_speed.parse::<u64>().unwrap_or(0);
         let upload_speed = stat.upload_speed.parse::<u64>().unwrap_or(0);
         let num_active = stat.num_active.parse::<u64>().unwrap_or(0);
         let num_waiting = stat.num_waiting.parse::<u64>().unwrap_or(0);
         let num_stopped = stat.num_stopped.parse::<u64>().unwrap_or(0);
         let num_stopped_total = stat.num_stopped_total.parse::<u64>().unwrap_or(0);
+
+        // aria2 uses a 10-second sliding window for speed calculation
+        // (SpeedCalc::WINDOW_TIME = 10s). After pausing, stale bytes in the
+        // window cause getGlobalStat to report non-zero speed for up to 10s.
+        // Normalize to 0 when no tasks are actively downloading.
+        let download_speed = if num_active > 0 {
+            download_speed_raw
+        } else {
+            0
+        };
 
         // Adaptive interval
         if num_active > 0 {
@@ -158,56 +212,88 @@ async fn stat_loop(
         };
         let _ = app.emit("stat:update", &update);
 
-        // Update tray/dock from RuntimeConfig
+        // Update tray/dock/progress directly from Rust — no frontend dependency.
+        // In lightweight mode the WebView is destroyed, so app.emit() would
+        // silently fail. Direct API calls ensure tray speed, dock badge, and
+        // progress bar keep updating. See issue #194 follow-up.
         if let Some(rc_state) = app.try_state::<RuntimeConfigState>() {
             let cfg = rc_state.snapshot().await;
 
-            // Tray title
-            if cfg.tray_speedometer && (download_speed > 0 || upload_speed > 0) {
-                let title = if download_speed > 0 {
-                    format!("↓{}", compact_size(download_speed))
+            // ── Tray title (macOS menu bar / Linux appindicator label) ──
+            if let Some(tray) = app.tray_by_id("main") {
+                if cfg.tray_speedometer && (download_speed > 0 || upload_speed > 0) {
+                    let title = if download_speed > 0 {
+                        format!("↓{}", compact_size(download_speed))
+                    } else {
+                        format!("↑{}", compact_size(upload_speed))
+                    };
+                    let _ = tray.set_title(Some(&title));
                 } else {
-                    format!("↑{}", compact_size(upload_speed))
-                };
-                let _ = app.emit("stat:tray-title", title);
-            } else {
-                let _ = app.emit("stat:tray-title", String::new());
-            }
-
-            // Dock badge
-            if cfg.dock_badge_speed && download_speed > 0 {
-                let label = format!("{}/s", compact_size(download_speed));
-                let _ = app.emit("stat:dock-badge", label);
-            } else {
-                let _ = app.emit("stat:dock-badge", String::new());
-            }
-
-            // Progress bar
-            if cfg.show_progress_bar && num_active > 0 {
-                // Compute aggregate progress from active tasks
-                match aria2.tell_active().await {
-                    Ok(tasks) => {
-                        let total: u64 = tasks
-                            .iter()
-                            .filter_map(|t| t.total_length.parse::<u64>().ok())
-                            .sum();
-                        let completed: u64 = tasks
-                            .iter()
-                            .filter_map(|t| t.completed_length.parse::<u64>().ok())
-                            .sum();
-                        let progress = if total > 0 {
-                            completed as f64 / total as f64
-                        } else {
-                            0.0
-                        };
-                        let _ = app.emit("stat:progress", progress);
-                    }
-                    Err(e) => {
-                        log::debug!("stat_service: tell_active for progress failed: {e}");
-                    }
+                    let _ = tray.set_title(Some(""));
                 }
-            } else {
-                let _ = app.emit("stat:progress", -1.0_f64);
+                // Workaround: re-set icon after set_title to prevent macOS
+                // icon disappearing (Tauri/tao bug).
+                #[cfg(target_os = "macos")]
+                {
+                    let icon = crate::tray::tray_icon_image();
+                    let _ = tray.set_icon(Some(icon));
+                }
+            }
+
+            // ── Dock badge (macOS only) ──
+            // Uses NSApp().dockTile().setBadgeLabel() directly — app-level API
+            // that does NOT require a Window object. set_badge_label() on
+            // WebviewWindow fails when the window is destroyed in lightweight
+            // mode because get_webview_window("main") returns None.
+            //
+            // NSDockTile MUST be accessed on the main thread, so we dispatch
+            // via app.run_on_main_thread().
+            #[cfg(target_os = "macos")]
+            {
+                let badge_label: Option<String> = if cfg.dock_badge_speed && download_speed > 0 {
+                    Some(format!("{}/s", compact_size(download_speed)))
+                } else {
+                    None
+                };
+                let _ = app.run_on_main_thread(move || {
+                    set_dock_badge(badge_label.as_deref());
+                });
+            }
+
+            // ── Progress bar (macOS/Windows) ──
+            // Requires a webview window handle for set_progress_bar().
+            if let Some(window) = app.get_webview_window("main") {
+                if cfg.show_progress_bar && num_active > 0 {
+                    match aria2.tell_active().await {
+                        Ok(tasks) => {
+                            let total: u64 = tasks
+                                .iter()
+                                .filter_map(|t| t.total_length.parse::<u64>().ok())
+                                .sum();
+                            let completed: u64 = tasks
+                                .iter()
+                                .filter_map(|t| t.completed_length.parse::<u64>().ok())
+                                .sum();
+                            let progress = if total > 0 {
+                                completed as f64 / total as f64
+                            } else {
+                                0.0
+                            };
+                            let _ = window.set_progress_bar(tauri::window::ProgressBarState {
+                                status: Some(tauri::window::ProgressBarStatus::Normal),
+                                progress: Some((progress * 100.0) as u64),
+                            });
+                        }
+                        Err(e) => {
+                            log::debug!("stat_service: tell_active for progress failed: {e}");
+                        }
+                    }
+                } else {
+                    let _ = window.set_progress_bar(tauri::window::ProgressBarState {
+                        status: Some(tauri::window::ProgressBarStatus::None),
+                        progress: None,
+                    });
+                }
             }
         }
     }
@@ -267,8 +353,16 @@ mod tests {
     fn interval_active_reduces() {
         let mut state = IntervalState::new();
         state.update_for_active(5);
-        // 3000 - (200 * 5) = 2000
-        assert_eq!(state.current_ms, 2000);
+        // 500 - (100 * 5) = 0 → clamped to MIN (500)
+        assert_eq!(state.current_ms, STAT_MIN_INTERVAL_MS);
+    }
+
+    #[test]
+    fn interval_active_single_task() {
+        let mut state = IntervalState::new();
+        state.update_for_active(1);
+        // 500 - (100 * 1) = 400 → clamped to MIN (500)
+        assert_eq!(state.current_ms, STAT_MIN_INTERVAL_MS);
     }
 
     #[test]
@@ -291,7 +385,7 @@ mod tests {
     #[test]
     fn interval_idle_clamps_to_max() {
         let mut state = IntervalState::new();
-        for _ in 0..20 {
+        for _ in 0..200 {
             state.increase_idle();
         }
         assert_eq!(state.current_ms, STAT_MAX_INTERVAL_MS);
@@ -300,15 +394,29 @@ mod tests {
     #[test]
     fn interval_transitions_between_states() {
         let mut state = IntervalState::new();
-        // Go active
-        state.update_for_active(3);
-        assert_eq!(state.current_ms, 2400); // 3000 - 600
-                                            // Go idle
+        // Go idle
         state.increase_idle();
-        assert_eq!(state.current_ms, 2900);
-        // Go active again
-        state.update_for_active(10);
-        assert_eq!(state.current_ms, 1000); // 3000 - 2000
+        assert_eq!(state.current_ms, 600); // 500 + 100
+        state.increase_idle();
+        assert_eq!(state.current_ms, 700); // 600 + 100
+                                           // Go active — snaps to MIN
+        state.update_for_active(3);
+        // 500 - (100 * 3) = 200 → clamped to 500
+        assert_eq!(state.current_ms, STAT_MIN_INTERVAL_MS);
+    }
+
+    // ── Constant alignment with timing.ts ────────────────────────────
+
+    #[test]
+    fn constants_match_frontend_timing_ts() {
+        // These constants MUST match src/shared/timing.ts exactly.
+        // If timing.ts changes and these tests fail, update the Rust
+        // constants to stay in sync.
+        assert_eq!(STAT_BASE_INTERVAL_MS, 500, "BASE must match timing.ts");
+        assert_eq!(STAT_PER_TASK_INTERVAL_MS, 100, "PER_TASK must match");
+        assert_eq!(STAT_MIN_INTERVAL_MS, 500, "MIN must match timing.ts");
+        assert_eq!(STAT_MAX_INTERVAL_MS, 6000, "MAX must match timing.ts");
+        assert_eq!(STAT_IDLE_INCREMENT_MS, 100, "IDLE_INCREMENT must match");
     }
 
     // ── StatUpdate serialization ────────────────────────────────────

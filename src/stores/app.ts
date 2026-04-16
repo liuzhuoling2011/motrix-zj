@@ -1,26 +1,32 @@
-/** @fileoverview Pinia store for global application state: engine, tasks, stats, and polling. */
+/**
+ * @fileoverview Pinia store for global application state: engine, tasks, stats, and polling.
+ *
+ * Global stat (speed / task counts) follows a Backend-as-Source-of-Truth architecture:
+ *   Rust stat_service  ──500ms──▶  aria2 getGlobalStat
+ *                      ├──▶  tray / dock / progress (direct native API)
+ *                      └──▶  emit("stat:update")  ──▶  this store
+ *
+ * The frontend does NOT poll aria2 for global stats — it passively listens
+ * to the Rust event stream. This eliminates double RPC and redundant IPC.
+ */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-// ADD_TASK_TYPE is no longer needed — batch items carry their own kind
-import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { decodeThunderLink } from '@shared/utils'
 import { logger } from '@shared/logger'
-import { usePlatform } from '@/composables/usePlatform'
 import { STAT_BASE_INTERVAL, STAT_PER_TASK_INTERVAL, STAT_MIN_INTERVAL, STAT_MAX_INTERVAL } from '@shared/timing'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
-import type {
-  Aria2RawGlobalStat,
-  Aria2Task,
-  Aria2EngineOptions,
-  TauriUpdate,
-  AppConfig,
-  BatchItem,
-} from '@shared/types'
+import type { Aria2RawGlobalStat, Aria2EngineOptions, TauriUpdate, AppConfig, BatchItem } from '@shared/types'
 
-// Tray title (speed display) is supported on macOS (menu bar) and Linux (appindicator).
-// Windows system tray has no title API — set_title() is a no-op.
-const { isMac, isLinux } = usePlatform()
-const supportsTrayTitle = isMac.value || isLinux.value
+/** Payload shape emitted by Rust stat_service via `stat:update`. */
+interface StatPayload {
+  downloadSpeed: number
+  uploadSpeed: number
+  numActive: number
+  numWaiting: number
+  numStopped: number
+  numStoppedTotal: number
+}
 
 function normalizeFileUriPath(url: string): string {
   const decodedPath = decodeURIComponent(url.replace(/^file:\/\//i, ''))
@@ -134,17 +140,12 @@ export const useAppStore = defineStore('app', () => {
     addTaskOptions.value = { ...options }
   }
 
-  const compactSize = (b: number) => {
-    if (b < 1024) return `${b}B`
-    if (b < 1048576) return `${(b / 1024).toFixed(0)}K`
-    if (b < 1073741824) return `${(b / 1048576).toFixed(1)}M`
-    return `${(b / 1073741824).toFixed(2)}G`
-  }
-
-  async function fetchGlobalStat(api: {
-    getGlobalStat: () => Promise<Aria2RawGlobalStat>
-    fetchActiveTaskList?: () => Promise<Aria2Task[]>
-  }) {
+  /**
+   * One-shot initializer — called once when the engine becomes ready.
+   * Pulls initial stat values so the UI has data before the first Rust
+   * event arrives. Does NOT set tray/dock/progress — Rust handles those.
+   */
+  async function fetchGlobalStat(api: { getGlobalStat: () => Promise<Aria2RawGlobalStat> }) {
     try {
       const data = await api.getGlobalStat()
       const parsed: Record<string, number> = {}
@@ -160,56 +161,40 @@ export const useAppStore = defineStore('app', () => {
         increaseInterval()
       }
       stat.value = parsed as typeof stat.value
-
-      try {
-        const prefStore = (await import('@/stores/preference')).usePreferenceStore()
-
-        // Tray speed display (macOS menu bar / Linux appindicator label)
-        if (supportsTrayTitle) {
-          if (prefStore.config?.traySpeedometer && (parsed.downloadSpeed > 0 || parsed.uploadSpeed > 0)) {
-            const title =
-              parsed.downloadSpeed > 0 ? `↓${compactSize(parsed.downloadSpeed)}` : `↑${compactSize(parsed.uploadSpeed)}`
-            await invoke('update_tray_title', { title })
-          } else {
-            await invoke('update_tray_title', { title: '' })
-          }
-        }
-
-        // Dock badge speed (macOS)
-        if (prefStore.config?.dockBadgeSpeed !== false && parsed.downloadSpeed > 0) {
-          await invoke('update_dock_badge', { label: `${compactSize(parsed.downloadSpeed)}/s` })
-        } else {
-          await invoke('update_dock_badge', { label: '' })
-        }
-
-        // Dock progress bar (macOS/Windows)
-        if (prefStore.config?.showProgressBar && numActive > 0 && api.fetchActiveTaskList) {
-          try {
-            const tasks = await api.fetchActiveTaskList()
-            const totalLen = tasks.reduce((s, t) => s + Number(t.totalLength), 0)
-            const completedLen = tasks.reduce((s, t) => s + Number(t.completedLength), 0)
-            if (totalLen > 0) {
-              const prog = completedLen / totalLen
-              progress.value = prog
-              await invoke('update_progress_bar', { progress: prog })
-            } else {
-              // Tasks active but unknown size (e.g. metadata)
-              progress.value = 0
-              await invoke('update_progress_bar', { progress: 0.0 })
-            }
-          } catch (e) {
-            logger.debug('AppStore.progressBar', e)
-          }
-        } else {
-          progress.value = -1
-          await invoke('update_progress_bar', { progress: -1.0 })
-        }
-      } catch (e) {
-        logger.debug('AppStore.trayDock', e)
-      }
     } catch (e) {
       logger.warn('AppStore.fetchGlobalStat', (e as Error).message)
     }
+  }
+
+  /**
+   * Processes a single stat:update event payload from the Rust backend.
+   * Updates reactive stat values AND the adaptive polling interval that
+   * TaskView and lifecycleService depend on.
+   */
+  function handleStatEvent(payload: StatPayload) {
+    const { numActive } = payload
+    stat.value = {
+      downloadSpeed: numActive > 0 ? payload.downloadSpeed : 0,
+      uploadSpeed: payload.uploadSpeed,
+      numActive,
+      numWaiting: payload.numWaiting,
+      numStopped: payload.numStopped,
+    }
+    if (numActive > 0) {
+      updateInterval(STAT_BASE_INTERVAL - STAT_PER_TASK_INTERVAL * numActive)
+    } else {
+      increaseInterval()
+    }
+  }
+
+  /**
+   * Subscribes to the Rust stat_service's `stat:update` event stream.
+   * Returns an unlisten function for cleanup.
+   */
+  function setupStatListener(): Promise<() => void> {
+    return listen<StatPayload>('stat:update', (event) => {
+      handleStatEvent(event.payload)
+    })
   }
 
   async function fetchEngineInfo(api: { getVersion: () => Promise<{ version: string; enabledFeatures: string[] }> }) {
@@ -316,6 +301,8 @@ export const useAppStore = defineStore('app', () => {
     hideAddTaskDialog,
     updateAddTaskOptions,
     fetchGlobalStat,
+    handleStatEvent,
+    setupStatListener,
     fetchEngineInfo,
     fetchEngineOptions,
     handleDeepLinkUrls,

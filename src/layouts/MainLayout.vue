@@ -24,7 +24,7 @@ import {
   buildStatusAwareConfirmAction,
 } from '@/composables/useMagnetFlow'
 import type { MagnetFileItem } from '@/composables/useMagnetFlow'
-import aria2Api, { isEngineReady } from '@/api/aria2'
+import aria2Api from '@/api/aria2'
 import { usePlatform } from '@/composables/usePlatform'
 import { throttledResizeHandler, cancelPendingResize } from '@/layouts/resizeThrottle'
 import AsideBar from '@/components/layout/AsideBar.vue'
@@ -76,7 +76,7 @@ let unlistenSingleInstance: (() => void) | null = null
 let unlistenTrayMenu: (() => void) | null = null
 let unlistenResize: (() => void) | null = null
 let unlistenExitDialog: (() => void) | null = null
-let globalStatTimer: ReturnType<typeof setTimeout> | null = null
+let unlistenStat: (() => void) | null = null
 let lifecycleService: ReturnType<typeof createTaskLifecycleService> | null = null
 let magnetPollTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -242,28 +242,18 @@ watch(
   { deep: true, immediate: true },
 )
 
-let globalPollStopped = true
+// ── Stat listener — passive subscription to Rust stat_service events ──
+// Replaces the old frontend polling loop. Rust is the sole poller of aria2;
+// the frontend simply listens for `stat:update` and updates reactive state.
 
-function startGlobalPolling() {
-  stopGlobalPolling()
-  globalPollStopped = false
-  async function tick() {
-    if (globalPollStopped) return
-    if (isEngineReady()) {
-      await appStore.fetchGlobalStat(aria2Api).catch((e) => logger.debug('MainLayout.globalStat', e))
-    }
-    if (globalPollStopped) return
-    globalStatTimer = setTimeout(tick, appStore.interval)
-  }
-  globalStatTimer = setTimeout(tick, appStore.interval)
+async function startStatListener() {
+  stopStatListener()
+  unlistenStat = await appStore.setupStatListener()
 }
 
-function stopGlobalPolling() {
-  globalPollStopped = true
-  if (globalStatTimer) {
-    clearTimeout(globalStatTimer)
-    globalStatTimer = null
-  }
+function stopStatListener() {
+  unlistenStat?.()
+  unlistenStat = null
 }
 
 // ── Magnet metadata monitoring (app-level) ──────────────────────────
@@ -544,7 +534,7 @@ onMounted(async () => {
     }
   }
 
-  startGlobalPolling()
+  startStatListener()
 
   // ── App-level task lifecycle service ─────────────────────────────
   // Polls aria2 for active + stopped tasks independently of route/tab
@@ -787,7 +777,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  stopGlobalPolling()
+  stopStatListener()
   lifecycleService?.stop()
   if (magnetPollTimer) {
     clearTimeout(magnetPollTimer)

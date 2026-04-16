@@ -115,19 +115,21 @@ pub fn update_progress_bar(app: AppHandle, progress: f64) -> Result<(), AppError
 }
 
 /// Updates the macOS dock badge label (empty string clears the badge).
+///
+/// Uses `set_dock_badge()` which calls `NSApp().dockTile().setBadgeLabel()`
+/// directly — no Window object required.  This ensures the badge updates
+/// even when the WebView is destroyed in lightweight mode.
 #[tauri::command]
-pub fn update_dock_badge(app: AppHandle, label: String) -> Result<(), AppError> {
+pub fn update_dock_badge(_app: AppHandle, label: String) -> Result<(), AppError> {
     #[cfg(target_os = "macos")]
     {
-        if let Some(window) = app.get_webview_window("main") {
-            if label.is_empty() {
-                let _ = window.set_badge_label(None::<String>);
-            } else {
-                let _ = window.set_badge_label(Some(label));
-            }
+        if label.is_empty() {
+            crate::services::stat::set_dock_badge(None);
+        } else {
+            crate::services::stat::set_dock_badge(Some(&label));
         }
     }
-    let _ = app; // suppress unused warning on non-macOS
+    let _ = _app; // suppress unused warning on non-macOS
     let _ = label;
     Ok(())
 }

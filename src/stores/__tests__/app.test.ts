@@ -7,14 +7,12 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }))
 
-vi.mock('@tauri-apps/plugin-os', () => ({
-  platform: vi.fn(() => 'macos'),
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: vi.fn(() => Promise.resolve(() => {})),
 }))
 
-vi.mock('@/stores/preference', () => ({
-  usePreferenceStore: () => ({
-    config: { traySpeedometer: false, dockBadgeSpeed: false, showProgressBar: false },
-  }),
+vi.mock('@tauri-apps/plugin-os', () => ({
+  platform: vi.fn(() => 'macos'),
 }))
 
 import { useAppStore } from '../app'
@@ -170,7 +168,7 @@ describe('useAppStore', () => {
     })
   })
 
-  // ── fetchGlobalStat ─────────────────────────────────────────────
+  // ── fetchGlobalStat (one-shot initializer) ───────────────────────
 
   describe('fetchGlobalStat', () => {
     it('parses numeric stat values from string response', async () => {
@@ -203,7 +201,6 @@ describe('useAppStore', () => {
         }),
       }
       await store.fetchGlobalStat(api)
-      // STAT_BASE_INTERVAL - STAT_PER_TASK_INTERVAL * 3 → clamped to MIN
       expect(store.interval).toBeLessThanOrEqual(STAT_BASE_INTERVAL)
     })
 
@@ -232,13 +229,7 @@ describe('useAppStore', () => {
       await expect(store.fetchGlobalStat(api)).resolves.toBeUndefined()
     })
 
-    it('calls update_tray_title with speed when traySpeedometer enabled and downloading', async () => {
-      // Override preference mock to enable tray speedometer
-      const prefMod = await import('@/stores/preference')
-      vi.spyOn(prefMod, 'usePreferenceStore').mockReturnValue({
-        config: { traySpeedometer: true, dockBadgeSpeed: false, showProgressBar: false },
-      } as ReturnType<typeof prefMod.usePreferenceStore>)
-
+    it('does NOT invoke tray/dock/progress commands (Rust handles those)', async () => {
       const { invoke } = await import('@tauri-apps/api/core')
       const store = useAppStore()
       const api = {
@@ -251,69 +242,90 @@ describe('useAppStore', () => {
         }),
       }
       await store.fetchGlobalStat(api)
-
-      // Should have called update_tray_title with a speed string (↓...)
-      const trayCalls = (invoke as ReturnType<typeof vi.fn>).mock.calls.filter(
-        (c: unknown[]) => c[0] === 'update_tray_title',
+      // After the architectural migration, fetchGlobalStat is a pure data
+      // initializer — it must not invoke any tray/dock/progress commands.
+      const uiCalls = (invoke as ReturnType<typeof vi.fn>).mock.calls.filter((c: unknown[]) =>
+        ['update_tray_title', 'update_dock_badge', 'update_progress_bar'].includes(c[0] as string),
       )
-      expect(trayCalls.length).toBeGreaterThan(0)
-      const titleArg = trayCalls[trayCalls.length - 1][1] as { title: string }
-      expect(titleArg.title).toMatch(/↓/)
-      expect(titleArg.title.length).toBeGreaterThan(1)
+      expect(uiCalls).toHaveLength(0)
+    })
+  })
+
+  // ── handleStatEvent (Rust event → reactive state) ───────────────
+
+  describe('handleStatEvent', () => {
+    it('updates stat values from event payload', () => {
+      const store = useAppStore()
+      store.handleStatEvent({
+        downloadSpeed: 204800,
+        uploadSpeed: 10240,
+        numActive: 2,
+        numWaiting: 1,
+        numStopped: 5,
+        numStoppedTotal: 10,
+      })
+      expect(store.stat.downloadSpeed).toBe(204800)
+      expect(store.stat.uploadSpeed).toBe(10240)
+      expect(store.stat.numActive).toBe(2)
+      expect(store.stat.numWaiting).toBe(1)
+      expect(store.stat.numStopped).toBe(5)
     })
 
-    it('clears tray title when traySpeedometer enabled but no download speed', async () => {
-      const prefMod = await import('@/stores/preference')
-      vi.spyOn(prefMod, 'usePreferenceStore').mockReturnValue({
-        config: { traySpeedometer: true, dockBadgeSpeed: false, showProgressBar: false },
-      } as ReturnType<typeof prefMod.usePreferenceStore>)
-
-      const { invoke } = await import('@tauri-apps/api/core')
+    it('decreases interval when active tasks are present', () => {
       const store = useAppStore()
-      const api = {
-        getGlobalStat: vi.fn().mockResolvedValue({
-          downloadSpeed: '0',
-          uploadSpeed: '0',
-          numActive: '0',
-          numWaiting: '0',
-          numStopped: '2',
-        }),
-      }
-      await store.fetchGlobalStat(api)
-
-      const trayCalls = (invoke as ReturnType<typeof vi.fn>).mock.calls.filter(
-        (c: unknown[]) => c[0] === 'update_tray_title',
-      )
-      expect(trayCalls.length).toBeGreaterThan(0)
-      const titleArg = trayCalls[trayCalls.length - 1][1] as { title: string }
-      expect(titleArg.title).toBe('')
+      store.interval = STAT_BASE_INTERVAL
+      store.handleStatEvent({
+        downloadSpeed: 1000,
+        uploadSpeed: 0,
+        numActive: 3,
+        numWaiting: 0,
+        numStopped: 0,
+        numStoppedTotal: 0,
+      })
+      expect(store.interval).toBeLessThanOrEqual(STAT_BASE_INTERVAL)
     })
 
-    it('shows upload speed in tray when uploading but not downloading', async () => {
-      const prefMod = await import('@/stores/preference')
-      vi.spyOn(prefMod, 'usePreferenceStore').mockReturnValue({
-        config: { traySpeedometer: true, dockBadgeSpeed: false, showProgressBar: false },
-      } as ReturnType<typeof prefMod.usePreferenceStore>)
-
-      const { invoke } = await import('@tauri-apps/api/core')
+    it('increases interval when idle (numActive = 0)', () => {
       const store = useAppStore()
-      const api = {
-        getGlobalStat: vi.fn().mockResolvedValue({
-          downloadSpeed: '0',
-          uploadSpeed: '524288',
-          numActive: '1',
-          numWaiting: '0',
-          numStopped: '0',
-        }),
-      }
-      await store.fetchGlobalStat(api)
+      const before = store.interval
+      store.handleStatEvent({
+        downloadSpeed: 0,
+        uploadSpeed: 0,
+        numActive: 0,
+        numWaiting: 0,
+        numStopped: 3,
+        numStoppedTotal: 5,
+      })
+      expect(store.interval).toBeGreaterThanOrEqual(before)
+    })
 
-      const trayCalls = (invoke as ReturnType<typeof vi.fn>).mock.calls.filter(
-        (c: unknown[]) => c[0] === 'update_tray_title',
-      )
-      expect(trayCalls.length).toBeGreaterThan(0)
-      const titleArg = trayCalls[trayCalls.length - 1][1] as { title: string }
-      expect(titleArg.title).toMatch(/↑/)
+    it('zeros downloadSpeed when no active tasks', () => {
+      const store = useAppStore()
+      store.handleStatEvent({
+        downloadSpeed: 999,
+        uploadSpeed: 100,
+        numActive: 0,
+        numWaiting: 0,
+        numStopped: 1,
+        numStoppedTotal: 1,
+      })
+      // downloadSpeed is forced to 0 when numActive === 0
+      // (matches fetchGlobalStat behavior and Rust's expectation)
+      expect(store.stat.downloadSpeed).toBe(0)
+      expect(store.stat.uploadSpeed).toBe(100)
+    })
+
+    it('preserves downloadSpeed when tasks are active', () => {
+      const store = useAppStore()
+      store.handleStatEvent({
+        downloadSpeed: 512000,
+        uploadSpeed: 0,
+        numActive: 1,
+        numWaiting: 0,
+        numStopped: 0,
+        numStoppedTotal: 0,
+      })
+      expect(store.stat.downloadSpeed).toBe(512000)
     })
   })
 

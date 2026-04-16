@@ -168,17 +168,15 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                 let _ = app.emit("show-exit-dialog", ());
             }
         }
-        "about" => {
-            let _ = app.emit("menu-event", "about");
-        }
-        "new-task" => {
-            let _ = app.emit("menu-event", "new-task");
-        }
-        "open-torrent" => {
-            let _ = app.emit("menu-event", "open-torrent");
-        }
-        "preferences" => {
-            let _ = app.emit("menu-event", "preferences");
+        "about" | "new-task" | "open-torrent" | "preferences" => {
+            // These menu actions open in-app dialogs — ensure the window
+            // exists before emitting. In lightweight mode the WebView may
+            // have been destroyed, making emit a no-op.
+            if let Some(window) = tray::get_or_create_main_window(app) {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+            let _ = app.emit("menu-event", event.id().as_ref());
         }
         "release-notes" => {
             let _ = app.emit("menu-event", "release-notes");
@@ -192,6 +190,17 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.handle().clone();
     app.deep_link().on_open_url(move |event| {
         let urls: Vec<String> = event.urls().iter().map(ToString::to_string).collect();
+        // Ensure the window exists before emitting — in lightweight mode
+        // the WebView may have been destroyed, making emit a no-op.
+        #[cfg(target_os = "macos")]
+        {
+            use tauri::ActivationPolicy;
+            let _ = app_handle.set_activation_policy(ActivationPolicy::Regular);
+        }
+        if let Some(w) = tray::get_or_create_main_window(&app_handle) {
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
         let _ = app_handle.emit("deep-link-open", &urls);
     });
 
@@ -451,6 +460,35 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
         }
         tauri::RunEvent::Exit => {
             log::info!("app:exit — saving session, stopping engine and UPnP");
+
+            // ── Clear completed download records on exit ────────────
+            // When the user exits via tray-quit (app.exit(0)), the frontend's
+            // handleExitConfirm() is bypassed. Read the preference from the
+            // persistent store and clear records directly via HistoryDb.
+            // Best-effort with 2s timeout — never blocks app exit.
+            {
+                use tauri_plugin_store::StoreExt;
+                let clear_on_exit = app
+                    .store("config.json")
+                    .ok()
+                    .and_then(|s| s.get("preferences"))
+                    .and_then(|p| p.get("clearCompletedOnExit")?.as_bool())
+                    .unwrap_or(false);
+                if clear_on_exit {
+                    if let Some(db_state) = app.try_state::<history::HistoryDbState>() {
+                        let db = db_state.0.clone();
+                        let _ = tauri::async_runtime::block_on(async {
+                            tokio::time::timeout(
+                                std::time::Duration::from_secs(2),
+                                db.clear_records(Some("complete")),
+                            )
+                            .await
+                        });
+                        log::info!("app:exit — cleared completed history records");
+                    }
+                }
+            }
+
             // Save aria2 session before killing the engine so in-progress
             // downloads survive across restarts.  Best-effort with 500ms
             // timeout — never blocks app exit.
@@ -618,11 +656,21 @@ pub fn run() {
     #[cfg(desktop)]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            let _ = app.emit("single-instance-triggered", &argv);
-            if let Some(w) = app.get_webview_window("main") {
-                let _: Result<(), _> = w.show();
-                let _: Result<(), _> = w.set_focus();
+            // Use get_or_create_main_window() instead of get_webview_window()
+            // because in lightweight mode the WebView may have been destroyed.
+            // get_webview_window("main") would return None, silently failing.
+            // Recreating the window matches the tray "show" behavior. Issue #196.
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::ActivationPolicy;
+                let _ = app.set_activation_policy(ActivationPolicy::Regular);
             }
+            if let Some(w) = tray::get_or_create_main_window(app) {
+                let _ = w.unminimize();
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+            let _ = app.emit("single-instance-triggered", &argv);
         }));
     }
 
