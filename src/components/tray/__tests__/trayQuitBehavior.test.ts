@@ -220,6 +220,13 @@ describe('stat.rs — direct tray/dock/progress operations (no emit)', () => {
     expect(source).toContain('download_speed_raw')
     expect(source).toMatch(/let download_speed\s*=\s*if num_active > 0/)
   })
+
+  it('uses set_dock_progress for macOS progress bar (no Window required)', () => {
+    // Progress bar must use set_dock_progress() (NSDockTile + NSProgressIndicator)
+    // instead of window.set_progress_bar() — same pattern as dock badge.
+    // This ensures the progress bar keeps updating in lightweight mode.
+    expect(source).toContain('set_dock_progress')
+  })
 })
 
 // ═══════════════════════════════════════════════════════════════════
@@ -244,6 +251,25 @@ describe('monitor.rs — Rust-side history DB persistence', () => {
 
   it('writes to history DB via add_record', () => {
     expect(source).toContain('add_record')
+  })
+
+  it('uses build_history_meta_json for structured JSON meta (not raw infoHash)', () => {
+    // The old code stored `event.info_hash.clone()` as meta — a raw hex string
+    // that fails JSON.parse() in the frontend. The new code produces a JSON object
+    // matching the frontend's buildHistoryMeta() format.
+    expect(source).toContain('build_history_meta_json')
+    expect(source).not.toMatch(/let meta\s*=\s*event\.info_hash\.clone/)
+  })
+
+  it('TaskEvent carries file snapshots via TaskEventFile', () => {
+    // Multi-file BT tasks need file path snapshots for correct deletion
+    // and folder-opening after history round-trip.
+    expect(source).toContain('pub struct TaskEventFile')
+    expect(source).toContain('pub files: Vec<TaskEventFile>')
+  })
+
+  it('TaskEvent carries announce_list for magnet reconstruction', () => {
+    expect(source).toContain('pub announce_list: Vec<Vec<String>>')
   })
 })
 

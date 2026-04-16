@@ -97,6 +97,104 @@ pub(crate) fn set_dock_badge(label: Option<&str>) {
     dock_tile.display();
 }
 
+/// Sets the macOS Dock progress bar via `NSDockTile` + `NSProgressIndicator`.
+///
+/// This replicates tao's `set_progress_indicator` implementation which uses
+/// `NSApplication.sharedApplication().dockTile()` — an **app-level** API
+/// that does NOT require a Window object. Tauri's `window.set_progress_bar()`
+/// internally delegates to this same tao function, but our code path goes
+/// through `get_webview_window("main")` which returns None in lightweight mode.
+///
+/// Pass `None` to hide the progress bar, or `Some(0..=100)` to show it.
+///
+/// # Safety
+///
+/// Must be called from the main thread (macOS UI thread requirement).
+#[cfg(target_os = "macos")]
+pub(crate) fn set_dock_progress(progress: Option<u64>) {
+    use objc2::msg_send;
+    use objc2::runtime::AnyObject;
+
+    // SAFETY: All NSApplication/NSDockTile APIs must be called from the main thread.
+    // We verify this at runtime and bail if not on main.
+    unsafe {
+        let ns_app: *mut AnyObject = msg_send![objc2::class!(NSApplication), sharedApplication];
+        let dock_tile: *mut AnyObject = msg_send![ns_app, dockTile];
+        if dock_tile.is_null() {
+            return;
+        }
+
+        // Find existing progress indicator or create one
+        let indicator: *mut AnyObject = get_or_create_progress_indicator(ns_app, dock_tile);
+        if indicator.is_null() {
+            return;
+        }
+
+        match progress {
+            Some(pct) => {
+                let value = pct.clamp(0, 100) as f64;
+                let _: () = msg_send![indicator, setDoubleValue: value];
+                let _: () = msg_send![indicator, setHidden: false];
+            }
+            None => {
+                let _: () = msg_send![indicator, setHidden: true];
+            }
+        }
+
+        let _: () = msg_send![dock_tile, display];
+    }
+}
+
+/// Finds an existing NSProgressIndicator in the dock tile's content view,
+/// or creates one if none exists. Mirrors tao's implementation.
+#[cfg(target_os = "macos")]
+unsafe fn get_or_create_progress_indicator(
+    ns_app: *mut objc2::runtime::AnyObject,
+    dock_tile: *mut objc2::runtime::AnyObject,
+) -> *mut objc2::runtime::AnyObject {
+    use objc2::msg_send;
+    use objc2::runtime::AnyObject;
+    use objc2_foundation::{NSPoint, NSRect, NSSize};
+
+    // Try to find existing indicator
+    let content_view: *mut AnyObject = msg_send![dock_tile, contentView];
+    if !content_view.is_null() {
+        let subviews: *mut AnyObject = msg_send![content_view, subviews];
+        if !subviews.is_null() {
+            let count: usize = msg_send![subviews, count];
+            for i in 0..count {
+                let subview: *mut AnyObject = msg_send![subviews, objectAtIndex: i];
+                let is_progress: bool =
+                    msg_send![subview, isKindOfClass: objc2::class!(NSProgressIndicator)];
+                if is_progress {
+                    return subview;
+                }
+            }
+        }
+    }
+
+    // No existing indicator — create one
+    let mut image_view: *mut AnyObject = msg_send![dock_tile, contentView];
+    if image_view.is_null() {
+        let app_icon: *mut AnyObject = msg_send![ns_app, applicationIconImage];
+        image_view = msg_send![objc2::class!(NSImageView), imageViewWithImage: app_icon];
+        let _: () = msg_send![dock_tile, setContentView: image_view];
+    }
+
+    let dock_size: NSSize = msg_send![dock_tile, size];
+    let frame = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(dock_size.width, 15.0));
+
+    let indicator: *mut AnyObject = msg_send![objc2::class!(NSProgressIndicator), alloc];
+    let indicator: *mut AnyObject = msg_send![indicator, initWithFrame: frame];
+    let _: *mut AnyObject = msg_send![indicator, autorelease];
+    let _: () = msg_send![indicator, setMinValue: 0.0_f64];
+    let _: () = msg_send![indicator, setMaxValue: 100.0_f64];
+    let _: () = msg_send![indicator, setIndeterminate: false];
+
+    let _: () = msg_send![image_view, addSubview: indicator];
+    indicator
+}
+
 /// Handle for controlling the background stat service.
 pub struct StatServiceHandle {
     stop_tx: watch::Sender<bool>,
@@ -260,8 +358,47 @@ async fn stat_loop(
                 });
             }
 
-            // ── Progress bar (macOS/Windows) ──
-            // Requires a webview window handle for set_progress_bar().
+            // ── Progress bar ──
+            // macOS: Uses set_dock_progress() which operates on NSDockTile
+            // directly — app-level API, no Window required. Works in
+            // lightweight mode when WebView is destroyed.
+            // Windows: Falls back to window.set_progress_bar() which requires
+            // a webview window handle.
+            #[cfg(target_os = "macos")]
+            {
+                if cfg.show_progress_bar && num_active > 0 {
+                    match aria2.tell_active().await {
+                        Ok(tasks) => {
+                            let total: u64 = tasks
+                                .iter()
+                                .filter_map(|t| t.total_length.parse::<u64>().ok())
+                                .sum();
+                            let completed: u64 = tasks
+                                .iter()
+                                .filter_map(|t| t.completed_length.parse::<u64>().ok())
+                                .sum();
+                            let pct = if total > 0 {
+                                Some((completed as f64 / total as f64 * 100.0) as u64)
+                            } else {
+                                Some(0)
+                            };
+                            let _ = app.run_on_main_thread(move || {
+                                set_dock_progress(pct);
+                            });
+                        }
+                        Err(e) => {
+                            log::debug!("stat_service: tell_active for progress failed: {e}");
+                        }
+                    }
+                } else {
+                    let _ = app.run_on_main_thread(move || {
+                        set_dock_progress(None);
+                    });
+                }
+            }
+
+            // Windows: uses window-based progress bar API
+            #[cfg(target_os = "windows")]
             if let Some(window) = app.get_webview_window("main") {
                 if cfg.show_progress_bar && num_active > 0 {
                     match aria2.tell_active().await {

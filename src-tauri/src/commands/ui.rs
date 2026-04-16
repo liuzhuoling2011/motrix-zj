@@ -1,6 +1,7 @@
 use crate::error::AppError;
 use crate::tray::TrayMenuState;
 use serde_json::Value;
+#[cfg(not(target_os = "macos"))]
 use tauri::window::ProgressBarState;
 use tauri::AppHandle;
 use tauri::Manager;
@@ -96,8 +97,21 @@ pub fn update_menu_labels(app: AppHandle, labels: Value) -> Result<(), AppError>
 }
 
 /// Updates the taskbar/dock progress bar (0.0–1.0 for progress, negative to clear).
+///
+/// macOS: Uses `set_dock_progress()` (NSDockTile, app-level — no Window required).
+/// Windows: Uses `window.set_progress_bar()` (taskbar progress, requires Window).
 #[tauri::command]
 pub fn update_progress_bar(app: AppHandle, progress: f64) -> Result<(), AppError> {
+    #[cfg(target_os = "macos")]
+    {
+        if progress < 0.0 {
+            crate::services::stat::set_dock_progress(None);
+        } else {
+            crate::services::stat::set_dock_progress(Some((progress * 100.0) as u64));
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
     if let Some(window) = app.get_webview_window("main") {
         if progress < 0.0 {
             let _ = window.set_progress_bar(ProgressBarState {
@@ -111,6 +125,8 @@ pub fn update_progress_bar(app: AppHandle, progress: f64) -> Result<(), AppError
             });
         }
     }
+
+    let _ = app; // suppress unused warning when macOS
     Ok(())
 }
 

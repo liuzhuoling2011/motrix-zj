@@ -34,6 +34,18 @@ pub mod events {
     pub const BT_COMPLETE: &str = "task-monitor:bt-complete";
 }
 
+/// Snapshot of a single file within a TaskEvent.
+///
+/// Mirrors the frontend's `HistoryFileSnapshot` type, enabling correct
+/// multi-file deletion and folder-opening after history round-trip.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct TaskEventFile {
+    pub path: String,
+    pub length: String,
+    pub selected: String,
+    pub uris: Vec<String>,
+}
+
 /// Payload for task lifecycle events.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,6 +60,14 @@ pub struct TaskEvent {
     pub completed_length: String,
     pub info_hash: Option<String>,
     pub is_bt: bool,
+    /// Full file list snapshot — required for correct multi-file BT
+    /// history records (deletion, open-folder, stale detection).
+    #[serde(skip_serializing)]
+    pub files: Vec<TaskEventFile>,
+    /// BT tracker announce list — required for magnet link reconstruction
+    /// from history records after session restart.
+    #[serde(skip_serializing)]
+    pub announce_list: Vec<Vec<String>>,
 }
 
 impl TaskEvent {
@@ -55,6 +75,24 @@ impl TaskEvent {
         let name = Self::extract_name(task);
         let info_hash = task.info_hash.clone().filter(|h| !h.is_empty());
         let is_bt = task.bittorrent.is_some();
+
+        let files: Vec<TaskEventFile> = task
+            .files
+            .iter()
+            .map(|f| TaskEventFile {
+                path: f.path.clone(),
+                length: f.length.clone(),
+                selected: f.selected.clone(),
+                uris: f.uris.iter().map(|u| u.uri.clone()).collect(),
+            })
+            .collect();
+
+        let announce_list = task
+            .bittorrent
+            .as_ref()
+            .and_then(|bt| bt.announce_list.clone())
+            .unwrap_or_default();
+
         Self {
             gid: task.gid.clone(),
             name,
@@ -66,6 +104,8 @@ impl TaskEvent {
             completed_length: task.completed_length.clone(),
             info_hash,
             is_bt,
+            files,
+            announce_list,
         }
     }
 
@@ -94,6 +134,76 @@ impl TaskEvent {
     }
 }
 
+/// Builds the JSON `meta` field for a history record.
+///
+/// Produces a JSON object matching the frontend's `buildHistoryMeta()` format:
+/// ```json
+/// {
+///   "infoHash": "abc123...",
+///   "files": [{"path": "...", "length": "...", "selected": "true", "uris": [...]}],
+///   "announceList": [["tracker1..."], ["tracker2..."]]
+/// }
+/// ```
+///
+/// This is critical for correct behavior after history round-trip:
+/// - `infoHash` → BT deduplication in `mergeHistoryIntoTasks()`
+/// - `files`    → multi-file folder detection in `resolveOpenTarget()` / `deleteTaskFiles()`
+/// - `announceList` → magnet link reconstruction for restart
+///
+/// Returns `None` for non-BT tasks with a single file and no mirrors
+/// (matches the frontend's compact-omission optimization).
+fn build_history_meta_json(event: &TaskEvent) -> Option<String> {
+    let mut meta = serde_json::Map::new();
+
+    if let Some(ref hash) = event.info_hash {
+        meta.insert(
+            "infoHash".to_string(),
+            serde_json::Value::String(hash.clone()),
+        );
+    }
+
+    if !event.announce_list.is_empty() {
+        let al: Vec<serde_json::Value> = event
+            .announce_list
+            .iter()
+            .map(|tier| {
+                serde_json::Value::Array(
+                    tier.iter()
+                        .map(|t| serde_json::Value::String(t.clone()))
+                        .collect(),
+                )
+            })
+            .collect();
+        meta.insert("announceList".to_string(), serde_json::Value::Array(al));
+    }
+
+    // Snapshot trigger: multi-file OR any file with multiple mirror URIs.
+    // Matches the frontend's buildHistoryMeta() condition exactly.
+    let has_multiple_files = event.files.len() > 1;
+    let has_mirrors = event.files.iter().any(|f| f.uris.len() > 1);
+    if has_multiple_files || has_mirrors {
+        let files: Vec<serde_json::Value> = event
+            .files
+            .iter()
+            .map(|f| {
+                serde_json::json!({
+                    "path": f.path,
+                    "length": f.length,
+                    "selected": f.selected,
+                    "uris": f.uris,
+                })
+            })
+            .collect();
+        meta.insert("files".to_string(), serde_json::Value::Array(files));
+    }
+
+    if meta.is_empty() {
+        None
+    } else {
+        Some(serde_json::to_string(&meta).unwrap_or_default())
+    }
+}
+
 /// Converts a [`TaskEvent`] into a [`HistoryRecord`] for Rust-side DB persistence.
 ///
 /// This enables the task monitor to write history records directly to the database,
@@ -119,8 +229,10 @@ pub fn build_history_record(event: &TaskEvent, event_name: &str) -> crate::histo
     let total_length = event.total_length.parse::<i64>().ok();
     let now = chrono::Utc::now().to_rfc3339();
 
-    // Store infoHash in meta for BT deduplication (matches frontend behavior)
-    let meta = event.info_hash.clone();
+    // Build structured JSON meta matching the frontend's buildHistoryMeta() format.
+    // This ensures historyRecordToTask() can correctly reconstruct multi-file BT
+    // tasks for deletion, open-folder, and deduplication.
+    let meta = build_history_meta_json(event);
 
     crate::history::HistoryRecord {
         id: None,
@@ -394,13 +506,74 @@ mod tests {
             info: Some(Aria2BtName {
                 name: "Ubuntu.iso".to_string(),
             }),
-            announce_list: None,
+            announce_list: Some(vec![vec!["udp://tracker.example.com:6969".to_string()]]),
             creation_date: None,
             comment: None,
             mode: None,
         });
         task.info_hash = Some("abcdef1234567890".to_string());
         task.seeder = Some(if seeder { "true" } else { "false" }.to_string());
+        task
+    }
+
+    /// Multi-file BT task — the scenario that triggered the bug.
+    /// BT downloads with multiple files need a `files` snapshot in meta
+    /// for correct deletion (single trash call) and folder-opening.
+    fn make_multi_file_bt_task(gid: &str) -> Aria2Task {
+        let mut task = Aria2Task {
+            gid: gid.to_string(),
+            status: "active".to_string(),
+            total_length: "2048".to_string(),
+            completed_length: "2048".to_string(),
+            upload_length: "0".to_string(),
+            download_speed: "0".to_string(),
+            upload_speed: "0".to_string(),
+            connections: "0".to_string(),
+            dir: "/downloads".to_string(),
+            files: vec![
+                Aria2File {
+                    index: "1".to_string(),
+                    path: "/downloads/MyTorrent/video.mkv".to_string(),
+                    length: "1536".to_string(),
+                    completed_length: "1536".to_string(),
+                    selected: "true".to_string(),
+                    uris: vec![],
+                },
+                Aria2File {
+                    index: "2".to_string(),
+                    path: "/downloads/MyTorrent/subs.srt".to_string(),
+                    length: "512".to_string(),
+                    completed_length: "512".to_string(),
+                    selected: "true".to_string(),
+                    uris: vec![],
+                },
+            ],
+            bittorrent: Some(Aria2BtInfo {
+                info: Some(Aria2BtName {
+                    name: "MyTorrent".to_string(),
+                }),
+                announce_list: Some(vec![
+                    vec!["udp://tracker1.example.com:6969".to_string()],
+                    vec!["udp://tracker2.example.com:6969".to_string()],
+                ]),
+                creation_date: None,
+                comment: None,
+                mode: Some("multi".to_string()),
+            }),
+            info_hash: Some("deadbeef".repeat(5)),
+            seeder: Some("true".to_string()),
+            num_seeders: None,
+            num_pieces: None,
+            piece_length: None,
+            error_code: None,
+            error_message: None,
+            bitfield: None,
+            verified_length: None,
+            verify_integrity_pending: None,
+            followed_by: None,
+            following: None,
+            belongs_to: None,
+        };
         task
     }
 
@@ -624,8 +797,12 @@ mod tests {
         assert_eq!(record.status, "complete");
         assert_eq!(record.name, "Ubuntu.iso");
         assert!(record.completed_at.is_some());
-        // BT tasks store infoHash in the meta field for deduplication
-        assert_eq!(record.meta, Some("abcdef1234567890".to_string()));
+
+        // Meta must be valid JSON containing infoHash (not a raw hex string)
+        let meta_str = record.meta.as_ref().expect("meta should be Some for BT");
+        let meta: serde_json::Value =
+            serde_json::from_str(meta_str).expect("meta must be valid JSON");
+        assert_eq!(meta["infoHash"], "abcdef1234567890");
     }
 
     #[test]
@@ -675,5 +852,110 @@ mod tests {
 
         // DB auto-assigns the id via AUTOINCREMENT
         assert!(record.id.is_none());
+    }
+
+    // ── JSON meta format validation ─────────────────────────────────
+    //
+    // These tests validate that build_history_record() produces meta in
+    // the correct JSON format expected by the frontend's parseHistoryMeta().
+    // The old code stored a raw infoHash string, which caused JSON.parse()
+    // to fail and all downstream operations to use wrong legacy fallbacks.
+
+    #[test]
+    fn bt_meta_is_valid_json_with_info_hash() {
+        let task = make_bt_task("g1", "active", true);
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::BT_COMPLETE);
+
+        let meta_str = record.meta.as_ref().unwrap();
+        let meta: serde_json::Value =
+            serde_json::from_str(meta_str).expect("meta must be valid JSON, not a raw hex string");
+        assert_eq!(meta["infoHash"], "abcdef1234567890");
+        assert!(meta.get("announceList").is_some());
+    }
+
+    #[test]
+    fn bt_meta_contains_announce_list() {
+        let task = make_bt_task("g1", "active", true);
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::BT_COMPLETE);
+
+        let meta: serde_json::Value = serde_json::from_str(record.meta.as_ref().unwrap()).unwrap();
+        let al = meta["announceList"].as_array().unwrap();
+        assert_eq!(al.len(), 1);
+        assert_eq!(al[0][0], "udp://tracker.example.com:6969");
+    }
+
+    #[test]
+    fn multi_file_bt_meta_contains_files_snapshot() {
+        let task = make_multi_file_bt_task("g1");
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::BT_COMPLETE);
+
+        let meta: serde_json::Value = serde_json::from_str(record.meta.as_ref().unwrap()).unwrap();
+
+        // Must have files array with both entries
+        let files = meta["files"]
+            .as_array()
+            .expect("meta.files must exist for multi-file BT");
+        assert_eq!(files.len(), 2);
+        assert_eq!(files[0]["path"], "/downloads/MyTorrent/video.mkv");
+        assert_eq!(files[1]["path"], "/downloads/MyTorrent/subs.srt");
+        assert_eq!(files[0]["length"], "1536");
+        assert_eq!(files[0]["selected"], "true");
+    }
+
+    #[test]
+    fn multi_file_bt_meta_has_announce_list_and_info_hash() {
+        let task = make_multi_file_bt_task("g1");
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::BT_COMPLETE);
+
+        let meta: serde_json::Value = serde_json::from_str(record.meta.as_ref().unwrap()).unwrap();
+
+        assert_eq!(meta["infoHash"], "deadbeef".repeat(5));
+        let al = meta["announceList"].as_array().unwrap();
+        assert_eq!(al.len(), 2);
+    }
+
+    #[test]
+    fn single_file_uri_task_has_no_meta() {
+        // Non-BT single-file tasks should have meta = None
+        // (matches frontend's compact-omission optimization)
+        let task = make_task("g1", "complete");
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::TASK_COMPLETE);
+
+        assert!(
+            record.meta.is_none(),
+            "single-file URI tasks should omit meta"
+        );
+    }
+
+    #[test]
+    fn single_file_bt_meta_omits_files_but_has_info_hash() {
+        // Single-file BT task: meta should have infoHash but NOT files
+        // (files snapshot only needed for multi-file or multi-mirror)
+        let task = make_bt_task("g1", "active", true);
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::BT_COMPLETE);
+
+        let meta: serde_json::Value = serde_json::from_str(record.meta.as_ref().unwrap()).unwrap();
+        assert!(meta.get("infoHash").is_some());
+        assert!(
+            meta.get("files").is_none(),
+            "single-file BT should not include files snapshot"
+        );
+    }
+
+    #[test]
+    fn task_event_from_aria2_populates_files_and_announce_list() {
+        let task = make_multi_file_bt_task("g1");
+        let event = TaskEvent::from_aria2(&task);
+
+        assert_eq!(event.files.len(), 2);
+        assert_eq!(event.files[0].path, "/downloads/MyTorrent/video.mkv");
+        assert_eq!(event.files[1].path, "/downloads/MyTorrent/subs.srt");
+        assert_eq!(event.announce_list.len(), 2);
     }
 }

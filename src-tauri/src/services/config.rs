@@ -38,6 +38,7 @@ pub struct RuntimeConfig {
     pub task_notification: bool,
     #[serde(default)]
     pub tray_speedometer: bool,
+    #[cfg(target_os = "macos")]
     #[serde(default = "default_true")]
     pub dock_badge_speed: bool,
     #[serde(default)]
@@ -68,6 +69,7 @@ impl Default for RuntimeConfig {
             max_overall_upload_limit: String::new(),
             task_notification: true,
             tray_speedometer: false,
+            #[cfg(target_os = "macos")]
             dock_badge_speed: true,
             show_progress_bar: false,
         }
@@ -118,6 +120,7 @@ mod tests {
         assert!(cfg.max_overall_upload_limit.is_empty());
         assert!(cfg.task_notification); // default ON
         assert!(!cfg.tray_speedometer); // default OFF
+        #[cfg(target_os = "macos")]
         assert!(cfg.dock_badge_speed); // default ON
         assert!(!cfg.show_progress_bar);
     }
@@ -157,6 +160,7 @@ mod tests {
         assert_eq!(cfg.max_overall_upload_limit, "512K");
         assert!(!cfg.task_notification);
         assert!(cfg.tray_speedometer);
+        #[cfg(target_os = "macos")]
         assert!(!cfg.dock_badge_speed);
         assert!(cfg.show_progress_bar);
     }
@@ -167,6 +171,7 @@ mod tests {
         let cfg: RuntimeConfig = serde_json::from_value(json).expect("deserialize");
         assert!(!cfg.speed_limit_enabled);
         assert!(cfg.task_notification); // default true
+        #[cfg(target_os = "macos")]
         assert!(cfg.dock_badge_speed); // default true
         assert_eq!(cfg.speed_schedule_from, "00:00");
         assert_eq!(cfg.speed_schedule_to, "06:00");
