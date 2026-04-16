@@ -12,7 +12,16 @@
  * Idempotent: skips files that already exist. Safe to re-run.
  */
 import { execSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, chmodSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  chmodSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -101,6 +110,24 @@ function run(cmd, opts = {}) {
 }
 
 /**
+ * Move a file across filesystems. renameSync throws EXDEV on Windows when
+ * src and dst live on different drives (TMP is on C:, repo is on D: on GH
+ * Actions runners). Fall back to copy + unlink in that case.
+ */
+function moveFile(src, dst) {
+  try {
+    renameSync(src, dst)
+  } catch (err) {
+    if (err && (err.code === 'EXDEV' || err.errno === -18)) {
+      copyFileSync(src, dst)
+      rmSync(src, { force: true })
+    } else {
+      throw err
+    }
+  }
+}
+
+/**
  * Extracts a .zip / .tar.xz archive into `workDir`. On Windows the bundled
  * bsdtar mishandles both drive-letter paths and plain .zip archives, so we
  * fall back to PowerShell's Expand-Archive for zips there. tar handles
@@ -176,7 +203,7 @@ function fetchDeno() {
   const binName = isWindows ? 'deno.exe' : 'deno'
   const bin = findFile(work, binName)
   if (!bin) throw new Error(`deno binary not found in archive`)
-  renameSync(bin, out)
+  moveFile(bin, out)
   chmodSync(out, 0o755)
   rmSync(work, { recursive: true, force: true })
 }
@@ -197,7 +224,7 @@ function fetchFromArchive(archiveUrl, binName, outPath, label) {
     rmSync(work, { recursive: true, force: true })
     throw new Error(`${binName} not found in ${archiveUrl}`)
   }
-  renameSync(bin, outPath)
+  moveFile(bin, outPath)
   chmodSync(outPath, 0o755)
   rmSync(work, { recursive: true, force: true })
 }
