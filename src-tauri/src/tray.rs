@@ -243,13 +243,13 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
 /// when the WebView is destroyed in lightweight mode (issue #194).
 /// This function remains as a fallback for future extensibility.
 pub fn resolve_tray_action(menu_id: &str) -> Option<&str> {
-    match menu_id {
-        // All known tray actions are handled natively in on_menu_event.
-        // "show", "tray-pause-all", "tray-resume-all" — direct aria2/window ops
-        // "tray-quit" — app.exit(0)
-        // "tray-new-task" — get_or_create_main_window + emit
-        _ => None,
-    }
+    // All known tray actions are handled natively in on_menu_event:
+    //   "show", "tray-pause-all", "tray-resume-all" — direct aria2/window ops
+    //   "tray-quit" — app.exit(0)
+    //   "tray-new-task" — get_or_create_main_window + emit
+    // No action is forwarded to the frontend.
+    let _ = menu_id;
+    None
 }
 
 #[cfg(test)]

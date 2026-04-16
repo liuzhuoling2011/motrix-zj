@@ -213,7 +213,7 @@ unsafe fn get_or_create_progress_indicator(
 fn register_progress_indicator_class() -> *const objc2::runtime::AnyClass {
     use objc2::runtime::{AnyClass, ClassBuilder, Sel};
     use objc2_foundation::NSRect;
-    use std::ffi::CStr;
+
     use std::sync::Once;
 
     static mut CLASS: *const AnyClass = std::ptr::null();
@@ -221,11 +221,8 @@ fn register_progress_indicator_class() -> *const objc2::runtime::AnyClass {
 
     INIT.call_once(|| unsafe {
         let superclass = objc2::class!(NSProgressIndicator);
-        let mut decl = ClassBuilder::new(
-            CStr::from_bytes_with_nul(b"MotrixProgressIndicator\0").unwrap(),
-            superclass,
-        )
-        .expect("Failed to create MotrixProgressIndicator class");
+        let mut decl = ClassBuilder::new(c"MotrixProgressIndicator", superclass)
+            .expect("Failed to create MotrixProgressIndicator class");
 
         // Register the custom drawRect: method.
         // Uses raw pointer (*mut AnyObject) to satisfy the HRTB lifetime
