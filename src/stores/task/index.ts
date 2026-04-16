@@ -4,7 +4,16 @@ import { ref } from 'vue'
 import { EMPTY_STRING } from '@shared/constants'
 import { intersection } from '@shared/utils'
 import { logger } from '@shared/logger'
-import type { Aria2Task, Aria2File, Aria2Peer, Aria2EngineOptions, AddMetalinkParams, TaskApi } from '@shared/types'
+import type {
+  Aria2Task,
+  Aria2File,
+  Aria2Peer,
+  Aria2EngineOptions,
+  AddMetalinkParams,
+  TaskApi,
+  YtdlpProgress,
+} from '@shared/types'
+import * as ytdlpApi from '@/api/ytdlp'
 
 import { historyRecordToTask, mergeHistoryIntoTasks, isMetadataTask } from '@/composables/useTaskLifecycle'
 import { shouldShowFileSelection } from '@/composables/useMagnetFlow'
@@ -36,6 +45,64 @@ export const useTaskStore = defineStore('task', () => {
   const seedingList = ref<string[]>([])
   const taskList = ref<Aria2Task[]>([])
   const selectedGidList = ref<string[]>([])
+
+  /** Live progress snapshots for yt-dlp direct downloads (task_id → progress).
+   *  Populated by the `ytdlp-progress` event stream; overlaid onto tasks at
+   *  fetch time so the UI reflects real-time speed/ETA. */
+  const ytdlpProgressMap = ref<Map<string, YtdlpProgress>>(new Map())
+
+  // Subscribe to yt-dlp progress events once per store instance.
+  // Unlisten is fine to ignore — store lives for the app session.
+  ytdlpApi
+    .onProgress((p) => {
+      if (p.status === 'Complete' || p.status === 'Error') {
+        ytdlpProgressMap.value.delete(p.taskId)
+      } else {
+        ytdlpProgressMap.value.set(p.taskId, p)
+      }
+    })
+    .catch((e) => logger.debug('TaskStore.ytdlpProgress.subscribe', e))
+
+  /** Parses a yt-dlp speed string like "2.5MiB/s" into bytes/sec.
+   *  Returns null for unparseable input. */
+  function parseSpeedString(s: string): number | null {
+    const m = s.trim().match(/^([\d.]+)\s*([KMG]i?B)\/s$/i)
+    if (!m) return null
+    const value = parseFloat(m[1] ?? '0')
+    const unit = (m[2] ?? '').toUpperCase()
+    const mult: Record<string, number> = {
+      B: 1,
+      KIB: 1024,
+      MIB: 1024 * 1024,
+      GIB: 1024 * 1024 * 1024,
+      KB: 1000,
+      MB: 1000 * 1000,
+      GB: 1000 * 1000 * 1000,
+    }
+    const factor = mult[unit] ?? 1
+    return Math.round(value * factor)
+  }
+
+  /** Overlays live yt-dlp progress onto tasks whose gid matches an entry in
+   *  `ytdlpProgressMap`. No-op for non-ytdlp tasks. Mutates in place. */
+  function applyYtdlpProgress(tasks: Aria2Task[]) {
+    for (const t of tasks) {
+      const p = ytdlpProgressMap.value.get(t.gid)
+      if (!p) continue
+      if (p.totalBytes) t.totalLength = String(p.totalBytes)
+      if (p.downloadedBytes) t.completedLength = String(p.downloadedBytes)
+      // yt-dlp reports speed as a display string (e.g. "2.5MiB/s"); the
+      // Aria2Task field is a bytes/sec numeric string, so we approximate
+      // by parsing the prefix. Good enough for a sort key and display.
+      if (p.speed) {
+        const speedBytes = parseSpeedString(p.speed)
+        if (speedBytes != null) t.downloadSpeed = String(speedBytes)
+      }
+      // While progress is flowing, the task is active regardless of
+      // what the history record said.
+      if (p.status === 'Downloading' || p.status === 'Merging') t.status = 'active'
+    }
+  }
 
   let api: TaskApi
 
@@ -117,12 +184,27 @@ export const useTaskStore = defineStore('task', () => {
         sortTasks(data, field, direction, addedAtIndex)
       } else {
         // Active tab: aria2 returns insertion-order; apply user sort.
+        // Also include history records for tasks with in-flight yt-dlp progress
+        // (gid starts with "ytdlp-") so direct downloads appear alongside aria2.
         data = await api.fetchTaskList({ type: currentList.value })
+        if (ytdlpProgressMap.value.size > 0) {
+          const ytdlpGids = Array.from(ytdlpProgressMap.value.keys())
+          const existing = new Set(data.map((t) => t.gid))
+          const missing = ytdlpGids.filter((g) => !existing.has(g))
+          if (missing.length > 0) {
+            const allRecords = await useHistoryStore().getRecords(undefined, 256)
+            const ytdlpRecords = allRecords.filter((r) => missing.includes(r.gid))
+            data = [...data, ...ytdlpRecords.map(historyRecordToTask)]
+          }
+        }
         trackFirstSeen(data)
         const addedAtIndex = buildSortableAddedAtMap(data, [])
         const { field, direction } = sortConfig.active
         sortTasks(data, field, direction, addedAtIndex)
       }
+
+      // Apply live yt-dlp progress onto any matching tasks before render.
+      applyYtdlpProgress(data)
 
       taskList.value = data
       const gids = data.map((task: Aria2Task) => task.gid)
