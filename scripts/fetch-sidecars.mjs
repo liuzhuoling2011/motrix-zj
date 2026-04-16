@@ -90,12 +90,23 @@ function run(cmd, opts = {}) {
 }
 
 /**
- * Extracts a .zip / .tar.xz archive using the system `tar`. Must be invoked
- * with the archive filename (no path) and a cwd so that Windows bsdtar
- * doesn't misinterpret drive letters like "C:" as remote hosts.
+ * Extracts a .zip / .tar.xz archive into `workDir`. On Windows the bundled
+ * bsdtar mishandles both drive-letter paths and plain .zip archives, so we
+ * fall back to PowerShell's Expand-Archive for zips there. tar handles
+ * .tar.xz on all platforms.
  */
 function extract(archivePath, workDir) {
-  run(`tar -xf "${basename(archivePath)}"`, { cwd: workDir })
+  const file = basename(archivePath)
+  const isZip = archivePath.toLowerCase().endsWith('.zip')
+  if (isZip && process.platform === 'win32') {
+    // -Force overwrites existing contents; quoting handles spaces in the path.
+    run(
+      `powershell -NoProfile -Command "Expand-Archive -Path '${file}' -DestinationPath '.' -Force"`,
+      { cwd: workDir },
+    )
+    return
+  }
+  run(`tar -xf "${file}"`, { cwd: workDir })
 }
 
 /**
