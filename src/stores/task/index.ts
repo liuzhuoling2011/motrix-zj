@@ -12,6 +12,7 @@ import type {
   AddMetalinkParams,
   TaskApi,
   YtdlpProgress,
+  YtdlpLog,
 } from '@shared/types'
 import * as ytdlpApi from '@/api/ytdlp'
 
@@ -62,6 +63,24 @@ export const useTaskStore = defineStore('task', () => {
       }
     })
     .catch((e) => logger.debug('TaskStore.ytdlpProgress.subscribe', e))
+
+  /** Rolling log buffer per yt-dlp task_id. Capped to MAX_LOG_LINES per task
+   *  so a long-running download can't grow the map unbounded. */
+  const ytdlpLogMap = ref<Map<string, YtdlpLog[]>>(new Map())
+  const MAX_LOG_LINES = 500
+
+  ytdlpApi
+    .onLog((entry) => {
+      const list = ytdlpLogMap.value.get(entry.taskId) ?? []
+      list.push(entry)
+      if (list.length > MAX_LOG_LINES) list.splice(0, list.length - MAX_LOG_LINES)
+      ytdlpLogMap.value.set(entry.taskId, list)
+    })
+    .catch((e) => logger.debug('TaskStore.ytdlpLog.subscribe', e))
+
+  function getYtdlpLogs(taskId: string): YtdlpLog[] {
+    return ytdlpLogMap.value.get(taskId) ?? []
+  }
 
   /** Parses a yt-dlp speed string like "2.5MiB/s" into bytes/sec.
    *  Returns null for unparseable input. */
@@ -402,6 +421,8 @@ export const useTaskStore = defineStore('task', () => {
     seedingList,
     taskList,
     selectedGidList,
+    ytdlpLogMap,
+    getYtdlpLogs,
     setApi,
     changeCurrentList,
     fetchList,

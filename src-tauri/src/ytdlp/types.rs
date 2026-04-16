@@ -106,6 +106,17 @@ pub enum YtdlpTaskStatus {
     Error,
 }
 
+/// A single yt-dlp log line emitted to the frontend so users can see what
+/// the downloader is doing while overall progress sits at 0% (e.g. fragment
+/// fetching, post-merge work, warnings).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct YtdlpLog {
+    pub task_id: String,
+    pub stream: String, // "stdout" | "stderr"
+    pub line: String,
+}
+
 impl VideoFormat {
     /// Returns true when this format uses a streaming protocol that aria2
     /// cannot download directly (HLS, DASH, etc.).
