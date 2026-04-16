@@ -12,8 +12,10 @@ use serde::{Deserialize, Serialize};
 pub struct VideoInfo {
     pub id: String,
     pub title: String,
-    /// Original page URL (yt-dlp calls this `webpage_url`).
-    #[serde(alias = "webpage_url")]
+    /// Original page URL. yt-dlp outputs both `url` (format download) and
+    /// `webpage_url` (page URL) at top-level; we need the page URL, so
+    /// rename on deserialize. The root `url` is ignored as an extra field.
+    #[serde(rename(deserialize = "webpage_url"))]
     pub url: String,
     pub thumbnail: Option<String>,
     pub duration: Option<f64>,
