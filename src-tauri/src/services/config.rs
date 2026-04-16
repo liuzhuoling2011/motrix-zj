@@ -41,6 +41,7 @@ pub struct RuntimeConfig {
     #[cfg(target_os = "macos")]
     #[serde(default = "default_true")]
     pub dock_badge_speed: bool,
+    #[cfg(not(target_os = "linux"))]
     #[serde(default)]
     pub show_progress_bar: bool,
 }
@@ -71,6 +72,7 @@ impl Default for RuntimeConfig {
             tray_speedometer: false,
             #[cfg(target_os = "macos")]
             dock_badge_speed: true,
+            #[cfg(not(target_os = "linux"))]
             show_progress_bar: false,
         }
     }
@@ -122,6 +124,7 @@ mod tests {
         assert!(!cfg.tray_speedometer); // default OFF
         #[cfg(target_os = "macos")]
         assert!(cfg.dock_badge_speed); // default ON
+        #[cfg(not(target_os = "linux"))]
         assert!(!cfg.show_progress_bar);
     }
 
@@ -162,6 +165,7 @@ mod tests {
         assert!(cfg.tray_speedometer);
         #[cfg(target_os = "macos")]
         assert!(!cfg.dock_badge_speed);
+        #[cfg(not(target_os = "linux"))]
         assert!(cfg.show_progress_bar);
     }
 
