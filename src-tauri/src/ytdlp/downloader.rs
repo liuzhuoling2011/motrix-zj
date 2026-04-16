@@ -33,8 +33,12 @@ use crate::error::AppError;
 /// Progress template passed to yt-dlp via `--progress-template`.
 ///
 /// Produces whitespace-separated fields:
-///   `<percent>%  <downloaded>  <total>  <speed>  <eta>`
-const PROGRESS_TEMPLATE: &str = "%(progress._percent_str)s %(progress._downloaded_bytes_str)s %(progress._total_bytes_str)s %(progress._speed_str)s %(progress._eta_str)s";
+///   `<percent>%  <downloaded_bytes>  <total_bytes>  <speed>  <eta>`
+///
+/// `downloaded_bytes` and `total_bytes` are raw integers (no `_str` suffix) so
+/// they can be parsed directly into `u64` without stripping unit suffixes like
+/// `MiB`.
+const PROGRESS_TEMPLATE: &str = "%(progress._percent_str)s %(progress.downloaded_bytes)d %(progress.total_bytes)d %(progress._speed_str)s %(progress._eta_str)s";
 
 /// Managed Tauri state tracking active yt-dlp download processes.
 ///
@@ -171,6 +175,20 @@ pub async fn start_download(
                 _ => {}
             }
         }
+
+        // Fallback cleanup: if the event channel was dropped (e.g. sidecar
+        // killed abnormally) without us seeing a `Terminated` event, the
+        // `while let` loop exits and the entry would otherwise leak forever.
+        // `remove` on an absent key is a no-op, so this is safe even when the
+        // `Terminated` branch already ran.
+        {
+            let mut map = processes.lock().await;
+            if map.remove(&task_id_for_monitor).is_some() {
+                log::warn!(
+                    "yt-dlp monitor loop exited without Terminated event: task_id={task_id_for_monitor}"
+                );
+            }
+        }
     });
 
     Ok(task_id)
@@ -178,19 +196,29 @@ pub async fn start_download(
 
 /// Cancels an active yt-dlp download identified by `task_id`.
 ///
-/// Removes the PID from [`YtdlpState::processes`] and sends a kill signal
-/// through [`kill_pid`].  Returns [`AppError::NotFound`] if the task id is
-/// unknown, or [`AppError::YtdlpDownload`] if the kill itself fails.
+/// Looks up the PID in [`YtdlpState::processes`], sends a kill signal through
+/// [`kill_pid`], and only removes the map entry on success.  Returns
+/// [`AppError::NotFound`] if the task id is unknown, or
+/// [`AppError::YtdlpDownload`] if the kill itself fails — in the failure case
+/// the entry is preserved so the caller can retry.
 pub async fn cancel_download(state: &YtdlpState, task_id: &str) -> Result<(), AppError> {
     let pid = {
-        let mut map = state.processes.lock().await;
-        map.remove(task_id)
-            .ok_or_else(|| AppError::NotFound(format!("yt-dlp task not found: {task_id}")))?
+        let map = state.processes.lock().await;
+        map.get(task_id).copied()
     };
 
-    kill_pid(pid)?;
-    log::info!("yt-dlp download cancelled: task_id={task_id} pid={pid}");
-    Ok(())
+    match pid {
+        Some(pid) => {
+            kill_pid(pid)?;
+            let mut map = state.processes.lock().await;
+            map.remove(task_id);
+            log::info!("yt-dlp download cancelled: task_id={task_id} pid={pid}");
+            Ok(())
+        }
+        None => Err(AppError::NotFound(format!(
+            "yt-dlp task not found: {task_id}"
+        ))),
+    }
 }
 
 /// Cross-platform process kill.
@@ -240,7 +268,11 @@ fn kill_pid(pid: u32) -> Result<(), AppError> {
 /// Parses a single `yt-dlp --progress` stdout line into a [`YtdlpProgress`].
 ///
 /// Template layout (fields split on whitespace):
-///   `<percent>%  <downloaded>  <total>  <speed>  <eta>`
+///   `<percent>%  <downloaded_bytes>  <total_bytes>  <speed>  <eta>`
+///
+/// `downloaded_bytes` and `total_bytes` are raw `u64` integers coming from the
+/// `%(progress.downloaded_bytes)d` / `%(progress.total_bytes)d` template
+/// fields.
 ///
 /// Returns:
 /// - `Some(YtdlpProgress { status: Merging, percent: 100.0, … })` for the
@@ -280,7 +312,8 @@ fn parse_progress_line(line: &str, task_id: &str) -> Option<YtdlpProgress> {
     }
 
     let percent = parts[0].trim_end_matches('%').parse::<f64>().ok()?;
-
+    let downloaded_bytes = parts.get(1).and_then(|s| s.parse::<u64>().ok());
+    let total_bytes = parts.get(2).and_then(|s| s.parse::<u64>().ok());
     let speed = parts.get(3).map(|s| (*s).to_string());
     let eta = parts.get(4).map(|s| (*s).to_string());
 
@@ -288,8 +321,8 @@ fn parse_progress_line(line: &str, task_id: &str) -> Option<YtdlpProgress> {
         task_id: task_id.to_string(),
         status: YtdlpTaskStatus::Downloading,
         percent,
-        downloaded_bytes: None,
-        total_bytes: None,
+        downloaded_bytes,
+        total_bytes,
         speed,
         eta,
     })
@@ -301,7 +334,8 @@ mod tests {
 
     #[test]
     fn parse_percentage_line() {
-        let line = "  45.2%  123.4MiB  274.8MiB  2.5MiB/s  00:32";
+        // Format: percent, downloaded_bytes (int), total_bytes (int), speed, eta
+        let line = "45.2% 129394278 288164250 2.5MiB/s 00:32";
         let progress = parse_progress_line(line, "ytdlp-1")
             .expect("percentage progress line must parse");
         assert_eq!(progress.task_id, "ytdlp-1");
@@ -311,6 +345,8 @@ mod tests {
             "expected 45.2, got {}",
             progress.percent
         );
+        assert_eq!(progress.downloaded_bytes, Some(129_394_278));
+        assert_eq!(progress.total_bytes, Some(288_164_250));
         assert_eq!(progress.speed.as_deref(), Some("2.5MiB/s"));
         assert_eq!(progress.eta.as_deref(), Some("00:32"));
     }
@@ -347,7 +383,7 @@ mod tests {
 
     #[test]
     fn parse_100_percent() {
-        let line = "100.0%  500.0MiB  500.0MiB  10.0MiB/s  00:00";
+        let line = "100.0% 524288000 524288000 10.0MiB/s 00:00";
         let progress = parse_progress_line(line, "ytdlp-5")
             .expect("100% line must parse as downloading progress");
         assert!(
@@ -356,6 +392,8 @@ mod tests {
             progress.percent
         );
         assert_eq!(progress.status, YtdlpTaskStatus::Downloading);
+        assert_eq!(progress.downloaded_bytes, Some(524_288_000));
+        assert_eq!(progress.total_bytes, Some(524_288_000));
         assert_eq!(progress.speed.as_deref(), Some("10.0MiB/s"));
         assert_eq!(progress.eta.as_deref(), Some("00:00"));
     }
