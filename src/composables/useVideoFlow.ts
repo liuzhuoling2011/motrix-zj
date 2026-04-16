@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import type { ParseResult, VideoInfo, PlaylistInfo, FormatPreset } from '@shared/types'
+import type { ParseResult, VideoInfo, VideoFormat, PlaylistInfo, PlaylistItem, FormatPreset } from '@shared/types'
 import * as ytdlpApi from '@/api/ytdlp'
 
 export function useVideoFlow() {
@@ -39,7 +39,7 @@ export function useVideoFlow() {
     const info = videoInfo.value
     if (!info) return []
 
-    const videoFormats = info.formats.filter((f) => f.vcodec && f.vcodec !== 'none')
+    const videoFormats = info.formats.filter((f: VideoFormat) => f.vcodec && f.vcodec !== 'none')
     const presets: FormatPreset[] = []
 
     // Best quality
@@ -53,7 +53,7 @@ export function useVideoFlow() {
     }
 
     // 1080p
-    const f1080 = videoFormats.find((f) => f.height === 1080)
+    const f1080 = videoFormats.find((f: VideoFormat) => f.height === 1080)
     if (f1080) {
       presets.push({
         label: '1080p',
@@ -63,7 +63,7 @@ export function useVideoFlow() {
     }
 
     // 720p
-    const f720 = videoFormats.find((f) => f.height === 720)
+    const f720 = videoFormats.find((f: VideoFormat) => f.height === 720)
     if (f720) {
       presets.push({
         label: '720p',
@@ -73,7 +73,9 @@ export function useVideoFlow() {
     }
 
     // Audio only
-    const audioOnly = info.formats.find((f) => (f.vcodec === 'none' || !f.vcodec) && f.acodec && f.acodec !== 'none')
+    const audioOnly = info.formats.find(
+      (f: VideoFormat) => (f.vcodec === 'none' || !f.vcodec) && f.acodec && f.acodec !== 'none',
+    )
     if (audioOnly) {
       presets.push({
         label: '仅音频',
@@ -106,7 +108,7 @@ export function useVideoFlow() {
       }
       if (result.type === 'Playlist') {
         const pl = result as unknown as PlaylistInfo
-        selectedPlaylistItems.value = new Set(pl.entries.map((_, i) => i))
+        selectedPlaylistItems.value = new Set(pl.entries.map((_entry: PlaylistItem, i: number) => i))
         return true
       }
       return false
@@ -127,7 +129,7 @@ export function useVideoFlow() {
     // Composite format IDs like "bestvideo+bestaudio/best" always need yt-dlp
     if (formatId.includes('+') || formatId.includes('/')) return true
 
-    const format = info.formats.find((f) => f.formatId === formatId)
+    const format = info.formats.find((f: VideoFormat) => f.formatId === formatId)
     if (!format) return true
 
     return format.protocol !== 'https' && format.protocol !== 'http'
@@ -181,7 +183,7 @@ export function useVideoFlow() {
     if (selectedPlaylistItems.value.size === pl.entries.length) {
       selectedPlaylistItems.value = new Set()
     } else {
-      selectedPlaylistItems.value = new Set(pl.entries.map((_, i) => i))
+      selectedPlaylistItems.value = new Set(pl.entries.map((_entry: PlaylistItem, i: number) => i))
     }
   }
 
