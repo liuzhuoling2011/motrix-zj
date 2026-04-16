@@ -208,12 +208,35 @@ pub async fn parse_url(
     // instead of silently falling back to "not media".
     let first_type = first.get("_type").and_then(|v| v.as_str());
     if lines.len() > 1 && first_type == Some("url") {
+        // Build PlaylistItems manually from each line's Value. Some yt-dlp
+        // extractors emit both `url` and `webpage_url` at the same time,
+        // which collides with `#[serde(alias = "webpage_url")]` on the
+        // struct ("duplicate field url"). Hand-pick fields to sidestep
+        // that and tolerate missing optional ones.
         let entries: Vec<PlaylistItem> = lines
             .iter()
-            .filter_map(|l| {
-                serde_json::from_str::<PlaylistItem>(l)
-                    .inspect_err(|e| log::warn!("playlist entry parse failed: {e}; line={l}"))
-                    .ok()
+            .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+            .filter_map(|v| {
+                let id = v.get("id").and_then(|x| x.as_str())?.to_string();
+                let url_val = v
+                    .get("webpage_url")
+                    .or_else(|| v.get("url"))
+                    .and_then(|x| x.as_str())?
+                    .to_string();
+                let title = v
+                    .get("title")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let duration = v.get("duration").and_then(|x| x.as_f64());
+                let thumbnail = v.get("thumbnail").and_then(|x| x.as_str()).map(String::from);
+                Some(PlaylistItem {
+                    id,
+                    title,
+                    url: url_val,
+                    duration,
+                    thumbnail,
+                })
             })
             .collect();
         log::info!(
