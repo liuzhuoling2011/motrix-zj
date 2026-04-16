@@ -155,6 +155,9 @@ export function useVideoFlow() {
 
     if (needsDirectDownload(fmtId)) {
       const format = info.formats.find((f: VideoFormat) => f.formatId === fmtId)
+      // Composite selectors (e.g. "bestvideo+bestaudio/best") merge into mp4
+      // by default. For a single-format selection, use that format's ext.
+      const ext = format?.ext ?? 'mp4'
       const meta = {
         video_title: info.title,
         extractor: info.extractor,
@@ -169,6 +172,7 @@ export function useVideoFlow() {
         url: info.url,
         formatId: fmtId,
         title: info.title,
+        ext,
         meta,
         options,
       })

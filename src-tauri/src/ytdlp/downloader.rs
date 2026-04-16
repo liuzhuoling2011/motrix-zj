@@ -99,6 +99,8 @@ pub async fn start_download(
         url,
     ];
 
+    log::info!("yt-dlp spawn args: {:?}", args);
+
     let sidecar = app
         .shell()
         .sidecar("motrixnext-ytdlp")
