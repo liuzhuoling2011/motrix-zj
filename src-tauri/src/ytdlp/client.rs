@@ -9,8 +9,9 @@ use crate::error::AppError;
 /// Timeout for a single yt-dlp parse operation.
 ///
 /// Applied to `run_ytdlp` via `tokio::time::timeout`; exceeding this
-/// maps to [`AppError::YtdlpTimeout`].
-const PARSE_TIMEOUT: Duration = Duration::from_secs(30);
+/// maps to [`AppError::YtdlpTimeout`]. 60 seconds accommodates slow paths
+/// like macOS Keychain prompts when reading Chrome/Safari cookie stores.
+const PARSE_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Optional HTTP headers passed to yt-dlp via `--add-header`.
 ///
