@@ -210,9 +210,17 @@ pub async fn parse_url(
     if lines.len() > 1 && first_type == Some("url") {
         let entries: Vec<PlaylistItem> = lines
             .iter()
-            .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
-            .filter_map(|v| serde_json::from_value(v).ok())
+            .filter_map(|l| {
+                serde_json::from_str::<PlaylistItem>(l)
+                    .inspect_err(|e| log::warn!("playlist entry parse failed: {e}; line={l}"))
+                    .ok()
+            })
             .collect();
+        log::info!(
+            "parse_url: mix playlist detected, {} entries from {} lines",
+            entries.len(),
+            lines.len()
+        );
         let derived_id = url::Url::parse(url)
             .ok()
             .and_then(|u| {
