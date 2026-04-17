@@ -918,13 +918,18 @@
       <section id="star-history" class="section">
         <h2 class="reveal" data-i18n="starHistory.title">Star History</h2>
         <div class="star-history-frame reveal">
-          <iframe
-            id="star-history-iframe"
-            src="https://www.star-history.com/?type=date&repos=AnInsomniacy%2Fmotrix-next"
-            style="border: 0"
-            loading="lazy"
-            sandbox="allow-scripts allow-same-origin allow-popups"
-          ></iframe>
+          <a
+            href="https://www.star-history.com/?repos=AnInsomniacy%2Fmotrix-next&type=date&legend=top-left"
+            target="_blank"
+            rel="noopener"
+          >
+            <img
+              id="star-history-chart"
+              src="https://api.star-history.com/chart?repos=AnInsomniacy/motrix-next&type=date&theme=dark&legend=top-left"
+              alt="Star History Chart"
+              loading="lazy"
+            />
+          </a>
         </div>
       </section>
     </main>
@@ -1456,6 +1461,12 @@
           // Swap hero watermark asset to match theme
           const wm = document.getElementById('hero-watermark-img')
           if (wm) wm.src = 'assets/logo-bolt-' + (effective === 'light' ? 'dark' : 'light') + '.png'
+          // Swap star history chart to match theme
+          const sh = document.getElementById('star-history-chart')
+          if (sh) {
+            const base = 'https://api.star-history.com/chart?repos=AnInsomniacy/motrix-next&type=date&legend=top-left'
+            sh.src = effective === 'dark' ? base + '&theme=dark' : base
+          }
         }
 
         // Apply immediately

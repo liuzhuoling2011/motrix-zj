@@ -1360,16 +1360,10 @@ tbody tr:last-child td {
   box-shadow: var(--shadow-card);
 }
 
-.star-history-frame iframe {
+.star-history-frame img {
   display: block;
   width: 100%;
-  aspect-ratio: 3 / 2;
-}
-
-@media (max-width: 640px) {
-  .star-history-frame iframe {
-    aspect-ratio: 4 / 3;
-  }
+  height: auto;
 }
 
 /* ── Footer ────────────────────────────────────────────────────────── */
