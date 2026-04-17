@@ -99,5 +99,9 @@
   "dl.modal.help.linux": "터미널에서 <code>uname -m</code> 실행",
   "theme.system": "시스템",
   "theme.light": "라이트",
-  "theme.dark": "다크"
+  "theme.dark": "다크",
+  "hero.stars": "Stars",
+  "hero.downloads": "다운로드",
+  "hero.version": "최신",
+  "starHistory.title": "Star History"
 }

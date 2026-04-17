@@ -99,5 +99,9 @@
   "dl.modal.help.linux": "Rulați <code>uname -m</code> în terminal",
   "theme.system": "Sistem",
   "theme.light": "Deschis",
-  "theme.dark": "Întunecat"
+  "theme.dark": "Întunecat",
+  "hero.stars": "Stars",
+  "hero.downloads": "Descărcări",
+  "hero.version": "Ultima",
+  "starHistory.title": "Star History"
 }

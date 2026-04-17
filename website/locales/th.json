@@ -99,5 +99,9 @@
   "dl.modal.help.linux": "รัน <code>uname -m</code> ในเทอร์มินัล",
   "theme.system": "ระบบ",
   "theme.light": "สว่าง",
-  "theme.dark": "มืด"
+  "theme.dark": "มืด",
+  "hero.stars": "Stars",
+  "hero.downloads": "ดาวน์โหลด",
+  "hero.version": "ล่าสุด",
+  "starHistory.title": "Star History"
 }

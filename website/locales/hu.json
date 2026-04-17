@@ -99,5 +99,9 @@
   "dl.modal.help.linux": "Futtassa a <code>uname -m</code> parancsot a terminálban",
   "theme.system": "Rendszer",
   "theme.light": "Világos",
-  "theme.dark": "Sötét"
+  "theme.dark": "Sötét",
+  "hero.stars": "Stars",
+  "hero.downloads": "Letöltések",
+  "hero.version": "Legújabb",
+  "starHistory.title": "Star History"
 }

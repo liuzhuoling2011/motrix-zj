@@ -224,7 +224,7 @@
     <main>
       <section id="hero">
         <div class="hero-watermark" aria-hidden="true">
-          <img src="assets/logo-bolt-light.png" alt="" width="800" height="800" />
+          <img id="hero-watermark-img" src="assets/logo-bolt-light.png" alt="" width="800" height="800" />
         </div>
         <img src="assets/logo.png" alt="Motrix Next" class="hero-logo" width="128" height="128" />
         <h1>Motrix <span class="h1-accent">Next</span></h1>
@@ -298,6 +298,76 @@
             </svg>
             Naive UI</span
           >
+        </div>
+        <div class="hero-stats" id="hero-stats">
+          <a
+            href="https://github.com/AnInsomniacy/motrix-next/stargazers"
+            class="hero-stat"
+            target="_blank"
+            rel="noopener"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polygon
+                points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+              />
+            </svg>
+            <span class="hero-stat-value loading" id="stat-stars">&middot;&middot;&middot;</span>
+            <span class="hero-stat-label" data-i18n="hero.stars">Stars</span>
+          </a>
+          <a
+            href="https://github.com/AnInsomniacy/motrix-next/releases"
+            class="hero-stat"
+            target="_blank"
+            rel="noopener"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span class="hero-stat-value loading" id="stat-downloads">&middot;&middot;&middot;</span>
+            <span class="hero-stat-label" data-i18n="hero.downloads">Downloads</span>
+          </a>
+          <a
+            href="https://github.com/AnInsomniacy/motrix-next/releases/latest"
+            class="hero-stat"
+            target="_blank"
+            rel="noopener"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+              <circle cx="12" cy="12" r="4" />
+            </svg>
+            <span class="hero-stat-value loading" id="stat-version">&middot;&middot;&middot;</span>
+            <span class="hero-stat-label" data-i18n="hero.version">Latest</span>
+          </a>
         </div>
         <div class="hero-actions">
           <a
@@ -844,6 +914,19 @@
           <div class="dl-grid" id="dl-grid"></div>
         </div>
       </section>
+
+      <section id="star-history" class="section">
+        <h2 class="reveal" data-i18n="starHistory.title">Star History</h2>
+        <div class="star-history-frame reveal">
+          <iframe
+            id="star-history-iframe"
+            src="https://www.star-history.com/?type=date&repos=AnInsomniacy%2Fmotrix-next"
+            style="border: 0"
+            loading="lazy"
+            sandbox="allow-scripts allow-same-origin allow-popups"
+          ></iframe>
+        </div>
+      </section>
     </main>
 
     <!-- Architecture selection modal -->
@@ -1137,6 +1220,77 @@
         let releaseUrl = 'https://github.com/AnInsomniacy/motrix-next/releases'
         let apiFailed = false
 
+        /** Format a number as compact string: 1234 → "1.2k", 456 → "456" */
+        function compactNumber(n) {
+          if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k'
+          return String(n)
+        }
+
+        /* ── Hero stats: fetch repo info (stars) + all releases (downloads) ── */
+        ;(async () => {
+          const statsEl = document.getElementById('stat-stars')
+          const dlEl = document.getElementById('stat-downloads')
+          const verEl = document.getElementById('stat-version')
+          const allValueEls = [statsEl, dlEl, verEl]
+
+          /** Remove loading animation and set final text for a stat element. */
+          function setStat(el, text) {
+            el.classList.remove('loading')
+            el.textContent = text
+          }
+
+          /** Mark all stats as failed — show em-dash, stop pulsing. */
+          function setAllFailed() {
+            for (const el of allValueEls) setStat(el, '\u2014')
+          }
+
+          // 8-second timeout via AbortController
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 8000)
+
+          try {
+            const [repoRes, releasesRes] = await Promise.all([
+              fetch('https://api.github.com/repos/AnInsomniacy/motrix-next', {
+                signal: controller.signal,
+              }),
+              fetch('https://api.github.com/repos/AnInsomniacy/motrix-next/releases?per_page=100', {
+                signal: controller.signal,
+              }),
+            ])
+            clearTimeout(timeoutId)
+
+            // Stars
+            if (repoRes.ok) {
+              const repo = await repoRes.json()
+              setStat(statsEl, compactNumber(repo.stargazers_count || 0))
+            } else {
+              setStat(statsEl, '\u2014')
+            }
+
+            // Downloads + stable version
+            if (releasesRes.ok) {
+              const releases = await releasesRes.json()
+              let totalDownloads = 0
+              for (const release of releases) {
+                for (const asset of release.assets || []) {
+                  totalDownloads += asset.download_count || 0
+                }
+              }
+              setStat(dlEl, compactNumber(totalDownloads))
+
+              // Find the first stable (non-prerelease) version
+              const stable = releases.find((r) => !r.prerelease)
+              setStat(verEl, stable ? stable.tag_name : '\u2014')
+            } else {
+              setStat(dlEl, '\u2014')
+              setStat(verEl, '\u2014')
+            }
+          } catch {
+            clearTimeout(timeoutId)
+            setAllFailed()
+          }
+        })()
+
         try {
           const res = await fetch('https://api.github.com/repos/AnInsomniacy/motrix-next/releases/latest')
           const data = await res.json()
@@ -1299,6 +1453,9 @@
           dropdown.querySelectorAll('.theme-option').forEach((opt) => {
             opt.classList.toggle('active', opt.dataset.theme === choice)
           })
+          // Swap hero watermark asset to match theme
+          const wm = document.getElementById('hero-watermark-img')
+          if (wm) wm.src = 'assets/logo-bolt-' + (effective === 'light' ? 'dark' : 'light') + '.png'
         }
 
         // Apply immediately

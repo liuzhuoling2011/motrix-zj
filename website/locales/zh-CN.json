@@ -99,5 +99,9 @@
   "dl.modal.help.linux": "在终端运行 <code>uname -m</code>",
   "theme.system": "跟随系统",
   "theme.light": "浅色",
-  "theme.dark": "深色"
+  "theme.dark": "深色",
+  "hero.stars": "Stars",
+  "hero.downloads": "下载量",
+  "hero.version": "最新版本",
+  "starHistory.title": "Star History"
 }

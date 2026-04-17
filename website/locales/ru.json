@@ -99,5 +99,9 @@
   "dl.modal.help.linux": "Выполните <code>uname -m</code> в терминале",
   "theme.system": "Система",
   "theme.light": "Светлая",
-  "theme.dark": "Тёмная"
+  "theme.dark": "Тёмная",
+  "hero.stars": "Stars",
+  "hero.downloads": "Загрузки",
+  "hero.version": "Последняя",
+  "starHistory.title": "Star History"
 }

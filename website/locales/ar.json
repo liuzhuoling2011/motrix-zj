@@ -99,5 +99,9 @@
   "dl.modal.help.linux": "شغّل <code>uname -m</code> في الطرفية",
   "theme.system": "النظام",
   "theme.light": "فاتح",
-  "theme.dark": "داكن"
+  "theme.dark": "داكن",
+  "hero.stars": "Stars",
+  "hero.downloads": "التنزيلات",
+  "hero.version": "الأحدث",
+  "starHistory.title": "Star History"
 }

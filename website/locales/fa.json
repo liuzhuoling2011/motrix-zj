@@ -99,5 +99,9 @@
   "dl.modal.help.linux": "دستور <code>uname -m</code> را در ترمینال اجرا کنید",
   "theme.system": "سیستم",
   "theme.light": "روشن",
-  "theme.dark": "تاریک"
+  "theme.dark": "تاریک",
+  "hero.stars": "Stars",
+  "hero.downloads": "دانلودها",
+  "hero.version": "آخرین",
+  "starHistory.title": "Star History"
 }

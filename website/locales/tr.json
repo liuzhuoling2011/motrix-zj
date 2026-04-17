@@ -99,5 +99,9 @@
   "dl.modal.help.linux": "Terminalde <code>uname -m</code> komutunu çalıştırın",
   "theme.system": "Sistem",
   "theme.light": "Açık",
-  "theme.dark": "Koyu"
+  "theme.dark": "Koyu",
+  "hero.stars": "Stars",
+  "hero.downloads": "İndirmeler",
+  "hero.version": "Son",
+  "starHistory.title": "Star History"
 }

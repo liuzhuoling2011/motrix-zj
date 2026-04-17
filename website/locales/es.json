@@ -99,5 +99,9 @@
   "dl.modal.help.linux": "Ejecute <code>uname -m</code> en la terminal",
   "theme.system": "Sistema",
   "theme.light": "Claro",
-  "theme.dark": "Oscuro"
+  "theme.dark": "Oscuro",
+  "hero.stars": "Stars",
+  "hero.downloads": "Descargas",
+  "hero.version": "Última",
+  "starHistory.title": "Star History"
 }

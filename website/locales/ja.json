@@ -99,5 +99,9 @@
   "dl.modal.help.linux": "ターミナルで <code>uname -m</code> を実行",
   "theme.system": "システム",
   "theme.light": "ライト",
-  "theme.dark": "ダーク"
+  "theme.dark": "ダーク",
+  "hero.stars": "Stars",
+  "hero.downloads": "ダウンロード",
+  "hero.version": "最新",
+  "starHistory.title": "Star History"
 }

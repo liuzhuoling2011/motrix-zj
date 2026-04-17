@@ -99,5 +99,9 @@
   "dl.modal.help.linux": "Jalankan <code>uname -m</code> di terminal",
   "theme.system": "Sistem",
   "theme.light": "Terang",
-  "theme.dark": "Gelap"
+  "theme.dark": "Gelap",
+  "hero.stars": "Stars",
+  "hero.downloads": "Unduhan",
+  "hero.version": "Terbaru",
+  "starHistory.title": "Star History"
 }
