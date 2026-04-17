@@ -453,6 +453,39 @@ window.addEventListener('unhandledrejection', (e) => {
       import('@tauri-apps/plugin-fs').then(({ exists }) => exists('/')).catch(() => {})
     }, 3000)
 
+    // ── Lightweight mode: destroy WebView after autostart init ─────────
+    //
+    // When autostart + autoHideWindow + lightweightMode are all enabled,
+    // destroy the WebView to free ~300MB RAM.  This MUST run after all
+    // critical invoke() calls complete (engine start, option sync,
+    // resume-all, history init) because invoke() requires a live WebView.
+    //
+    // Delegates to handle_minimize_to_tray() in Rust which handles:
+    //   - end_cold_start()  → prevents re-hide on window recreation
+    //   - lightweightMode   → window.destroy() vs window.hide()
+    //   - macOS Dock hiding → hideDockOnMinimize (cfg-gated in Rust)
+    //
+    // Cross-platform: macOS (WKWebView), Windows (WebView2), Linux (WebKitGTK)
+    // all release the renderer process on destroy().  ExitRequested handler
+    // in handle_run_event() calls prevent_exit() to keep the process alive.
+    if (config.lightweightMode && config.autoHideWindow) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const isAutostart = await invoke<boolean>('is_autostart_launch')
+        if (isAutostart) {
+          logger.info('main', 'autostart + lightweight: destroying WebView via minimize_to_tray')
+          await invoke('minimize_to_tray')
+          // WebView destroyed — JS execution stops here.
+          // All background services (stat, monitor, speed scheduler) continue in Rust.
+          return
+        }
+      } catch (e) {
+        // Non-fatal: WebView stays alive (standard autostart-hide behavior).
+        // Graceful degradation — the user just doesn't get the RAM savings.
+        logger.debug('main.lightweightAutostart', e)
+      }
+    }
+
     let lastClipboardText = ''
     getCurrentWindow().onFocusChanged(async ({ payload: focused }) => {
       if (!focused) return

@@ -101,7 +101,7 @@ impl AppLifecycleState {
 ///
 /// Shared by `on_window_event(CloseRequested)` and `on_menu_event("close-window")`
 /// to keep the two close paths consistent.
-fn handle_minimize_to_tray(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
+pub(crate) fn handle_minimize_to_tray(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
     // End the cold-start phase on the first window dismissal.
     // After this point, is_autostart_launch() returns false so that
     // window recreations in lightweight mode show the window instead
@@ -794,6 +794,7 @@ pub fn run() {
             commands::stop_upnp_mapping,
             commands::get_upnp_status,
             commands::set_dock_visible,
+            commands::minimize_to_tray,
             commands::probe_trackers,
             commands::fetch_tracker_sources,
             commands::is_autostart_launch,
