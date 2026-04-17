@@ -3,6 +3,7 @@ const userKeys = [
   'auto-check-update',
   'auto-delete-stale-records',
   'auto-hide-window',
+  'auto-submit-from-extension',
   'auto-sync-tracker',
   'cookie',
   'custom-tracker-urls',

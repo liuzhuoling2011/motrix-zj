@@ -16,7 +16,19 @@ import { decodeThunderLink } from '@shared/utils'
 import { logger } from '@shared/logger'
 import { STAT_BASE_INTERVAL, STAT_PER_TASK_INTERVAL, STAT_MIN_INTERVAL, STAT_MAX_INTERVAL } from '@shared/timing'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
-import type { Aria2RawGlobalStat, Aria2EngineOptions, TauriUpdate, AppConfig, BatchItem } from '@shared/types'
+import { buildEngineOptions, submitManualUris } from '@/composables/useAddTaskSubmit'
+import { isGlobalDownloadProxyActive } from '@/composables/useAddTaskSubmit'
+import { usePreferenceStore } from '@/stores/preference'
+import { useTaskStore } from '@/stores/task'
+import type {
+  Aria2RawGlobalStat,
+  Aria2EngineOptions,
+  TauriUpdate,
+  AppConfig,
+  BatchItem,
+  AutoSubmitConfig,
+} from '@shared/types'
+import type { AddTaskForm } from '@/composables/useAddTaskSubmit'
 
 /** Payload shape emitted by Rust stat_service via `stat:update`. */
 interface StatPayload {
@@ -53,6 +65,8 @@ export const useAppStore = defineStore('app', () => {
   const addTaskVisible = ref(false)
   const pendingBatch = ref<BatchItem[]>([])
   const addTaskOptions = ref<Aria2EngineOptions>({})
+  /** Referer from the most recent deep-link, pre-filled into AddTask form. */
+  const pendingReferer = ref('')
   const progress = ref(0)
   const pendingUpdate = ref<TauriUpdate | null>(null)
   const engineRestarting = ref(true)
@@ -134,6 +148,7 @@ export const useAppStore = defineStore('app', () => {
   function hideAddTaskDialog() {
     addTaskVisible.value = false
     pendingBatch.value = []
+    pendingReferer.value = ''
   }
 
   function updateAddTaskOptions(options: Aria2EngineOptions = {}) {
@@ -234,7 +249,21 @@ export const useAppStore = defineStore('app', () => {
             const downloadUrl = parsed.searchParams.get('url')
             if (downloadUrl) {
               const kind = detectKind(downloadUrl)
-              items.push(createBatchItem(kind, downloadUrl))
+              // Extract referer for AddTask form pre-fill.
+              // The extension passes the originating tab URL here so the
+              // desktop app can set the Referer header on the download.
+              const referer = parsed.searchParams.get('referer') || ''
+              if (referer) {
+                pendingReferer.value = referer
+              }
+
+              // Auto-submit: bypass AddTask dialog when enabled for this type
+              const autoSubmit = usePreferenceStore().config.autoSubmitFromExtension
+              if (autoSubmit.enable && shouldAutoSubmit(autoSubmit, kind, downloadUrl)) {
+                void autoSubmitExtensionUrl(downloadUrl, referer)
+              } else {
+                items.push(createBatchItem(kind, downloadUrl))
+              }
             }
           }
           // motrixnext:// with no action or unrecognized action → pure wake-up
@@ -272,7 +301,56 @@ export const useAppStore = defineStore('app', () => {
       }
     }
 
-    enqueueBatch(items)
+    if (items.length > 0) {
+      enqueueBatch(items)
+    }
+  }
+
+  /**
+   * Determines whether a download type should be auto-submitted based on
+   * the per-type sub-toggles in AutoSubmitConfig.
+   */
+  function shouldAutoSubmit(config: AutoSubmitConfig, kind: 'uri' | 'torrent' | 'metalink', url: string): boolean {
+    if (kind === 'torrent') return config.torrent
+    if (kind === 'metalink') return config.metalink
+    // 'uri' covers both HTTP/FTP links and magnet URIs (detectKind
+    // classifies both as 'uri'). Distinguish via URL scheme.
+    if (url.toLowerCase().startsWith('magnet:')) return config.magnet
+    return config.http
+  }
+
+  /**
+   * Auto-submits a single extension URL using the user's default settings.
+   * Equivalent to opening AddTask and clicking Submit without any changes.
+   */
+  async function autoSubmitExtensionUrl(url: string, referer: string): Promise<void> {
+    const preferenceStore = usePreferenceStore()
+    const taskStore = useTaskStore()
+
+    const form: AddTaskForm = {
+      uris: url,
+      out: '',
+      dir: preferenceStore.config.dir,
+      split: preferenceStore.config.split ?? 16,
+      userAgent: '',
+      authorization: '',
+      referer,
+      cookie: '',
+      proxyMode: isGlobalDownloadProxyActive(preferenceStore.config.proxy) ? 'global' : 'none',
+      customProxy: '',
+      globalProxyServer: preferenceStore.config.proxy?.server ?? '',
+    }
+
+    const options = buildEngineOptions(form)
+    try {
+      await submitManualUris(form, options, taskStore, {
+        enabled: preferenceStore.config.fileCategoryEnabled,
+        categories: preferenceStore.config.fileCategories,
+      })
+      logger.info('autoSubmit', `auto-submitted: ${url}`)
+    } catch (e) {
+      logger.error('autoSubmit', e)
+    }
   }
 
   return {
@@ -286,6 +364,7 @@ export const useAppStore = defineStore('app', () => {
     addTaskVisible,
     pendingBatch,
     addTaskOptions,
+    pendingReferer,
     progress,
     pendingUpdate,
     engineRestarting,

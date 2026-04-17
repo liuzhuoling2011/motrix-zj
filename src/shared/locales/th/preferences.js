@@ -287,4 +287,11 @@ export default {
   'file-category-custom-label': 'ชื่อหมวดหมู่',
   'file-category-auto-archive': 'จัดเก็บอัตโนมัติ',
   'file-category-auto-archive-hint': 'ไฟล์ที่ไม่รู้จักจะถูกบันทึกไว้ในเส้นทางเริ่มต้นและจัดเก็บอัตโนมัติหลังดาวน์โหลด',
+  'extension-downloads': 'ส่วนขยายเบราว์เซอร์',
+  'auto-submit-from-extension': 'ข้ามการยืนยันสำหรับดาวน์โหลดจากส่วนขยาย',
+  'auto-submit-http': 'ลิงก์ทั่วไป (HTTP / FTP)',
+  'auto-submit-magnet': 'ลิงก์ Magnet',
+  'auto-submit-torrent': 'ไฟล์ Torrent (.torrent)',
+  'auto-submit-metalink': 'ไฟล์ Metalink (.meta4)',
+  'auto-submit-hint': 'ประเภทที่ไม่ได้เลือกจะยังคงแสดงกล่องโต้ตอบเพิ่มงาน',
 }
