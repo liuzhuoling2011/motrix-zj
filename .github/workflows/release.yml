@@ -97,10 +97,160 @@ jobs:
           path: "${{ join(fromJSON(steps.tauri.outputs.artifactPaths), '\n') }}"
           retention-days: 7
 
-  merge-updater-json:
-    needs: build
+  # ── RISC-V64: QEMU-emulated native build ──────────────────────────────
+  #
+  # Runs inside an emulated riscv64 Ubuntu 24.04 container via
+  # uraimo/run-on-arch-action.  Ubuntu 24.04 is required — 22.04 does not
+  # ship libwebkit2gtk-4.1-dev for riscv64.
+  #
+  # Produces .deb only (linuxdeploy for AppImage lacks riscv64 binaries).
+  # continue-on-error prevents this job from blocking existing platforms.
+  build-riscv64:
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
+    continue-on-error: true
+    timeout-minutes: 300
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: uraimo/run-on-arch-action@v3
+        id: build
+        with:
+          arch: riscv64
+          distro: ubuntu24.04
+          githubToken: ${{ github.token }}
+
+          dockerRunArgs: |
+            --volume "${PWD}/output:/output"
+
+          setup: |
+            mkdir -p "${PWD}/output"
+
+          install: |
+            apt-get update -y
+            apt-get install -y curl wget file build-essential pkg-config \
+              libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+              librsvg2-dev patchelf libssl-dev xdg-utils
+            curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+            apt-get install -y nodejs
+            npm install -g pnpm
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+          run: |
+            source "$HOME/.cargo/env"
+            pnpm install
+            npx tauri build --bundles deb
+            cp src-tauri/target/release/bundle/deb/*.deb /output/ 2>/dev/null || true
+            ls -la /output/
+
+      - name: Sign deb artifacts
+        if: success()
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          for deb in output/*.deb; do
+            [ -f "$deb" ] || continue
+            openssl dgst -sha256 -sign <(echo "$TAURI_SIGNING_PRIVATE_KEY") \
+              -out "${deb}.sig" "$deb" 2>/dev/null || true
+          done
+
+      - name: Upload to Release
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          files=(output/*.deb output/*.sig)
+          if [ ${#files[@]} -gt 0 ]; then
+            gh release upload "${{ github.event.release.tag_name }}" \
+              "${files[@]}" --clobber \
+              -R "${{ github.repository }}"
+          fi
+
+  # ── LoongArch64: QEMU-emulated native build ───────────────────────────
+  #
+  # Runs inside an emulated loong64 Debian Trixie container.  Requires a
+  # separate binfmt registration step because Docker Desktop / GitHub
+  # runners do not include LoongArch QEMU handlers by default.
+  #
+  # Uses base_image parameter since uraimo/run-on-arch-action does not
+  # natively list loongarch64 as a supported architecture.
+  build-loongarch64:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    continue-on-error: true
+    timeout-minutes: 300
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Register LoongArch64 QEMU binfmt handler
+        run: |
+          docker run --privileged --rm ghcr.io/loong64/binfmt --install all
+
+      - uses: uraimo/run-on-arch-action@v3
+        id: build
+        with:
+          arch: none
+          distro: none
+          base_image: "--platform=linux/loong64 ghcr.io/loong64/debian:trixie-slim"
+          githubToken: ${{ github.token }}
+
+          dockerRunArgs: |
+            --volume "${PWD}/output:/output"
+
+          setup: |
+            mkdir -p "${PWD}/output"
+
+          install: |
+            apt-get update -y
+            apt-get install -y curl wget file build-essential pkg-config \
+              libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+              librsvg2-dev patchelf libssl-dev xdg-utils
+            curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+            apt-get install -y nodejs
+            npm install -g pnpm
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+          run: |
+            source "$HOME/.cargo/env"
+            pnpm install
+            npx tauri build --bundles deb
+            cp src-tauri/target/release/bundle/deb/*.deb /output/ 2>/dev/null || true
+            ls -la /output/
+
+      - name: Sign deb artifacts
+        if: success()
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          for deb in output/*.deb; do
+            [ -f "$deb" ] || continue
+            openssl dgst -sha256 -sign <(echo "$TAURI_SIGNING_PRIVATE_KEY") \
+              -out "${deb}.sig" "$deb" 2>/dev/null || true
+          done
+
+      - name: Upload to Release
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          files=(output/*.deb output/*.sig)
+          if [ ${#files[@]} -gt 0 ]; then
+            gh release upload "${{ github.event.release.tag_name }}" \
+              "${files[@]}" --clobber \
+              -R "${{ github.repository }}"
+          fi
+
+
+  merge-updater-json:
+    needs: [build, build-riscv64, build-loongarch64]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && always()
 
     steps:
       - name: Generate and upload channel-specific updater JSON
@@ -139,6 +289,8 @@ jobs:
           LINUX_ARM_SIG=$(read_sig "sigs/MotrixNext_${VERSION}_aarch64.AppImage.sig")
           LINUX_X64_DEB_SIG=$(read_sig "sigs/MotrixNext_${VERSION}_amd64.deb.sig")
           LINUX_ARM_DEB_SIG=$(read_sig "sigs/MotrixNext_${VERSION}_arm64.deb.sig")
+          LINUX_RV64_DEB_SIG=$(read_sig "sigs/MotrixNext_${VERSION}_riscv64.deb.sig")
+          LINUX_LA64_DEB_SIG=$(read_sig "sigs/MotrixNext_${VERSION}_loongarch64.deb.sig")
 
           jq -n \
             --arg version "$VERSION" \
@@ -160,6 +312,10 @@ jobs:
             --arg ldebx64_url "$BASE/MotrixNext_${VERSION}_amd64.deb" \
             --arg ldebarm_sig "$LINUX_ARM_DEB_SIG" \
             --arg ldebarm_url "$BASE/MotrixNext_${VERSION}_arm64.deb" \
+            --arg ldebrv64_sig "$LINUX_RV64_DEB_SIG" \
+            --arg ldebrv64_url "$BASE/MotrixNext_${VERSION}_riscv64.deb" \
+            --arg ldebla64_sig "$LINUX_LA64_DEB_SIG" \
+            --arg ldebla64_url "$BASE/MotrixNext_${VERSION}_loongarch64.deb" \
             '{
               version: $version,
               notes: $notes,
@@ -172,7 +328,9 @@ jobs:
                 "linux-x86_64": { signature: $lx64_sig, url: $lx64_url },
                 "linux-aarch64": { signature: $larm_sig, url: $larm_url },
                 "linux-x86_64-deb": { signature: $ldebx64_sig, url: $ldebx64_url },
-                "linux-aarch64-deb": { signature: $ldebarm_sig, url: $ldebarm_url }
+                "linux-aarch64-deb": { signature: $ldebarm_sig, url: $ldebarm_url },
+                "linux-riscv64-deb": { signature: $ldebrv64_sig, url: $ldebrv64_url },
+                "linux-loongarch64-deb": { signature: $ldebla64_sig, url: $ldebla64_url }
               }
             }' > "$JSON_FILE"
 
