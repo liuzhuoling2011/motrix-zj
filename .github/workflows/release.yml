@@ -36,63 +36,37 @@ jobs:
             args: --target aarch64-unknown-linux-gnu
             label: linux-aarch64
 
-          # ── QEMU-emulated platforms ────────────────────────────────
-          # These run inside emulated containers via uraimo/run-on-arch-action.
-          # Steps are split into two paths: native (if: !matrix.qemu) and
-          # QEMU (if: matrix.qemu).  Only .deb bundles — linuxdeploy for
-          # AppImage lacks pre-built binaries for these architectures.
-          - platform: ubuntu-latest
-            label: linux-riscv64
-            qemu: true
-            qemu_arch: riscv64
-            qemu_distro: ubuntu24.04
-          - platform: ubuntu-latest
-            label: linux-loongarch64
-            qemu: true
-            qemu_arch: none
-            qemu_distro: none
-            qemu_base_image: "--platform=linux/loong64 ghcr.io/loong64/debian:trixie-slim"
-            qemu_binfmt: true
-
     runs-on: ${{ matrix.platform }}
 
     steps:
       - uses: actions/checkout@v5
 
-      # ────────────────────────────────────────────────────────────────
-      # Path ①: Native build (existing 6 platforms)
-      # ────────────────────────────────────────────────────────────────
-
       - uses: pnpm/action-setup@v4
-        if: ${{ !matrix.qemu }}
 
       - uses: actions/setup-node@v5
-        if: ${{ !matrix.qemu }}
         with:
           node-version: 22
           cache: pnpm
 
       - uses: dtolnay/rust-toolchain@stable
-        if: ${{ !matrix.qemu }}
 
       # Cross-compilation: add the secondary Rust target when building for
       # a different architecture on the same OS runner.
       # - macOS x86_64 uses a native Intel runner (macos-13), no cross-compile needed.
       # - Windows ARM64 cross-compiles on x64 runner (NSIS is arch-agnostic).
       - name: Add cross-compilation target
-        if: ${{ !matrix.qemu && contains(matrix.args, 'aarch64-pc-windows-msvc') }}
+        if: contains(matrix.args, 'aarch64-pc-windows-msvc')
         shell: bash
         run: |
           TARGET=$(echo '${{ matrix.args }}' | sed 's/.*--target \([^ ]*\).*/\1/')
           rustup target add "$TARGET"
 
       - uses: swatinem/rust-cache@v2
-        if: ${{ !matrix.qemu }}
 
       # Suppress needrestart daemon (auto-restarts services on package
       # install, can kill the runner agent and cause "operation canceled").
       - name: Install Linux dependencies
-        if: ${{ !matrix.qemu && runner.os == 'Linux' }}
+        if: runner.os == 'Linux'
         run: |
           export NEEDRESTART_SUSPEND=1
           export DEBIAN_FRONTEND=noninteractive
@@ -102,10 +76,8 @@ jobs:
             librsvg2-dev patchelf xdg-utils
 
       - run: pnpm install
-        if: ${{ !matrix.qemu }}
 
       - uses: tauri-apps/tauri-action@v0
-        if: ${{ !matrix.qemu }}
         id: tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -118,77 +90,11 @@ jobs:
           args: ${{ matrix.args }}
 
       - name: Upload build artifacts (manual trigger only)
-        if: ${{ !matrix.qemu && github.event_name == 'workflow_dispatch' }}
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v6
         with:
           name: motrix-next-${{ matrix.label }}
           path: "${{ join(fromJSON(steps.tauri.outputs.artifactPaths), '\n') }}"
-          retention-days: 7
-
-      # ────────────────────────────────────────────────────────────────
-      # Path ②: QEMU-emulated build (riscv64, loongarch64)
-      #
-      # Builds natively inside an emulated container.  Ubuntu 24.04 is
-      # required for riscv64 (22.04 lacks webkit2gtk-4.1-dev).  LoongArch64
-      # uses Debian Trixie via a community Docker image and requires
-      # explicit binfmt handler registration.
-      # ────────────────────────────────────────────────────────────────
-
-      - name: Register LoongArch64 QEMU binfmt handler
-        if: ${{ matrix.qemu_binfmt }}
-        run: |
-          docker run --privileged --rm ghcr.io/loong64/binfmt --install all
-
-      - name: Build in QEMU container
-        if: ${{ matrix.qemu }}
-        uses: uraimo/run-on-arch-action@v3
-        with:
-          arch: ${{ matrix.qemu_arch }}
-          distro: ${{ matrix.qemu_distro }}
-          base_image: ${{ matrix.qemu_base_image || '' }}
-          githubToken: ${{ github.token }}
-
-          dockerRunArgs: |
-            --volume "${PWD}/output:/output"
-
-          setup: |
-            mkdir -p "${PWD}/output"
-
-          install: |
-            apt-get update -y
-            apt-get install -y curl wget file build-essential pkg-config \
-              libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
-              librsvg2-dev patchelf libssl-dev xdg-utils \
-              nodejs npm
-            npm install -g pnpm
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
-          run: |
-            source "$HOME/.cargo/env"
-            pnpm install
-            npx tauri build --bundles deb
-            cp src-tauri/target/release/bundle/deb/*.deb /output/ 2>/dev/null || true
-            ls -la /output/
-
-      - name: Upload QEMU artifacts to Release
-        if: ${{ matrix.qemu && github.event_name == 'release' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          shopt -s nullglob
-          files=(output/*.deb output/*.sig)
-          if [ ${#files[@]} -gt 0 ]; then
-            gh release upload "${{ github.event.release.tag_name }}" \
-              "${files[@]}" --clobber \
-              -R "${{ github.repository }}"
-          fi
-
-      - name: Upload QEMU build artifacts (manual trigger only)
-        if: ${{ matrix.qemu && github.event_name == 'workflow_dispatch' }}
-        uses: actions/upload-artifact@v6
-        with:
-          name: motrix-next-${{ matrix.label }}
-          path: output/*.deb
           retention-days: 7
 
   merge-updater-json:
@@ -233,8 +139,6 @@ jobs:
           LINUX_ARM_SIG=$(read_sig "sigs/MotrixNext_${VERSION}_aarch64.AppImage.sig")
           LINUX_X64_DEB_SIG=$(read_sig "sigs/MotrixNext_${VERSION}_amd64.deb.sig")
           LINUX_ARM_DEB_SIG=$(read_sig "sigs/MotrixNext_${VERSION}_arm64.deb.sig")
-          LINUX_RV64_DEB_SIG=$(read_sig "sigs/MotrixNext_${VERSION}_riscv64.deb.sig")
-          LINUX_LA64_DEB_SIG=$(read_sig "sigs/MotrixNext_${VERSION}_loongarch64.deb.sig")
 
           jq -n \
             --arg version "$VERSION" \
@@ -256,10 +160,6 @@ jobs:
             --arg ldebx64_url "$BASE/MotrixNext_${VERSION}_amd64.deb" \
             --arg ldebarm_sig "$LINUX_ARM_DEB_SIG" \
             --arg ldebarm_url "$BASE/MotrixNext_${VERSION}_arm64.deb" \
-            --arg ldebrv64_sig "$LINUX_RV64_DEB_SIG" \
-            --arg ldebrv64_url "$BASE/MotrixNext_${VERSION}_riscv64.deb" \
-            --arg ldebla64_sig "$LINUX_LA64_DEB_SIG" \
-            --arg ldebla64_url "$BASE/MotrixNext_${VERSION}_loongarch64.deb" \
             '{
               version: $version,
               notes: $notes,
@@ -272,9 +172,7 @@ jobs:
                 "linux-x86_64": { signature: $lx64_sig, url: $lx64_url },
                 "linux-aarch64": { signature: $larm_sig, url: $larm_url },
                 "linux-x86_64-deb": { signature: $ldebx64_sig, url: $ldebx64_url },
-                "linux-aarch64-deb": { signature: $ldebarm_sig, url: $ldebarm_url },
-                "linux-riscv64-deb": { signature: $ldebrv64_sig, url: $ldebrv64_url },
-                "linux-loongarch64-deb": { signature: $ldebla64_sig, url: $ldebla64_url }
+                "linux-aarch64-deb": { signature: $ldebarm_sig, url: $ldebarm_url }
               }
             }' > "$JSON_FILE"
 
