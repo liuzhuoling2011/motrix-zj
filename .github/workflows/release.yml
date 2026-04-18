@@ -158,9 +158,8 @@ jobs:
             apt-get update -y
             apt-get install -y curl wget file build-essential pkg-config \
               libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
-              librsvg2-dev patchelf libssl-dev xdg-utils
-            curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-            apt-get install -y nodejs
+              librsvg2-dev patchelf libssl-dev xdg-utils \
+              nodejs npm
             npm install -g pnpm
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
