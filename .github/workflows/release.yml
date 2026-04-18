@@ -36,37 +36,66 @@ jobs:
             args: --target aarch64-unknown-linux-gnu
             label: linux-aarch64
 
+          # ── QEMU-emulated platforms ────────────────────────────────
+          # These run inside emulated containers via uraimo/run-on-arch-action.
+          # Steps are split into two paths: native (if: !matrix.qemu) and
+          # QEMU (if: matrix.qemu).  Only .deb bundles — linuxdeploy for
+          # AppImage lacks pre-built binaries for these architectures.
+          - platform: ubuntu-latest
+            label: linux-riscv64
+            qemu: true
+            qemu_arch: riscv64
+            qemu_distro: ubuntu24.04
+          - platform: ubuntu-latest
+            label: linux-loongarch64
+            qemu: true
+            qemu_arch: none
+            qemu_distro: none
+            qemu_base_image: "--platform=linux/loong64 ghcr.io/loong64/debian:trixie-slim"
+            qemu_binfmt: true
+
     runs-on: ${{ matrix.platform }}
+    # QEMU builds may fail without blocking existing platform releases.
+    continue-on-error: ${{ matrix.qemu || false }}
+    timeout-minutes: 360
 
     steps:
       - uses: actions/checkout@v5
 
+      # ────────────────────────────────────────────────────────────────
+      # Path ①: Native build (existing 6 platforms)
+      # ────────────────────────────────────────────────────────────────
+
       - uses: pnpm/action-setup@v4
+        if: ${{ !matrix.qemu }}
 
       - uses: actions/setup-node@v5
+        if: ${{ !matrix.qemu }}
         with:
           node-version: 22
           cache: pnpm
 
       - uses: dtolnay/rust-toolchain@stable
+        if: ${{ !matrix.qemu }}
 
       # Cross-compilation: add the secondary Rust target when building for
       # a different architecture on the same OS runner.
       # - macOS x86_64 uses a native Intel runner (macos-13), no cross-compile needed.
       # - Windows ARM64 cross-compiles on x64 runner (NSIS is arch-agnostic).
       - name: Add cross-compilation target
-        if: contains(matrix.args, 'aarch64-pc-windows-msvc')
+        if: ${{ !matrix.qemu && contains(matrix.args, 'aarch64-pc-windows-msvc') }}
         shell: bash
         run: |
           TARGET=$(echo '${{ matrix.args }}' | sed 's/.*--target \([^ ]*\).*/\1/')
           rustup target add "$TARGET"
 
       - uses: swatinem/rust-cache@v2
+        if: ${{ !matrix.qemu }}
 
       # Suppress needrestart daemon (auto-restarts services on package
       # install, can kill the runner agent and cause "operation canceled").
       - name: Install Linux dependencies
-        if: runner.os == 'Linux'
+        if: ${{ !matrix.qemu && runner.os == 'Linux' }}
         run: |
           export NEEDRESTART_SUSPEND=1
           export DEBIAN_FRONTEND=noninteractive
@@ -76,8 +105,10 @@ jobs:
             librsvg2-dev patchelf xdg-utils
 
       - run: pnpm install
+        if: ${{ !matrix.qemu }}
 
       - uses: tauri-apps/tauri-action@v0
+        if: ${{ !matrix.qemu }}
         id: tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -90,112 +121,34 @@ jobs:
           args: ${{ matrix.args }}
 
       - name: Upload build artifacts (manual trigger only)
-        if: github.event_name == 'workflow_dispatch'
+        if: ${{ !matrix.qemu && github.event_name == 'workflow_dispatch' }}
         uses: actions/upload-artifact@v6
         with:
           name: motrix-next-${{ matrix.label }}
           path: "${{ join(fromJSON(steps.tauri.outputs.artifactPaths), '\n') }}"
           retention-days: 7
 
-  # ── RISC-V64: QEMU-emulated native build ──────────────────────────────
-  #
-  # Runs inside an emulated riscv64 Ubuntu 24.04 container via
-  # uraimo/run-on-arch-action.  Ubuntu 24.04 is required — 22.04 does not
-  # ship libwebkit2gtk-4.1-dev for riscv64.
-  #
-  # Produces .deb only (linuxdeploy for AppImage lacks riscv64 binaries).
-  # continue-on-error prevents this job from blocking existing platforms.
-  build-riscv64:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release'
-    continue-on-error: true
-    timeout-minutes: 300
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: uraimo/run-on-arch-action@v3
-        id: build
-        with:
-          arch: riscv64
-          distro: ubuntu24.04
-          githubToken: ${{ github.token }}
-
-          dockerRunArgs: |
-            --volume "${PWD}/output:/output"
-
-          setup: |
-            mkdir -p "${PWD}/output"
-
-          install: |
-            apt-get update -y
-            apt-get install -y curl wget file build-essential pkg-config \
-              libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
-              librsvg2-dev patchelf libssl-dev xdg-utils
-            curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-            apt-get install -y nodejs
-            npm install -g pnpm
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
-          run: |
-            source "$HOME/.cargo/env"
-            pnpm install
-            npx tauri build --bundles deb
-            cp src-tauri/target/release/bundle/deb/*.deb /output/ 2>/dev/null || true
-            ls -la /output/
-
-      - name: Sign deb artifacts
-        if: success()
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          for deb in output/*.deb; do
-            [ -f "$deb" ] || continue
-            openssl dgst -sha256 -sign <(echo "$TAURI_SIGNING_PRIVATE_KEY") \
-              -out "${deb}.sig" "$deb" 2>/dev/null || true
-          done
-
-      - name: Upload to Release
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          shopt -s nullglob
-          files=(output/*.deb output/*.sig)
-          if [ ${#files[@]} -gt 0 ]; then
-            gh release upload "${{ github.event.release.tag_name }}" \
-              "${files[@]}" --clobber \
-              -R "${{ github.repository }}"
-          fi
-
-  # ── LoongArch64: QEMU-emulated native build ───────────────────────────
-  #
-  # Runs inside an emulated loong64 Debian Trixie container.  Requires a
-  # separate binfmt registration step because Docker Desktop / GitHub
-  # runners do not include LoongArch QEMU handlers by default.
-  #
-  # Uses base_image parameter since uraimo/run-on-arch-action does not
-  # natively list loongarch64 as a supported architecture.
-  build-loongarch64:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release'
-    continue-on-error: true
-    timeout-minutes: 300
-
-    steps:
-      - uses: actions/checkout@v5
+      # ────────────────────────────────────────────────────────────────
+      # Path ②: QEMU-emulated build (riscv64, loongarch64)
+      #
+      # Builds natively inside an emulated container.  Ubuntu 24.04 is
+      # required for riscv64 (22.04 lacks webkit2gtk-4.1-dev).  LoongArch64
+      # uses Debian Trixie via a community Docker image and requires
+      # explicit binfmt handler registration.
+      # ────────────────────────────────────────────────────────────────
 
       - name: Register LoongArch64 QEMU binfmt handler
+        if: ${{ matrix.qemu_binfmt }}
         run: |
           docker run --privileged --rm ghcr.io/loong64/binfmt --install all
 
-      - uses: uraimo/run-on-arch-action@v3
-        id: build
+      - name: Build in QEMU container
+        if: ${{ matrix.qemu }}
+        uses: uraimo/run-on-arch-action@v3
         with:
-          arch: none
-          distro: none
-          base_image: "--platform=linux/loong64 ghcr.io/loong64/debian:trixie-slim"
+          arch: ${{ matrix.qemu_arch }}
+          distro: ${{ matrix.qemu_distro }}
+          base_image: ${{ matrix.qemu_base_image || '' }}
           githubToken: ${{ github.token }}
 
           dockerRunArgs: |
@@ -221,20 +174,8 @@ jobs:
             cp src-tauri/target/release/bundle/deb/*.deb /output/ 2>/dev/null || true
             ls -la /output/
 
-      - name: Sign deb artifacts
-        if: success()
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          for deb in output/*.deb; do
-            [ -f "$deb" ] || continue
-            openssl dgst -sha256 -sign <(echo "$TAURI_SIGNING_PRIVATE_KEY") \
-              -out "${deb}.sig" "$deb" 2>/dev/null || true
-          done
-
-      - name: Upload to Release
-        if: success()
+      - name: Upload QEMU artifacts to Release
+        if: ${{ matrix.qemu && github.event_name == 'release' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -246,11 +187,18 @@ jobs:
               -R "${{ github.repository }}"
           fi
 
+      - name: Upload QEMU build artifacts (manual trigger only)
+        if: ${{ matrix.qemu && github.event_name == 'workflow_dispatch' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: motrix-next-${{ matrix.label }}
+          path: output/*.deb
+          retention-days: 7
 
   merge-updater-json:
-    needs: [build, build-riscv64, build-loongarch64]
+    needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' && always()
+    if: github.event_name == 'release'
 
     steps:
       - name: Generate and upload channel-specific updater JSON
