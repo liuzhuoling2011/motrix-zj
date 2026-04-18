@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': 'Αρχεία Torrent (.torrent)',
   'auto-submit-metalink': 'Αρχεία Metalink (.meta4)',
   'auto-submit-hint': 'Οι μη επιλεγμένοι τύποι θα εμφανίζουν τον διάλογο προσθήκης εργασίας',
+  'shutdown-when-complete': 'Τερματισμός μετά την ολοκλήρωση όλων των λήψεων',
 }

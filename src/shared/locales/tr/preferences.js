@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': 'Torrent dosyaları (.torrent)',
   'auto-submit-metalink': 'Metalink dosyaları (.meta4)',
   'auto-submit-hint': 'İşaretlenmemiş türler görev ekleme iletişim kutusunu gösterir',
+  'shutdown-when-complete': 'Tüm indirmeler tamamlandıktan sonra kapat',
 }

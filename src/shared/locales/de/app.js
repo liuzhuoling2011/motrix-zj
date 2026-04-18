@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Bitte Grenzwerte eingeben',
   'schedule-enabled': 'Geschwindigkeitszeitplan aktiviert',
   'schedule-disabled': 'Geschwindigkeitszeitplan deaktiviert',
+  'shutdown-countdown-title': 'Automatisches Herunterfahren',
+  'shutdown-countdown-message': 'Alle Downloads abgeschlossen. System wird in {seconds} Sekunden heruntergefahren.',
+  'shutdown-failed': 'System konnte nicht heruntergefahren werden',
+  'shutdown-skip-once': 'Diesmal überspringen',
+  'shutdown-disable': 'Auto-Herunterfahren deaktivieren',
 }

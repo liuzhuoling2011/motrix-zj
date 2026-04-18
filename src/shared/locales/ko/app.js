@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': '제한 값을 입력하세요',
   'schedule-enabled': '속도 스케줄이 활성화되었습니다',
   'schedule-disabled': '속도 스케줄이 비활성화되었습니다',
+  'shutdown-countdown-title': '자동 종료',
+  'shutdown-countdown-message': '모든 다운로드가 완료되었습니다. {seconds}초 후에 시스템이 종료됩니다.',
+  'shutdown-failed': '시스템 종료에 실패했습니다',
+  'shutdown-skip-once': '이번에는 건너뛰기',
+  'shutdown-disable': '자동 종료 비활성화',
 }

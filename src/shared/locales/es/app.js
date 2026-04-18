@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Introduzca los valores del límite',
   'schedule-enabled': 'Horario de velocidad activado',
   'schedule-disabled': 'Horario de velocidad desactivado',
+  'shutdown-countdown-title': 'Apagado automático',
+  'shutdown-countdown-message': 'Todas las descargas completadas. El sistema se apagará en {seconds} segundos.',
+  'shutdown-failed': 'No se pudo apagar el sistema',
+  'shutdown-skip-once': 'Omitir esta vez',
+  'shutdown-disable': 'Desactivar apagado automático',
 }

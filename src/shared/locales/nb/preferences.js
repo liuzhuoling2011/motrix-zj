@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': 'Torrent-filer (.torrent)',
   'auto-submit-metalink': 'Metalink-filer (.meta4)',
   'auto-submit-hint': 'Uavmerkede typer viser fortsatt oppgave-dialogen',
+  'shutdown-when-complete': 'Slå av etter at alle nedlastinger er ferdige',
 }

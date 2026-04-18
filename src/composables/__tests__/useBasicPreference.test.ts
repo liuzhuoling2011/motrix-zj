@@ -37,6 +37,16 @@ describe('buildBasicForm', () => {
     expect(form.continue).toBe(true)
   })
 
+  it('defaults shutdownWhenComplete to false', () => {
+    const form = buildBasicForm(emptyConfig)
+    expect(form.shutdownWhenComplete).toBe(false)
+  })
+
+  it('reads shutdownWhenComplete from config when set', () => {
+    const form = buildBasicForm({ shutdownWhenComplete: true } as unknown as AppConfig)
+    expect(form.shutdownWhenComplete).toBe(true)
+  })
+
   it('defaults btAutoDownloadContent to false (pause-metadata=true for file selection)', () => {
     const form = buildBasicForm(emptyConfig)
     expect(form.btAutoDownloadContent).toBe(false)
@@ -187,6 +197,7 @@ describe('buildBasicSystemConfig', () => {
     protocolMagnet: true,
     protocolThunder: false,
     protocolMotrixnext: true,
+    shutdownWhenComplete: false,
   }
 
   it('maps all required aria2 config keys', () => {
@@ -316,6 +327,7 @@ describe('transformBasicForStore', () => {
     protocolMagnet: true,
     protocolThunder: false,
     protocolMotrixnext: true,
+    shutdownWhenComplete: false,
   }
 
   it('expands btAutoDownloadContent=true into follow+resume', () => {
@@ -348,5 +360,9 @@ describe('transformBasicForStore', () => {
   it('does not set engineMaxConnectionPerServer (removed in v2)', () => {
     const result = transformBasicForStore({ ...baseForm, maxConnectionPerServer: 32 })
     expect((result as Record<string, unknown>).engineMaxConnectionPerServer).toBeUndefined()
+  })
+  it('preserves shutdownWhenComplete through transform', () => {
+    const result = transformBasicForStore({ ...baseForm, shutdownWhenComplete: true })
+    expect(result.shutdownWhenComplete).toBe(true)
   })
 })

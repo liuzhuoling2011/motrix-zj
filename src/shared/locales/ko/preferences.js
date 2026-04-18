@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': '토렌트 파일 (.torrent)',
   'auto-submit-metalink': '메타링크 파일 (.meta4)',
   'auto-submit-hint': '선택하지 않은 유형은 작업 추가 대화 상자가 표시됩니다',
+  'shutdown-when-complete': '모든 다운로드 완료 후 종료',
 }

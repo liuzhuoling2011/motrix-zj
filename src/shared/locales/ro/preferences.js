@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': 'Fișiere Torrent (.torrent)',
   'auto-submit-metalink': 'Fișiere Metalink (.meta4)',
   'auto-submit-hint': 'Tipurile nebifate vor afișa dialogul de adăugare a sarcinii',
+  'shutdown-when-complete': 'Oprire după finalizarea tuturor descărcărilor',
 }

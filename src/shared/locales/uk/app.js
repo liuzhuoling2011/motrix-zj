@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Будь ласка, введіть значення обмеження',
   'schedule-enabled': 'Розклад обмеження швидкості увімкнено',
   'schedule-disabled': 'Розклад обмеження швидкості вимкнено',
+  'shutdown-countdown-title': 'Автовимкнення',
+  'shutdown-countdown-message': 'Усі завантаження завершено. Система вимкнеться через {seconds} сек.',
+  'shutdown-failed': 'Не вдалося вимкнути систему',
+  'shutdown-skip-once': 'Пропустити цього разу',
+  'shutdown-disable': 'Вимкнути автовимкнення',
 }

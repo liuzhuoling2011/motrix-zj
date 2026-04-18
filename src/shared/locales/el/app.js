@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Παρακαλώ εισάγετε τιμές ορίου',
   'schedule-enabled': 'Το χρονοδιάγραμμα ταχύτητας ενεργοποιήθηκε',
   'schedule-disabled': 'Το χρονοδιάγραμμα ταχύτητας απενεργοποιήθηκε',
+  'shutdown-countdown-title': 'Αυτόματος τερματισμός',
+  'shutdown-countdown-message': 'Όλες οι λήψεις ολοκληρώθηκαν. Το σύστημα θα τερματιστεί σε {seconds} δευτερόλεπτα.',
+  'shutdown-failed': 'Αποτυχία τερματισμού του συστήματος',
+  'shutdown-skip-once': 'Παράλειψη αυτή τη φορά',
+  'shutdown-disable': 'Απενεργοποίηση αυτόματου τερματισμού',
 }

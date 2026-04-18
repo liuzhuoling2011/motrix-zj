@@ -364,6 +364,12 @@ async fn monitor_loop(
     let mut notifier = TaskNotifier::new();
     let interval = Duration::from_millis(DEFAULT_INTERVAL_MS);
 
+    // ── Auto-shutdown state ─────────────────────────────────────────
+    // Tracks whether active downloads existed during this engine cycle,
+    // preventing false triggers on app launch with an empty queue.
+    let mut had_active_downloads = false;
+    let mut shutdown_triggered = false;
+
     loop {
         tokio::select! {
             _ = tokio::time::sleep(interval) => {},
@@ -447,7 +453,89 @@ async fn monitor_loop(
                 );
             }
         }
+
+        // ── Auto-shutdown detection ─────────────────────────────────
+        // Active-download tracking runs unconditionally so that
+        // `shutdown_triggered` can reset when new downloads appear
+        // after a previous trigger (cancelled or completed).
+        {
+            let active_dl = count_active_downloads(&all);
+            let waiting: usize = aria2
+                .tell_waiting(0, 1)
+                .await
+                .map(|w| w.len())
+                .unwrap_or(0);
+
+            if active_dl > 0 || waiting > 0 {
+                had_active_downloads = true;
+                // New downloads appeared — allow re-detection.
+                shutdown_triggered = false;
+            }
+
+            if !shutdown_triggered
+                && had_active_downloads
+                && active_dl == 0
+                && waiting == 0
+            {
+                let should_shutdown = app
+                    .try_state::<super::config::RuntimeConfigState>()
+                    .map(|rc| rc.0.try_read().is_ok_and(|cfg| cfg.shutdown_when_complete))
+                    .unwrap_or(false);
+
+                if should_shutdown {
+                    shutdown_triggered = true;
+                    log::info!("task_monitor: all downloads complete, shutdown requested");
+
+                    // Reset the cancel flag for this new shutdown sequence.
+                    // Previous cancellations must not suppress this trigger.
+                    if let Some(cancel) = app
+                        .try_state::<std::sync::Arc<crate::commands::power::ShutdownCancelState>>()
+                    {
+                        cancel.reset();
+                    }
+
+                    // Notify frontend to show 60s countdown dialog.
+                    let _ = app.emit("power:countdown", ());
+
+                    // Lightweight-mode safety net: if the WebView is destroyed,
+                    // the frontend can't show a countdown or invoke the command.
+                    // Wait 70s (> 60s frontend countdown) then execute directly.
+                    let app_clone = app.clone();
+                    tokio::spawn(async move {
+                        tokio::time::sleep(Duration::from_secs(70)).await;
+                        // Check cancel flag — set by frontend's cancel_shutdown command
+                        let was_cancelled = app_clone
+                            .try_state::<std::sync::Arc<crate::commands::power::ShutdownCancelState>>()
+                            .map(|s| s.is_cancelled())
+                            .unwrap_or(true); // if state missing, assume cancelled (safe default)
+
+                        if !was_cancelled {
+                            log::info!("power: lightweight fallback — executing shutdown");
+                            if let Err(e) = crate::commands::power::do_shutdown_internal() {
+                                log::error!("power: shutdown failed: {e}");
+                            }
+                        } else {
+                            log::info!("power: shutdown cancelled by user");
+                        }
+                    });
+                }
+            }
+        }
     }
+}
+
+/// Counts active downloads, excluding BT tasks that are only seeding.
+///
+/// A seeder is identified by `bittorrent` metadata present, `seeder == "true"`,
+/// and `status == "active"`. These are upload-only tasks that must not block
+/// the auto-shutdown trigger.
+fn count_active_downloads(tasks: &[Aria2Task]) -> usize {
+    tasks
+        .iter()
+        .filter(|t| {
+            t.status == "active" && !(t.bittorrent.is_some() && t.seeder.as_deref() == Some("true"))
+        })
+        .count()
 }
 
 /// Managed state wrapper for the monitor handle.
@@ -956,5 +1044,61 @@ mod tests {
         assert_eq!(event.files[0].path, "/downloads/MyTorrent/video.mkv");
         assert_eq!(event.files[1].path, "/downloads/MyTorrent/subs.srt");
         assert_eq!(event.announce_list.len(), 2);
+    }
+
+    // ── count_active_downloads (auto-shutdown) ──────────────────────
+    //
+    // Validates the pure helper that determines whether any "real"
+    // downloads are in progress.  BT tasks that are only seeding
+    // (active + seeder=true) must be excluded so they don't block
+    // the auto-shutdown trigger.
+
+    #[test]
+    fn count_active_downloads_excludes_bt_seeders() {
+        let tasks = vec![
+            make_task("g1", "active"),           // real download
+            make_bt_task("g2", "active", true),  // seeder — excluded
+            make_bt_task("g3", "active", false), // BT download — counted
+        ];
+        assert_eq!(count_active_downloads(&tasks), 2);
+    }
+
+    #[test]
+    fn count_active_downloads_ignores_non_active_statuses() {
+        let tasks = vec![
+            make_task("g1", "complete"),
+            make_task("g2", "paused"),
+            make_task("g3", "error"),
+            make_task("g4", "waiting"),
+            make_task("g5", "removed"),
+        ];
+        assert_eq!(count_active_downloads(&tasks), 0);
+    }
+
+    #[test]
+    fn count_active_downloads_empty_list_returns_zero() {
+        assert_eq!(count_active_downloads(&[]), 0);
+    }
+
+    #[test]
+    fn count_active_downloads_all_seeders_returns_zero() {
+        let tasks = vec![
+            make_bt_task("g1", "active", true),
+            make_bt_task("g2", "active", true),
+        ];
+        assert_eq!(count_active_downloads(&tasks), 0);
+    }
+
+    #[test]
+    fn count_active_downloads_mixed_seeder_and_paused_seeder() {
+        // Paused seeder is NOT active, so it shouldn't be counted at all.
+        // Active seeder is excluded by the filter.
+        // Only the plain active download counts.
+        let tasks = vec![
+            make_task("g1", "active"),          // counted
+            make_bt_task("g2", "paused", true), // not active → ignored
+            make_bt_task("g3", "active", true), // seeder → excluded
+        ];
+        assert_eq!(count_active_downloads(&tasks), 1);
     }
 }

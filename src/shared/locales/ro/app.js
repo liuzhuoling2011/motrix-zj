@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Introduceți valorile limitei',
   'schedule-enabled': 'Program de viteză activat',
   'schedule-disabled': 'Program de viteză dezactivat',
+  'shutdown-countdown-title': 'Oprire automată',
+  'shutdown-countdown-message': 'Toate descărcările sunt complete. Sistemul se va opri în {seconds} secunde.',
+  'shutdown-failed': 'Nu s-a putut opri sistemul',
+  'shutdown-skip-once': 'Omite de data aceasta',
+  'shutdown-disable': 'Dezactivare oprire automată',
 }

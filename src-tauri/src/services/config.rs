@@ -44,6 +44,9 @@ pub struct RuntimeConfig {
     #[cfg(not(target_os = "linux"))]
     #[serde(default)]
     pub show_progress_bar: bool,
+    /// Whether to shut down the system after all downloads complete.
+    #[serde(default)]
+    pub shutdown_when_complete: bool,
 }
 
 fn default_true() -> bool {
@@ -74,6 +77,7 @@ impl Default for RuntimeConfig {
             dock_badge_speed: true,
             #[cfg(not(target_os = "linux"))]
             show_progress_bar: false,
+            shutdown_when_complete: false,
         }
     }
 }
@@ -126,6 +130,7 @@ mod tests {
         assert!(cfg.dock_badge_speed); // default ON
         #[cfg(not(target_os = "linux"))]
         assert!(!cfg.show_progress_bar);
+        assert!(!cfg.shutdown_when_complete); // default OFF — opt-in only
     }
 
     // ── Deserialization from AppConfig-shaped JSON ───────────────────
@@ -144,6 +149,7 @@ mod tests {
             "traySpeedometer": true,
             "dockBadgeSpeed": false,
             "showProgressBar": true,
+            "shutdownWhenComplete": true,
             // Extra fields from AppConfig that RuntimeConfig ignores:
             "theme": "dark",
             "locale": "en-US",
@@ -167,6 +173,14 @@ mod tests {
         assert!(!cfg.dock_badge_speed);
         #[cfg(not(target_os = "linux"))]
         assert!(cfg.show_progress_bar);
+        assert!(cfg.shutdown_when_complete);
+    }
+
+    #[test]
+    fn deserialize_shutdown_when_complete_defaults_to_false() {
+        let json = serde_json::json!({ "speedLimitEnabled": true });
+        let cfg: RuntimeConfig = serde_json::from_value(json).expect("deserialize");
+        assert!(!cfg.shutdown_when_complete);
     }
 
     #[test]

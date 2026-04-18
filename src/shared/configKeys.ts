@@ -37,6 +37,7 @@ const userKeys = [
   'resume-all-when-app-launched',
   'run-mode',
   'show-progress-bar',
+  'shutdown-when-complete',
   'speed-limit-enabled',
   'speed-schedule-enabled',
   'speed-schedule-from',

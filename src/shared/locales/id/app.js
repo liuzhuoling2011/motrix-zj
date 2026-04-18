@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Silakan masukkan nilai batas',
   'schedule-enabled': 'Jadwal kecepatan diaktifkan',
   'schedule-disabled': 'Jadwal kecepatan dinonaktifkan',
+  'shutdown-countdown-title': 'Matikan Otomatis',
+  'shutdown-countdown-message': 'Semua unduhan selesai. Sistem akan dimatikan dalam {seconds} detik.',
+  'shutdown-failed': 'Gagal mematikan sistem',
+  'shutdown-skip-once': 'Lewati Kali Ini',
+  'shutdown-disable': 'Nonaktifkan Mati Otomatis',
 }

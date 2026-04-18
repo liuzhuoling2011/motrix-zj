@@ -103,4 +103,9 @@ export default {
   'speedometer-enter-values': 'Veuillez saisir les valeurs limites',
   'schedule-enabled': 'Planification de vitesse activée',
   'schedule-disabled': 'Planification de vitesse désactivée',
+  'shutdown-countdown-title': 'Arrêt automatique',
+  'shutdown-countdown-message': 'Tous les téléchargements sont terminés. Le système s\'éteindra dans {seconds} secondes.',
+  'shutdown-failed': 'Impossible d\'éteindre le système',
+  'shutdown-skip-once': 'Ignorer cette fois',
+  'shutdown-disable': 'Désactiver l\'arrêt automatique',
 }

@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Моля, въведете стойности за ограничението',
   'schedule-enabled': 'Графикът за скоростта е включен',
   'schedule-disabled': 'Графикът за скоростта е изключен',
+  'shutdown-countdown-title': 'Автоматично изключване',
+  'shutdown-countdown-message': 'Всички изтегляния са завършени. Системата ще се изключи след {seconds} секунди.',
+  'shutdown-failed': 'Неуспешно изключване на системата',
+  'shutdown-skip-once': 'Пропусни този път',
+  'shutdown-disable': 'Спри автоматичното изключване',
 }

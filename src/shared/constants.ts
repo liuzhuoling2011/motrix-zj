@@ -296,6 +296,9 @@ export const DEFAULT_APP_CONFIG = {
   autoDeleteStaleRecords: false,
   clearCompletedOnExit: false,
 
+  // ── Power Management ────────────────────────────────────────────
+  shutdownWhenComplete: false,
+
   // ── Task Sorting ─────────────────────────────────────────────
   taskSort: DEFAULT_TASK_SORT,
 }

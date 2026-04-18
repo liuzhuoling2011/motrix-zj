@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': 'Torrent-bestanden (.torrent)',
   'auto-submit-metalink': 'Metalink-bestanden (.meta4)',
   'auto-submit-hint': 'Niet-aangevinkte typen tonen nog steeds het taak-dialoogvenster',
+  'shutdown-when-complete': 'Afsluiten na voltooiing van alle downloads',
 }

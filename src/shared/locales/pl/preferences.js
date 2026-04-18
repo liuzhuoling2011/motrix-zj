@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': 'Pliki Torrent (.torrent)',
   'auto-submit-metalink': 'Pliki Metalink (.meta4)',
   'auto-submit-hint': 'Niezaznaczone typy nadal wyświetlają okno dodawania zadania',
+  'shutdown-when-complete': 'Wyłącz po zakończeniu wszystkich pobierań',
 }

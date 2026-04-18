@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Insira os valores do limite',
   'schedule-enabled': 'Agendamento de velocidade ativado',
   'schedule-disabled': 'Agendamento de velocidade desativado',
+  'shutdown-countdown-title': 'Desligamento automático',
+  'shutdown-countdown-message': 'Todos os downloads foram concluídos. O sistema será desligado em {seconds} segundos.',
+  'shutdown-failed': 'Falha ao desligar o sistema',
+  'shutdown-skip-once': 'Pular desta vez',
+  'shutdown-disable': 'Desativar desligamento automático',
 }

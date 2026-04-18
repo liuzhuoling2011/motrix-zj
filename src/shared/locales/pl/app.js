@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Proszę wprowadzić wartości limitu',
   'schedule-enabled': 'Harmonogram prędkości włączony',
   'schedule-disabled': 'Harmonogram prędkości wyłączony',
+  'shutdown-countdown-title': 'Automatyczne wyłączenie',
+  'shutdown-countdown-message': 'Wszystkie pobierania zakończone. System wyłączy się za {seconds} sekund.',
+  'shutdown-failed': 'Nie udało się wyłączyć systemu',
+  'shutdown-skip-once': 'Pomiń tym razem',
+  'shutdown-disable': 'Wyłącz automatyczne zamykanie',
 }

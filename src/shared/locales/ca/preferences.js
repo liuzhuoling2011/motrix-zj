@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': 'Fitxers Torrent (.torrent)',
   'auto-submit-metalink': 'Fitxers Metalink (.meta4)',
   'auto-submit-hint': 'Els tipus no marcats mostraran el diàleg d\'afegir tasca',
+  'shutdown-when-complete': 'Apagar després de completar totes les descàrregues',
 }

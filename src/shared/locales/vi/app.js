@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Vui lòng nhập giá trị giới hạn',
   'schedule-enabled': 'Đã bật lịch giới hạn tốc độ',
   'schedule-disabled': 'Đã tắt lịch giới hạn tốc độ',
+  'shutdown-countdown-title': 'Tự động tắt máy',
+  'shutdown-countdown-message': 'Tất cả tải xuống đã hoàn tất. Hệ thống sẽ tắt sau {seconds} giây.',
+  'shutdown-failed': 'Không thể tắt hệ thống',
+  'shutdown-skip-once': 'Bỏ qua lần này',
+  'shutdown-disable': 'Tắt tự động tắt máy',
 }

@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': 'فایل\u200cهای Torrent (.torrent)',
   'auto-submit-metalink': 'فایل\u200cهای Metalink (.meta4)',
   'auto-submit-hint': 'انواع غیرفعال همچنان پنجره افزودن وظیفه را نمایش می\u200cدهند',
+  'shutdown-when-complete': 'خاموش شدن پس از اتمام همه دانلودها',
 }

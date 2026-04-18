@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'لطفاً مقادیر محدودیت را وارد کنید',
   'schedule-enabled': 'زمان‌بندی سرعت فعال شد',
   'schedule-disabled': 'زمان‌بندی سرعت غیرفعال شد',
+  'shutdown-countdown-title': 'خاموش شدن خودکار',
+  'shutdown-countdown-message': 'همه دانلودها کامل شد. سیستم در {seconds} ثانیه خاموش می‌شود.',
+  'shutdown-failed': 'خاموش کردن سیستم ناموفق بود',
+  'shutdown-skip-once': 'رد شدن این بار',
+  'shutdown-disable': 'غیرفعال کردن خاموشی خودکار',
 }

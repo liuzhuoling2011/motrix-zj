@@ -75,6 +75,7 @@ export interface BasicForm {
   protocolMagnet: boolean
   protocolThunder: boolean
   protocolMotrixnext: boolean
+  shutdownWhenComplete: boolean
 }
 
 // ── Pure Functions ──────────────────────────────────────────────────
@@ -175,6 +176,7 @@ export function buildBasicForm(config: AppConfig, defaultDir: string = ''): Basi
     protocolMagnet: config.protocols?.magnet ?? D.protocols.magnet,
     protocolThunder: config.protocols?.thunder ?? D.protocols.thunder,
     protocolMotrixnext: config.protocols?.motrixnext ?? D.protocols.motrixnext,
+    shutdownWhenComplete: config.shutdownWhenComplete ?? D.shutdownWhenComplete,
   }
 }
 

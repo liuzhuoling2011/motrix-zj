@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Voer limietwaarden in',
   'schedule-enabled': 'Snelheidsschema ingeschakeld',
   'schedule-disabled': 'Snelheidsschema uitgeschakeld',
+  'shutdown-countdown-title': 'Automatisch afsluiten',
+  'shutdown-countdown-message': 'Alle downloads voltooid. Systeem wordt afgesloten over {seconds} seconden.',
+  'shutdown-failed': 'Kan het systeem niet afsluiten',
+  'shutdown-skip-once': 'Deze keer overslaan',
+  'shutdown-disable': 'Automatisch afsluiten uitschakelen',
 }

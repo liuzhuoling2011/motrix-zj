@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Vennligst oppgi grenseverdier',
   'schedule-enabled': 'Hastighetsplan aktivert',
   'schedule-disabled': 'Hastighetsplan deaktivert',
+  'shutdown-countdown-title': 'Automatisk avslutning',
+  'shutdown-countdown-message': 'Alle nedlastinger er fullført. Systemet slås av om {seconds} sekunder.',
+  'shutdown-failed': 'Kunne ikke slå av systemet',
+  'shutdown-skip-once': 'Hopp over denne gangen',
+  'shutdown-disable': 'Deaktiver automatisk avslutning',
 }

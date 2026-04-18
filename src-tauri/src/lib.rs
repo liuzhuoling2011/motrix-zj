@@ -18,6 +18,7 @@ mod upnp;
 #[cfg(windows)]
 pub use commands::protocol::try_run_elevated;
 
+use crate::commands::power::ShutdownCancelState;
 use crate::commands::updater::{DownloadedUpdate, UpdateCancelState};
 use engine::EngineState;
 use tauri::{Emitter, Manager};
@@ -773,6 +774,7 @@ pub fn run() {
         .manage(UpnpState::new())
         .manage(std::sync::Arc::new(UpdateCancelState::new()))
         .manage(std::sync::Arc::new(DownloadedUpdate::new()))
+        .manage(std::sync::Arc::new(ShutdownCancelState::new()))
         .invoke_handler(tauri::generate_handler![
             commands::get_system_config,
             commands::save_system_config,
@@ -854,6 +856,8 @@ pub fn run() {
             commands::aria2_batch_force_pause,
             commands::aria2_batch_force_remove,
             commands::wait_for_engine,
+            commands::system_shutdown,
+            commands::cancel_shutdown,
         ])
         // ── Window event interception ─────────────────────────────────
         //

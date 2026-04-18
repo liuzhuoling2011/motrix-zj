@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Lütfen sınır değerlerini girin',
   'schedule-enabled': 'Hız planı etkinleştirildi',
   'schedule-disabled': 'Hız planı devre dışı bırakıldı',
+  'shutdown-countdown-title': 'Otomatik Kapatma',
+  'shutdown-countdown-message': 'Tüm indirmeler tamamlandı. Sistem {seconds} saniye içinde kapanacak.',
+  'shutdown-failed': 'Sistem kapatılamadı',
+  'shutdown-skip-once': 'Bu Sefer Atla',
+  'shutdown-disable': 'Otomatik Kapanmayı Devre Dışı Bırak',
 }

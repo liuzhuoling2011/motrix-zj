@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Пожалуйста, введите значения ограничения',
   'schedule-enabled': 'Расписание ограничения скорости включено',
   'schedule-disabled': 'Расписание ограничения скорости отключено',
+  'shutdown-countdown-title': 'Автовыключение',
+  'shutdown-countdown-message': 'Все загрузки завершены. Система выключится через {seconds} сек.',
+  'shutdown-failed': 'Не удалось выключить систему',
+  'shutdown-skip-once': 'Пропустить',
+  'shutdown-disable': 'Отключить автовыключение',
 }

@@ -103,4 +103,9 @@ export default {
   'speedometer-enter-values': 'Introduïu els valors del límit',
   'schedule-enabled': 'Programació de velocitat activada',
   'schedule-disabled': 'Programació de velocitat desactivada',
+  'shutdown-countdown-title': 'Apagada automàtica',
+  'shutdown-countdown-message': 'Totes les descàrregues s\'han completat. El sistema s\'apagarà en {seconds} segons.',
+  'shutdown-failed': 'No s\'ha pogut apagar el sistema',
+  'shutdown-skip-once': 'Ometre aquesta vegada',
+  'shutdown-disable': 'Desactivar l\'apagada automàtica',
 }

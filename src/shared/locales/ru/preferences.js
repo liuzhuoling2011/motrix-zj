@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': 'Torrent-файлы (.torrent)',
   'auto-submit-metalink': 'Metalink-файлы (.meta4)',
   'auto-submit-hint': 'Неотмеченные типы будут отображать диалог добавления задачи',
+  'shutdown-when-complete': 'Выключить после завершения всех загрузок',
 }

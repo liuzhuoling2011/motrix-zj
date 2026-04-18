@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': '請輸入限速值',
   'schedule-enabled': '定時限速已啟用',
   'schedule-disabled': '定時限速已關閉',
+  'shutdown-countdown-title': '自動關機',
+  'shutdown-countdown-message': '所有下載已完成。系統將在 {seconds} 秒後關機。',
+  'shutdown-failed': '關機失敗',
+  'shutdown-skip-once': '本次忽略',
+  'shutdown-disable': '關閉自動關機',
 }

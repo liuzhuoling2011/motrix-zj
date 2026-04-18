@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Please enter limit values',
   'schedule-enabled': 'Speed schedule enabled',
   'schedule-disabled': 'Speed schedule disabled',
+  'shutdown-countdown-title': 'Auto Shutdown',
+  'shutdown-countdown-message': 'All downloads complete. System will shut down in {seconds}s.',
+  'shutdown-failed': 'Failed to shut down the system',
+  'shutdown-skip-once': 'Skip This Time',
+  'shutdown-disable': 'Disable Auto-Shutdown',
 }

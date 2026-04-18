@@ -270,6 +270,8 @@ export interface AppConfig {
   deleteTorrentAfterComplete: boolean
   autoDeleteStaleRecords: boolean
   clearCompletedOnExit: boolean
+  /** When true, the system shuts down after all downloads complete. */
+  shutdownWhenComplete: boolean
   /** Per-tab sort configuration (field + direction), persisted independently per tab. */
   taskSort: import('@/composables/useTaskSort').TaskSortConfig
   [key: string]: unknown

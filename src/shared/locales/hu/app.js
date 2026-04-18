@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'Kérem, adja meg a korlát értékeket',
   'schedule-enabled': 'Sebességütemezés engedélyezve',
   'schedule-disabled': 'Sebességütemezés letiltva',
+  'shutdown-countdown-title': 'Automatikus leállítás',
+  'shutdown-countdown-message': 'Minden letöltés befejeződött. A rendszer {seconds} másodperc múlva leáll.',
+  'shutdown-failed': 'Nem sikerült leállítani a rendszert',
+  'shutdown-skip-once': 'Kihagyás most',
+  'shutdown-disable': 'Automatikus leállítás kikapcsolása',
 }

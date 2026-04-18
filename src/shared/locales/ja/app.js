@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': '制限値を入力してください',
   'schedule-enabled': '速度スケジュールを有効にしました',
   'schedule-disabled': '速度スケジュールを無効にしました',
+  'shutdown-countdown-title': '自動シャットダウン',
+  'shutdown-countdown-message': 'すべてのダウンロードが完了しました。{seconds}秒後にシステムをシャットダウンします。',
+  'shutdown-failed': 'システムのシャットダウンに失敗しました',
+  'shutdown-skip-once': '今回はスキップ',
+  'shutdown-disable': '自動シャットダウンを無効にする',
 }

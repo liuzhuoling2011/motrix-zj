@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': 'ملفات Torrent (.torrent)',
   'auto-submit-metalink': 'ملفات Metalink (.meta4)',
   'auto-submit-hint': 'الأنواع غير المحددة ستظهر نافذة إضافة المهمة',
+  'shutdown-when-complete': 'إيقاف التشغيل بعد اكتمال جميع التنزيلات',
 }

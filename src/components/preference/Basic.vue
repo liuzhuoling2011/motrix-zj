@@ -855,6 +855,9 @@ onMounted(async () => {
       <NFormItem v-if="isMac || isLinux" :label="t('preferences.tray-speedometer')">
         <NSwitch v-model:value="form.traySpeedometer" />
       </NFormItem>
+      <NFormItem :label="t('preferences.shutdown-when-complete')">
+        <NSwitch v-model:value="form.shutdownWhenComplete" />
+      </NFormItem>
       <NFormItem :label="t('preferences.lightweight-mode')">
         <NSwitch v-model:value="form.lightweightMode" />
       </NFormItem>

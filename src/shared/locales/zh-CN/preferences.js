@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': '种子文件（.torrent）',
   'auto-submit-metalink': 'Metalink 文件（.meta4）',
   'auto-submit-hint': '未勾选的类型仍需手动确认',
+  'shutdown-when-complete': '所有下载完成后自动关机',
 }

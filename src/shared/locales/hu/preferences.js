@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': 'Torrent fájlok (.torrent)',
   'auto-submit-metalink': 'Metalink fájlok (.meta4)',
   'auto-submit-hint': 'A nem jelölt típusok továbbra is megjelenítik a feladat hozzáadása párbeszédpanelt',
+  'shutdown-when-complete': 'Leállítás az összes letöltés befejezése után',
 }

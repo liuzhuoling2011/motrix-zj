@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'กรุณาใส่ค่าจำกัด',
   'schedule-enabled': 'เปิดใช้งานกำหนดการความเร็วแล้ว',
   'schedule-disabled': 'ปิดใช้งานกำหนดการความเร็วแล้ว',
+  'shutdown-countdown-title': 'ปิดเครื่องอัตโนมัติ',
+  'shutdown-countdown-message': 'ดาวน์โหลดทั้งหมดเสร็จสิ้น ระบบจะปิดใน {seconds} วินาที',
+  'shutdown-failed': 'ไม่สามารถปิดระบบได้',
+  'shutdown-skip-once': 'ข้ามครั้งนี้',
+  'shutdown-disable': 'ปิดการปิดเครื่องอัตโนมัติ',
 }

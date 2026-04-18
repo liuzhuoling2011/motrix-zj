@@ -104,4 +104,9 @@ export default {
   'speedometer-enter-values': 'يرجى إدخال قيم الحد',
   'schedule-enabled': 'تم تفعيل التحكم بالجدول الزمني للسرعة',
   'schedule-disabled': 'تم إلغاء التحكم بالجدول الزمني للسرعة',
+  'shutdown-countdown-title': 'إيقاف تشغيل تلقائي',
+  'shutdown-countdown-message': 'اكتملت جميع التنزيلات. سيتم إيقاف تشغيل النظام خلال {seconds} ثانية.',
+  'shutdown-failed': 'فشل في إيقاف تشغيل النظام',
+  'shutdown-skip-once': 'تجاهل هذه المرة',
+  'shutdown-disable': 'إيقاف الإغلاق التلقائي',
 }

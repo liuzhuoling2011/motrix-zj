@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': '種子檔案（.torrent）',
   'auto-submit-metalink': 'Metalink 檔案（.meta4）',
   'auto-submit-hint': '未勾選的類型仍需手動確認',
+  'shutdown-when-complete': '所有下載完成後自動關機',
 }

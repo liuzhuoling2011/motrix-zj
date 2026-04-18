@@ -294,4 +294,5 @@ export default {
   'auto-submit-torrent': 'File Torrent (.torrent)',
   'auto-submit-metalink': 'File Metalink (.meta4)',
   'auto-submit-hint': 'Jenis yang tidak dicentang tetap menampilkan dialog tambah tugas',
+  'shutdown-when-complete': 'Matikan setelah semua unduhan selesai',
 }

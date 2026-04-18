@@ -13,7 +13,7 @@ import { buildHistoryRecord, buildBtCompletionRecord, isMetadataTask } from '@/c
 import { handleTaskComplete, handleBtComplete, handleTaskError } from '@/composables/useTaskNotifyHandlers'
 import { shouldDeleteTorrent, trashTorrentFile, cleanupTorrentMetadataFiles } from '@/composables/useDownloadCleanup'
 import { cleanupAria2ControlFile } from '@/composables/useFileDelete'
-import { getTaskDisplayName, resolveOpenTarget } from '@shared/utils'
+import { getTaskDisplayName, resolveOpenTarget, checkTaskIsSeeder } from '@shared/utils'
 import type { Aria2Task } from '@shared/types'
 import { ARIA2_ERROR_CODES } from '@shared/aria2ErrorCodes'
 import { TASK_STATUS } from '@shared/constants'
@@ -40,8 +40,8 @@ import MagnetFileSelect from '@/components/task/MagnetFileSelect.vue'
 import { useTaskStore } from '@/stores/task'
 import { usePreferenceStore } from '@/stores/preference'
 import { useAppMessage } from '@/composables/useAppMessage'
-import { NModal, NButton, NSpace, NIcon, NCheckbox, useDialog } from 'naive-ui'
-import { WarningOutline } from '@vicons/ionicons5'
+import { NModal, NButton, NCheckbox, NProgress, useDialog } from 'naive-ui'
+
 import { useAppEvents } from '@/composables/useAppEvents'
 import { loadAddedAtFromRecords } from '@/composables/useTaskOrder'
 import { resolveArchiveAction } from '@shared/utils/autoArchive'
@@ -65,6 +65,12 @@ const pendingTrayHide = ref(false)
 const isMaximized = ref(false)
 const { platform: currentPlatform, isMac } = usePlatform()
 const showEngineOverlay = ref(false)
+
+// ── Auto-shutdown countdown state ──────────────────────────────────
+const showShutdownCountdown = ref(false)
+const shutdownCountdown = ref(60)
+let shutdownTimer: ReturnType<typeof setInterval> | null = null
+let unlistenPowerCountdown: (() => void) | null = null
 
 const updateDialogRef = ref<InstanceType<typeof UpdateDialog> | null>(null)
 
@@ -467,6 +473,86 @@ function handleExitCancel() {
   rememberChoice.value = false
 }
 
+// ── Auto-shutdown countdown ─────────────────────────────────────────
+
+function startShutdownCountdown() {
+  if (showShutdownCountdown.value) return
+  shutdownCountdown.value = 60
+  showShutdownCountdown.value = true
+
+  // Bring window to front so the user sees the countdown
+  getCurrentWindow()
+    .show()
+    .catch(() => {})
+  getCurrentWindow()
+    .setFocus()
+    .catch(() => {})
+
+  shutdownTimer = setInterval(async () => {
+    shutdownCountdown.value--
+    if (shutdownCountdown.value <= 0) {
+      dismissCountdown()
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('system_shutdown')
+      } catch (e) {
+        logger.error('Power.shutdown', e instanceof Error ? e.message : String(e))
+        message.error(t('app.shutdown-failed'))
+      }
+    }
+  }, 1000)
+}
+
+/** Shared countdown teardown — stops timer and hides dialog. */
+function dismissCountdown() {
+  showShutdownCountdown.value = false
+  if (shutdownTimer) {
+    clearInterval(shutdownTimer)
+    shutdownTimer = null
+  }
+  // Signal Rust safety-net to skip this shutdown cycle.
+  import('@tauri-apps/api/core').then(({ invoke }) =>
+    invoke('cancel_shutdown').catch((e: unknown) => logger.debug('Power.cancel', String(e))),
+  )
+}
+
+/** "Disable Auto-Shutdown" button — turns off the preference permanently. */
+function disableShutdownAndCancel() {
+  dismissCountdown()
+  preferenceStore.updateAndSave({ shutdownWhenComplete: false })
+}
+
+/** "Skip This Time" button — cancels only the current countdown. */
+function skipShutdownOnce() {
+  dismissCountdown()
+}
+
+/**
+ * Event-driven shutdown condition check.
+ *
+ * Called from lifecycle callbacks (onTaskComplete / onBtComplete) instead
+ * of a stat watcher. Queries aria2 directly for real-time task state,
+ * bypassing the stale taskStore.taskList and the unreliable
+ * appStore.stat.numActive (which counts seeders as active).
+ */
+async function checkShutdownCondition() {
+  if (!preferenceStore.config.shutdownWhenComplete) return
+  if (showShutdownCountdown.value) return
+
+  try {
+    const activeTasks = await aria2Api.fetchTaskList({ type: 'active' })
+    const activeNonSeeders = activeTasks.filter((t) => !checkTaskIsSeeder(t))
+    if (activeNonSeeders.length > 0) return
+
+    const waitingTasks = await aria2Api.fetchTaskList({ type: 'waiting' })
+    if (waitingTasks.length > 0) return
+
+    startShutdownCountdown()
+  } catch (e) {
+    logger.debug('Power.checkCondition', e instanceof Error ? e.message : String(e))
+  }
+}
+
 onMounted(async () => {
   // Platform is initialised by usePlatform() singleton — no per-component call needed.
 
@@ -535,6 +621,11 @@ onMounted(async () => {
   }
 
   startStatListener()
+
+  // ── Auto-shutdown event from Rust monitor (lightweight mode fallback) ──
+  unlistenPowerCountdown = await listen('power:countdown', () => {
+    startShutdownCountdown()
+  })
 
   // ── App-level task lifecycle service ─────────────────────────────
   // Polls aria2 for active + stopped tasks independently of route/tab
@@ -624,6 +715,9 @@ onMounted(async () => {
           )
         }
       }
+
+      // ── Auto-shutdown: check after task completion ──
+      checkShutdownCondition()
     },
     onBtComplete: async (task) => {
       // Persist immediately — download is complete, seeding is just uploading.
@@ -646,6 +740,11 @@ onMounted(async () => {
         onOpenFile: openFileFromNotification,
         onShowInFolder: showInFolderFromNotification,
       })
+
+      // ── Auto-shutdown: check after BT download completion ──
+      // Must be BEFORE shouldDeleteTorrent early return to avoid being skipped.
+      checkShutdownCondition()
+
       if (!shouldDeleteTorrent(preferenceStore.config)) return
       const sourcePath = task.infoHash ? taskStore.consumeTorrentSource(task.infoHash) : undefined
       if (sourcePath) {
@@ -791,6 +890,8 @@ onUnmounted(() => {
   if (unlistenTrayMenu) unlistenTrayMenu()
   if (unlistenResize) unlistenResize()
   if (unlistenExitDialog) unlistenExitDialog()
+  if (unlistenPowerCountdown) unlistenPowerCountdown()
+  dismissCountdown()
   cancelPendingResize()
 })
 </script>
@@ -844,12 +945,11 @@ onUnmounted(() => {
     <!-- Close action dialog: minimize-to-tray / quit / cancel -->
     <NModal
       :show="showExitDialog"
-      preset="card"
+      preset="dialog"
+      type="warning"
       :title="t('app.close-action-title')"
-      :bordered="false"
       :closable="true"
       :mask-closable="true"
-      size="small"
       style="width: 480px"
       transform-origin="center"
       @after-leave="onExitDialogAfterLeave"
@@ -859,30 +959,46 @@ onUnmounted(() => {
         }
       "
     >
-      <div class="exit-dialog-body">
-        <NIcon :size="20" color="var(--color-primary)" style="flex-shrink: 0">
-          <WarningOutline />
-        </NIcon>
-        <span>{{ t('app.close-action-message') }}</span>
-      </div>
+      <span>{{ t('app.close-action-message') }}</span>
       <div class="remember-choice">
         <NCheckbox v-model:checked="rememberChoice">
           {{ t('app.remember-close-choice') }}
         </NCheckbox>
       </div>
-      <template #footer>
-        <NSpace justify="end">
-          <NButton class="exit-btn" @click="handleExitCancel">
-            {{ t('app.cancel') }}
-          </NButton>
-          <NButton class="exit-btn" @click="handleMinimizeToTray">
-            {{ t('app.minimize-to-tray') }}
-          </NButton>
-          <NButton class="exit-btn" type="primary" @click="handleExitConfirm">
-            {{ t('app.quit-app') }}
-          </NButton>
-        </NSpace>
+      <template #action>
+        <NButton class="exit-btn" @click="handleExitCancel">
+          {{ t('app.cancel') }}
+        </NButton>
+        <NButton class="exit-btn" @click="handleMinimizeToTray">
+          {{ t('app.minimize-to-tray') }}
+        </NButton>
+        <NButton class="exit-btn" type="primary" @click="handleExitConfirm">
+          {{ t('app.quit-app') }}
+        </NButton>
       </template>
+    </NModal>
+
+    <NModal
+      :show="showShutdownCountdown"
+      preset="dialog"
+      type="warning"
+      :title="t('app.shutdown-countdown-title')"
+      :closable="false"
+      :mask-closable="false"
+      style="width: 480px"
+      transform-origin="center"
+      :positive-text="t('app.shutdown-skip-once')"
+      :negative-text="t('app.shutdown-disable')"
+      @positive-click="skipShutdownOnce"
+      @negative-click="disableShutdownAndCancel"
+    >
+      <span>{{ t('app.shutdown-countdown-message', { seconds: shutdownCountdown }) }}</span>
+      <NProgress
+        type="line"
+        :percentage="(shutdownCountdown / 60) * 100"
+        :show-indicator="false"
+        style="margin-top: 12px"
+      />
     </NModal>
   </div>
 </template>
@@ -907,15 +1023,7 @@ onUnmounted(() => {
 .window-controls {
   z-index: 100;
 }
-.exit-dialog-body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  font-size: 14px;
-  line-height: 1.6;
-  padding: 8px 0 4px;
-}
+
 .exit-btn {
   min-width: 88px;
   padding: 0 20px;
@@ -924,7 +1032,7 @@ onUnmounted(() => {
   margin-top: 16px;
   margin-bottom: 8px;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   font-size: 13px;
   opacity: 0.85;
 }
