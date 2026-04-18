@@ -138,7 +138,7 @@ export const useTaskStore = defineStore('task', () => {
         }
       }
     } catch (e) {
-      logger.warn('TaskStore.fetchList', (e as Error).message)
+      logger.debug('TaskStore.fetchList', e instanceof Error ? e.message : String(e))
     }
   }
 
