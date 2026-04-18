@@ -124,6 +124,7 @@ mod tests {
     /// system_shutdown is an async fn returning Result<(), AppError>.
     /// We verify it compiles correctly as a tauri::command.
     #[tokio::test]
+    #[allow(clippy::type_complexity)]
     async fn system_shutdown_compiles_as_tauri_command() {
         // Type assertion — doesn't execute the shutdown.
         let _fn_ptr: fn() -> std::pin::Pin<
