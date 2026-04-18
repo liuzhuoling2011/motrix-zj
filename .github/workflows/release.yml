@@ -55,9 +55,6 @@ jobs:
             qemu_binfmt: true
 
     runs-on: ${{ matrix.platform }}
-    # QEMU builds may fail without blocking existing platform releases.
-    continue-on-error: ${{ matrix.qemu || false }}
-    timeout-minutes: 360
 
     steps:
       - uses: actions/checkout@v5
