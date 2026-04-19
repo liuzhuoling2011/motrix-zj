@@ -215,14 +215,20 @@ window.addEventListener('unhandledrejection', (e) => {
   /** Setup deep-link handler to accept URLs/files from OS. */
   async function setupDeepLinks(): Promise<void> {
     try {
-      const { getCurrent, onOpenUrl } = await import('@tauri-apps/plugin-deep-link')
+      const { getCurrent } = await import('@tauri-apps/plugin-deep-link')
       const startUrls = await getCurrent()
       if (startUrls && startUrls.length > 0) {
         appStore.handleDeepLinkUrls(startUrls)
       }
-      await onOpenUrl((urls) => {
-        appStore.handleDeepLinkUrls(urls)
-      })
+      // Runtime deep-link handling is unified in useAppEvents.ts:
+      //
+      //   macOS:         listen('deep-link-open')          ← from Rust on_open_url()
+      //   Windows/Linux: listen('single-instance-triggered') ← from single-instance callback
+      //
+      // Do NOT register onOpenUrl() here — it listens to the same
+      // underlying "deep-link://new-url" event that the Rust-side
+      // on_open_url() callback already forwards, causing
+      // handleDeepLinkUrls() to fire multiple times per URL.
     } catch (e) {
       logger.warn('DeepLink', 'setup failed: ' + (e as Error).message)
     }

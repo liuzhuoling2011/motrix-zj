@@ -249,22 +249,36 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         _ => {}
     });
 
-    let app_handle = app.handle().clone();
-    app.deep_link().on_open_url(move |event| {
-        let urls: Vec<String> = event.urls().iter().map(ToString::to_string).collect();
-        // Ensure the window exists before emitting — in lightweight mode
-        // the WebView may have been destroyed, making emit a no-op.
-        #[cfg(target_os = "macos")]
-        {
+    // On macOS, runtime deep links arrive via RunEvent::Opened → the
+    // plugin emits "deep-link://new-url".  We listen for that event and
+    // re-emit it as "deep-link-open" so the frontend (useAppEvents.ts)
+    // can handle it with window-surfacing logic.
+    //
+    // On Windows/Linux this listener is compile-time excluded because
+    // runtime deep links there arrive via the single-instance plugin,
+    // which already: (a) calls handle_cli_arguments → emits
+    // "deep-link://new-url", and (b) invokes our callback → emits
+    // "single-instance-triggered".  The frontend handles case (b) via
+    // listen('single-instance-triggered') in useAppEvents.ts.
+    // Registering on_open_url on those platforms would cause
+    // handleDeepLinkUrls() to fire twice per URL (once from (a) hitting
+    // this listener, once from (b) hitting useAppEvents).
+    #[cfg(target_os = "macos")]
+    {
+        let app_handle = app.handle().clone();
+        app.deep_link().on_open_url(move |event| {
+            let urls: Vec<String> = event.urls().iter().map(ToString::to_string).collect();
+            // Ensure the window exists before emitting — in lightweight mode
+            // the WebView may have been destroyed, making emit a no-op.
             use tauri::ActivationPolicy;
             let _ = app_handle.set_activation_policy(ActivationPolicy::Regular);
-        }
-        if let Some(w) = tray::get_or_create_main_window(&app_handle) {
-            let _ = w.show();
-            let _ = w.set_focus();
-        }
-        let _ = app_handle.emit("deep-link-open", &urls);
-    });
+            if let Some(w) = tray::get_or_create_main_window(&app_handle) {
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+            let _ = app_handle.emit("deep-link-open", &urls);
+        });
+    }
 
     // Register all configured deep-link schemes at startup on Linux.
     //
