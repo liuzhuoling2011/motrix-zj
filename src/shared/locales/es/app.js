@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'No se pudo apagar el sistema',
   'shutdown-skip-once': 'Omitir esta vez',
   'shutdown-disable': 'Desactivar apagado automático',
+  'confirm-download-title': 'Confirmar descarga',
+  'confirm-download-waiting': 'Esperando solicitud de descarga…',
+  'confirm-download-filename': 'Archivo',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Origen',
+  'confirm-download-submitted': '¡Descarga iniciada!',
+  'confirm-download-cancel': 'Cancelar',
+  'confirm-download-submit': 'Descargar',
+  'confirm-download-skip': 'Omitir',
 }

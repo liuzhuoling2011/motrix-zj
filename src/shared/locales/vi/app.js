@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Không thể tắt hệ thống',
   'shutdown-skip-once': 'Bỏ qua lần này',
   'shutdown-disable': 'Tắt tự động tắt máy',
+  'confirm-download-title': 'Xác nhận tải xuống',
+  'confirm-download-waiting': 'Đang chờ yêu cầu tải xuống…',
+  'confirm-download-filename': 'Tệp',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Nguồn',
+  'confirm-download-submitted': 'Đã bắt đầu tải xuống!',
+  'confirm-download-cancel': 'Hủy',
+  'confirm-download-submit': 'Tải xuống',
+  'confirm-download-skip': 'Bỏ qua',
 }

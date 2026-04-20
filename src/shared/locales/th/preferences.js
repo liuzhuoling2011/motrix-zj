@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'จัดเก็บอัตโนมัติ',
   'file-category-auto-archive-hint': 'ไฟล์ที่ไม่รู้จักจะถูกบันทึกไว้ในเส้นทางเริ่มต้นและจัดเก็บอัตโนมัติหลังดาวน์โหลด',
   'auto-submit-from-extension': 'ข้ามการยืนยันสำหรับดาวน์โหลดจากส่วนขยาย',
+  'extension-api-port': 'พอร์ต API ส่วนขยาย',
+  'extension-api-secret-tip': 'ป้อนคีย์นี้ในการตั้งค่าส่วนขยายเบราว์เซอร์เพื่อยืนยันตัวตน',
+  'extension-api-secret': 'คีย์ลับ API ของส่วนขยาย',
+  'extension-section': 'ส่วนขยายเบราว์เซอร์',
   'shutdown-when-complete': 'ปิดเครื่องหลังดาวน์โหลดทั้งหมดเสร็จสิ้น',
 }

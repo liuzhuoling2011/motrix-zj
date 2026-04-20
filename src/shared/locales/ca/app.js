@@ -108,4 +108,13 @@ export default {
   'shutdown-failed': 'No s\'ha pogut apagar el sistema',
   'shutdown-skip-once': 'Ometre aquesta vegada',
   'shutdown-disable': 'Desactivar l\'apagada automàtica',
+  'confirm-download-title': 'Confirma la descàrrega',
+  'confirm-download-waiting': 'Esperant la sol·licitud de descàrrega…',
+  'confirm-download-filename': 'Fitxer',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Origen',
+  'confirm-download-submitted': 'S\'ha iniciat la descàrrega!',
+  'confirm-download-cancel': 'Cancel·la',
+  'confirm-download-submit': 'Descarrega',
+  'confirm-download-skip': 'Omet',
 }

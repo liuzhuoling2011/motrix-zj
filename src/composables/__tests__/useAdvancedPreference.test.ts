@@ -243,6 +243,9 @@ describe('buildAdvancedSystemConfig', () => {
     userAgent: '',
     logLevel: 'warn',
     hardwareRendering: false,
+    extensionApiPort: 16801,
+    extensionApiSecret: 'test-api-secret',
+    autoSubmitFromExtension: false,
   }
 
   it('maps all required aria2 config keys', () => {
@@ -315,6 +318,9 @@ describe('transformAdvancedForStore', () => {
       userAgent: '',
       logLevel: 'warn',
       hardwareRendering: false,
+      extensionApiPort: 16801,
+      extensionApiSecret: 'test-api-secret',
+      autoSubmitFromExtension: false,
     }
     const result = transformAdvancedForStore(form)
     expect(result.btTracker).toBe('udp://a,udp://b')
@@ -336,6 +342,9 @@ describe('transformAdvancedForStore', () => {
       userAgent: '',
       logLevel: 'warn',
       hardwareRendering: false,
+      extensionApiPort: 16801,
+      extensionApiSecret: 'test-api-secret',
+      autoSubmitFromExtension: false,
     }
     const result = transformAdvancedForStore(form)
     expect(result.listenPort).toBe(21301)
@@ -455,6 +464,9 @@ describe('validateAdvancedForm', () => {
     userAgent: '',
     logLevel: 'warn',
     hardwareRendering: false,
+    extensionApiPort: 16801,
+    extensionApiSecret: 'test-api-secret',
+    autoSubmitFromExtension: false,
   }
 
   it('returns null for valid form', () => {
@@ -595,6 +607,9 @@ describe('proxy configuration invariants', () => {
       userAgent: '',
       logLevel: 'debug',
       hardwareRendering: false,
+      extensionApiPort: 16801,
+      extensionApiSecret: 'test-api-secret',
+      autoSubmitFromExtension: false,
     }
     const systemConfig = buildAdvancedSystemConfig(form)
     // Empty string is intentional — aria2 accepts '' to clear the proxy
@@ -623,6 +638,9 @@ describe('proxy configuration invariants', () => {
       userAgent: '',
       logLevel: 'debug',
       hardwareRendering: false,
+      extensionApiPort: 16801,
+      extensionApiSecret: 'test-api-secret',
+      autoSubmitFromExtension: false,
     }
     const systemConfig = buildAdvancedSystemConfig(form)
     expect(systemConfig['all-proxy']).toBe('')
@@ -649,6 +667,9 @@ describe('proxy configuration invariants', () => {
       userAgent: '',
       logLevel: 'debug',
       hardwareRendering: false,
+      extensionApiPort: 16801,
+      extensionApiSecret: 'test-api-secret',
+      autoSubmitFromExtension: false,
     }
     const systemConfig = buildAdvancedSystemConfig(form)
     expect(systemConfig['all-proxy']).toBe('http://proxy:8080')
@@ -694,6 +715,9 @@ describe('transformAdvancedForStore — hardwareRendering', () => {
       userAgent: '',
       logLevel: 'warn',
       hardwareRendering: true,
+      extensionApiPort: 16801,
+      extensionApiSecret: 'test-api-secret',
+      autoSubmitFromExtension: false,
     }
     const result = transformAdvancedForStore(form)
     expect(result.hardwareRendering).toBe(true)

@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Kunne ikke slå av systemet',
   'shutdown-skip-once': 'Hopp over denne gangen',
   'shutdown-disable': 'Deaktiver automatisk avslutning',
+  'confirm-download-title': 'Bekreft nedlasting',
+  'confirm-download-waiting': 'Venter på nedlastingsforespørsel…',
+  'confirm-download-filename': 'Fil',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Kilde',
+  'confirm-download-submitted': 'Nedlasting startet!',
+  'confirm-download-cancel': 'Avbryt',
+  'confirm-download-submit': 'Last ned',
+  'confirm-download-skip': 'Hopp over',
 }

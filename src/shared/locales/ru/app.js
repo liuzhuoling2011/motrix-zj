@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Не удалось выключить систему',
   'shutdown-skip-once': 'Пропустить',
   'shutdown-disable': 'Отключить автовыключение',
+  'confirm-download-title': 'Подтвердить загрузку',
+  'confirm-download-waiting': 'Ожидание запроса на загрузку…',
+  'confirm-download-filename': 'Файл',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Источник',
+  'confirm-download-submitted': 'Загрузка началась!',
+  'confirm-download-cancel': 'Отмена',
+  'confirm-download-submit': 'Скачать',
+  'confirm-download-skip': 'Пропустить',
 }

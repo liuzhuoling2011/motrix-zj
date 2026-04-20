@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Gagal mematikan sistem',
   'shutdown-skip-once': 'Lewati Kali Ini',
   'shutdown-disable': 'Nonaktifkan Mati Otomatis',
+  'confirm-download-title': 'Konfirmasi Unduhan',
+  'confirm-download-waiting': 'Menunggu permintaan unduhan…',
+  'confirm-download-filename': 'File',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Sumber',
+  'confirm-download-submitted': 'Unduhan dimulai!',
+  'confirm-download-cancel': 'Batal',
+  'confirm-download-submit': 'Unduh',
+  'confirm-download-skip': 'Lewati',
 }

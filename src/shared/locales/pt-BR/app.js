@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Falha ao desligar o sistema',
   'shutdown-skip-once': 'Pular desta vez',
   'shutdown-disable': 'Desativar desligamento automático',
+  'confirm-download-title': 'Confirmar download',
+  'confirm-download-waiting': 'Aguardando solicitação de download…',
+  'confirm-download-filename': 'Arquivo',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Origem',
+  'confirm-download-submitted': 'Download iniciado!',
+  'confirm-download-cancel': 'Cancelar',
+  'confirm-download-submit': 'Baixar',
+  'confirm-download-skip': 'Pular',
 }

@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'arhivare automată',
   'file-category-auto-archive-hint': 'Tipurile nerecunoscute sunt salvate în calea implicită și arhivate automat după descărcare',
   'auto-submit-from-extension': 'Omite confirmarea pentru descărcările din extensie',
+  'extension-api-port': 'Port API extensie',
+  'extension-api-secret-tip': 'Introduceți această cheie în setările extensiei browserului pentru autentificare.',
+  'extension-api-secret': 'Cheie secretă API extensie',
+  'extension-section': 'Extensie browser',
   'shutdown-when-complete': 'Oprire după finalizarea tuturor descărcărilor',
 }

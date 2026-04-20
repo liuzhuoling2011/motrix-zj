@@ -108,4 +108,13 @@ export default {
   'shutdown-failed': 'Impossible d\'éteindre le système',
   'shutdown-skip-once': 'Ignorer cette fois',
   'shutdown-disable': 'Désactiver l\'arrêt automatique',
+  'confirm-download-title': 'Confirmer le téléchargement',
+  'confirm-download-waiting': 'En attente de la demande de téléchargement…',
+  'confirm-download-filename': 'Fichier',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Origine',
+  'confirm-download-submitted': 'Téléchargement lancé !',
+  'confirm-download-cancel': 'Annuler',
+  'confirm-download-submit': 'Télécharger',
+  'confirm-download-skip': 'Passer',
 }

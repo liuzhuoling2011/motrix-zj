@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'автоматично архивиране',
   'file-category-auto-archive-hint': 'Неразпознатите типове се записват в пътя по подразбиране и автоматично се архивират след изтегляне',
   'auto-submit-from-extension': 'Пропусни потвърждение за изтегляния от разширение',
+  'extension-api-port': 'Порт на API за разширението',
+  'extension-api-secret-tip': 'Въведете този ключ в настройките на разширението за удостоверяване.',
+  'extension-api-secret': 'API ключ за разширение',
+  'extension-section': 'Разширение за браузър',
   'shutdown-when-complete': 'Изключване след завършване на всички изтегляния',
 }

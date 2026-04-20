@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'arquivamento automático',
   'file-category-auto-archive-hint': 'Tipos não reconhecidos são salvos no caminho padrão e arquivados automaticamente após o download',
   'auto-submit-from-extension': 'Pular confirmação para downloads da extensão',
+  'extension-api-port': 'Porta da API da extensão',
+  'extension-api-secret-tip': 'Insira esta chave nas configurações da extensão do navegador para autenticação.',
+  'extension-api-secret': 'Chave secreta da API da extensão',
+  'extension-section': 'Extensão do navegador',
   'shutdown-when-complete': 'Desligar após concluir todos os downloads',
 }

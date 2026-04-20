@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Nie udało się wyłączyć systemu',
   'shutdown-skip-once': 'Pomiń tym razem',
   'shutdown-disable': 'Wyłącz automatyczne zamykanie',
+  'confirm-download-title': 'Potwierdź pobieranie',
+  'confirm-download-waiting': 'Oczekiwanie na żądanie pobrania…',
+  'confirm-download-filename': 'Plik',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Źródło',
+  'confirm-download-submitted': 'Pobieranie rozpoczęte!',
+  'confirm-download-cancel': 'Anuluj',
+  'confirm-download-submit': 'Pobierz',
+  'confirm-download-skip': 'Pomiń',
 }

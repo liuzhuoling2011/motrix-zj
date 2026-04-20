@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Kan het systeem niet afsluiten',
   'shutdown-skip-once': 'Deze keer overslaan',
   'shutdown-disable': 'Automatisch afsluiten uitschakelen',
+  'confirm-download-title': 'Download bevestigen',
+  'confirm-download-waiting': 'Wachten op downloadverzoek…',
+  'confirm-download-filename': 'Bestand',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Bron',
+  'confirm-download-submitted': 'Download gestart!',
+  'confirm-download-cancel': 'Annuleren',
+  'confirm-download-submit': 'Downloaden',
+  'confirm-download-skip': 'Overslaan',
 }

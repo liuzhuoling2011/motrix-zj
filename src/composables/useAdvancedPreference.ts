@@ -45,6 +45,9 @@ export interface AdvancedForm {
   lastSyncTrackerTime: number
   rpcListenPort: number
   rpcSecret: string
+  extensionApiPort: number
+  extensionApiSecret: string
+  autoSubmitFromExtension: boolean
   enableUpnp: boolean
   listenPort: number
   dhtListenPort: number
@@ -70,13 +73,22 @@ export function generateSecret(): string {
  * All fallback values reference DEFAULT_APP_CONFIG (single source of truth).
  * If no RPC secret exists, generates one.
  */
-export function buildAdvancedForm(config: AppConfig): { form: AdvancedForm; generatedSecret: string | null } {
+export function buildAdvancedForm(config: AppConfig): {
+  form: AdvancedForm
+  generatedSecret: string | null
+  generatedApiSecret: string | null
+} {
   const proxy = config.proxy ?? D.proxy
   // Distinguish "never set" (undefined/null → auto-generate) from
   // "intentionally cleared" ('' → respect user choice).
   const hasSecret = config.rpcSecret != null
   const rpcSecret = hasSecret ? config.rpcSecret : generateSecret()
   const generatedSecret = hasSecret ? null : rpcSecret
+
+  // Extension API secret: auto-generate if never set
+  const hasApiSecret = config.extensionApiSecret != null
+  const extensionApiSecret = hasApiSecret ? config.extensionApiSecret : generateSecret()
+  const generatedApiSecret = hasApiSecret ? null : extensionApiSecret
 
   return {
     form: {
@@ -93,6 +105,9 @@ export function buildAdvancedForm(config: AppConfig): { form: AdvancedForm; gene
       lastSyncTrackerTime: config.lastSyncTrackerTime ?? D.lastSyncTrackerTime,
       rpcListenPort: config.rpcListenPort ?? D.rpcListenPort,
       rpcSecret,
+      extensionApiPort: config.extensionApiPort ?? D.extensionApiPort,
+      extensionApiSecret,
+      autoSubmitFromExtension: config.autoSubmitFromExtension ?? D.autoSubmitFromExtension,
       enableUpnp: config.enableUpnp ?? D.enableUpnp,
       listenPort: Number(config.listenPort ?? D.listenPort),
       dhtListenPort: Number(config.dhtListenPort ?? D.dhtListenPort),
@@ -101,6 +116,7 @@ export function buildAdvancedForm(config: AppConfig): { form: AdvancedForm; gene
       hardwareRendering: config.hardwareRendering ?? D.hardwareRendering,
     },
     generatedSecret,
+    generatedApiSecret,
   }
 }
 

@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'システムのシャットダウンに失敗しました',
   'shutdown-skip-once': '今回はスキップ',
   'shutdown-disable': '自動シャットダウンを無効にする',
+  'confirm-download-title': 'ダウンロードの確認',
+  'confirm-download-waiting': 'ダウンロードリクエストを待っています…',
+  'confirm-download-filename': 'ファイル',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': '参照元',
+  'confirm-download-submitted': 'ダウンロードを開始しました！',
+  'confirm-download-cancel': 'キャンセル',
+  'confirm-download-submit': 'ダウンロード',
+  'confirm-download-skip': 'スキップ',
 }

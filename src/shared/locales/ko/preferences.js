@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': '자동 아카이브',
   'file-category-auto-archive-hint': '인식되지 않는 유형은 기본 경로에 저장되고 다운로드 후 자동으로 아카이브됩니다',
   'auto-submit-from-extension': '확장 프로그램 다운로드 시 확인 건너뛰기',
+  'extension-api-port': '확장 프로그램 API 포트',
+  'extension-api-secret-tip': '인증을 위해 브라우저 확장 프로그램 설정에 이 비밀키를 입력하세요.',
+  'extension-api-secret': '확장 프로그램 API 비밀키',
+  'extension-section': '브라우저 확장 프로그램',
   'shutdown-when-complete': '모든 다운로드 완료 후 종료',
 }

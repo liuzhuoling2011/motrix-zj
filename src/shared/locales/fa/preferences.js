@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'بایگانی خودکار',
   'file-category-auto-archive-hint': 'انواع ناشناخته در مسیر پیش‌فرض ذخیره و پس از دانلود به‌صورت خودکار بایگانی می‌شوند',
   'auto-submit-from-extension': 'رد شدن از تأیید برای دانلودهای افزونه',
+  'extension-api-port': 'پورت API افزونه',
+  'extension-api-secret-tip': 'این کلید را در تنظیمات افزونه مرورگر برای احراز هویت وارد کنید.',
+  'extension-api-secret': 'کلید API افزونه',
+  'extension-section': 'افزونه مرورگر',
   'shutdown-when-complete': 'خاموش شدن پس از اتمام همه دانلودها',
 }

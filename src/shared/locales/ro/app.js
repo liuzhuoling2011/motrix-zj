@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Nu s-a putut opri sistemul',
   'shutdown-skip-once': 'Omite de data aceasta',
   'shutdown-disable': 'Dezactivare oprire automată',
+  'confirm-download-title': 'Confirmă descărcarea',
+  'confirm-download-waiting': 'Se așteaptă cererea de descărcare…',
+  'confirm-download-filename': 'Fișier',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Sursă',
+  'confirm-download-submitted': 'Descărcare începută!',
+  'confirm-download-cancel': 'Anulează',
+  'confirm-download-submit': 'Descarcă',
+  'confirm-download-skip': 'Omite',
 }

@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'automatisch archiveren',
   'file-category-auto-archive-hint': 'Niet-herkende typen worden opgeslagen in het standaardpad en automatisch gearchiveerd na het downloaden',
   'auto-submit-from-extension': 'Bevestiging overslaan voor extensie-downloads',
+  'extension-api-port': 'Extensie API-poort',
+  'extension-api-secret-tip': 'Voer deze sleutel in bij de instellingen van de browserextensie voor authenticatie.',
+  'extension-api-secret': 'API-sleutel extensie',
+  'extension-section': 'Browserextensie',
   'shutdown-when-complete': 'Afsluiten na voltooiing van alle downloads',
 }

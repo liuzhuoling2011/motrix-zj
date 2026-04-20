@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'خاموش کردن سیستم ناموفق بود',
   'shutdown-skip-once': 'رد شدن این بار',
   'shutdown-disable': 'غیرفعال کردن خاموشی خودکار',
+  'confirm-download-title': 'تأیید دانلود',
+  'confirm-download-waiting': 'در انتظار درخواست دانلود…',
+  'confirm-download-filename': 'فایل',
+  'confirm-download-url': 'لینک',
+  'confirm-download-referer': 'منبع',
+  'confirm-download-submitted': 'دانلود شروع شد!',
+  'confirm-download-cancel': 'لغو',
+  'confirm-download-submit': 'دانلود',
+  'confirm-download-skip': 'رد شدن',
 }

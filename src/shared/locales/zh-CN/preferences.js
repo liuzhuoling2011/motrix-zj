@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': '自动归档',
   'file-category-auto-archive-hint': '无法识别的类型将保存到默认路径，下载完成后自动归档',
   'auto-submit-from-extension': '接收扩展下载时跳过确认',
+  'extension-api-port': '扩展 API 端口',
+  'extension-api-secret-tip': '在浏览器扩展设置中输入此密钥以进行身份验证。',
+  'extension-api-secret': '扩展 API 密钥',
+  'extension-section': '浏览器扩展',
   'shutdown-when-complete': '所有下载完成后自动关机',
 }

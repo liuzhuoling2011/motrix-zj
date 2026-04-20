@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Impossibile spegnere il sistema',
   'shutdown-skip-once': 'Salta questa volta',
   'shutdown-disable': 'Disattiva spegnimento automatico',
+  'confirm-download-title': 'Conferma download',
+  'confirm-download-waiting': 'In attesa della richiesta di download…',
+  'confirm-download-filename': 'File',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Origine',
+  'confirm-download-submitted': 'Download avviato!',
+  'confirm-download-cancel': 'Annulla',
+  'confirm-download-submit': 'Scarica',
+  'confirm-download-skip': 'Salta',
 }

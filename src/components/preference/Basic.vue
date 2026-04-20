@@ -1093,9 +1093,6 @@ onMounted(async () => {
           <NSwitch v-model:value="form.deleteFilesWhenSkipConfirm" />
         </NFormItem>
       </NCollapseTransition>
-      <NFormItem :label="t('preferences.auto-submit-from-extension')">
-        <NSwitch v-model:value="form.autoSubmitFromExtension" />
-      </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.auto-cleanup') }}</NDivider>
       <NFormItem :label="t('preferences.delete-torrent-after-complete')">

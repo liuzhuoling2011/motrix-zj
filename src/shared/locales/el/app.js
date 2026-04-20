@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Αποτυχία τερματισμού του συστήματος',
   'shutdown-skip-once': 'Παράλειψη αυτή τη φορά',
   'shutdown-disable': 'Απενεργοποίηση αυτόματου τερματισμού',
+  'confirm-download-title': 'Επιβεβαίωση λήψης',
+  'confirm-download-waiting': 'Αναμονή για αίτημα λήψης…',
+  'confirm-download-filename': 'Αρχείο',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Προέλευση',
+  'confirm-download-submitted': 'Η λήψη ξεκίνησε!',
+  'confirm-download-cancel': 'Ακύρωση',
+  'confirm-download-submit': 'Λήψη',
+  'confirm-download-skip': 'Παράλειψη',
 }

@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Неуспешно изключване на системата',
   'shutdown-skip-once': 'Пропусни този път',
   'shutdown-disable': 'Спри автоматичното изключване',
+  'confirm-download-title': 'Потвърди изтеглянето',
+  'confirm-download-waiting': 'Изчакване на заявка за изтегляне…',
+  'confirm-download-filename': 'Файл',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Източник',
+  'confirm-download-submitted': 'Изтеглянето започна!',
+  'confirm-download-cancel': 'Отказ',
+  'confirm-download-submit': 'Изтегляне',
+  'confirm-download-skip': 'Пропусни',
 }

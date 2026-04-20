@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'automatisk arkivering',
   'file-category-auto-archive-hint': 'Ukjente typer lagres i standardstien og arkiveres automatisk etter nedlasting',
   'auto-submit-from-extension': 'Hopp over bekreftelse for utvidelsesnedlastinger',
+  'extension-api-port': 'Utvidelse API-port',
+  'extension-api-secret-tip': 'Skriv inn denne nøkkelen i nettleserutvidelsens innstillinger for autentisering.',
+  'extension-api-secret': 'API-nøkkel for utvidelse',
+  'extension-section': 'Nettleserutvidelse',
   'shutdown-when-complete': 'Slå av etter at alle nedlastinger er ferdige',
 }

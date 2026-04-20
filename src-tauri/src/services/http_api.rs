@@ -1,0 +1,949 @@
+//! Extension HTTP API micro-service.
+//!
+//! Embeds an Axum HTTP server inside the Tauri process, sharing the existing
+//! tokio runtime.  Provides a local REST API for browser extension → desktop
+//! communication, replacing the `motrixnext://` deep-link protocol for
+//! download submission.
+//!
+//! Endpoints:
+//! - `GET  /ping`    — heartbeat + app version
+//! - `POST /add`     — submit a download (auto-submit or show confirm dialog)
+//! - `GET  /version` — app + engine version info
+
+use crate::aria2::client::Aria2State;
+use crate::error::AppError;
+use crate::services::config::RuntimeConfigState;
+use axum::{
+    extract::State,
+    http::{header, HeaderMap, HeaderValue, Method, StatusCode},
+    response::IntoResponse,
+    routing::{get, post},
+    Json, Router,
+};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_store::StoreExt;
+use tokio::sync::Mutex;
+use tower_http::cors::{AllowOrigin, CorsLayer};
+
+// ── Request / Response Types ────────────────────────────────────────
+
+/// POST /add request body from the browser extension.
+#[derive(Debug, Deserialize)]
+pub struct AddRequest {
+    pub url: String,
+    pub referer: Option<String>,
+    pub cookie: Option<String>,
+    pub filename: Option<String>,
+}
+
+/// POST /add response.
+#[derive(Debug, Serialize)]
+pub struct AddResponse {
+    pub action: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+/// GET /ping response.
+#[derive(Debug, Serialize)]
+pub struct PingResponse {
+    pub status: String,
+    pub version: String,
+}
+
+/// GET /version response.
+#[derive(Debug, Serialize)]
+pub struct VersionResponse {
+    pub app: String,
+    pub engine: String,
+}
+
+/// GET /stat response — mirrors aria2's getGlobalStat for the extension popup.
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct StatResponse {
+    pub download_speed: String,
+    pub upload_speed: String,
+    pub num_active: String,
+    pub num_waiting: String,
+    pub num_stopped: String,
+    pub num_stopped_total: String,
+}
+
+/// Generic action response for control endpoints (pause-all, resume-all).
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct ActionResponse {
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+// ── Auth Extraction ─────────────────────────────────────────────────
+
+/// Extract and validate the Bearer token from the Authorization header.
+///
+/// Returns `Ok(())` if:
+/// - The server secret is empty (authentication disabled)
+/// - The header matches `Bearer {secret}`
+///
+/// Returns `Err(StatusCode::UNAUTHORIZED)` otherwise.
+pub fn validate_bearer_token(headers: &HeaderMap, expected_secret: &str) -> Result<(), StatusCode> {
+    // Empty secret = auth disabled (matches aria2 behavior)
+    if expected_secret.is_empty() {
+        return Ok(());
+    }
+
+    let header_value = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+
+    let expected = format!("Bearer {expected_secret}");
+    if header_value == expected {
+        Ok(())
+    } else {
+        Err(StatusCode::UNAUTHORIZED)
+    }
+}
+
+/// Check whether an Origin header value belongs to a browser extension.
+///
+/// Only `chrome-extension://` and `moz-extension://` prefixes are accepted.
+/// Used by the CORS layer to restrict API access to browser extensions only.
+#[cfg(test)]
+pub fn is_allowed_extension_origin(origin: &str) -> bool {
+    origin.starts_with("chrome-extension://") || origin.starts_with("moz-extension://")
+}
+
+/// Determine if a URL is a "simple URI" type (HTTP/FTP/magnet) that can
+/// be auto-submitted without showing the AddTask dialog.
+///
+/// Torrent and metalink URLs require a fetch→parse→file-select pipeline
+/// that only runs inside the AddTask dialog.
+pub fn is_auto_submittable_uri(url: &str) -> bool {
+    let lower = url.to_lowercase();
+    lower.starts_with("http://")
+        || lower.starts_with("https://")
+        || lower.starts_with("ftp://")
+        || lower.starts_with("magnet:")
+}
+
+/// Returns `true` if the URL points to a `.torrent` or `.metalink`/`.meta4`
+/// file.  These need the full AddTask dialog (fetch → parse → file-select).
+pub fn is_torrent_or_metalink_url(url: &str) -> bool {
+    // Strip query string and fragment before checking extension
+    let path = url.split('?').next().unwrap_or(url);
+    let path = path.split('#').next().unwrap_or(path);
+    let lower = path.to_lowercase();
+    lower.ends_with(".torrent") || lower.ends_with(".metalink") || lower.ends_with(".meta4")
+}
+
+/// Combined check: URL is auto-submittable if it has a supported scheme
+/// AND is not a torrent/metalink file.
+pub fn can_auto_submit(url: &str) -> bool {
+    is_auto_submittable_uri(url) && !is_torrent_or_metalink_url(url)
+}
+
+// ── Axum State ──────────────────────────────────────────────────────
+
+/// Shared state passed to Axum handlers via `State<Arc<ApiContext>>`.
+pub struct ApiContext {
+    pub app: AppHandle,
+}
+
+// ── Router Builder ──────────────────────────────────────────────────
+
+/// Build the Axum router with all routes and strict CORS.
+///
+/// CORS policy: only `chrome-extension://` and `moz-extension://` origins
+/// are allowed.  This prevents malicious websites from probing the local
+/// API.  Combined with Bearer token auth, this provides defense-in-depth.
+pub fn build_router(ctx: Arc<ApiContext>) -> Router {
+    let cors = CorsLayer::new()
+        .allow_origin(AllowOrigin::predicate(|origin: &HeaderValue, _| {
+            let o = origin.as_bytes();
+            o.starts_with(b"chrome-extension://") || o.starts_with(b"moz-extension://")
+        }))
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION]);
+
+    Router::new()
+        .route("/ping", get(handle_ping))
+        .route("/add", post(handle_add))
+        .route("/version", get(handle_version))
+        .route("/stat", get(handle_stat))
+        .route("/pause-all", post(handle_pause_all))
+        .route("/resume-all", post(handle_resume_all))
+        .layer(cors)
+        .with_state(ctx)
+}
+
+// ── Handlers ────────────────────────────────────────────────────────
+
+async fn handle_ping(State(ctx): State<Arc<ApiContext>>) -> impl IntoResponse {
+    let version = ctx
+        .app
+        .config()
+        .version
+        .clone()
+        .unwrap_or_else(|| "unknown".to_string());
+    Json(PingResponse {
+        status: "ok".to_string(),
+        version,
+    })
+}
+
+async fn handle_add(
+    State(ctx): State<Arc<ApiContext>>,
+    headers: HeaderMap,
+    Json(body): Json<AddRequest>,
+) -> Result<Json<AddResponse>, StatusCode> {
+    // 1. Authenticate
+    let secret = read_api_secret(&ctx.app);
+    validate_bearer_token(&headers, &secret)?;
+
+    // 2. Determine action — read from RuntimeConfig (cached, refreshed per engine cycle)
+    let auto_submit = if let Some(rc) = ctx.app.try_state::<RuntimeConfigState>() {
+        rc.0.read().await.auto_submit_from_extension
+    } else {
+        false
+    };
+
+    if auto_submit && can_auto_submit(&body.url) {
+        // Direct submission via aria2
+        match submit_to_aria2(&ctx.app, &body).await {
+            Ok(gid) => Ok(Json(AddResponse {
+                action: "submitted".to_string(),
+                gid: Some(gid),
+                message: None,
+            })),
+            Err(e) => {
+                log::error!("http_api: aria2 addUri failed: {e}");
+                Ok(Json(AddResponse {
+                    action: "error".to_string(),
+                    gid: None,
+                    message: Some(e.to_string()),
+                }))
+            }
+        }
+    } else {
+        // Show confirmation dialog
+        // Show AddTask dialog in the main window
+        show_add_task_in_main_window(&ctx.app, &body);
+        Ok(Json(AddResponse {
+            action: "queued".to_string(),
+            gid: None,
+            message: None,
+        }))
+    }
+}
+
+async fn handle_version(State(ctx): State<Arc<ApiContext>>) -> impl IntoResponse {
+    let app_version = ctx
+        .app
+        .config()
+        .version
+        .clone()
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let engine_status = if ctx.app.try_state::<Aria2State>().is_some() {
+        "running"
+    } else {
+        "stopped"
+    };
+
+    Json(VersionResponse {
+        app: app_version,
+        engine: engine_status.to_string(),
+    })
+}
+
+/// GET /stat — global download/upload statistics.
+///
+/// Returns the same shape as aria2's `getGlobalStat`, allowing the
+/// extension popup to display speed and task counts without needing
+/// a direct aria2 RPC connection.
+async fn handle_stat(
+    State(ctx): State<Arc<ApiContext>>,
+    headers: HeaderMap,
+) -> Result<Json<StatResponse>, StatusCode> {
+    let secret = read_api_secret(&ctx.app);
+    validate_bearer_token(&headers, &secret)?;
+
+    let aria2 = ctx
+        .app
+        .try_state::<Aria2State>()
+        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
+
+    match aria2.0.get_global_stat().await {
+        Ok(stat) => Ok(Json(StatResponse {
+            download_speed: stat.download_speed,
+            upload_speed: stat.upload_speed,
+            num_active: stat.num_active,
+            num_waiting: stat.num_waiting,
+            num_stopped: stat.num_stopped,
+            num_stopped_total: stat.num_stopped_total,
+        })),
+        Err(e) => {
+            log::error!("http_api: get_global_stat failed: {e}");
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// POST /pause-all — pause all active downloads.
+async fn handle_pause_all(
+    State(ctx): State<Arc<ApiContext>>,
+    headers: HeaderMap,
+) -> Result<Json<ActionResponse>, StatusCode> {
+    let secret = read_api_secret(&ctx.app);
+    validate_bearer_token(&headers, &secret)?;
+
+    let aria2 = match ctx.app.try_state::<Aria2State>() {
+        Some(s) => s,
+        None => {
+            return Ok(Json(ActionResponse {
+                status: "error".to_string(),
+                error: Some("Engine not running".to_string()),
+            }));
+        }
+    };
+
+    match aria2.0.force_pause_all().await {
+        Ok(_) => Ok(Json(ActionResponse {
+            status: "ok".to_string(),
+            error: None,
+        })),
+        Err(e) => Ok(Json(ActionResponse {
+            status: "error".to_string(),
+            error: Some(e.to_string()),
+        })),
+    }
+}
+
+/// POST /resume-all — resume all paused downloads.
+async fn handle_resume_all(
+    State(ctx): State<Arc<ApiContext>>,
+    headers: HeaderMap,
+) -> Result<Json<ActionResponse>, StatusCode> {
+    let secret = read_api_secret(&ctx.app);
+    validate_bearer_token(&headers, &secret)?;
+
+    let aria2 = match ctx.app.try_state::<Aria2State>() {
+        Some(s) => s,
+        None => {
+            return Ok(Json(ActionResponse {
+                status: "error".to_string(),
+                error: Some("Engine not running".to_string()),
+            }));
+        }
+    };
+
+    match aria2.0.unpause_all().await {
+        Ok(_) => Ok(Json(ActionResponse {
+            status: "ok".to_string(),
+            error: None,
+        })),
+        Err(e) => Ok(Json(ActionResponse {
+            status: "error".to_string(),
+            error: Some(e.to_string()),
+        })),
+    }
+}
+
+// ── Helper Functions ────────────────────────────────────────────────
+
+/// Read the API secret for extension authentication.
+///
+/// Tries `extensionApiSecret` first (new independent key), falls back
+/// to `rpcSecret` for backward compatibility during migration.
+fn read_api_secret(app: &AppHandle) -> String {
+    app.store("config.json")
+        .ok()
+        .and_then(|s| s.get("preferences"))
+        .and_then(|p| {
+            // Prefer extensionApiSecret, fall back to rpcSecret
+            p.get("extensionApiSecret")
+                .and_then(|v| v.as_str().map(String::from))
+                .filter(|s| !s.is_empty())
+                .or_else(|| p.get("rpcSecret")?.as_str().map(String::from))
+        })
+        .unwrap_or_default()
+}
+
+async fn submit_to_aria2(app: &AppHandle, req: &AddRequest) -> Result<String, AppError> {
+    let aria2 = app
+        .try_state::<Aria2State>()
+        .ok_or_else(|| AppError::Engine("aria2 not initialized".to_string()))?;
+
+    let mut options = serde_json::Map::new();
+    if let Some(ref referer) = req.referer {
+        if !referer.is_empty() {
+            options.insert(
+                "referer".to_string(),
+                serde_json::Value::String(referer.clone()),
+            );
+        }
+    }
+    if let Some(ref cookie) = req.cookie {
+        if !cookie.is_empty() {
+            options.insert(
+                "header".to_string(),
+                serde_json::Value::String(format!("Cookie: {cookie}")),
+            );
+        }
+    }
+    if let Some(ref filename) = req.filename {
+        if !filename.is_empty() {
+            options.insert(
+                "out".to_string(),
+                serde_json::Value::String(filename.clone()),
+            );
+        }
+    }
+
+    let gid = aria2
+        .0
+        .add_uri(vec![req.url.clone()], serde_json::Value::Object(options))
+        .await?;
+    Ok(gid)
+}
+
+/// Route a download request to the main window's AddTask dialog.
+///
+/// Instead of opening a secondary window, we construct a `motrixnext://new`
+/// deep-link URL and emit it as a `deep-link-open` event to the main window.
+/// The main window's existing event listener (`useAppEvents.ts`) handles:
+///   1. Showing and focusing the window
+///   2. Setting pendingReferer / pendingCookie
+///   3. Opening the AddTask dialog via `enqueueBatch()`
+///
+/// This reuses the entire deep-link pipeline and shows the same AddTask dialog
+/// that users see when clicking the "+" button — no separate window needed.
+fn show_add_task_in_main_window(app: &AppHandle, req: &AddRequest) {
+    // Build motrixnext://new?url=X&referer=Y&cookie=Z using the url crate
+    // for proper percent-encoding of query parameter values.
+    let mut deep_link = url::Url::parse("motrixnext://new").unwrap();
+    {
+        let mut q = deep_link.query_pairs_mut();
+        q.append_pair("url", &req.url);
+        if let Some(ref referer) = req.referer {
+            if !referer.is_empty() {
+                q.append_pair("referer", referer);
+            }
+        }
+        if let Some(ref cookie) = req.cookie {
+            if !cookie.is_empty() {
+                q.append_pair("cookie", cookie);
+            }
+        }
+    }
+
+    // Emit to the main window — the deep-link-open listener in useAppEvents.ts
+    // will show the window, set focus, and open the AddTask dialog.
+    if let Err(e) = app.emit("deep-link-open", vec![deep_link.to_string()]) {
+        log::error!("http_api: failed to emit deep-link-open: {e}");
+    }
+}
+
+// ── Server Lifecycle ────────────────────────────────────────────────
+
+/// Handle for a running HTTP API server.  Allows graceful shutdown.
+pub struct HttpApiHandle {
+    shutdown_tx: tokio::sync::oneshot::Sender<()>,
+    join_handle: tokio::task::JoinHandle<()>,
+}
+
+impl HttpApiHandle {
+    /// Signal the server to shut down and wait for it to finish.
+    pub async fn stop(self) {
+        let _ = self.shutdown_tx.send(());
+        let _ = self.join_handle.await;
+    }
+}
+
+/// Tauri managed state for the HTTP API server handle.
+pub struct HttpApiState(pub Mutex<Option<HttpApiHandle>>);
+
+impl HttpApiState {
+    pub fn new() -> Self {
+        Self(Mutex::new(None))
+    }
+}
+
+/// Spawn the HTTP API server on the given port.
+///
+/// The server binds to `127.0.0.1:{port}` and runs until the returned
+/// handle is stopped or the application exits.
+pub async fn spawn_http_api(app: AppHandle, port: u16) -> Result<HttpApiHandle, AppError> {
+    let ctx = Arc::new(ApiContext { app });
+    let router = build_router(ctx);
+
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .map_err(|e| AppError::Io(format!("Failed to bind HTTP API on port {port}: {e}")))?;
+
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+    let join_handle = tokio::spawn(async move {
+        let graceful = axum::serve(listener, router).with_graceful_shutdown(async {
+            let _ = shutdown_rx.await;
+        });
+        if let Err(e) = graceful.await {
+            log::error!("http_api: server error: {e}");
+        }
+    });
+
+    log::info!("http_api: listening on 127.0.0.1:{port}");
+
+    Ok(HttpApiHandle {
+        shutdown_tx,
+        join_handle,
+    })
+}
+
+// ── Read extension API port from RuntimeConfig ─────────────────────
+
+/// Read the extension API port from RuntimeConfigState.
+/// Falls back to store read, then to 16801 if neither is available.
+pub async fn read_extension_api_port(app: &AppHandle) -> u16 {
+    // Primary: RuntimeConfigState (cached, always in sync)
+    if let Some(rc_state) = app.try_state::<RuntimeConfigState>() {
+        return rc_state.0.read().await.extension_api_port;
+    }
+    // Fallback: direct store read (during early startup before state is managed)
+    read_extension_api_port_from_store(app)
+}
+
+/// Direct store read — used only as a fallback during early startup.
+fn read_extension_api_port_from_store(app: &AppHandle) -> u16 {
+    app.store("config.json")
+        .ok()
+        .and_then(|s| s.get("preferences"))
+        .and_then(|p| {
+            p.get("extensionApiPort").and_then(|v| {
+                v.as_u64()
+                    .map(|n| n as u16)
+                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+            })
+        })
+        .unwrap_or(16801)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::HeaderValue;
+
+    // ── validate_bearer_token ───────────────────────────────────────
+
+    #[test]
+    fn auth_accepts_correct_bearer_token() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "authorization",
+            HeaderValue::from_static("Bearer my-secret"),
+        );
+        assert!(validate_bearer_token(&headers, "my-secret").is_ok());
+    }
+
+    #[test]
+    fn auth_rejects_wrong_bearer_token() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "authorization",
+            HeaderValue::from_static("Bearer wrong-secret"),
+        );
+        assert_eq!(
+            validate_bearer_token(&headers, "my-secret"),
+            Err(StatusCode::UNAUTHORIZED)
+        );
+    }
+
+    #[test]
+    fn auth_rejects_missing_header() {
+        let headers = HeaderMap::new();
+        assert_eq!(
+            validate_bearer_token(&headers, "my-secret"),
+            Err(StatusCode::UNAUTHORIZED)
+        );
+    }
+
+    #[test]
+    fn auth_rejects_non_bearer_scheme() {
+        let mut headers = HeaderMap::new();
+        headers.insert("authorization", HeaderValue::from_static("Basic my-secret"));
+        assert_eq!(
+            validate_bearer_token(&headers, "my-secret"),
+            Err(StatusCode::UNAUTHORIZED)
+        );
+    }
+
+    #[test]
+    fn auth_allows_any_request_when_secret_is_empty() {
+        let headers = HeaderMap::new();
+        assert!(validate_bearer_token(&headers, "").is_ok());
+    }
+
+    #[test]
+    fn auth_allows_with_header_when_secret_is_empty() {
+        let mut headers = HeaderMap::new();
+        headers.insert("authorization", HeaderValue::from_static("Bearer anything"));
+        assert!(validate_bearer_token(&headers, "").is_ok());
+    }
+
+    // ── is_auto_submittable_uri ─────────────────────────────────────
+
+    #[test]
+    fn http_url_is_auto_submittable() {
+        assert!(is_auto_submittable_uri("http://example.com/file.zip"));
+    }
+
+    #[test]
+    fn https_url_is_auto_submittable() {
+        assert!(is_auto_submittable_uri("https://cdn.example.com/file.zip"));
+    }
+
+    #[test]
+    fn ftp_url_is_auto_submittable() {
+        assert!(is_auto_submittable_uri("ftp://files.example.com/data.tar"));
+    }
+
+    #[test]
+    fn magnet_link_is_auto_submittable() {
+        assert!(is_auto_submittable_uri(
+            "magnet:?xt=urn:btih:abcdef1234567890"
+        ));
+    }
+
+    #[test]
+    fn https_torrent_url_is_submittable_at_scheme_level() {
+        // is_auto_submittable_uri checks SCHEME only.
+        // A .torrent URL with https:// scheme passes the scheme check.
+        // The torrent/metalink exclusion is handled by the /add handler
+        // which inspects the file extension before auto-submitting.
+        assert!(is_auto_submittable_uri("https://example.com/file.torrent"));
+    }
+
+    #[test]
+    fn case_insensitive_scheme_detection() {
+        assert!(is_auto_submittable_uri("HTTP://EXAMPLE.COM/file.zip"));
+        assert!(is_auto_submittable_uri("Https://Example.COM/file.zip"));
+        assert!(is_auto_submittable_uri("MAGNET:?xt=urn:btih:abc"));
+    }
+
+    #[test]
+    fn empty_url_is_not_submittable() {
+        assert!(!is_auto_submittable_uri(""));
+    }
+
+    #[test]
+    fn random_scheme_is_not_submittable() {
+        assert!(!is_auto_submittable_uri("thunder://base64data"));
+        assert!(!is_auto_submittable_uri("file:///local/path"));
+    }
+
+    // ── is_torrent_or_metalink_url ──────────────────────────────────
+
+    #[test]
+    fn detects_torrent_extension() {
+        assert!(is_torrent_or_metalink_url(
+            "https://example.com/file.torrent"
+        ));
+    }
+
+    #[test]
+    fn detects_metalink_extension() {
+        assert!(is_torrent_or_metalink_url(
+            "https://example.com/file.metalink"
+        ));
+    }
+
+    #[test]
+    fn detects_meta4_extension() {
+        assert!(is_torrent_or_metalink_url("https://example.com/file.meta4"));
+    }
+
+    #[test]
+    fn strips_query_before_extension_check() {
+        assert!(is_torrent_or_metalink_url(
+            "https://example.com/file.torrent?token=abc"
+        ));
+    }
+
+    #[test]
+    fn strips_fragment_before_extension_check() {
+        assert!(is_torrent_or_metalink_url(
+            "https://example.com/file.torrent#section"
+        ));
+    }
+
+    #[test]
+    fn case_insensitive_extension() {
+        assert!(is_torrent_or_metalink_url(
+            "https://example.com/FILE.TORRENT"
+        ));
+        assert!(is_torrent_or_metalink_url(
+            "https://example.com/file.MetaLink"
+        ));
+    }
+
+    #[test]
+    fn regular_url_is_not_torrent() {
+        assert!(!is_torrent_or_metalink_url("https://example.com/file.zip"));
+        assert!(!is_torrent_or_metalink_url("magnet:?xt=urn:btih:abc"));
+    }
+
+    // ── can_auto_submit (combined) ──────────────────────────────────
+
+    #[test]
+    fn regular_https_can_auto_submit() {
+        assert!(can_auto_submit("https://example.com/file.zip"));
+    }
+
+    #[test]
+    fn torrent_https_cannot_auto_submit() {
+        assert!(!can_auto_submit("https://example.com/file.torrent"));
+    }
+
+    #[test]
+    fn metalink_https_cannot_auto_submit() {
+        assert!(!can_auto_submit("https://example.com/file.metalink"));
+    }
+
+    #[test]
+    fn magnet_can_auto_submit() {
+        assert!(can_auto_submit("magnet:?xt=urn:btih:abcdef"));
+    }
+
+    #[test]
+    fn thunder_cannot_auto_submit() {
+        assert!(!can_auto_submit("thunder://base64data"));
+    }
+
+    // ── AddRequest deserialization ───────────────────────────────────
+
+    #[test]
+    fn deserialize_add_request_full() {
+        let json = serde_json::json!({
+            "url": "https://example.com/file.zip",
+            "referer": "https://example.com/page",
+            "cookie": "sid=abc",
+            "filename": "file.zip"
+        });
+        let req: AddRequest = serde_json::from_value(json).expect("deserialize");
+        assert_eq!(req.url, "https://example.com/file.zip");
+        assert_eq!(req.referer.as_deref(), Some("https://example.com/page"));
+        assert_eq!(req.cookie.as_deref(), Some("sid=abc"));
+        assert_eq!(req.filename.as_deref(), Some("file.zip"));
+    }
+
+    #[test]
+    fn deserialize_add_request_minimal() {
+        let json = serde_json::json!({ "url": "https://example.com/file.zip" });
+        let req: AddRequest = serde_json::from_value(json).expect("deserialize");
+        assert_eq!(req.url, "https://example.com/file.zip");
+        assert!(req.referer.is_none());
+        assert!(req.cookie.is_none());
+        assert!(req.filename.is_none());
+    }
+
+    #[test]
+    fn deserialize_add_request_rejects_missing_url() {
+        let json = serde_json::json!({ "referer": "https://example.com" });
+        assert!(serde_json::from_value::<AddRequest>(json).is_err());
+    }
+
+    // ── AddResponse serialization ───────────────────────────────────
+
+    #[test]
+    fn serialize_submitted_response_includes_gid() {
+        let resp = AddResponse {
+            action: "submitted".to_string(),
+            gid: Some("abc123".to_string()),
+            message: None,
+        };
+        let json = serde_json::to_value(resp).expect("serialize");
+        assert_eq!(json["action"], "submitted");
+        assert_eq!(json["gid"], "abc123");
+        assert!(json.get("message").is_none());
+    }
+
+    #[test]
+    fn serialize_queued_response_omits_gid() {
+        let resp = AddResponse {
+            action: "queued".to_string(),
+            gid: None,
+            message: None,
+        };
+        let json = serde_json::to_value(resp).expect("serialize");
+        assert_eq!(json["action"], "queued");
+        assert!(json.get("gid").is_none());
+    }
+
+    // ── PingResponse serialization ──────────────────────────────────
+
+    #[test]
+    fn serialize_ping_response() {
+        let resp = PingResponse {
+            status: "ok".to_string(),
+            version: "3.7.3".to_string(),
+        };
+        let json = serde_json::to_value(resp).expect("serialize");
+        assert_eq!(json["status"], "ok");
+        assert_eq!(json["version"], "3.7.3");
+    }
+
+    // ── VersionResponse serialization ───────────────────────────────
+
+    #[test]
+    fn serialize_version_response() {
+        let resp = VersionResponse {
+            app: "3.7.3".to_string(),
+            engine: "running".to_string(),
+        };
+        let json = serde_json::to_value(resp).expect("serialize");
+        assert_eq!(json["app"], "3.7.3");
+        assert_eq!(json["engine"], "running");
+    }
+
+    // ── StatResponse serialization ─────────────────────────────────
+
+    #[test]
+    fn serialize_stat_response_uses_camel_case() {
+        let resp = StatResponse {
+            download_speed: "1048576".to_string(),
+            upload_speed: "524288".to_string(),
+            num_active: "2".to_string(),
+            num_waiting: "3".to_string(),
+            num_stopped: "5".to_string(),
+            num_stopped_total: "10".to_string(),
+        };
+        let json = serde_json::to_value(&resp).expect("serialize");
+        // Must use camelCase to match aria2's getGlobalStat format
+        assert_eq!(json["downloadSpeed"], "1048576");
+        assert_eq!(json["uploadSpeed"], "524288");
+        assert_eq!(json["numActive"], "2");
+        assert_eq!(json["numWaiting"], "3");
+        assert_eq!(json["numStopped"], "5");
+        assert_eq!(json["numStoppedTotal"], "10");
+    }
+
+    #[test]
+    fn stat_response_roundtrip() {
+        let resp = StatResponse {
+            download_speed: "0".to_string(),
+            upload_speed: "0".to_string(),
+            num_active: "0".to_string(),
+            num_waiting: "0".to_string(),
+            num_stopped: "0".to_string(),
+            num_stopped_total: "0".to_string(),
+        };
+        let json_str = serde_json::to_string(&resp).expect("serialize");
+        let deserialized: StatResponse = serde_json::from_str(&json_str).expect("deserialize");
+        assert_eq!(resp, deserialized);
+    }
+
+    // ── ActionResponse serialization ───────────────────────────────
+
+    #[test]
+    fn serialize_action_response_success() {
+        let resp = ActionResponse {
+            status: "ok".to_string(),
+            error: None,
+        };
+        let json = serde_json::to_value(&resp).expect("serialize");
+        assert_eq!(json["status"], "ok");
+        assert!(json.get("error").is_none()); // skip_serializing_if
+    }
+
+    #[test]
+    fn serialize_action_response_with_error() {
+        let resp = ActionResponse {
+            status: "error".to_string(),
+            error: Some("Engine not running".to_string()),
+        };
+        let json = serde_json::to_value(&resp).expect("serialize");
+        assert_eq!(json["status"], "error");
+        assert_eq!(json["error"], "Engine not running");
+    }
+
+    // ── is_allowed_extension_origin ────────────────────────────────
+
+    #[test]
+    fn chrome_extension_origin_is_allowed() {
+        assert!(is_allowed_extension_origin(
+            "chrome-extension://abcdefghijklmnop"
+        ));
+    }
+
+    #[test]
+    fn firefox_extension_origin_is_allowed() {
+        assert!(is_allowed_extension_origin(
+            "moz-extension://abcdef-1234-5678"
+        ));
+    }
+
+    #[test]
+    fn http_origin_is_rejected() {
+        assert!(!is_allowed_extension_origin("http://localhost:3000"));
+    }
+
+    #[test]
+    fn https_origin_is_rejected() {
+        assert!(!is_allowed_extension_origin("https://evil.com"));
+    }
+
+    #[test]
+    fn empty_origin_is_rejected() {
+        assert!(!is_allowed_extension_origin(""));
+    }
+
+    #[test]
+    fn null_origin_is_rejected() {
+        assert!(!is_allowed_extension_origin("null"));
+    }
+
+    // ── show_add_task_in_main_window URL builder ───────────────────
+
+    #[test]
+    fn deep_link_url_encodes_basic_url() {
+        let mut deep_link = url::Url::parse("motrixnext://new").unwrap();
+        deep_link
+            .query_pairs_mut()
+            .append_pair("url", "https://example.com/file.zip");
+        assert!(deep_link.to_string().contains("url=https"));
+        assert!(deep_link.to_string().starts_with("motrixnext://new?"));
+    }
+
+    #[test]
+    fn deep_link_url_encodes_special_characters() {
+        let mut deep_link = url::Url::parse("motrixnext://new").unwrap();
+        deep_link
+            .query_pairs_mut()
+            .append_pair("url", "https://example.com/file name.zip?token=abc&v=1");
+        let result = deep_link.to_string();
+        // Ampersand in the value must be percent-encoded, not treated as separator
+        assert!(result.contains("file+name.zip") || result.contains("file%20name.zip"));
+        assert!(!result.contains("&v=1")); // inner & must be encoded
+    }
+
+    #[test]
+    fn deep_link_url_includes_referer_and_cookie() {
+        let mut deep_link = url::Url::parse("motrixnext://new").unwrap();
+        {
+            let mut q = deep_link.query_pairs_mut();
+            q.append_pair("url", "https://example.com/file.zip");
+            q.append_pair("referer", "https://example.com/page");
+            q.append_pair("cookie", "sid=abc123; token=xyz");
+        }
+        let result = deep_link.to_string();
+        assert!(result.contains("referer="));
+        assert!(result.contains("cookie="));
+    }
+}

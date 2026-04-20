@@ -263,6 +263,8 @@ export const DEFAULT_APP_CONFIG = {
   // ── Network & Security ────────────────────────────────────────
   enableUpnp: true, // old Motrix=true; required for BitTorrent behind NAT
   rpcListenPort: ENGINE_RPC_PORT,
+  extensionApiPort: 16801,
+  extensionApiSecret: '',
   // rpcSecret is intentionally ABSENT from defaults.
   // undefined → main.ts auto-generates on first launch.
   // '' → user intentionally cleared (respected, not regenerated).

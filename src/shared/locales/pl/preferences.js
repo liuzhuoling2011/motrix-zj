@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'automatyczne archiwizowanie',
   'file-category-auto-archive-hint': 'Nierozpoznane typy są zapisywane w domyślnej ścieżce i automatycznie archiwizowane po pobraniu',
   'auto-submit-from-extension': 'Pomiń potwierdzenie dla pobrań z rozszerzenia',
+  'extension-api-port': 'Port API rozszerzenia',
+  'extension-api-secret-tip': 'Wprowadź ten klucz w ustawieniach rozszerzenia przeglądarki w celu uwierzytelnienia.',
+  'extension-api-secret': 'Klucz API rozszerzenia',
+  'extension-section': 'Rozszerzenie przeglądarki',
   'shutdown-when-complete': 'Wyłącz po zakończeniu wszystkich pobierań',
 }

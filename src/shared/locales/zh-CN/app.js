@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': '关机失败',
   'shutdown-skip-once': '本次忽略',
   'shutdown-disable': '关闭自动关机',
+  'confirm-download-title': '确认下载',
+  'confirm-download-waiting': '等待下载请求…',
+  'confirm-download-filename': '文件',
+  'confirm-download-url': '链接',
+  'confirm-download-referer': '来源',
+  'confirm-download-submitted': '下载已开始！',
+  'confirm-download-cancel': '取消',
+  'confirm-download-submit': '下载',
+  'confirm-download-skip': '跳过',
 }

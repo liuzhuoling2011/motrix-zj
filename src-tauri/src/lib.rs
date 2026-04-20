@@ -171,6 +171,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(services::stat::StatServiceState::new());
     app.manage(services::speed::SpeedSchedulerState::new());
     app.manage(services::monitor::TaskMonitorState::new());
+    app.manage(services::http_api::HttpApiState::new());
 
     // App lifecycle — tracks cold-start vs runtime phase for autostart
     // visibility decisions.  See AppLifecycleState doc and issue #206.
@@ -580,6 +581,18 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
                 log::info!("aria2 session save attempted via managed client");
             }
             let _ = engine::stop_engine(app, true);
+            // Stop the extension HTTP API server gracefully.
+            if let Some(api_state) = app.try_state::<services::http_api::HttpApiState>() {
+                let _ = tauri::async_runtime::block_on(async {
+                    tokio::time::timeout(std::time::Duration::from_millis(500), async {
+                        if let Some(handle) = api_state.0.lock().await.take() {
+                            handle.stop().await;
+                        }
+                    })
+                    .await
+                });
+                log::info!("http_api: stopped");
+            }
             // Clean up UPnP port mappings on exit.
             if let Some(state) = app.try_state::<UpnpState>() {
                 tauri::async_runtime::block_on(async {

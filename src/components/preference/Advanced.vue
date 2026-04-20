@@ -282,10 +282,13 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
 
 function buildForm() {
   const c = preferenceStore.config
-  const { form: formData, generatedSecret } = buildAdvancedForm(c)
-  // Side effect: persist auto-generated secret
+  const { form: formData, generatedSecret, generatedApiSecret } = buildAdvancedForm(c)
+  // Side effect: persist auto-generated secrets
   if (generatedSecret) {
     preferenceStore.updateAndSave({ rpcSecret: generatedSecret })
+  }
+  if (generatedApiSecret) {
+    preferenceStore.updateAndSave({ extensionApiSecret: generatedApiSecret })
   }
   // Restore trackerSource default that buildAdvancedForm doesn't know about
   if (!c.trackerSource) {
@@ -431,6 +434,10 @@ function onRpcPortDice() {
 
 function onRpcSecretDice() {
   form.value.rpcSecret = generateSecret()
+}
+
+function onApiSecretDice() {
+  form.value.extensionApiSecret = generateSecret()
 }
 
 async function copyToClipboard(text: string, label: string) {
@@ -630,6 +637,42 @@ onMounted(() => {
       </NFormItem>
       <NFormItem v-if="form.lastSyncTrackerTime" :show-label="false">
         <div class="info-text">{{ new Date(form.lastSyncTrackerTime).toLocaleString() }}</div>
+      </NFormItem>
+
+      <NDivider title-placement="left">{{ t('preferences.extension-section') }}</NDivider>
+      <NFormItem :label="t('preferences.auto-submit-from-extension')">
+        <NSwitch v-model:value="form.autoSubmitFromExtension" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.extension-api-port')">
+        <NInputNumber v-model:value="form.extensionApiPort" :min="1024" :max="65535" style="width: 160px" />
+      </NFormItem>
+      <NFormItem
+        :label="t('preferences.extension-api-secret')"
+        :validation-status="form.extensionApiSecret ? undefined : 'warning'"
+      >
+        <NInputGroup>
+          <NInput
+            v-model:value="form.extensionApiSecret"
+            type="password"
+            show-password-on="click"
+            placeholder="API Secret"
+            style="flex: 1"
+            :status="form.extensionApiSecret ? undefined : 'warning'"
+          />
+          <NButton style="padding: 0 10px" @click="copyToClipboard(form.extensionApiSecret, 'API Secret')">
+            <template #icon>
+              <NIcon :size="14"><CopyOutline /></NIcon>
+            </template>
+          </NButton>
+          <NButton style="padding: 0 10px" @click="onApiSecretDice">
+            <template #icon>
+              <NIcon :size="14"><DiceOutline /></NIcon>
+            </template>
+          </NButton>
+        </NInputGroup>
+      </NFormItem>
+      <NFormItem :show-label="false">
+        <div class="info-text">{{ t('preferences.extension-api-secret-tip') }}</div>
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.rpc') }}</NDivider>

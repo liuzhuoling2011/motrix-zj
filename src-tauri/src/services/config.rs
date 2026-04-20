@@ -47,6 +47,12 @@ pub struct RuntimeConfig {
     /// Whether to shut down the system after all downloads complete.
     #[serde(default)]
     pub shutdown_when_complete: bool,
+    /// Port for the embedded HTTP API (browser extension communication).
+    #[serde(default = "default_extension_api_port")]
+    pub extension_api_port: u16,
+    /// Whether extension-intercepted downloads bypass the AddTask dialog.
+    #[serde(default)]
+    pub auto_submit_from_extension: bool,
 }
 
 fn default_true() -> bool {
@@ -59,6 +65,10 @@ fn default_schedule_from() -> String {
 
 fn default_schedule_to() -> String {
     "06:00".to_string()
+}
+
+fn default_extension_api_port() -> u16 {
+    16801
 }
 
 impl Default for RuntimeConfig {
@@ -78,6 +88,8 @@ impl Default for RuntimeConfig {
             #[cfg(not(target_os = "linux"))]
             show_progress_bar: false,
             shutdown_when_complete: false,
+            extension_api_port: default_extension_api_port(),
+            auto_submit_from_extension: false,
         }
     }
 }

@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Не вдалося вимкнути систему',
   'shutdown-skip-once': 'Пропустити цього разу',
   'shutdown-disable': 'Вимкнути автовимкнення',
+  'confirm-download-title': 'Підтвердити завантаження',
+  'confirm-download-waiting': 'Очікування запиту на завантаження…',
+  'confirm-download-filename': 'Файл',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Джерело',
+  'confirm-download-submitted': 'Завантаження розпочато!',
+  'confirm-download-cancel': 'Скасувати',
+  'confirm-download-submit': 'Завантажити',
+  'confirm-download-skip': 'Пропустити',
 }

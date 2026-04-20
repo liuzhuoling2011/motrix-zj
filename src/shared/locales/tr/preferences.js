@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'otomatik arşivle',
   'file-category-auto-archive-hint': 'Tanınmayan türler varsayılan yola kaydedilir ve indirdikten sonra otomatik olarak arşivlenir',
   'auto-submit-from-extension': 'Eklenti indirmeleri için onayı atla',
+  'extension-api-port': 'Uzantı API Portu',
+  'extension-api-secret-tip': 'Kimlik doğrulaması için bu anahtarı tarayıcı eklentisi ayarlarına girin.',
+  'extension-api-secret': 'Eklenti API Anahtarı',
+  'extension-section': 'Tarayıcı Eklentisi',
   'shutdown-when-complete': 'Tüm indirmeler tamamlandıktan sonra kapat',
 }

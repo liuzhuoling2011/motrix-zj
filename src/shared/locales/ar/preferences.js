@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'أرشفة تلقائية',
   'file-category-auto-archive-hint': 'الأنواع غير المعروفة تُحفظ في المسار الافتراضي وتُؤرشف تلقائياً بعد التنزيل',
   'auto-submit-from-extension': 'تخطي التأكيد لتنزيلات الإضافة',
+  'extension-api-port': 'منفذ API للإضافة',
+  'extension-api-secret-tip': 'أدخل هذا المفتاح في إعدادات إضافة المتصفح للمصادقة.',
+  'extension-api-secret': 'مفتاح API للإضافة',
+  'extension-section': 'إضافة المتصفح',
   'shutdown-when-complete': 'إيقاف التشغيل بعد اكتمال جميع التنزيلات',
 }

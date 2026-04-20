@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'arxiu automàtic',
   'file-category-auto-archive-hint': 'Els tipus no reconeguts es desen a la ruta per defecte i s\'arxiven automàticament després de la descàrrega',
   'auto-submit-from-extension': 'Ometre la confirmació per a descàrregues de l\'extensió',
+  'extension-api-port': 'Port de l\'API de l\'extensió',
+  'extension-api-secret-tip': 'Introduïu aquesta clau a la configuració de l\'extensió del navegador per autenticar-vos.',
+  'extension-api-secret': 'Clau secreta de l\'API de l\'extensió',
+  'extension-section': 'Extensió del navegador',
   'shutdown-when-complete': 'Apagar després de completar totes les descàrregues',
 }

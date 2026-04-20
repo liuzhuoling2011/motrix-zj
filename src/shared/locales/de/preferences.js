@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'Auto-Archivierung',
   'file-category-auto-archive-hint': 'Unbekannte Dateitypen werden im Standard-Pfad gespeichert und nach dem Download automatisch archiviert',
   'auto-submit-from-extension': 'Bestätigung für Erweiterungs-Downloads überspringen',
+  'extension-api-port': 'Erweiterungs-API-Port',
+  'extension-api-secret-tip': 'Geben Sie diesen Schlüssel in den Einstellungen der Browser-Erweiterung zur Authentifizierung ein.',
+  'extension-api-secret': 'API-Schlüssel der Erweiterung',
+  'extension-section': 'Browser-Erweiterung',
   'shutdown-when-complete': 'Nach Abschluss aller Downloads herunterfahren',
 }

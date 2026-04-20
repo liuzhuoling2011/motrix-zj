@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'auto-archive',
   'file-category-auto-archive-hint': 'Unrecognized types are saved to the default path and auto-archived after download',
   'auto-submit-from-extension': 'Skip confirmation for extension downloads',
+  'extension-api-port': 'Extension API Port',
+  'extension-api-secret-tip': 'Enter this secret in the browser extension settings to authenticate.',
+  'extension-api-secret': 'Extension API Secret',
+  'extension-section': 'Browser Extension',
   'shutdown-when-complete': 'Shut down after all downloads complete',
 }

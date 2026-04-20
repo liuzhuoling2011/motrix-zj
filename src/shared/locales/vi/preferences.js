@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'tự động lưu trữ',
   'file-category-auto-archive-hint': 'Các loại không nhận dạng được sẽ được lưu vào đường dẫn mặc định và tự động lưu trữ sau khi tải xuống',
   'auto-submit-from-extension': 'Bỏ qua xác nhận cho tải xuống từ tiện ích',
+  'extension-api-port': 'Cổng API tiện ích',
+  'extension-api-secret-tip': 'Nhập khóa này vào cài đặt tiện ích mở rộng trình duyệt để xác thực.',
+  'extension-api-secret': 'Khóa bí mật API tiện ích',
+  'extension-section': 'Tiện ích mở rộng trình duyệt',
   'shutdown-when-complete': 'Tắt máy sau khi tải xong tất cả',
 }

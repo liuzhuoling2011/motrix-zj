@@ -288,5 +288,9 @@ export default {
   'file-category-auto-archive': 'automatikus archiválás',
   'file-category-auto-archive-hint': 'A fel nem ismert típusok az alapértelmezett útvonalra kerülnek, és letöltés után automatikusan archiválódnak',
   'auto-submit-from-extension': 'Megerősítés kihagyása a bővítmény letöltéseinél',
+  'extension-api-port': 'Bővítmény API port',
+  'extension-api-secret-tip': 'Adja meg ezt a kulcsot a böngészőbővítmény beállításaiban a hitelesítéshez.',
+  'extension-api-secret': 'Bővítmény API kulcs',
+  'extension-section': 'Böngészőbővítmény',
   'shutdown-when-complete': 'Leállítás az összes letöltés befejezése után',
 }

@@ -13,6 +13,7 @@
 //! 4. Stops old background services and spawns fresh ones
 
 pub mod config;
+pub mod http_api;
 pub mod monitor;
 pub mod speed;
 pub mod stat;
@@ -212,6 +213,25 @@ async fn spawn_background_services(app: &tauri::AppHandle) {
     let monitor_handle = monitor::spawn_task_monitor(app.clone(), aria2_arc);
     if let Some(ts) = app.try_state::<TaskMonitorState>() {
         *ts.0.lock().await = Some(monitor_handle);
+    }
+
+    // HTTP API — start once and keep running across engine restarts.
+    // The /ping and /version endpoints work without aria2, so the server
+    // should persist.  Idempotent: skips if already running.
+    if let Some(api_state) = app.try_state::<http_api::HttpApiState>() {
+        let mut guard = api_state.0.lock().await;
+        if guard.is_none() {
+            let port = http_api::read_extension_api_port(app).await;
+            match http_api::spawn_http_api(app.clone(), port).await {
+                Ok(handle) => {
+                    *guard = Some(handle);
+                    log::info!("runtime_services: HTTP API started on port {port}");
+                }
+                Err(e) => {
+                    log::error!("runtime_services: failed to start HTTP API: {e}");
+                }
+            }
+        }
     }
 
     log::info!("runtime_services: spawned stat_service + speed_scheduler + task_monitor");

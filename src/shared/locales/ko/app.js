@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': '시스템 종료에 실패했습니다',
   'shutdown-skip-once': '이번에는 건너뛰기',
   'shutdown-disable': '자동 종료 비활성화',
+  'confirm-download-title': '다운로드 확인',
+  'confirm-download-waiting': '다운로드 요청을 기다리는 중…',
+  'confirm-download-filename': '파일',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': '출처',
+  'confirm-download-submitted': '다운로드가 시작되었습니다!',
+  'confirm-download-cancel': '취소',
+  'confirm-download-submit': '다운로드',
+  'confirm-download-skip': '건너뛰기',
 }

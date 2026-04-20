@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'System konnte nicht heruntergefahren werden',
   'shutdown-skip-once': 'Diesmal überspringen',
   'shutdown-disable': 'Auto-Herunterfahren deaktivieren',
+  'confirm-download-title': 'Download bestätigen',
+  'confirm-download-waiting': 'Warte auf Download-Anfrage…',
+  'confirm-download-filename': 'Datei',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Herkunft',
+  'confirm-download-submitted': 'Download gestartet!',
+  'confirm-download-cancel': 'Abbrechen',
+  'confirm-download-submit': 'Herunterladen',
+  'confirm-download-skip': 'Überspringen',
 }

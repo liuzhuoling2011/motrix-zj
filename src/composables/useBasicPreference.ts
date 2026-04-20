@@ -67,7 +67,6 @@ export interface BasicForm {
   clipboardMagnet: boolean
   clipboardThunder: boolean
   clipboardBtHash: boolean
-  autoSubmitFromExtension: boolean
   protocolMagnet: boolean
   protocolThunder: boolean
   protocolMotrixnext: boolean
@@ -164,7 +163,6 @@ export function buildBasicForm(config: AppConfig, defaultDir: string = ''): Basi
     clipboardMagnet: config.clipboard?.magnet ?? D.clipboard.magnet,
     clipboardThunder: config.clipboard?.thunder ?? D.clipboard.thunder,
     clipboardBtHash: config.clipboard?.btHash ?? D.clipboard.btHash,
-    autoSubmitFromExtension: config.autoSubmitFromExtension ?? D.autoSubmitFromExtension,
     protocolMagnet: config.protocols?.magnet ?? D.protocols.magnet,
     protocolThunder: config.protocols?.thunder ?? D.protocols.thunder,
     protocolMotrixnext: config.protocols?.motrixnext ?? D.protocols.motrixnext,
@@ -234,7 +232,6 @@ export function transformBasicForStore(f: BasicForm): Partial<AppConfig> {
   delete data.clipboardMagnet
   delete data.clipboardThunder
   delete data.clipboardBtHash
-  // autoSubmitFromExtension is now a flat boolean — no collapse needed
   // Collapse flattened protocol fields back into nested ProtocolsConfig object
   data.protocols = {
     magnet: f.protocolMagnet,

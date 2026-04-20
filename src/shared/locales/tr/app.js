@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Sistem kapatılamadı',
   'shutdown-skip-once': 'Bu Sefer Atla',
   'shutdown-disable': 'Otomatik Kapanmayı Devre Dışı Bırak',
+  'confirm-download-title': 'İndirmeyi Onayla',
+  'confirm-download-waiting': 'İndirme isteği bekleniyor…',
+  'confirm-download-filename': 'Dosya',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Kaynak',
+  'confirm-download-submitted': 'İndirme başlatıldı!',
+  'confirm-download-cancel': 'İptal',
+  'confirm-download-submit': 'İndir',
+  'confirm-download-skip': 'Atla',
 }

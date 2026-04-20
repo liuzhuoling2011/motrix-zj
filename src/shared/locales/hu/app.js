@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Nem sikerült leállítani a rendszert',
   'shutdown-skip-once': 'Kihagyás most',
   'shutdown-disable': 'Automatikus leállítás kikapcsolása',
+  'confirm-download-title': 'Letöltés megerősítése',
+  'confirm-download-waiting': 'Várakozás a letöltési kérelemre…',
+  'confirm-download-filename': 'Fájl',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'Forrás',
+  'confirm-download-submitted': 'Letöltés elindítva!',
+  'confirm-download-cancel': 'Mégse',
+  'confirm-download-submit': 'Letöltés',
+  'confirm-download-skip': 'Kihagyás',
 }

@@ -14,6 +14,8 @@ const userKeys = [
   'delete-files-when-skip-confirm',
   'enable-upnp',
   'engine-bin-path',
+  'extension-api-port',
+  'extension-api-secret',
   'favorite-directories',
   'file-category-enabled',
   'file-categories',

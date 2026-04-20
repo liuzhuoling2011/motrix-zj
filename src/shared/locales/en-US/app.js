@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'Failed to shut down the system',
   'shutdown-skip-once': 'Skip This Time',
   'shutdown-disable': 'Disable Auto-Shutdown',
+  'confirm-download-title': 'Confirm Download',
+  'confirm-download-waiting': 'Waiting for download request…',
+  'confirm-download-filename': 'File',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'From',
+  'confirm-download-submitted': 'Download started!',
+  'confirm-download-cancel': 'Cancel',
+  'confirm-download-submit': 'Download',
+  'confirm-download-skip': 'Skip',
 }

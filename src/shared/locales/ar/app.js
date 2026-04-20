@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'فشل في إيقاف تشغيل النظام',
   'shutdown-skip-once': 'تجاهل هذه المرة',
   'shutdown-disable': 'إيقاف الإغلاق التلقائي',
+  'confirm-download-title': 'تأكيد التنزيل',
+  'confirm-download-waiting': 'في انتظار طلب التنزيل…',
+  'confirm-download-filename': 'الملف',
+  'confirm-download-url': 'الرابط',
+  'confirm-download-referer': 'المصدر',
+  'confirm-download-submitted': 'بدأ التنزيل!',
+  'confirm-download-cancel': 'إلغاء',
+  'confirm-download-submit': 'تنزيل',
+  'confirm-download-skip': 'تخطي',
 }

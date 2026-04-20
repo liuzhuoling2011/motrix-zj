@@ -109,4 +109,13 @@ export default {
   'shutdown-failed': 'ไม่สามารถปิดระบบได้',
   'shutdown-skip-once': 'ข้ามครั้งนี้',
   'shutdown-disable': 'ปิดการปิดเครื่องอัตโนมัติ',
+  'confirm-download-title': 'ยืนยันการดาวน์โหลด',
+  'confirm-download-waiting': 'รอคำขอดาวน์โหลด…',
+  'confirm-download-filename': 'ไฟล์',
+  'confirm-download-url': 'URL',
+  'confirm-download-referer': 'แหล่งที่มา',
+  'confirm-download-submitted': 'เริ่มดาวน์โหลดแล้ว!',
+  'confirm-download-cancel': 'ยกเลิก',
+  'confirm-download-submit': 'ดาวน์โหลด',
+  'confirm-download-skip': 'ข้าม',
 }
