@@ -185,12 +185,7 @@ pub fn build_router(ctx: Arc<ApiContext>) -> Router {
 // ── Handlers ────────────────────────────────────────────────────────
 
 async fn handle_ping(State(ctx): State<Arc<ApiContext>>) -> impl IntoResponse {
-    let version = ctx
-        .app
-        .config()
-        .version
-        .clone()
-        .unwrap_or_else(|| "unknown".to_string());
+    let version = ctx.app.package_info().version.to_string();
     Json(PingResponse {
         status: "ok".to_string(),
         version,
@@ -243,12 +238,7 @@ async fn handle_add(
 }
 
 async fn handle_version(State(ctx): State<Arc<ApiContext>>) -> impl IntoResponse {
-    let app_version = ctx
-        .app
-        .config()
-        .version
-        .clone()
-        .unwrap_or_else(|| "unknown".to_string());
+    let app_version = ctx.app.package_info().version.to_string();
 
     let engine_status = if ctx.app.try_state::<Aria2State>().is_some() {
         "running"
