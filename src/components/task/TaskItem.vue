@@ -14,7 +14,7 @@ import {
 } from '@shared/utils'
 import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@shared/logger'
-import { resolveTaskFilePath } from '@/composables/useArchivedPaths'
+import { resolveTaskFilePath, recheckTrigger } from '@/composables/useArchivedPaths'
 import { NProgress, NIcon } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
 import {
@@ -178,7 +178,9 @@ function scheduleFileExistsCheck(targetPath: string | null) {
   }, FILE_CHECK_THROTTLE_MS)
 }
 
-watch(fileCheckTargetPath, scheduleFileExistsCheck, { immediate: true })
+// Dual-source trigger: re-check when path changes (archive) OR on explicit
+// recheck request (action handler file-not-found, periodic background timer).
+watch([fileCheckTargetPath, recheckTrigger], ([path]) => scheduleFileExistsCheck(path), { immediate: true })
 onBeforeUnmount(() => {
   if (fileCheckTimer) {
     clearTimeout(fileCheckTimer)

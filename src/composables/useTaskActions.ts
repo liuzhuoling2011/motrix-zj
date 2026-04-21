@@ -9,7 +9,7 @@ import { ref, type Ref, h } from 'vue'
 import { getTaskUri, getTaskDisplayName, resolveOpenTarget, canRestart } from '@shared/utils'
 import { invoke } from '@tauri-apps/api/core'
 import { deleteTaskFiles } from '@/composables/useFileDelete'
-import { resolveTaskFilePath } from '@/composables/useArchivedPaths'
+import { resolveTaskFilePath, requestFileRecheck } from '@/composables/useArchivedPaths'
 import { TASK_STATUS } from '@shared/constants'
 import { logger } from '@shared/logger'
 import { NCheckbox, useDialog } from 'naive-ui'
@@ -221,9 +221,11 @@ export function useTaskActions(deps: TaskActionsDeps) {
         }
       }
       message.warning(t('task.file-not-exist'))
+      requestFileRecheck()
     } catch (e) {
       logger.warn('TaskView.showInFolder', e instanceof Error ? e.message : JSON.stringify(e))
       message.warning(t('task.file-not-exist'))
+      requestFileRecheck()
     }
   }
 
@@ -234,6 +236,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
       const fileExists = await invoke<boolean>('check_path_exists', { path: target })
       if (!fileExists) {
         message.warning(t('task.file-not-exist'))
+        requestFileRecheck()
         return
       }
       const isDir = await invoke<boolean>('check_path_is_dir', { path: target })
@@ -242,6 +245,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
     } catch (e) {
       logger.warn('TaskView.openFile error', e instanceof Error ? e.message : JSON.stringify(e))
       message.warning(t('task.file-not-exist'))
+      requestFileRecheck()
     }
   }
 

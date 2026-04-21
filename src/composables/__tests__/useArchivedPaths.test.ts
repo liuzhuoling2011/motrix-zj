@@ -1,11 +1,18 @@
 /**
  * @fileoverview Tests for the archived-paths runtime lookup table.
  *
- * Validates the Map-based gid→newPath resolution that bridges
- * auto-archived files to all path-consuming UI code.
+ * Validates the Map-based gid→newPath resolution, Vue reactivity bridge,
+ * and the global recheck trigger mechanism.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { setArchivedPath, getArchivedPath, clearArchivedPath, resolveTaskFilePath } from '../useArchivedPaths'
+import {
+  setArchivedPath,
+  getArchivedPath,
+  clearArchivedPath,
+  resolveTaskFilePath,
+  requestFileRecheck,
+  recheckTrigger,
+} from '../useArchivedPaths'
 import type { Aria2Task } from '@shared/types'
 
 /** Minimal task factory for testing. */
@@ -140,5 +147,21 @@ describe('resolveTaskFilePath', () => {
       ],
     })
     expect(resolveTaskFilePath(task)).toBe('C:/Users/test/Downloads/Archives/file.7z')
+  })
+})
+
+// ── Reactivity: recheckTrigger ──────────────────────────────────────
+
+describe('requestFileRecheck / recheckTrigger', () => {
+  it('increments recheckTrigger on each call', () => {
+    const before = recheckTrigger.value
+    requestFileRecheck()
+    expect(recheckTrigger.value).toBe(before + 1)
+    requestFileRecheck()
+    expect(recheckTrigger.value).toBe(before + 2)
+  })
+
+  it('recheckTrigger is a shallowRef with numeric value', () => {
+    expect(typeof recheckTrigger.value).toBe('number')
   })
 })

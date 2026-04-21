@@ -15,7 +15,7 @@ import {
   isMetadataTask,
   updateHistoryFilePath,
 } from '@/composables/useTaskLifecycle'
-import { setArchivedPath, resolveTaskFilePath } from '@/composables/useArchivedPaths'
+import { setArchivedPath, resolveTaskFilePath, requestFileRecheck } from '@/composables/useArchivedPaths'
 import { handleTaskComplete, handleBtComplete, handleTaskError } from '@/composables/useTaskNotifyHandlers'
 import { shouldDeleteTorrent, trashTorrentFile, cleanupTorrentMetadataFiles } from '@/composables/useDownloadCleanup'
 import { cleanupAria2ControlFile } from '@/composables/useFileDelete'
@@ -91,6 +91,7 @@ let unlistenExitDialog: (() => void) | null = null
 let unlistenStat: (() => void) | null = null
 let lifecycleService: ReturnType<typeof createTaskLifecycleService> | null = null
 let magnetPollTimer: ReturnType<typeof setTimeout> | null = null
+let unlistenFocusRecheck: (() => void) | null = null
 
 // ── Notification action helpers (reuse existing IPC commands) ────────
 
@@ -110,6 +111,7 @@ async function openFileFromNotification(task: Aria2Task) {
     const fileExists = await invoke<boolean>('check_path_exists', { path: target })
     if (!fileExists) {
       message.warning(t('task.file-not-exist'))
+      requestFileRecheck()
       return
     }
     const isDir = await invoke<boolean>('check_path_is_dir', { path: target })
@@ -118,6 +120,7 @@ async function openFileFromNotification(task: Aria2Task) {
   } catch (e) {
     logger.warn('Notification.openFile', e instanceof Error ? e.message : String(e))
     message.warning(t('task.file-not-exist'))
+    requestFileRecheck()
   }
 }
 
@@ -153,9 +156,11 @@ async function showInFolderFromNotification(task: Aria2Task) {
       }
     }
     message.warning(t('task.file-not-exist'))
+    requestFileRecheck()
   } catch (e) {
     logger.warn('Notification.showInFolder', e instanceof Error ? e.message : String(e))
     message.warning(t('task.file-not-exist'))
+    requestFileRecheck()
   }
 }
 
@@ -780,6 +785,14 @@ onMounted(async () => {
   })
   lifecycleService.start(() => appStore.interval)
 
+  // ── Window-focus file-existence recheck ─────────────────────────────
+  // When the user switches back from Finder / Explorer after deleting a
+  // file, the focus event bumps recheckTrigger so visible TaskItems
+  // re-run check_path_exists.  Zero polling overhead.
+  unlistenFocusRecheck = await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+    if (focused) requestFileRecheck()
+  })
+
   // ── Magnet metadata monitoring (app-level) ────────────────────────
   // Watches pendingMagnetGids in app store and starts polling when
   // magnet tasks are added. Runs at MainLayout level so it works
@@ -897,6 +910,7 @@ onMounted(async () => {
 onUnmounted(() => {
   stopStatListener()
   lifecycleService?.stop()
+  if (unlistenFocusRecheck) unlistenFocusRecheck()
   if (magnetPollTimer) {
     clearTimeout(magnetPollTimer)
     magnetPollTimer = null

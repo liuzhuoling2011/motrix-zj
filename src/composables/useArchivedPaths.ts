@@ -11,17 +11,49 @@
  * HistoryRecord's `meta.files[].path` in the SQLite database (see
  * `updateHistoryFilePath` in useTaskLifecycle.ts).
  *
- * Design rationale — plain Map instead of Pinia store:
- *   - Data is ephemeral (current session only)
- *   - No Vue reactivity needed (consumers poll via setTimeout, not watch)
- *   - No serialization / devtools requirements
- *   - Minimal footprint — one module-level Map, four exported functions
+ * ## Reactivity architecture
+ *
+ * The Map itself is a plain JS object (no serialization / devtools needs),
+ * but two `shallowRef` counters bridge mutations into Vue's dependency
+ * tracking system:
+ *
+ * - `_version`        — incremented when archived paths change (set/clear).
+ *                       Read inside `resolveTaskFilePath` so that computed
+ *                       properties depending on it (e.g. TaskItem's
+ *                       `fileCheckTargetPath`) re-evaluate immediately.
+ *
+ * - `recheckTrigger`  — incremented by `requestFileRecheck()` to force all
+ *                       visible TaskItems to re-run their file-existence
+ *                       check.  Triggered by:
+ *                         • Action handlers on file-not-found (immediate)
+ *                         • Global periodic timer (background, every 10s)
  */
 
+import { shallowRef } from 'vue'
 import type { Aria2Task } from '@shared/types'
+
+// ── Internal state ──────────────────────────────────────────────────
 
 /** gid → normalized forward-slash path after archive move. */
 const archivedPaths = new Map<string, string>()
+
+/**
+ * Reactivity bridge for archive-path mutations.
+ * Read inside `resolveTaskFilePath` to establish Vue dependency tracking;
+ * incremented in `setArchivedPath` / `clearArchivedPath` to trigger
+ * recomputation of any computed that called `resolveTaskFilePath`.
+ */
+const _version = shallowRef(0)
+
+/**
+ * Reactivity bridge for forced file-existence rechecks.
+ * Watched alongside `fileCheckTargetPath` in TaskItem so that bumping
+ * this value triggers a fresh `check_path_exists` IPC call even when
+ * the resolved path string has not changed.
+ */
+export const recheckTrigger = shallowRef(0)
+
+// ── Public API ──────────────────────────────────────────────────────
 
 /**
  * Register the post-archive file path for a task.
@@ -29,6 +61,7 @@ const archivedPaths = new Map<string, string>()
  */
 export function setArchivedPath(gid: string, newPath: string): void {
   archivedPaths.set(gid, newPath)
+  _version.value++
 }
 
 /**
@@ -45,6 +78,19 @@ export function getArchivedPath(gid: string): string | undefined {
  */
 export function clearArchivedPath(gid: string): void {
   archivedPaths.delete(gid)
+  _version.value++
+}
+
+/**
+ * Request all visible TaskItems to re-run their file-existence check.
+ *
+ * Call sites:
+ *   - `handleShowInFolder` / `handleOpenFile` when they detect file-not-found
+ *   - `openFileFromNotification` / `showInFolderFromNotification` (same)
+ *   - Global periodic timer in MainLayout (every FILE_RECHECK_INTERVAL ms)
+ */
+export function requestFileRecheck(): void {
+  recheckTrigger.value++
 }
 
 /**
@@ -58,8 +104,14 @@ export function clearArchivedPath(gid: string): void {
  *   2. task.files[0].path — aria2 original or history-reconstructed path
  *
  * Returns `null` when no file path is available (e.g. metadata-only task).
+ *
+ * NOTE: Reading `_version.value` establishes a Vue dependency so that any
+ * computed calling this function re-evaluates when `setArchivedPath` /
+ * `clearArchivedPath` mutates the Map.
  */
 export function resolveTaskFilePath(task: Aria2Task): string | null {
+  _version.value // Establish Vue reactivity dependency
+
   const archived = archivedPaths.get(task.gid)
   if (archived) return archived
 
