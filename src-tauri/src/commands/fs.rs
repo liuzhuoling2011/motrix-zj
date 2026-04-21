@@ -591,7 +591,9 @@ pub fn move_file(source: String, target_dir: String) -> Result<String, AppError>
         }
     }
 
-    Ok(crate::engine::path_to_safe_string(&dest))
+    // Normalize to forward slashes — aria2 and the frontend canonicalize
+    // all paths with `/`.  On Windows, PathBuf::join() produces `\`.
+    Ok(crate::engine::path_to_safe_string(&dest).replace('\\', "/"))
 }
 
 /// Permanently deletes a file from disk (NOT move to trash).

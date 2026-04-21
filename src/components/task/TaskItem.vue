@@ -14,6 +14,7 @@ import {
 } from '@shared/utils'
 import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@shared/logger'
+import { resolveTaskFilePath } from '@/composables/useArchivedPaths'
 import { NProgress, NIcon } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
 import {
@@ -143,14 +144,7 @@ const fileCheckTargetPath = computed(() => {
   if (status === TASK_STATUS.ACTIVE || status === TASK_STATUS.WAITING || status === TASK_STATUS.PAUSED) {
     return null
   }
-
-  const files = props.task.files
-  if (!props.task.dir || !files || files.length === 0) {
-    return null
-  }
-
-  const selected = files.filter((file) => file.selected === 'true')
-  return (selected.length > 0 ? selected[0] : files[0])?.path ?? null
+  return resolveTaskFilePath(props.task)
 })
 
 async function checkFileExists(targetPath: string | null) {

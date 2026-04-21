@@ -9,7 +9,13 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { listen } from '@tauri-apps/api/event'
 import { logger } from '@shared/logger'
 import { createTaskLifecycleService } from '@/composables/useTaskLifecycleService'
-import { buildHistoryRecord, buildBtCompletionRecord, isMetadataTask } from '@/composables/useTaskLifecycle'
+import {
+  buildHistoryRecord,
+  buildBtCompletionRecord,
+  isMetadataTask,
+  updateHistoryFilePath,
+} from '@/composables/useTaskLifecycle'
+import { setArchivedPath, resolveTaskFilePath } from '@/composables/useArchivedPaths'
 import { handleTaskComplete, handleBtComplete, handleTaskError } from '@/composables/useTaskNotifyHandlers'
 import { shouldDeleteTorrent, trashTorrentFile, cleanupTorrentMetadataFiles } from '@/composables/useDownloadCleanup'
 import { cleanupAria2ControlFile } from '@/composables/useFileDelete'
@@ -124,12 +130,9 @@ async function openFileFromNotification(task: Aria2Task) {
  */
 async function showInFolderFromNotification(task: Aria2Task) {
   const { invoke } = await import('@tauri-apps/api/core')
-  const files = task.files || []
-  if (files.length === 0) return
 
-  // Prefer user-selected files (same logic as resolveOpenTarget / TaskItem)
-  const selected = files.filter((f) => f.selected === 'true')
-  const filePath = (selected.length > 0 ? selected[0] : files[0])?.path
+  // Resolve correct path — archived location takes priority over aria2 original
+  const filePath = resolveTaskFilePath(task)
 
   if (!filePath) return
   try {
@@ -702,6 +705,14 @@ onMounted(async () => {
             targetDir: archiveAction.targetDir,
           })
           logger.info('AutoArchive.moved', `${archiveAction.source} → ${newPath}`)
+
+          // Persist the new path so all consumers resolve to the archived location.
+          // Runtime Map — effective immediately for this session.
+          setArchivedPath(task.gid, newPath)
+          // History DB — effective after app restart (meta.files path update).
+          updateHistoryFilePath(historyStore, task.gid, archiveAction.source, newPath).catch((e) =>
+            logger.debug('AutoArchive.historyUpdate', e),
+          )
         } catch (e) {
           // Archive failure is non-critical — file remains at download location
           logger.warn('AutoArchive.failed', e instanceof Error ? e.message : String(e))

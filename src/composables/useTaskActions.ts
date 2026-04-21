@@ -9,6 +9,7 @@ import { ref, type Ref, h } from 'vue'
 import { getTaskUri, getTaskDisplayName, resolveOpenTarget, canRestart } from '@shared/utils'
 import { invoke } from '@tauri-apps/api/core'
 import { deleteTaskFiles } from '@/composables/useFileDelete'
+import { resolveTaskFilePath } from '@/composables/useArchivedPaths'
 import { TASK_STATUS } from '@shared/constants'
 import { logger } from '@shared/logger'
 import { NCheckbox, useDialog } from 'naive-ui'
@@ -198,9 +199,8 @@ export function useTaskActions(deps: TaskActionsDeps) {
     const files = task.files || []
     if (files.length === 0) return
 
-    // Prefer user-selected files (same logic as resolveOpenTarget / TaskItem)
-    const selected = files.filter((f) => f.selected === 'true')
-    const filePath = (selected.length > 0 ? selected[0] : files[0])?.path
+    // Resolve correct path — archived location takes priority over aria2 original
+    const filePath = resolveTaskFilePath(task)
 
     if (!filePath) return
     try {
