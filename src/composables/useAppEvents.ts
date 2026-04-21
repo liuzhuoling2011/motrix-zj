@@ -10,7 +10,7 @@ import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { logger } from '@shared/logger'
 import { setEngineReady, isEngineReady } from '@/api/aria2'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
@@ -80,6 +80,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
   } = deps
 
   const router = useRouter()
+  const route = useRoute()
   const cleanupFns: Array<() => void> = []
 
   function registerCleanup(cleanup: (() => void) | null | undefined): () => void {
@@ -389,15 +390,35 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
   }
 
   // ─── Deep-link and single-instance listeners ─────────────────────
+
+  /**
+   * Process incoming deep-link URLs: surface window, navigate to downloads
+   * page if the payload contains a new-task URL, then delegate to the app
+   * store's handleDeepLinkUrls for actual download routing.
+   *
+   * Shared by the live `deep-link-open` listener and the pending-URL
+   * consumption path (lightweight mode window recreation).
+   */
+  async function processIncomingDeepLinks(urls: string[]) {
+    const mainWindow = getCurrentWindow()
+    await mainWindow.show()
+    await mainWindow.setFocus()
+
+    // Navigate to the "All" downloads tab when receiving new tasks from
+    // extension.  Always land on /task/all regardless of current sub-tab
+    // (active, stopped, etc.) so the user sees the full task list.
+    const hasNewTask = urls.some((url) => url.toLowerCase().startsWith('motrixnext://new'))
+    if (hasNewTask && route.path !== '/task/all') {
+      router.push('/task/all').catch(() => {})
+    }
+
+    appStore.handleDeepLinkUrls(urls)
+  }
+
   async function setupExternalInputListeners() {
     const unlistenDeepLink = registerCleanup(
       await listen<string[]>('deep-link-open', async (event) => {
-        // Always surface the window — deep-link implies user intent to
-        // interact with the app (e.g. motrixnext:// wake-up from extension).
-        const mainWindow = getCurrentWindow()
-        await mainWindow.show()
-        await mainWindow.setFocus()
-        appStore.handleDeepLinkUrls(event.payload)
+        await processIncomingDeepLinks(event.payload)
       }),
     )
 
@@ -427,6 +448,20 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
     const unlistenMenuEvent = await setupMenuListener()
     const unlistenTrayMenu = await setupTrayListener()
     const { unlistenDeepLink, unlistenSingleInstance } = await setupExternalInputListeners()
+
+    // After all listeners are registered, consume any deep-link URLs
+    // queued by Rust during window recreation (lightweight mode timing gap).
+    // Normal startups return an empty array — this is a no-op.
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      const pendingUrls = await invoke<string[]>('take_pending_deep_links')
+      if (pendingUrls.length > 0) {
+        logger.info('AppEvents', `consuming ${pendingUrls.length} pending deep-link(s) from window recreation`)
+        await processIncomingDeepLinks(pendingUrls)
+      }
+    } catch (e) {
+      logger.debug('AppEvents.pendingDeepLinks', e)
+    }
 
     return { unlistenDragDrop, unlistenMenuEvent, unlistenTrayMenu, unlistenDeepLink, unlistenSingleInstance, teardown }
   }

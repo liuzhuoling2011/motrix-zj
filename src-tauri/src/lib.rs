@@ -172,6 +172,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(services::speed::SpeedSchedulerState::new());
     app.manage(services::monitor::TaskMonitorState::new());
     app.manage(services::http_api::HttpApiState::new());
+    app.manage(services::http_api::PendingDeepLinkState::new());
 
     // App lifecycle — tracks cold-start vs runtime phase for autostart
     // visibility decisions.  See AppLifecycleState doc and issue #206.
@@ -847,6 +848,7 @@ pub fn run() {
             commands::lookup_peer_ips,
             commands::refresh_runtime_config,
             commands::restart_http_api,
+            commands::take_pending_deep_links,
             commands::history_add_record,
             commands::history_get_records,
             commands::history_remove_record,

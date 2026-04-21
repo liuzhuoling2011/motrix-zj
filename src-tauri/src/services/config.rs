@@ -50,9 +50,6 @@ pub struct RuntimeConfig {
     /// Port for the embedded HTTP API (browser extension communication).
     #[serde(default = "default_extension_api_port")]
     pub extension_api_port: u16,
-    /// Whether extension-intercepted downloads bypass the AddTask dialog.
-    #[serde(default)]
-    pub auto_submit_from_extension: bool,
 }
 
 fn default_true() -> bool {
@@ -89,7 +86,6 @@ impl Default for RuntimeConfig {
             show_progress_bar: false,
             shutdown_when_complete: false,
             extension_api_port: default_extension_api_port(),
-            auto_submit_from_extension: false,
         }
     }
 }

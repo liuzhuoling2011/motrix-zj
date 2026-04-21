@@ -2,13 +2,20 @@
 //!
 //! Embeds an Axum HTTP server inside the Tauri process, sharing the existing
 //! tokio runtime.  Provides a local REST API for browser extension → desktop
-//! communication, replacing the `motrixnext://` deep-link protocol for
-//! download submission.
+//! communication.
+//!
+//! All download requests are routed through the frontend via deep-link emit.
+//! Rust's role is window lifecycle management (recreate if destroyed in
+//! lightweight mode) + event dispatch.  The frontend decides whether to show
+//! the AddTask dialog (autoSubmit=OFF) or auto-submit (autoSubmit=ON).
 //!
 //! Endpoints:
-//! - `GET  /ping`    — heartbeat + app version
-//! - `POST /add`     — submit a download (auto-submit or show confirm dialog)
-//! - `GET  /version` — app + engine version info
+//! - `GET  /ping`       — heartbeat + app version
+//! - `POST /add`        — route download to frontend
+//! - `GET  /version`    — app + engine version info
+//! - `GET  /stat`       — global download/upload statistics
+//! - `POST /pause-all`  — pause all active downloads
+//! - `POST /resume-all` — resume all paused downloads
 
 use crate::aria2::client::Aria2State;
 use crate::error::AppError;
@@ -22,20 +29,45 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::sync::Mutex as StdMutex;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
+// ── Pending Deep-Link State ─────────────────────────────────────────
+
+/// Stores deep-link URLs for frontend consumption after window recreation.
+///
+/// When lightweight mode destroys the WebView, `route_to_frontend` must
+/// recreate it before emitting events.  The new WebView needs time to load
+/// (`index.html` → Vue mount → `setupListeners()`), so `app.emit()` is a
+/// no-op during this window.  This state bridges the gap:
+///
+///   1. Rust writes the deep-link URL here.
+///   2. If the window already existed (listener active), Rust emits
+///      immediately and clears the queue.
+///   3. If the window was just created, the frontend's boot sequence
+///      calls `take_pending_deep_links` to consume the queued URLs.
+pub struct PendingDeepLinkState(pub StdMutex<Vec<String>>);
+
+impl PendingDeepLinkState {
+    pub fn new() -> Self {
+        Self(StdMutex::new(Vec::new()))
+    }
+}
+
 // ── Request / Response Types ────────────────────────────────────────
 
 /// POST /add request body from the browser extension.
+///
+/// The extension may also send `filename` — serde silently ignores it since
+/// all download logic (including output filename) now lives in the frontend.
 #[derive(Debug, Deserialize)]
 pub struct AddRequest {
     pub url: String,
     pub referer: Option<String>,
     pub cookie: Option<String>,
-    pub filename: Option<String>,
 }
 
 /// POST /add response.
@@ -119,47 +151,6 @@ pub fn is_allowed_extension_origin(origin: &str) -> bool {
     origin.starts_with("chrome-extension://") || origin.starts_with("moz-extension://")
 }
 
-/// Determine if a URL is a "simple URI" type (HTTP/FTP/magnet) that can
-/// be auto-submitted without showing the AddTask dialog.
-///
-/// Torrent and metalink URLs require a fetch→parse→file-select pipeline
-/// that only runs inside the AddTask dialog.
-pub fn is_auto_submittable_uri(url: &str) -> bool {
-    let lower = url.to_lowercase();
-    lower.starts_with("http://")
-        || lower.starts_with("https://")
-        || lower.starts_with("ftp://")
-        || lower.starts_with("magnet:")
-}
-
-/// Returns `true` if the URL points to a `.torrent` or `.metalink`/`.meta4`
-/// file.  These need the full AddTask dialog (fetch → parse → file-select).
-pub fn is_torrent_or_metalink_url(url: &str) -> bool {
-    // Strip query string and fragment before checking extension
-    let path = url.split('?').next().unwrap_or(url);
-    let path = path.split('#').next().unwrap_or(path);
-    let lower = path.to_lowercase();
-    lower.ends_with(".torrent") || lower.ends_with(".metalink") || lower.ends_with(".meta4")
-}
-
-/// Combined check: URL is auto-submittable in Rust if it has a supported
-/// scheme, is not a torrent/metalink file, AND is not a magnet link.
-///
-/// Magnet links are excluded because they require the frontend's
-/// `addMagnetUri()` pipeline for:
-///   1. `pendingMagnetGids` registration → file selection polling
-///   2. `force-save: true` → BT session persistence
-///   3. `shouldShowFileSelection()` → pause-metadata awareness
-///
-/// When a magnet is received with auto-submit enabled, `handle_add`
-/// falls through to `show_add_task_in_main_window`, which routes via
-/// deep-link → frontend `autoSubmitExtensionUrl` → `addMagnetUri`.
-pub fn can_auto_submit(url: &str) -> bool {
-    is_auto_submittable_uri(url)
-        && !is_torrent_or_metalink_url(url)
-        && !url.to_lowercase().starts_with("magnet:")
-}
-
 // ── Axum State ──────────────────────────────────────────────────────
 
 /// Shared state passed to Axum handlers via `State<Arc<ApiContext>>`.
@@ -209,44 +200,23 @@ async fn handle_add(
     headers: HeaderMap,
     Json(body): Json<AddRequest>,
 ) -> Result<Json<AddResponse>, StatusCode> {
-    // 1. Authenticate
     let secret = read_api_secret(&ctx.app);
     validate_bearer_token(&headers, &secret)?;
 
-    // 2. Determine action — read from RuntimeConfig (cached, refreshed per engine cycle)
-    let auto_submit = if let Some(rc) = ctx.app.try_state::<RuntimeConfigState>() {
-        rc.0.read().await.auto_submit_from_extension
-    } else {
-        false
-    };
-
-    if auto_submit && can_auto_submit(&body.url) {
-        // Direct submission via aria2
-        match submit_to_aria2(&ctx.app, &body).await {
-            Ok(gid) => Ok(Json(AddResponse {
-                action: "submitted".to_string(),
-                gid: Some(gid),
-                message: None,
-            })),
-            Err(e) => {
-                log::error!("http_api: aria2 addUri failed: {e}");
-                Ok(Json(AddResponse {
-                    action: "error".to_string(),
-                    gid: None,
-                    message: Some(e.to_string()),
-                }))
-            }
-        }
-    } else {
-        // Show confirmation dialog
-        // Show AddTask dialog in the main window
-        show_add_task_in_main_window(&ctx.app, &body);
-        Ok(Json(AddResponse {
-            action: "queued".to_string(),
-            gid: None,
-            message: None,
-        }))
-    }
+    // Route ALL downloads through the frontend — single code path.
+    //
+    // The frontend decides whether to show the AddTask dialog (autoSubmit=OFF)
+    // or auto-submit silently (autoSubmit=ON) based on the user's preference.
+    // Rust's only job: ensure the window exists and is focused, then emit.
+    //
+    // This unified path handles all URL types (HTTP, magnet, torrent, metalink)
+    // and all window states (normal, hidden, destroyed in lightweight mode).
+    route_to_frontend(&ctx.app, &body);
+    Ok(Json(AddResponse {
+        action: "queued".to_string(),
+        gid: None,
+        message: None,
+    }))
 }
 
 async fn handle_version(State(ctx): State<Arc<ApiContext>>) -> impl IntoResponse {
@@ -377,58 +347,62 @@ fn read_api_secret(app: &AppHandle) -> String {
         .unwrap_or_default()
 }
 
-async fn submit_to_aria2(app: &AppHandle, req: &AddRequest) -> Result<String, AppError> {
-    let aria2 = app
-        .try_state::<Aria2State>()
-        .ok_or_else(|| AppError::Engine("aria2 not initialized".to_string()))?;
+/// Route a download request to the frontend via deep-link event.
+///
+/// Handles the window-recreation timing gap in lightweight mode:
+///   - **Window exists** → emit `deep-link-open` directly (listener is active)
+///   - **Window destroyed** → queue URL in `PendingDeepLinkState`, recreate
+///     window, let the frontend pull the URL via `take_pending_deep_links`
+///     after its boot sequence completes
+///
+/// This mirrors the window-recreation pattern used by `tray-new-task` and
+/// macOS `on_open_url` handlers.
+fn route_to_frontend(app: &AppHandle, req: &AddRequest) {
+    let deep_link_str = build_deep_link_url(req);
 
-    let mut options = serde_json::Map::new();
-    if let Some(ref referer) = req.referer {
-        if !referer.is_empty() {
-            options.insert(
-                "referer".to_string(),
-                serde_json::Value::String(referer.clone()),
-            );
-        }
-    }
-    if let Some(ref cookie) = req.cookie {
-        if !cookie.is_empty() {
-            options.insert(
-                "header".to_string(),
-                serde_json::Value::String(format!("Cookie: {cookie}")),
-            );
-        }
-    }
-    if let Some(ref filename) = req.filename {
-        if !filename.is_empty() {
-            options.insert(
-                "out".to_string(),
-                serde_json::Value::String(filename.clone()),
-            );
+    // Queue the URL for the frontend — consumed either via emit (immediate)
+    // or via take_pending_deep_links (after window recreation boot).
+    if let Some(state) = app.try_state::<PendingDeepLinkState>() {
+        if let Ok(mut queue) = state.0.lock() {
+            queue.push(deep_link_str.clone());
         }
     }
 
-    let gid = aria2
-        .0
-        .add_uri(vec![req.url.clone()], serde_json::Value::Object(options))
-        .await?;
-    Ok(gid)
+    // Snapshot: does the window (and its frontend listener) already exist?
+    let window_was_alive = app.get_webview_window("main").is_some();
+
+    // Ensure the window exists — recreates if destroyed in lightweight mode.
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::ActivationPolicy;
+        let _ = app.set_activation_policy(ActivationPolicy::Regular);
+    }
+    if let Some(window) = crate::tray::get_or_create_main_window(app) {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+
+    if window_was_alive {
+        // Frontend listener is active — emit directly and drain the queue
+        // (the frontend will process via the listener, not the pull path).
+        if let Some(state) = app.try_state::<PendingDeepLinkState>() {
+            if let Ok(mut queue) = state.0.lock() {
+                queue.clear();
+            }
+        }
+        if let Err(e) = app.emit("deep-link-open", vec![deep_link_str]) {
+            log::error!("http_api: failed to emit deep-link-open: {e}");
+        }
+    }
+    // else: window was just recreated — the Vue app will boot, call
+    // `take_pending_deep_links`, and process the queued URLs.
 }
 
-/// Route a download request to the main window's AddTask dialog.
+/// Build a `motrixnext://new?url=X&referer=Y&cookie=Z` deep-link URL.
 ///
-/// Instead of opening a secondary window, we construct a `motrixnext://new`
-/// deep-link URL and emit it as a `deep-link-open` event to the main window.
-/// The main window's existing event listener (`useAppEvents.ts`) handles:
-///   1. Showing and focusing the window
-///   2. Setting pendingReferer / pendingCookie
-///   3. Opening the AddTask dialog via `enqueueBatch()`
-///
-/// This reuses the entire deep-link pipeline and shows the same AddTask dialog
-/// that users see when clicking the "+" button — no separate window needed.
-fn show_add_task_in_main_window(app: &AppHandle, req: &AddRequest) {
-    // Build motrixnext://new?url=X&referer=Y&cookie=Z using the url crate
-    // for proper percent-encoding of query parameter values.
+/// Uses the `url` crate for proper percent-encoding of query parameter
+/// values, avoiding manual escaping bugs with special characters.
+fn build_deep_link_url(req: &AddRequest) -> String {
     let mut deep_link = url::Url::parse("motrixnext://new").expect("static URL must parse");
     {
         let mut q = deep_link.query_pairs_mut();
@@ -444,12 +418,7 @@ fn show_add_task_in_main_window(app: &AppHandle, req: &AddRequest) {
             }
         }
     }
-
-    // Emit to the main window — the deep-link-open listener in useAppEvents.ts
-    // will show the window, set focus, and open the AddTask dialog.
-    if let Err(e) = app.emit("deep-link-open", vec![deep_link.to_string()]) {
-        log::error!("http_api: failed to emit deep-link-open: {e}");
-    }
+    deep_link.to_string()
 }
 
 // ── Server Lifecycle ────────────────────────────────────────────────
@@ -638,143 +607,6 @@ mod tests {
         assert!(validate_bearer_token(&headers, "").is_ok());
     }
 
-    // ── is_auto_submittable_uri ─────────────────────────────────────
-
-    #[test]
-    fn http_url_is_auto_submittable() {
-        assert!(is_auto_submittable_uri("http://example.com/file.zip"));
-    }
-
-    #[test]
-    fn https_url_is_auto_submittable() {
-        assert!(is_auto_submittable_uri("https://cdn.example.com/file.zip"));
-    }
-
-    #[test]
-    fn ftp_url_is_auto_submittable() {
-        assert!(is_auto_submittable_uri("ftp://files.example.com/data.tar"));
-    }
-
-    #[test]
-    fn magnet_link_is_auto_submittable() {
-        assert!(is_auto_submittable_uri(
-            "magnet:?xt=urn:btih:abcdef1234567890"
-        ));
-    }
-
-    #[test]
-    fn https_torrent_url_is_submittable_at_scheme_level() {
-        // is_auto_submittable_uri checks SCHEME only.
-        // A .torrent URL with https:// scheme passes the scheme check.
-        // The torrent/metalink exclusion is handled by the /add handler
-        // which inspects the file extension before auto-submitting.
-        assert!(is_auto_submittable_uri("https://example.com/file.torrent"));
-    }
-
-    #[test]
-    fn case_insensitive_scheme_detection() {
-        assert!(is_auto_submittable_uri("HTTP://EXAMPLE.COM/file.zip"));
-        assert!(is_auto_submittable_uri("Https://Example.COM/file.zip"));
-        assert!(is_auto_submittable_uri("MAGNET:?xt=urn:btih:abc"));
-    }
-
-    #[test]
-    fn empty_url_is_not_submittable() {
-        assert!(!is_auto_submittable_uri(""));
-    }
-
-    #[test]
-    fn random_scheme_is_not_submittable() {
-        assert!(!is_auto_submittable_uri("thunder://base64data"));
-        assert!(!is_auto_submittable_uri("file:///local/path"));
-    }
-
-    // ── is_torrent_or_metalink_url ──────────────────────────────────
-
-    #[test]
-    fn detects_torrent_extension() {
-        assert!(is_torrent_or_metalink_url(
-            "https://example.com/file.torrent"
-        ));
-    }
-
-    #[test]
-    fn detects_metalink_extension() {
-        assert!(is_torrent_or_metalink_url(
-            "https://example.com/file.metalink"
-        ));
-    }
-
-    #[test]
-    fn detects_meta4_extension() {
-        assert!(is_torrent_or_metalink_url("https://example.com/file.meta4"));
-    }
-
-    #[test]
-    fn strips_query_before_extension_check() {
-        assert!(is_torrent_or_metalink_url(
-            "https://example.com/file.torrent?token=abc"
-        ));
-    }
-
-    #[test]
-    fn strips_fragment_before_extension_check() {
-        assert!(is_torrent_or_metalink_url(
-            "https://example.com/file.torrent#section"
-        ));
-    }
-
-    #[test]
-    fn case_insensitive_extension() {
-        assert!(is_torrent_or_metalink_url(
-            "https://example.com/FILE.TORRENT"
-        ));
-        assert!(is_torrent_or_metalink_url(
-            "https://example.com/file.MetaLink"
-        ));
-    }
-
-    #[test]
-    fn regular_url_is_not_torrent() {
-        assert!(!is_torrent_or_metalink_url("https://example.com/file.zip"));
-        assert!(!is_torrent_or_metalink_url("magnet:?xt=urn:btih:abc"));
-    }
-
-    // ── can_auto_submit (combined) ──────────────────────────────────
-
-    #[test]
-    fn regular_https_can_auto_submit() {
-        assert!(can_auto_submit("https://example.com/file.zip"));
-    }
-
-    #[test]
-    fn torrent_https_cannot_auto_submit() {
-        assert!(!can_auto_submit("https://example.com/file.torrent"));
-    }
-
-    #[test]
-    fn metalink_https_cannot_auto_submit() {
-        assert!(!can_auto_submit("https://example.com/file.metalink"));
-    }
-
-    #[test]
-    fn magnet_cannot_auto_submit() {
-        // Magnet links must route through the frontend's addMagnetUri()
-        // for file selection polling and BT session persistence.
-        assert!(!can_auto_submit("magnet:?xt=urn:btih:abcdef"));
-    }
-
-    #[test]
-    fn magnet_case_insensitive_cannot_auto_submit() {
-        assert!(!can_auto_submit("MAGNET:?xt=urn:btih:ABCDEF1234"));
-        assert!(!can_auto_submit("Magnet:?xt=urn:btih:abcdef"));
-    }
-
-    #[test]
-    fn thunder_cannot_auto_submit() {
-        assert!(!can_auto_submit("thunder://base64data"));
-    }
-
     // ── AddRequest deserialization ───────────────────────────────────
 
     #[test]
@@ -783,13 +615,12 @@ mod tests {
             "url": "https://example.com/file.zip",
             "referer": "https://example.com/page",
             "cookie": "sid=abc",
-            "filename": "file.zip"
+            "filename": "file.zip"  // ignored by serde (not in struct)
         });
         let req: AddRequest = serde_json::from_value(json).expect("deserialize");
         assert_eq!(req.url, "https://example.com/file.zip");
         assert_eq!(req.referer.as_deref(), Some("https://example.com/page"));
         assert_eq!(req.cookie.as_deref(), Some("sid=abc"));
-        assert_eq!(req.filename.as_deref(), Some("file.zip"));
     }
 
     #[test]
@@ -799,7 +630,6 @@ mod tests {
         assert_eq!(req.url, "https://example.com/file.zip");
         assert!(req.referer.is_none());
         assert!(req.cookie.is_none());
-        assert!(req.filename.is_none());
     }
 
     #[test]
