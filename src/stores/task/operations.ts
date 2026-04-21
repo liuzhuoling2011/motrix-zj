@@ -37,8 +37,8 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       // won't persist the entry in the session file on exit.
       try {
         await api.removeTaskRecord({ gid: task.gid })
-      } catch {
-        /* best-effort: task may already be gone */
+      } catch (e) {
+        logger.debug('TaskOps.removeTask', `removeTaskRecord gid=${task.gid} skipped: ${e}`)
       }
       logger.info('TaskOps.removeTask', `gid=${task.gid}`)
     } finally {
@@ -114,8 +114,8 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       // restart and enters seeding again (bt-seed-unverified=true).
       try {
         await api.removeTaskRecord({ gid })
-      } catch {
-        /* best-effort: task may already be gone */
+      } catch (e) {
+        logger.debug('TaskOps.stopSeeding', `removeTaskRecord gid=${gid} skipped: ${e}`)
       }
       // Also purge the parent metadata task from aria2's stopped list.
       // For magnet links, the metadata resolution task (GID-A) stays in
@@ -125,8 +125,8 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       if (task.following) {
         try {
           await api.removeTaskRecord({ gid: task.following })
-        } catch {
-          /* best-effort: metadata task may already be purged */
+        } catch (e) {
+          logger.debug('TaskOps.stopSeeding', `removeTaskRecord following=${task.following} skipped: ${e}`)
         }
       }
       const record = buildBtCompletionRecord(task)
@@ -140,8 +140,8 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       // Best-effort: must never prevent fetchList/saveSession from running.
       try {
         await cleanupAria2ControlFile(task)
-      } catch {
-        /* silent — cleanup failure must not block seeding teardown */
+      } catch (e) {
+        logger.debug('TaskOps.stopSeeding', `cleanupControlFile gid=${gid} skipped: ${e}`)
       }
       // Clean up hex40-named .torrent / .meta4 metadata left by bt-save-metadata
       // and rpc-save-upload-metadata. Covers session-restore case where onBtComplete
@@ -149,8 +149,8 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       if (task.dir && task.infoHash) {
         try {
           await cleanupAria2MetadataFiles(task.dir, task.infoHash)
-        } catch {
-          /* silent — metadata cleanup is best-effort */
+        } catch (e) {
+          logger.debug('TaskOps.stopSeeding', `cleanupMetadata gid=${gid} skipped: ${e}`)
         }
       }
       logger.info('TaskOps.stopSeeding', `gid=${gid} infoHash=${task.infoHash ?? 'n/a'}`)
@@ -204,8 +204,8 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       for (const gid of gids) {
         try {
           await api.removeTaskRecord({ gid })
-        } catch {
-          /* best-effort: task may already be gone */
+        } catch (e) {
+          logger.debug('TaskOps.batchRemoveTask', `removeTaskRecord gid=${gid} skipped: ${e}`)
         }
       }
       logger.info('TaskOps.batchRemoveTask', `removed ${gids.length} task(s) gids=[${gids.join(',')}]`)
@@ -221,7 +221,8 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       return tasks.some(
         (t) => (t.status === TASK_STATUS.ACTIVE && !checkTaskIsSeeder(t)) || t.status === TASK_STATUS.WAITING,
       )
-    } catch {
+    } catch (e) {
+      logger.debug('TaskOps.hasActiveTasks', `fetchTaskList failed: ${e}`)
       return false
     }
   }
@@ -230,7 +231,8 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
     try {
       const tasks = await api.fetchTaskList({ type: TASK_STATUS.ACTIVE })
       return tasks.some((t) => t.status === TASK_STATUS.PAUSED)
-    } catch {
+    } catch (e) {
+      logger.debug('TaskOps.hasPausedTasks', `fetchTaskList failed: ${e}`)
       return false
     }
   }

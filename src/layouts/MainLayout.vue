@@ -314,8 +314,8 @@ function startMagnetPoll() {
         magnetSelectName.value = task.bittorrent?.info?.name || parsed[0]?.name || 'Magnet Download'
         magnetSelectVisible.value = true
         return // Process one magnet at a time
-      } catch {
-        // Task may have been removed or metadata still downloading — skip
+      } catch (e) {
+        logger.debug('MainLayout.magnetPoll', `gid=${gid} metadata query skipped: ${e}`)
       }
     }
 

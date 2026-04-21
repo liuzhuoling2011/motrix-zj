@@ -3,6 +3,7 @@
 import { ref, computed, watch, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { TASK_STATUS } from '@shared/constants'
+import { logger } from '@shared/logger'
 import {
   checkTaskIsBT,
   checkTaskIsSeeder,
@@ -180,7 +181,8 @@ watch(
       } else {
         taskCompletedAt.value = ''
       }
-    } catch {
+    } catch (e) {
+      logger.debug('TaskDetail.completedAt', `gid=${gid} query failed: ${e}`)
       taskCompletedAt.value = ''
     }
   },
@@ -351,8 +353,8 @@ watch(
     }
     try {
       geoCache.value = await lookupPeerIps(uniqueIps, locale.value)
-    } catch {
-      // Graceful degradation: flags show nothing when lookup fails
+    } catch (e) {
+      logger.debug('TaskDetail.geoip', `lookupPeerIps failed: ${e}`)
     }
   },
   { immediate: true },

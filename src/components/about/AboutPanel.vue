@@ -9,6 +9,7 @@ import { open } from '@tauri-apps/plugin-shell'
 import { getVersion } from '@tauri-apps/api/app'
 import { getVersion as getAria2Version } from '@/api/aria2'
 import { useAppMessage } from '@/composables/useAppMessage'
+import { logger } from '@shared/logger'
 
 const props = defineProps<{ show: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -43,7 +44,8 @@ watch(
       try {
         const info = await getAria2Version()
         aria2Version.value = info.version
-      } catch {
+      } catch (e) {
+        logger.warn('AboutPanel', `aria2 version fetch failed: ${e}`)
         aria2Error.value = true
       } finally {
         aria2Loading.value = false
@@ -110,8 +112,8 @@ async function copyToClipboard(text: string, label: string) {
   try {
     await navigator.clipboard.writeText(text)
     message.success(t('about.version-copied', { label }))
-  } catch {
-    /* Clipboard API may fail in some contexts — silently ignore. */
+  } catch (e) {
+    logger.debug('AboutPanel.clipboard', `writeText failed: ${e}`)
   }
 }
 

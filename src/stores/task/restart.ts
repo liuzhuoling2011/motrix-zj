@@ -57,7 +57,8 @@ export async function restartTask(task: Aria2Task, api: RestartTaskApi, historyA
         options[k] = v
       }
     }
-  } catch {
+  } catch (e) {
+    logger.warn('restartTask', `getOption gid=${gid} failed, using dir-only fallback: ${e}`)
     // Fallback: at minimum preserve download directory
     if (dir) options.dir = dir
   }
@@ -87,8 +88,8 @@ export async function restartTask(task: Aria2Task, api: RestartTaskApi, historyA
     for (const newGid of createdGids) {
       try {
         await api.removeTask({ gid: newGid })
-      } catch {
-        // best-effort cleanup
+      } catch (e) {
+        logger.debug('restartTask', `rollback removeTask gid=${newGid} skipped: ${e}`)
       }
     }
     throw e // propagate original error to caller

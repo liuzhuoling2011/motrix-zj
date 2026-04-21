@@ -153,12 +153,12 @@ window.addEventListener('unhandledrejection', (e) => {
         const { downloadDir, homeDir } = await import('@tauri-apps/api/path')
         try {
           defaultDir = await downloadDir()
-        } catch {
-          logger.warn('Engine', 'downloadDir() unavailable, falling back to homeDir')
+        } catch (e) {
+          logger.warn('Engine', `downloadDir() unavailable, falling back to homeDir: ${e}`)
           try {
             defaultDir = (await homeDir()) + '/Downloads'
-          } catch {
-            logger.warn('Engine', 'homeDir() unavailable, dir fallback exhausted')
+          } catch (e) {
+            logger.warn('Engine', `homeDir() unavailable, dir fallback exhausted: ${e}`)
           }
         }
         // Persist the resolved dir so future launches skip the fallback chain

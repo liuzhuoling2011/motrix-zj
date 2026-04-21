@@ -313,7 +313,8 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
       try {
         await invoke('restart_http_api', { port: newPort })
         message.success(t('preferences.extension-api-port-applied', { port: newPort }))
-      } catch {
+      } catch (e) {
+        logger.warn('Advanced.extensionApi', `restart_http_api port=${newPort} failed: ${e}`)
         message.error(t('preferences.extension-api-port-failed', { port: newPort }))
       }
     }
@@ -485,8 +486,8 @@ async function copyToClipboard(text: string, label: string) {
   try {
     await navigator.clipboard.writeText(text)
     message.success(t('preferences.copied-to-clipboard', { label }))
-  } catch {
-    // Clipboard API may fail in restricted webview contexts — silently ignore
+  } catch (e) {
+    logger.debug('Advanced.clipboard', `writeText failed: ${e}`)
   }
 }
 

@@ -77,8 +77,8 @@ async function copyVersionToClipboard(text: string, label: string) {
   try {
     await navigator.clipboard.writeText(text)
     message.success(t('about.version-copied', { label }))
-  } catch {
-    /* Clipboard API may fail in some contexts — silently ignore. */
+  } catch (e) {
+    logger.debug('Basic.clipboard', `writeText failed: ${e}`)
   }
 }
 const updateDialogRef = ref<InstanceType<typeof UpdateDialog> | null>(null)

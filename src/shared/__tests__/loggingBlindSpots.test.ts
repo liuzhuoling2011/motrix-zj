@@ -420,3 +420,238 @@ describe('Delta: TaskActions.vue batch operation catch logging', () => {
     expect(fn).toMatch(/logger\.(warn|error)/)
   })
 })
+
+// =====================================================================
+// Silent-Catch Elimination — Frontend catch blocks must call logger
+// =====================================================================
+
+describe('Silent-catch elimination: stores/task/operations.ts', () => {
+  let source: string
+  beforeAll(() => {
+    source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'stores', 'task', 'operations.ts'), 'utf-8')
+  })
+
+  it('imports the logger utility', () => {
+    expect(source).toContain("from '@shared/logger'")
+  })
+
+  it('has zero empty catch blocks', () => {
+    // Match `} catch {` (no variable binding = no logging possible)
+    const emptyCatches = (source.match(/\} catch \{/g) || []).length
+    expect(emptyCatches).toBe(0)
+  })
+
+  it('removeTask inner catch calls logger.debug', () => {
+    const fn = source.slice(source.indexOf('async function removeTask'), source.indexOf('async function pauseTask'))
+    expect(fn).toContain('logger.debug')
+  })
+
+  it('stopSeeding catches all call logger.debug', () => {
+    const fn = source.slice(
+      source.indexOf('async function stopSeeding'),
+      source.indexOf('async function stopAllSeeding'),
+    )
+    const logCount = countOccurrences(fn, 'logger.debug')
+    // 4 best-effort catches: removeTaskRecord, following purge, controlFile, metadata
+    expect(logCount).toBeGreaterThanOrEqual(4)
+  })
+
+  it('batchRemoveTask inner catch calls logger.debug', () => {
+    const fn = source.slice(
+      source.indexOf('async function batchRemoveTask'),
+      source.indexOf('async function hasActiveTasks'),
+    )
+    expect(fn).toContain('logger.debug')
+  })
+
+  it('hasActiveTasks catch calls logger.debug', () => {
+    const fn = source.slice(
+      source.indexOf('async function hasActiveTasks'),
+      source.indexOf('async function hasPausedTasks'),
+    )
+    expect(fn).toContain('logger.debug')
+  })
+
+  it('hasPausedTasks catch calls logger.debug', () => {
+    const fn = source.slice(
+      source.indexOf('async function hasPausedTasks'),
+      source.indexOf('async function saveSession'),
+    )
+    expect(fn).toContain('logger.debug')
+  })
+})
+
+describe('Silent-catch elimination: stores/task/restart.ts', () => {
+  let source: string
+  beforeAll(() => {
+    source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'stores', 'task', 'restart.ts'), 'utf-8')
+  })
+
+  it('has zero empty catch blocks', () => {
+    const emptyCatches = (source.match(/\} catch \{/g) || []).length
+    expect(emptyCatches).toBe(0)
+  })
+
+  it('getOption fallback catch calls logger.warn', () => {
+    const fn = source.slice(source.indexOf('const options'), source.indexOf('const isBT'))
+    expect(fn).toContain('logger.warn')
+  })
+
+  it('rollback catch calls logger.debug', () => {
+    const fn = source.slice(source.indexOf('// Rollback'), source.indexOf('throw e'))
+    expect(fn).toContain('logger.debug')
+  })
+})
+
+describe('Silent-catch elimination: components/task/TaskDetail.vue', () => {
+  let source: string
+  beforeAll(() => {
+    source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'components', 'task', 'TaskDetail.vue'), 'utf-8')
+  })
+
+  it('imports the logger utility', () => {
+    expect(source).toContain("from '@shared/logger'")
+  })
+
+  it('completedAt catch calls logger.debug', () => {
+    expect(source).toContain('TaskDetail.completedAt')
+  })
+
+  it('geoip catch calls logger.debug', () => {
+    expect(source).toContain('TaskDetail.geoip')
+  })
+})
+
+describe('Silent-catch elimination: components/about/AboutPanel.vue', () => {
+  let source: string
+  beforeAll(() => {
+    source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'components', 'about', 'AboutPanel.vue'), 'utf-8')
+  })
+
+  it('imports the logger utility', () => {
+    expect(source).toContain("from '@shared/logger'")
+  })
+
+  it('aria2 version catch calls logger.warn', () => {
+    expect(source).toContain("logger.warn('AboutPanel'")
+  })
+
+  it('clipboard catch calls logger.debug', () => {
+    expect(source).toContain("logger.debug('AboutPanel.clipboard'")
+  })
+})
+
+describe('Silent-catch elimination: components/preference/Basic.vue', () => {
+  let source: string
+  beforeAll(() => {
+    source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'components', 'preference', 'Basic.vue'), 'utf-8')
+  })
+
+  it('clipboard catch calls logger.debug', () => {
+    expect(source).toContain("logger.debug('Basic.clipboard'")
+  })
+})
+
+describe('Silent-catch elimination: components/preference/Advanced.vue', () => {
+  let source: string
+  beforeAll(() => {
+    source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'components', 'preference', 'Advanced.vue'), 'utf-8')
+  })
+
+  it('extension API port restart catch calls logger.warn', () => {
+    expect(source).toContain("logger.warn('Advanced.extensionApi'")
+  })
+
+  it('clipboard catch calls logger.debug', () => {
+    expect(source).toContain("logger.debug('Advanced.clipboard'")
+  })
+})
+
+describe('Silent-catch elimination: layouts/MainLayout.vue', () => {
+  it('magnet poll catch calls logger.debug', () => {
+    const source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'layouts', 'MainLayout.vue'), 'utf-8')
+    expect(source).toContain("logger.debug('MainLayout.magnetPoll'")
+  })
+})
+
+describe('Silent-catch elimination: composables', () => {
+  it('usePreferenceForm.ts hot-reload catch calls logger.debug', () => {
+    const source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'composables', 'usePreferenceForm.ts'), 'utf-8')
+    expect(source).toContain("logger.debug('PreferenceForm.hotReload'")
+  })
+
+  it('usePlatform.ts platform detection catch calls logger.debug', () => {
+    const source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'composables', 'usePlatform.ts'), 'utf-8')
+    expect(source).toContain("logger.debug('Platform'")
+  })
+
+  it('useDownloadCleanup.ts stale-check catches call logger.debug', () => {
+    const source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'composables', 'useDownloadCleanup.ts'), 'utf-8')
+    const fnBody = source.slice(
+      source.indexOf('async function findStaleRecords'),
+      source.indexOf('export async function cleanupAria2MetadataFiles') !== -1
+        ? source.indexOf('export async function cleanupAria2MetadataFiles')
+        : undefined,
+    )
+    const logCount = countOccurrences(fnBody, "logger.debug('StaleCheck'")
+    expect(logCount).toBeGreaterThanOrEqual(2)
+  })
+})
+
+describe('Silent-catch elimination: stores', () => {
+  it('history.ts DB close catch calls logger.debug', () => {
+    const source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'stores', 'history.ts'), 'utf-8')
+    expect(source).toContain("logger.debug('HistoryDB', `close before rebuild")
+  })
+
+  it('history.ts schema version catch calls logger.debug', () => {
+    const source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'stores', 'history.ts'), 'utf-8')
+    expect(source).toContain("logger.debug('HistoryDB', `schema version query")
+  })
+
+  it('app.ts deep-link catch calls logger.debug', () => {
+    const source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'stores', 'app.ts'), 'utf-8')
+    expect(source).toContain("logger.debug('DeepLink'")
+  })
+})
+
+// =====================================================================
+// Self-audit round 2 — error variable capture and missing logger calls
+// =====================================================================
+
+describe('Self-audit: main.ts error variable capture', () => {
+  let source: string
+  beforeAll(() => {
+    source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'main.ts'), 'utf-8')
+  })
+
+  it('downloadDir fallback catch captures error variable', () => {
+    // The three-tier fallback chain must use `catch (e)` not `catch {`
+    // so the error details are included in the logger.warn message.
+    const fallback = source.slice(source.indexOf('downloadDir()'), source.indexOf('Persist the resolved dir'))
+    expect(fallback).not.toMatch(/\} catch \{/)
+  })
+
+  it('downloadDir fallback log includes error interpolation', () => {
+    expect(source).toContain('falling back to homeDir: ${e}')
+  })
+
+  it('homeDir fallback log includes error interpolation', () => {
+    expect(source).toContain('dir fallback exhausted: ${e}')
+  })
+})
+
+describe('Self-audit: useSystemProxyDetect.ts logger coverage', () => {
+  let source: string
+  beforeAll(() => {
+    source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'composables', 'useSystemProxyDetect.ts'), 'utf-8')
+  })
+
+  it('imports the logger utility', () => {
+    expect(source).toContain("from '@shared/logger'")
+  })
+
+  it('logs proxy detection failure before invoking error callback', () => {
+    expect(source).toContain("logger.warn('SystemProxy'")
+  })
+})

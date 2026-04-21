@@ -273,8 +273,8 @@ export const useAppStore = defineStore('app', () => {
             }
           }
           // motrixnext:// with no action or unrecognized action → pure wake-up
-        } catch {
-          // Malformed URL — ignore silently
+        } catch (e) {
+          logger.debug('DeepLink', `malformed motrixnext:// URL skipped: ${e}`)
         }
         continue
       }

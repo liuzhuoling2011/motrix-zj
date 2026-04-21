@@ -15,6 +15,7 @@
 import { computed, ref } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 import { platform } from '@tauri-apps/plugin-os'
+import { logger } from '@shared/logger'
 
 // ─── Module-level singleton ────────────────────────────────────────────
 const _platform = ref('')
@@ -25,8 +26,8 @@ function _ensureInit(): void {
   _initialised = true
   try {
     _platform.value = platform()
-  } catch {
-    // Gracefully degrade in unit tests, SSR, or non-Tauri contexts.
+  } catch (e) {
+    logger.debug('Platform', `platform() unavailable (SSR/test context): ${e}`)
   }
 }
 
