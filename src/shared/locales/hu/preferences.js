@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Bővítmény API port',
   'extension-api-secret-tip': 'Adja meg ezt a kulcsot a böngészőbővítmény beállításaiban a hitelesítéshez.',
   'extension-api-secret': 'Bővítmény API kulcs',
+  'extension-api-port-confirm': 'Az API port {port} portra fog változni. A kommunikációs szolgáltatást újra kell indítani a változtatás érvényesítéséhez. A böngészőbővítménynek újra kell csatlakoznia.',
+  'extension-api-port-applied': 'Az API port {port} portra módosítva',
+  'extension-api-port-failed': 'Nem sikerült a(z) {port} port kötése az API-hoz. A port már használatban lehet.',
   'extension-section': 'Böngészőbővítmény',
   'shutdown-when-complete': 'Leállítás az összes letöltés befejezése után',
 }

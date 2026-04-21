@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Cổng API tiện ích',
   'extension-api-secret-tip': 'Nhập khóa này vào cài đặt tiện ích mở rộng trình duyệt để xác thực.',
   'extension-api-secret': 'Khóa bí mật API tiện ích',
+  'extension-api-port-confirm': 'Cổng API tiện ích mở rộng sẽ được đổi sang {port}. Dịch vụ liên lạc cần khởi động lại để áp dụng. Tiện ích trình duyệt sẽ cần kết nối lại.',
+  'extension-api-port-applied': 'Cổng API tiện ích mở rộng đã đổi sang {port}',
+  'extension-api-port-failed': 'Không thể gắn cổng {port} cho API tiện ích mở rộng. Cổng có thể đang được sử dụng.',
   'extension-section': 'Tiện ích mở rộng trình duyệt',
   'shutdown-when-complete': 'Tắt máy sau khi tải xong tất cả',
 }

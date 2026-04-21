@@ -21,7 +21,7 @@ pub mod stat;
 use crate::aria2::client::Aria2State;
 use crate::error::AppError;
 use config::RuntimeConfigState;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_store::StoreExt;
 
 /// Keys that aria2 rejects via `changeGlobalOption` — they are bound at
@@ -215,20 +215,27 @@ async fn spawn_background_services(app: &tauri::AppHandle) {
         *ts.0.lock().await = Some(monitor_handle);
     }
 
-    // HTTP API — start once and keep running across engine restarts.
-    // The /ping and /version endpoints work without aria2, so the server
-    // should persist.  Idempotent: skips if already running.
+    // HTTP API — keep running across engine restarts.  Idempotent: skips
+    // if already bound to the correct port.  On port mismatch (config change
+    // between engine cycles) the old server is stopped and a new one spawned.
+    let desired_port = http_api::read_extension_api_port(app).await;
     if let Some(api_state) = app.try_state::<http_api::HttpApiState>() {
-        let mut guard = api_state.0.lock().await;
-        if guard.is_none() {
-            let port = http_api::read_extension_api_port(app).await;
-            match http_api::spawn_http_api(app.clone(), port).await {
-                Ok(handle) => {
-                    *guard = Some(handle);
-                    log::info!("runtime_services: HTTP API started on port {port}");
+        let current_port = api_state
+            .0
+            .lock()
+            .await
+            .as_ref()
+            .map(http_api::HttpApiHandle::port);
+        if current_port != Some(desired_port) {
+            match http_api::restart_on_port(app, desired_port).await {
+                Ok(()) => {
+                    log::info!("runtime_services: HTTP API listening on port {desired_port}");
                 }
                 Err(e) => {
-                    log::error!("runtime_services: failed to start HTTP API: {e}");
+                    log::error!(
+                        "runtime_services: HTTP API bind failed on port {desired_port}: {e}"
+                    );
+                    let _ = app.emit("http-api-bind-failed", desired_port);
                 }
             }
         }

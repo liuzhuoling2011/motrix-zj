@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Porta API estensione',
   'extension-api-secret-tip': 'Inserisci questa chiave nelle impostazioni dell\'estensione del browser per l\'autenticazione.',
   'extension-api-secret': 'Chiave segreta API estensione',
+  'extension-api-port-confirm': 'La porta API dell\'estensione verrà cambiata a {port}. Il servizio di comunicazione deve essere riavviato. L\'estensione del browser dovrà riconnettersi.',
+  'extension-api-port-applied': 'Porta API dell\'estensione cambiata a {port}',
+  'extension-api-port-failed': 'Impossibile associare la porta {port} per l\'API dell\'estensione. La porta potrebbe essere già in uso.',
   'extension-section': 'Estensione del browser',
   'shutdown-when-complete': 'Spegni dopo il completamento di tutti i download',
 }

@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'پورت API افزونه',
   'extension-api-secret-tip': 'این کلید را در تنظیمات افزونه مرورگر برای احراز هویت وارد کنید.',
   'extension-api-secret': 'کلید API افزونه',
+  'extension-api-port-confirm': 'پورت API افزونه به {port} تغییر خواهد کرد. سرویس ارتباطی باید مجدداً راه‌اندازی شود. افزونه مرورگر باید دوباره متصل شود.',
+  'extension-api-port-applied': 'پورت API افزونه به {port} تغییر کرد',
+  'extension-api-port-failed': 'اتصال به پورت {port} برای API افزونه ناموفق بود. ممکن است پورت در حال استفاده باشد.',
   'extension-section': 'افزونه مرورگر',
   'shutdown-when-complete': 'خاموش شدن پس از اتمام همه دانلودها',
 }

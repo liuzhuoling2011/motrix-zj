@@ -291,6 +291,9 @@ export default {
   'extension-api-port': '拡張機能 API ポート',
   'extension-api-secret-tip': '認証のためにブラウザ拡張機能の設定にこのシークレットを入力してください。',
   'extension-api-secret': '拡張機能 API シークレット',
+  'extension-api-port-confirm': '拡張API ポートを {port} に変更します。通信サービスの再起動が必要です。ブラウザ拡張機能は再接続が必要になります。',
+  'extension-api-port-applied': '拡張API ポートを {port} に変更しました',
+  'extension-api-port-failed': '拡張API ポート {port} のバインドに失敗しました。ポートがすでに使用されている可能性があります。',
   'extension-section': 'ブラウザ拡張機能',
   'shutdown-when-complete': 'すべてのダウンロード完了後にシャットダウン',
 }

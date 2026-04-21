@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Port API Ekstensi',
   'extension-api-secret-tip': 'Masukkan kunci ini di pengaturan ekstensi browser untuk autentikasi.',
   'extension-api-secret': 'Kunci API Ekstensi',
+  'extension-api-port-confirm': 'Port API ekstensi akan diubah ke {port}. Layanan komunikasi perlu dimulai ulang agar perubahan berlaku. Ekstensi browser perlu terhubung ulang.',
+  'extension-api-port-applied': 'Port API ekstensi diubah ke {port}',
+  'extension-api-port-failed': 'Gagal mengikat port {port} untuk API ekstensi. Port mungkin sudah digunakan.',
   'extension-section': 'Ekstensi Browser',
   'shutdown-when-complete': 'Matikan setelah semua unduhan selesai',
 }

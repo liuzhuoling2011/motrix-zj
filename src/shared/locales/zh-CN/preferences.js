@@ -291,6 +291,9 @@ export default {
   'extension-api-port': '扩展 API 端口',
   'extension-api-secret-tip': '在浏览器扩展设置中输入此密钥以进行身份验证。',
   'extension-api-secret': '扩展 API 密钥',
+  'extension-api-port-confirm': '将扩展 API 端口切换至 {port}，需要重启扩展通信服务才能生效。浏览器扩展需要重新连接。',
+  'extension-api-port-applied': '扩展 API 端口已切换至 {port}',
+  'extension-api-port-failed': '无法绑定扩展 API 端口 {port}，该端口可能已被占用。',
   'extension-section': '浏览器扩展',
   'shutdown-when-complete': '所有下载完成后自动关机',
 }

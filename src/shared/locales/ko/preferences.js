@@ -291,6 +291,9 @@ export default {
   'extension-api-port': '확장 프로그램 API 포트',
   'extension-api-secret-tip': '인증을 위해 브라우저 확장 프로그램 설정에 이 비밀키를 입력하세요.',
   'extension-api-secret': '확장 프로그램 API 비밀키',
+  'extension-api-port-confirm': '확장 API 포트가 {port}(으)로 변경됩니다. 통신 서비스를 다시 시작해야 적용됩니다. 브라우저 확장 프로그램을 다시 연결해야 합니다.',
+  'extension-api-port-applied': '확장 API 포트가 {port}(으)로 변경되었습니다',
+  'extension-api-port-failed': '확장 API 포트 {port} 바인딩에 실패했습니다. 포트가 이미 사용 중일 수 있습니다.',
   'extension-section': '브라우저 확장 프로그램',
   'shutdown-when-complete': '모든 다운로드 완료 후 종료',
 }

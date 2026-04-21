@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Extension API Port',
   'extension-api-secret-tip': 'Enter this secret in the browser extension settings to authenticate.',
   'extension-api-secret': 'Extension API Secret',
+  'extension-api-port-confirm': 'The extension API port will be changed to {port}. The communication service needs to restart for this to take effect. The browser extension will need to reconnect.',
+  'extension-api-port-applied': 'Extension API port changed to {port}',
+  'extension-api-port-failed': 'Failed to bind extension API on port {port}. The port may already be in use.',
   'extension-section': 'Browser Extension',
   'shutdown-when-complete': 'Shut down after all downloads complete',
 }

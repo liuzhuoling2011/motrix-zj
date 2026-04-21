@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Port API extensie',
   'extension-api-secret-tip': 'Introduceți această cheie în setările extensiei browserului pentru autentificare.',
   'extension-api-secret': 'Cheie secretă API extensie',
+  'extension-api-port-confirm': 'Portul API al extensiei va fi schimbat la {port}. Serviciul de comunicare trebuie repornit. Extensia browserului va trebui reconectată.',
+  'extension-api-port-applied': 'Portul API al extensiei a fost schimbat la {port}',
+  'extension-api-port-failed': 'Nu s-a putut lega portul {port} pentru API-ul extensiei. Portul ar putea fi deja utilizat.',
   'extension-section': 'Extensie browser',
   'shutdown-when-complete': 'Oprire după finalizarea tuturor descărcărilor',
 }

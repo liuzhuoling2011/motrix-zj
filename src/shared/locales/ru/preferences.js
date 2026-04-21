@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Порт API расширения',
   'extension-api-secret-tip': 'Введите этот ключ в настройках расширения браузера для аутентификации.',
   'extension-api-secret': 'Секретный ключ API расширения',
+  'extension-api-port-confirm': 'Порт API расширения будет изменён на {port}. Службу связи необходимо перезапустить. Расширению браузера потребуется переподключение.',
+  'extension-api-port-applied': 'Порт API расширения изменён на {port}',
+  'extension-api-port-failed': 'Не удалось привязать порт {port} для API расширения. Порт может быть уже занят.',
   'extension-section': 'Расширение браузера',
   'shutdown-when-complete': 'Выключить после завершения всех загрузок',
 }

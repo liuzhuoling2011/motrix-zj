@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Utvidelse API-port',
   'extension-api-secret-tip': 'Skriv inn denne nøkkelen i nettleserutvidelsens innstillinger for autentisering.',
   'extension-api-secret': 'API-nøkkel for utvidelse',
+  'extension-api-port-confirm': 'API-porten for utvidelsen vil bli endret til {port}. Kommunikasjonstjenesten må startes på nytt. Nettleserutvidelsen må koble til på nytt.',
+  'extension-api-port-applied': 'API-port for utvidelsen endret til {port}',
+  'extension-api-port-failed': 'Kunne ikke binde port {port} for utvidelses-API. Porten kan allerede være i bruk.',
   'extension-section': 'Nettleserutvidelse',
   'shutdown-when-complete': 'Slå av etter at alle nedlastinger er ferdige',
 }

@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'พอร์ต API ส่วนขยาย',
   'extension-api-secret-tip': 'ป้อนคีย์นี้ในการตั้งค่าส่วนขยายเบราว์เซอร์เพื่อยืนยันตัวตน',
   'extension-api-secret': 'คีย์ลับ API ของส่วนขยาย',
+  'extension-api-port-confirm': 'พอร์ต API ส่วนขยายจะเปลี่ยนเป็น {port} บริการสื่อสารต้องรีสตาร์ทเพื่อให้มีผล ส่วนขยายเบราว์เซอร์จะต้องเชื่อมต่อใหม่',
+  'extension-api-port-applied': 'เปลี่ยนพอร์ต API ส่วนขยายเป็น {port} แล้ว',
+  'extension-api-port-failed': 'ไม่สามารถผูกพอร์ต {port} สำหรับ API ส่วนขยาย พอร์ตอาจถูกใช้งานอยู่แล้ว',
   'extension-section': 'ส่วนขยายเบราว์เซอร์',
   'shutdown-when-complete': 'ปิดเครื่องหลังดาวน์โหลดทั้งหมดเสร็จสิ้น',
 }

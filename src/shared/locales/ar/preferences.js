@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'منفذ API للإضافة',
   'extension-api-secret-tip': 'أدخل هذا المفتاح في إعدادات إضافة المتصفح للمصادقة.',
   'extension-api-secret': 'مفتاح API للإضافة',
+  'extension-api-port-confirm': 'سيتم تغيير منفذ API للإضافة إلى {port}، ويلزم إعادة تشغيل خدمة الاتصال لتفعيل التغيير. ستحتاج إضافة المتصفح إلى إعادة الاتصال.',
+  'extension-api-port-applied': 'تم تغيير منفذ API للإضافة إلى {port}',
+  'extension-api-port-failed': 'تعذر ربط منفذ API للإضافة {port}. قد يكون المنفذ مستخدمًا بالفعل.',
   'extension-section': 'إضافة المتصفح',
   'shutdown-when-complete': 'إيقاف التشغيل بعد اكتمال جميع التنزيلات',
 }

@@ -417,7 +417,7 @@ async fn submit_to_aria2(app: &AppHandle, req: &AddRequest) -> Result<String, Ap
 fn show_add_task_in_main_window(app: &AppHandle, req: &AddRequest) {
     // Build motrixnext://new?url=X&referer=Y&cookie=Z using the url crate
     // for proper percent-encoding of query parameter values.
-    let mut deep_link = url::Url::parse("motrixnext://new").unwrap();
+    let mut deep_link = url::Url::parse("motrixnext://new").expect("static URL must parse");
     {
         let mut q = deep_link.query_pairs_mut();
         q.append_pair("url", &req.url);
@@ -446,9 +446,15 @@ fn show_add_task_in_main_window(app: &AppHandle, req: &AddRequest) {
 pub struct HttpApiHandle {
     shutdown_tx: tokio::sync::oneshot::Sender<()>,
     join_handle: tokio::task::JoinHandle<()>,
+    port: u16,
 }
 
 impl HttpApiHandle {
+    /// The port this server is currently bound to.
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
     /// Signal the server to shut down and wait for it to finish.
     pub async fn stop(self) {
         let _ = self.shutdown_tx.send(());
@@ -494,7 +500,40 @@ pub async fn spawn_http_api(app: AppHandle, port: u16) -> Result<HttpApiHandle, 
     Ok(HttpApiHandle {
         shutdown_tx,
         join_handle,
+        port,
     })
+}
+
+/// Stop the current HTTP API server (if running) and respawn on `new_port`.
+///
+/// Used by:
+/// - `on_engine_ready()` during startup (idempotent — skipped if already
+///   bound to the correct port by the caller)
+/// - `restart_http_api` command when the user changes the port at runtime
+///
+/// The old server is stopped *before* binding the new one because the old
+/// and new port may be identical (user changed and reverted), so the
+/// listener must be released first.
+pub async fn restart_on_port(app: &AppHandle, new_port: u16) -> Result<(), AppError> {
+    let api_state = app
+        .try_state::<HttpApiState>()
+        .ok_or_else(|| AppError::Engine("HttpApiState not managed".into()))?;
+
+    let mut guard = api_state.0.lock().await;
+
+    // Stop existing server (if any)
+    if let Some(handle) = guard.take() {
+        log::info!(
+            "http_api: stopping server on port {} for rebind to {new_port}",
+            handle.port()
+        );
+        handle.stop().await;
+    }
+
+    // Spawn on the new port
+    let handle = spawn_http_api(app.clone(), new_port).await?;
+    *guard = Some(handle);
+    Ok(())
 }
 
 // ── Read extension API port from RuntimeConfig ─────────────────────

@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Erweiterungs-API-Port',
   'extension-api-secret-tip': 'Geben Sie diesen Schlüssel in den Einstellungen der Browser-Erweiterung zur Authentifizierung ein.',
   'extension-api-secret': 'API-Schlüssel der Erweiterung',
+  'extension-api-port-confirm': 'Der Extension-API-Port wird auf {port} geändert. Der Kommunikationsdienst muss neu gestartet werden. Die Browser-Erweiterung muss sich neu verbinden.',
+  'extension-api-port-applied': 'Extension-API-Port auf {port} geändert',
+  'extension-api-port-failed': 'Port {port} für die Extension-API konnte nicht gebunden werden. Der Port ist möglicherweise bereits belegt.',
   'extension-section': 'Browser-Erweiterung',
   'shutdown-when-complete': 'Nach Abschluss aller Downloads herunterfahren',
 }

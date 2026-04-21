@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Port API rozszerzenia',
   'extension-api-secret-tip': 'Wprowadź ten klucz w ustawieniach rozszerzenia przeglądarki w celu uwierzytelnienia.',
   'extension-api-secret': 'Klucz API rozszerzenia',
+  'extension-api-port-confirm': 'Port API rozszerzenia zostanie zmieniony na {port}. Usługa komunikacji musi zostać ponownie uruchomiona. Rozszerzenie przeglądarki będzie musiało się ponownie połączyć.',
+  'extension-api-port-applied': 'Port API rozszerzenia zmieniony na {port}',
+  'extension-api-port-failed': 'Nie udało się powiązać portu {port} dla API rozszerzenia. Port może być już używany.',
   'extension-section': 'Rozszerzenie przeglądarki',
   'shutdown-when-complete': 'Wyłącz po zakończeniu wszystkich pobierań',
 }

@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Extensie API-poort',
   'extension-api-secret-tip': 'Voer deze sleutel in bij de instellingen van de browserextensie voor authenticatie.',
   'extension-api-secret': 'API-sleutel extensie',
+  'extension-api-port-confirm': 'De extensie-API-poort wordt gewijzigd naar {port}. De communicatieservice moet opnieuw worden gestart. De browserextensie moet opnieuw verbinden.',
+  'extension-api-port-applied': 'Extensie-API-poort gewijzigd naar {port}',
+  'extension-api-port-failed': 'Kan poort {port} niet binden voor de extensie-API. De poort is mogelijk al in gebruik.',
   'extension-section': 'Browserextensie',
   'shutdown-when-complete': 'Afsluiten na voltooiing van alle downloads',
 }

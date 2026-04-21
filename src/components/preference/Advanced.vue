@@ -199,19 +199,60 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
     // If it was already empty before this edit session, no need to re-warn.
     const prevSecret = preferenceStore.config.rpcSecret
     if (!f.rpcSecret && !!prevSecret) {
-      return new Promise<boolean>((resolve) => {
+      const ok = await new Promise<boolean>((resolve) => {
         dialog.warning({
           title: t('preferences.rpc-secret-empty-title'),
           content: t('preferences.rpc-secret-empty-confirm'),
           positiveText: t('preferences.rpc-secret-empty-continue'),
-          negativeText: t('preferences.engine-restart-later'),
+          negativeText: t('app.cancel'),
           maskClosable: false,
           onPositiveClick: () => resolve(true),
           onNegativeClick: () => resolve(false),
           onClose: () => resolve(false),
         })
       })
+      if (!ok) return false
     }
+
+    // Gate: engine restart confirmation (RPC port / secret change).
+    // Must confirm BEFORE saving — declining cancels the entire save so
+    // config.json never contains values the running engine doesn't match.
+    const changed = diffConfig(preferenceStore.config, f)
+    if (checkIsNeedRestart(changed)) {
+      const ok = await new Promise<boolean>((resolve) => {
+        dialog.warning({
+          title: t('preferences.engine-restart-title'),
+          content: t('preferences.engine-restart-confirm'),
+          positiveText: t('preferences.engine-restart-now'),
+          negativeText: t('app.cancel'),
+          maskClosable: false,
+          onPositiveClick: () => resolve(true),
+          onNegativeClick: () => resolve(false),
+          onClose: () => resolve(false),
+        })
+      })
+      if (!ok) return false
+    }
+
+    // Gate: extension API port change confirmation.
+    // Separate from engine restart — this only rebinds the HTTP API server,
+    // downloads are unaffected.
+    if (changed.extensionApiPort !== undefined) {
+      const ok = await new Promise<boolean>((resolve) => {
+        dialog.warning({
+          title: t('preferences.extension-api-port'),
+          content: t('preferences.extension-api-port-confirm', { port: f.extensionApiPort }),
+          positiveText: t('app.confirm'),
+          negativeText: t('app.cancel'),
+          maskClosable: false,
+          onPositiveClick: () => resolve(true),
+          onNegativeClick: () => resolve(false),
+          onClose: () => resolve(false),
+        })
+      })
+      if (!ok) return false
+    }
+
     return true
   },
   afterSave: async (f, prevConfig) => {
@@ -220,28 +261,16 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
       syncUpnpState(!!f.enableUpnp, f.listenPort, f.dhtListenPort)
     }
 
-    // Hot-reload engine when startup-only settings change (port, secret).
     const changed = diffConfig(prevConfig, f)
+
+    // Engine restart — user already confirmed in beforeSave, execute immediately.
     if (checkIsNeedRestart(changed)) {
       const port = f.rpcListenPort || ENGINE_RPC_PORT
       const secret = f.rpcSecret || ''
-      const d = dialog.warning({
-        title: t('preferences.engine-restart-title'),
-        content: t('preferences.engine-restart-confirm'),
-        positiveText: t('preferences.engine-restart-now'),
-        negativeText: t('preferences.engine-restart-later'),
-        maskClosable: false,
-        onPositiveClick: async () => {
-          d.loading = true
-          d.negativeText = ''
-          d.closable = false
-          message.info(t('preferences.engine-restarting'))
-          // Yield to browser so it paints the loading spinner before the IPC call
-          await nextTick()
-          await new Promise((r) => requestAnimationFrame(r))
-          await restartEngine({ port, secret })
-        },
-      })
+      message.info(t('preferences.engine-restarting'))
+      await nextTick()
+      await new Promise((r) => requestAnimationFrame(r))
+      await restartEngine({ port, secret })
     }
 
     // Log level changes need a full app relaunch (not engine restart),
@@ -276,6 +305,17 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
           await relaunch()
         },
       })
+    }
+
+    // Extension API port — user already confirmed in beforeSave, execute immediately.
+    if (changed.extensionApiPort !== undefined) {
+      const newPort = f.extensionApiPort
+      try {
+        await invoke('restart_http_api', { port: newPort })
+        message.success(t('preferences.extension-api-port-applied', { port: newPort }))
+      } catch {
+        message.error(t('preferences.extension-api-port-failed', { port: newPort }))
+      }
     }
   },
 })

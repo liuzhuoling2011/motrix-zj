@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Port API de l\'extension',
   'extension-api-secret-tip': 'Saisissez cette clé dans les paramètres de l\'extension du navigateur pour l\'authentification.',
   'extension-api-secret': 'Clé secrète API de l\'extension',
+  'extension-api-port-confirm': 'Le port de l\'API d\'extension sera changé en {port}. Le service de communication doit redémarrer pour prendre effet. L\'extension du navigateur devra se reconnecter.',
+  'extension-api-port-applied': 'Port de l\'API d\'extension changé en {port}',
+  'extension-api-port-failed': 'Impossible de lier le port {port} pour l\'API d\'extension. Le port est peut-être déjà utilisé.',
   'extension-section': 'Extension de navigateur',
   'shutdown-when-complete': 'Éteindre après la fin de tous les téléchargements',
 }

@@ -846,6 +846,7 @@ pub fn run() {
             commands::get_system_proxy,
             commands::lookup_peer_ips,
             commands::refresh_runtime_config,
+            commands::restart_http_api,
             commands::history_add_record,
             commands::history_get_records,
             commands::history_remove_record,

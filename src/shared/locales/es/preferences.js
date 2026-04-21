@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Puerto de API de extensión',
   'extension-api-secret-tip': 'Introduzca esta clave en la configuración de la extensión del navegador para autenticarse.',
   'extension-api-secret': 'Clave secreta de API de extensión',
+  'extension-api-port-confirm': 'El puerto de la API de extensión se cambiará a {port}. El servicio de comunicación debe reiniciarse para que surta efecto. La extensión del navegador deberá reconectarse.',
+  'extension-api-port-applied': 'Puerto de la API de extensión cambiado a {port}',
+  'extension-api-port-failed': 'No se pudo enlazar el puerto {port} de la API de extensión. El puerto podría estar en uso.',
   'extension-section': 'Extensión del navegador',
   'shutdown-when-complete': 'Apagar después de completar todas las descargas',
 }

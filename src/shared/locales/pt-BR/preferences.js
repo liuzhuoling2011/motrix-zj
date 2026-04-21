@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Porta da API da extensão',
   'extension-api-secret-tip': 'Insira esta chave nas configurações da extensão do navegador para autenticação.',
   'extension-api-secret': 'Chave secreta da API da extensão',
+  'extension-api-port-confirm': 'A porta da API da extensão será alterada para {port}. O serviço de comunicação precisa ser reiniciado. A extensão do navegador precisará reconectar.',
+  'extension-api-port-applied': 'Porta da API da extensão alterada para {port}',
+  'extension-api-port-failed': 'Falha ao vincular a porta {port} da API da extensão. A porta pode estar em uso.',
   'extension-section': 'Extensão do navegador',
   'shutdown-when-complete': 'Desligar após concluir todos os downloads',
 }

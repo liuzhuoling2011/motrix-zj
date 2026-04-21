@@ -163,11 +163,18 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       }),
     )
 
+    const unlistenHttpApiFailed = registerCleanup(
+      await listen<number>('http-api-bind-failed', (event) => {
+        message.error(t('preferences.extension-api-port-failed', { port: event.payload }))
+      }),
+    )
+
     return {
       unlistenEngineCrashed,
       unwatchEngineState,
       unlistenEngineRecovered,
       unlistenEngineStopped,
+      unlistenHttpApiFailed,
     }
   }
 

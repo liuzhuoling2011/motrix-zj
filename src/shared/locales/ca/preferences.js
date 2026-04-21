@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Port de l\'API de l\'extensió',
   'extension-api-secret-tip': 'Introduïu aquesta clau a la configuració de l\'extensió del navegador per autenticar-vos.',
   'extension-api-secret': 'Clau secreta de l\'API de l\'extensió',
+  'extension-api-port-confirm': 'El port de l\'API de l\'extensió es canviarà a {port}. Cal reiniciar el servei de comunicació perquè tingui efecte. L\'extensió del navegador haurà de reconnectar-se.',
+  'extension-api-port-applied': 'El port de l\'API de l\'extensió s\'ha canviat a {port}',
+  'extension-api-port-failed': 'No s\'ha pogut vincular el port {port} de l\'API de l\'extensió. El port podria estar en ús.',
   'extension-section': 'Extensió del navegador',
   'shutdown-when-complete': 'Apagar després de completar totes les descàrregues',
 }

@@ -291,6 +291,9 @@ export default {
   'extension-api-port': 'Uzantı API Portu',
   'extension-api-secret-tip': 'Kimlik doğrulaması için bu anahtarı tarayıcı eklentisi ayarlarına girin.',
   'extension-api-secret': 'Eklenti API Anahtarı',
+  'extension-api-port-confirm': 'Uzantı API portu {port} olarak değiştirilecek. İletişim servisinin yeniden başlatılması gerekiyor. Tarayıcı uzantısının yeniden bağlanması gerekecek.',
+  'extension-api-port-applied': 'Uzantı API portu {port} olarak değiştirildi',
+  'extension-api-port-failed': 'Uzantı API portu {port} bağlanamadı. Port zaten kullanımda olabilir.',
   'extension-section': 'Tarayıcı Eklentisi',
   'shutdown-when-complete': 'Tüm indirmeler tamamlandıktan sonra kapat',
 }

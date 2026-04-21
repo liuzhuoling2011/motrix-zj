@@ -291,6 +291,9 @@ export default {
   'extension-api-port': '擴充 API 連接埠',
   'extension-api-secret-tip': '在瀏覽器擴充功能設定中輸入此金鑰以進行身份驗證。',
   'extension-api-secret': '擴充功能 API 金鑰',
+  'extension-api-port-confirm': '將擴充 API 連接埠切換至 {port}，需要重新啟動擴充通訊服務才能生效。瀏覽器擴充功能需要重新連線。',
+  'extension-api-port-applied': '擴充 API 連接埠已切換至 {port}',
+  'extension-api-port-failed': '無法繫結擴充 API 連接埠 {port}，該連接埠可能已被佔用。',
   'extension-section': '瀏覽器擴充功能',
   'shutdown-when-complete': '所有下載完成後自動關機',
 }
