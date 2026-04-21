@@ -82,7 +82,7 @@ export interface BasicForm {
  * Empty directories would cause aria2 to fail, so this is safety-critical.
  */
 function hydrateCategories(categories: FileCategory[], baseDir: string): FileCategory[] {
-  const normalizedBase = baseDir.replace(/[\\/]+$/, '')
+  const normalizedBase = baseDir.replace(/\\/g, '/').replace(/\/+$/, '')
   const templateMap: ReadonlyMap<string, string> = new Map(
     BUILTIN_CATEGORY_TEMPLATES.map((t) => [t.label, t.subdirName]),
   )
@@ -208,6 +208,14 @@ export function transformBasicForStore(f: BasicForm): Partial<AppConfig> {
   delete data.btAutoDownloadContent
   // split and maxConnectionPerServer are persisted independently (v2 decoupling)
   data.split = f.split
+
+  // Guard: auto-populate default categories when classification is enabled but
+  // the categories array is empty. This handles the edge case where the toggle
+  // was enabled without initializing the rules (see GitHub issue #229).
+  if (f.fileCategoryEnabled && (!f.fileCategories || f.fileCategories.length === 0)) {
+    data.fileCategories = buildDefaultCategories(f.dir)
+  }
+
   if (f.btAutoDownloadContent) {
     data.followTorrent = true
     data.followMetalink = true

@@ -176,7 +176,7 @@ export const BUILTIN_CATEGORY_TEMPLATES = [
 /** Builds the default FileCategory[] with absolute directory paths derived from `baseDir`.
  *  Called when the user first enables classification or clicks "Restore Defaults". */
 export function buildDefaultCategories(baseDir: string): import('@shared/types').FileCategory[] {
-  const normalizedBase = baseDir.replace(/[\\/]+$/, '')
+  const normalizedBase = baseDir.replace(/\\/g, '/').replace(/\/+$/, '')
   return BUILTIN_CATEGORY_TEMPLATES.map((t) => ({
     label: t.label,
     extensions: [...t.extensions],
@@ -193,7 +193,7 @@ export const MAX_FILE_CATEGORIES = 20
 export const BUILTIN_CATEGORY_LABELS: ReadonlySet<string> = new Set(BUILTIN_CATEGORY_TEMPLATES.map((t) => t.label))
 
 export const DEFAULT_APP_CONFIG = {
-  configVersion: 3,
+  configVersion: 4,
   dbSchemaVersion: 2,
   // ── Appearance ──────────────────────────────────────────────────
   theme: 'auto' as const,

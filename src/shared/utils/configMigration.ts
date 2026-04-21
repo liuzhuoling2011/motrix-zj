@@ -16,12 +16,12 @@
  *   3. Add tests in configMigration.test.ts.
  */
 
-import { PROXY_SCOPE_OPTIONS } from '@shared/constants'
+import { PROXY_SCOPE_OPTIONS, buildDefaultCategories } from '@shared/constants'
 import { logger } from '@shared/logger'
 import type { AppConfig } from '@shared/types'
 
 /** Current schema version. Must equal `migrations.length`. */
-export const CONFIG_VERSION = 3
+export const CONFIG_VERSION = 4
 
 /** Result returned by runMigrations for callers to act on (e.g. toast). */
 export interface MigrationResult {
@@ -106,6 +106,62 @@ const migrations: Migration[] = [
         'ConfigMigration',
         `v3: flattened autoSubmitFromExtension object to boolean (${config.autoSubmitFromExtension})`,
       )
+    }
+  },
+
+  // ── v3 → v4 ──────────────────────────────────────────────────────
+  // Fix auto-archive regression on Windows (Issue #229 / #230).
+  //
+  // Two independent issues caused file classification to silently fail:
+  //
+  // 1. Path separator mismatch: On Windows, `config.dir` is stored with
+  //    backslashes (`C:\Users\x\Downloads`) while buildDefaultCategories()
+  //    joins with forward slashes, producing mixed paths like
+  //    `C:\Users\x\Downloads/Archives`.  resolveArchiveAction() then
+  //    compares these mixed-separator strings with strict equality and
+  //    always fails.  Fix: normalize all persisted path values to `/`.
+  //
+  // 2. Empty categories array: Users who enabled `fileCategoryEnabled`
+  //    without visiting the settings page have `fileCategories: []`,
+  //    causing both pre-download classification and post-download
+  //    archiving to silently skip.  Fix: populate defaults from `dir`.
+  //
+  // This migration is idempotent — forward-slash-only paths and
+  // already-populated categories are left untouched.
+  function migrateV4(config: Partial<AppConfig>): void {
+    let changed = false
+
+    // Normalize dir separator (Windows backslash → forward slash)
+    if (config.dir && config.dir.includes('\\')) {
+      config.dir = config.dir.replace(/\\/g, '/')
+      changed = true
+    }
+
+    // Normalize category directory separators
+    if (Array.isArray(config.fileCategories)) {
+      for (const cat of config.fileCategories) {
+        if (cat.directory && cat.directory.includes('\\')) {
+          cat.directory = cat.directory.replace(/\\/g, '/')
+          changed = true
+        }
+      }
+    }
+
+    // Auto-populate empty categories when classification is enabled
+    if (
+      config.fileCategoryEnabled === true &&
+      (!Array.isArray(config.fileCategories) || config.fileCategories.length === 0)
+    ) {
+      const baseDir = config.dir || ''
+      if (baseDir) {
+        config.fileCategories = buildDefaultCategories(baseDir)
+        changed = true
+        logger.info('ConfigMigration', `v4: populated default file categories (baseDir=${baseDir})`)
+      }
+    }
+
+    if (changed) {
+      logger.info('ConfigMigration', 'v4: normalized path separators and/or populated file categories')
     }
   },
 ]

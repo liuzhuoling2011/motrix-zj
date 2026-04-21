@@ -186,4 +186,69 @@ describe('resolveArchiveAction', () => {
     expect(result).not.toBeNull()
     expect(result!.source).toBe('/Users/test/Downloads/part1.mp4')
   })
+
+  // ── Windows path separator normalization (Issue #229) ──────────
+
+  describe('Windows path separator normalization', () => {
+    const WIN_BASE = 'C:\\Users\\test\\Downloads'
+
+    const WIN_CATEGORIES: FileCategory[] = [
+      {
+        label: 'Archives',
+        extensions: ['zip', '7z'],
+        directory: 'C:/Users/test/Downloads/Archives',
+        builtIn: true,
+      },
+      {
+        label: 'Videos',
+        extensions: ['mp4', 'mkv'],
+        directory: 'C:/Users/test/Downloads/Videos',
+        builtIn: true,
+      },
+    ]
+
+    it('normalizes backslash baseDir against forward-slash filePath from aria2', () => {
+      // aria2 returns forward slashes; config.dir has backslashes on Windows
+      const task = makeTask('C:/Users/test/Downloads/backup.zip', 'C:/Users/test/Downloads')
+      const result = resolveArchiveAction(task, true, WIN_CATEGORIES, WIN_BASE)
+      expect(result).not.toBeNull()
+      expect(result!.targetDir).toBe('C:/Users/test/Downloads/Archives')
+    })
+
+    it('normalizes mixed-separator category directories', () => {
+      // Categories with mixed separators from buildDefaultCategories() bug
+      const mixedCats: FileCategory[] = [
+        {
+          label: 'Archives',
+          extensions: ['zip'],
+          directory: 'C:\\Users\\test\\Downloads/Archives',
+          builtIn: true,
+        },
+      ]
+      const task = makeTask('C:/Users/test/Downloads/backup.zip', 'C:/Users/test/Downloads')
+      const result = resolveArchiveAction(task, true, mixedCats, WIN_BASE)
+      expect(result).not.toBeNull()
+      expect(result!.targetDir).toBe('C:\\Users\\test\\Downloads/Archives')
+    })
+
+    it('handles all-backslash paths consistently', () => {
+      const task = makeTask('C:\\Users\\test\\Downloads\\movie.mp4', 'C:\\Users\\test\\Downloads')
+      const result = resolveArchiveAction(task, true, WIN_CATEGORIES, WIN_BASE)
+      expect(result).not.toBeNull()
+      expect(result!.targetDir).toBe('C:/Users/test/Downloads/Videos')
+    })
+
+    it('still rejects files from non-base directories on Windows', () => {
+      const task = makeTask('D:\\Other\\movie.mp4', 'D:\\Other')
+      const result = resolveArchiveAction(task, true, WIN_CATEGORIES, WIN_BASE)
+      expect(result).toBeNull()
+    })
+
+    it('handles trailing backslash on baseDir', () => {
+      const task = makeTask('C:/Users/test/Downloads/backup.zip', 'C:/Users/test/Downloads')
+      const result = resolveArchiveAction(task, true, WIN_CATEGORIES, 'C:\\Users\\test\\Downloads\\')
+      expect(result).not.toBeNull()
+      expect(result!.targetDir).toBe('C:/Users/test/Downloads/Archives')
+    })
+  })
 })

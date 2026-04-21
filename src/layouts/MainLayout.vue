@@ -682,6 +682,12 @@ onMounted(async () => {
       })
 
       // ── Auto-archive: move file to category directory if applicable ──
+      logger.debug(
+        'AutoArchive.input',
+        `gid=${task.gid} enabled=${preferenceStore.config.fileCategoryEnabled} ` +
+          `categories=${preferenceStore.config.fileCategories?.length ?? 0} ` +
+          `baseDir=${preferenceStore.config.dir}`,
+      )
       const archiveAction = resolveArchiveAction(
         task,
         preferenceStore.config.fileCategoryEnabled,
@@ -700,6 +706,8 @@ onMounted(async () => {
           // Archive failure is non-critical — file remains at download location
           logger.warn('AutoArchive.failed', e instanceof Error ? e.message : String(e))
         }
+      } else {
+        logger.debug('AutoArchive.result', `gid=${task.gid} action=none`)
       }
 
       // Clean up .aria2 control file for BT tasks that auto-completed seeding

@@ -352,9 +352,109 @@ describe('v3 migration — flatten autoSubmitFromExtension', () => {
   })
 })
 
-// ── Full v0 → v3 integration ──────────────────────────────────────
+// ── v4 Migration: fix auto-archive path separators + empty categories ──
 
-describe('v0 → v3 full migration path', () => {
+describe('v4 migration — path separator normalization and category auto-populate', () => {
+  it('normalizes backslashes in dir to forward slashes', () => {
+    const config = {
+      configVersion: 3,
+      dir: 'C:\\Users\\test\\Downloads',
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.dir).toBe('C:/Users/test/Downloads')
+  })
+
+  it('normalizes backslashes in fileCategories[].directory', () => {
+    const config = {
+      configVersion: 3,
+      dir: 'C:/Users/test/Downloads',
+      fileCategories: [
+        { label: 'Archives', extensions: ['zip'], directory: 'C:\\Users\\test\\Downloads\\Archives', builtIn: true },
+        { label: 'Videos', extensions: ['mp4'], directory: 'C:\\Users\\test\\Downloads/Videos', builtIn: true },
+      ],
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.fileCategories![0].directory).toBe('C:/Users/test/Downloads/Archives')
+    expect(config.fileCategories![1].directory).toBe('C:/Users/test/Downloads/Videos')
+  })
+
+  it('populates empty fileCategories when fileCategoryEnabled is true', () => {
+    const config = {
+      configVersion: 3,
+      dir: '/Users/test/Downloads',
+      fileCategoryEnabled: true,
+      fileCategories: [],
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.fileCategories!.length).toBeGreaterThan(0)
+    expect(config.fileCategories![0].directory).toContain('/Users/test/Downloads/')
+  })
+
+  it('does not populate categories when fileCategoryEnabled is false', () => {
+    const config = {
+      configVersion: 3,
+      dir: '/Users/test/Downloads',
+      fileCategoryEnabled: false,
+      fileCategories: [],
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.fileCategories).toEqual([])
+  })
+
+  it('leaves forward-slash paths unchanged (no-op on macOS/Linux)', () => {
+    const config = {
+      configVersion: 3,
+      dir: '/Users/test/Downloads',
+      fileCategories: [
+        { label: 'Archives', extensions: ['zip'], directory: '/Users/test/Downloads/Archives', builtIn: true },
+      ],
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.dir).toBe('/Users/test/Downloads')
+    expect(config.fileCategories![0].directory).toBe('/Users/test/Downloads/Archives')
+  })
+
+  it('does not populate categories when dir is empty (no base path)', () => {
+    const config = {
+      configVersion: 3,
+      dir: '',
+      fileCategoryEnabled: true,
+      fileCategories: [],
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.fileCategories).toEqual([])
+  })
+
+  it('preserves existing non-empty categories when fileCategoryEnabled is true', () => {
+    const existingCats = [{ label: 'Custom', extensions: ['xyz'], directory: 'C:/Custom/Dir', builtIn: false }]
+    const config = {
+      configVersion: 3,
+      dir: 'C:/Users/test/Downloads',
+      fileCategoryEnabled: true,
+      fileCategories: existingCats,
+    } as Partial<AppConfig>
+    runMigrations(config)
+    expect(config.fileCategories).toEqual(existingCats)
+  })
+
+  it('is idempotent — running on already-migrated v4 config is a no-op', () => {
+    const config = {
+      configVersion: 4,
+      dir: 'C:/Users/test/Downloads',
+      fileCategoryEnabled: true,
+      fileCategories: [
+        { label: 'Archives', extensions: ['zip'], directory: 'C:/Users/test/Downloads/Archives', builtIn: true },
+      ],
+    } as Partial<AppConfig>
+    const result = runMigrations(config)
+    expect(result.migrated).toBe(false)
+    expect(config.dir).toBe('C:/Users/test/Downloads')
+  })
+})
+
+// ── Full v0 → v4 integration ──────────────────────────────────────
+
+describe('v0 → v4 full migration path', () => {
   it('runs all migrations in sequence on fresh config', () => {
     const config = {
       proxy: { enable: true, server: 'http://proxy:1080', bypass: '', scope: [] },
@@ -362,6 +462,9 @@ describe('v0 → v3 full migration path', () => {
       split: 64,
       maxConnectionPerServer: 64,
       autoSubmitFromExtension: { enable: true, http: true, magnet: true, torrent: false, metalink: false },
+      dir: 'C:\\Users\\test\\Downloads',
+      fileCategoryEnabled: true,
+      fileCategories: [],
     } as unknown as Partial<AppConfig>
 
     const result = runMigrations(config)
@@ -373,6 +476,10 @@ describe('v0 → v3 full migration path', () => {
     expect((config as Record<string, unknown>).engineMaxConnectionPerServer).toBeUndefined()
     // v3: autoSubmitFromExtension flattened
     expect(config.autoSubmitFromExtension).toBe(true)
+    // v4: dir normalized, categories populated
+    expect(config.dir).toBe('C:/Users/test/Downloads')
+    expect(config.fileCategories!.length).toBeGreaterThan(0)
+    expect(config.fileCategories![0].directory).toMatch(/^C:\/Users\/test\/Downloads\//)
     // Both split and maxConnectionPerServer preserved
     expect(config.split).toBe(64)
     expect(config.maxConnectionPerServer).toBe(64)
