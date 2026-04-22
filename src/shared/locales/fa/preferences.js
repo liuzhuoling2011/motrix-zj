@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'پاک کردن رکوردهای تکمیل شده هنگام خروج',
   'continue': 'ادامه دانلودها',
   'remote-time': 'استفاده از تاریخ اصلی فایل به‌جای تاریخ دانلود',
-  'task-completed-notify': 'اطلاع‌رسانی هنگام تکمیل',
+  'task-completed-notify': 'فعال‌سازی اعلان‌های سیستم',
   'auto-purge-record': 'پاک کردن رکوردها هنگام خروج',
   'ui': 'رابط کاربری',
   'appearance-section': 'ظاهر',

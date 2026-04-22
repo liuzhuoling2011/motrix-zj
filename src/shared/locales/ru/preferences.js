@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'Очистить завершённые записи при выходе',
   'continue': 'Возобновление загрузок',
   'remote-time': 'Использовать исходную дату файла вместо даты загрузки',
-  'task-completed-notify': 'Уведомлять о завершении загрузки',
+  'task-completed-notify': 'Включить системные уведомления',
   'auto-purge-record': 'Очищать записи при выходе',
   'ui': 'Интерфейс',
   'appearance-section': 'Оформление',

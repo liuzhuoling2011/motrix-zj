@@ -659,7 +659,6 @@ onMounted(async () => {
       if (isMetadataTask(task)) return
       const record = buildHistoryRecord(task)
       historyStore.addRecord(record).catch((e) => logger.debug('Lifecycle.historyRecord.error', e))
-      if (preferenceStore.config?.taskNotification === false) return
       const i18nKey = task.errorCode ? ARIA2_ERROR_CODES[task.errorCode] : undefined
       const taskName = getTaskDisplayName(task, { defaultName: 'Unknown' })
       const errorText = i18nKey ? t(i18nKey) : task.errorMessage || t('task.error-unknown')
@@ -668,7 +667,7 @@ onMounted(async () => {
         messageSuccess: message.success,
         messageError: message.error,
         t,
-        taskNotification: true,
+        taskNotification: preferenceStore.config?.taskNotification !== false,
       })
     },
     onTaskComplete: async (task) => {

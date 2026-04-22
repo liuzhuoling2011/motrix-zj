@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'Cancella i record completati all\'uscita',
   'continue': 'Riprendi download',
   'remote-time': 'Usa la data originale del file anziché la data di download',
-  'task-completed-notify': 'Notifica al completamento',
+  'task-completed-notify': 'Attiva notifiche di sistema',
   'auto-purge-record': 'Cancella record all\'uscita',
   'ui': 'Interfaccia',
   'appearance-section': 'Aspetto',

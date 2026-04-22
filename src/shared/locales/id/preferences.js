@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'Hapus catatan selesai saat keluar',
   'continue': 'Lanjutkan unduhan',
   'remote-time': 'Gunakan tanggal file asli alih-alih tanggal unduhan',
-  'task-completed-notify': 'Beri tahu saat selesai',
+  'task-completed-notify': 'Aktifkan notifikasi sistem',
   'auto-purge-record': 'Hapus catatan saat keluar',
   'ui': 'Antarmuka',
   'appearance-section': 'Tampilan',

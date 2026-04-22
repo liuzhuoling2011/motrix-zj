@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'Wyczyść ukończone rekordy przy zamykaniu',
   'continue': 'Wznawianie pobierania',
   'remote-time': 'Użyj oryginalnej daty pliku zamiast daty pobrania',
-  'task-completed-notify': 'Powiadamiaj po ukończeniu pobierania',
+  'task-completed-notify': 'Włącz powiadomienia systemowe',
   'auto-purge-record': 'Wyczyść wpisy przy zamykaniu',
   'ui': 'Interfejs',
   'appearance-section': 'Wygląd',

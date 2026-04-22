@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'Esborra els registres completats en sortir',
   'continue': 'Reprendre descàrregues',
   'remote-time': 'Utilitza la data original del fitxer en lloc de la data de descàrrega',
-  'task-completed-notify': 'Notificar en completar la descàrrega',
+  'task-completed-notify': 'Activa les notificacions del sistema',
   'auto-purge-record': 'Esborrar registres en sortir',
   'ui': 'Interfície',
   'appearance-section': 'Aparença',

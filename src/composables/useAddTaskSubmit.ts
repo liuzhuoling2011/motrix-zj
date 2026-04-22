@@ -15,8 +15,9 @@ import { useAppStore } from '@/stores/app'
 import { useTaskStore } from '@/stores/task'
 import { usePreferenceStore } from '@/stores/preference'
 import { useAppMessage } from '@/composables/useAppMessage'
+import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
 import { isEngineReady } from '@/api/aria2'
-import { normalizeUriLines } from '@shared/utils/batchHelpers'
+import { normalizeUriLines, extractDecodedFilename } from '@shared/utils/batchHelpers'
 import { buildOuts } from '@shared/utils/rename'
 import { logger } from '@shared/logger'
 import type { Aria2EngineOptions, BatchItem, FileCategory, ProxyConfig } from '@shared/types'
@@ -249,25 +250,47 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
     try {
       const options = buildEngineOptions(form.value)
       const batch = appStore.pendingBatch
-      let magnetFailureCount = 0
+      let manualResult: ManualUriSubmitResult = { magnetGids: [], magnetFailures: [] }
 
       if (batch.length > 0) {
         await submitBatchItems(batch, options, taskStore)
       }
       if (form.value.uris.trim()) {
-        const manualResult = await submitManualUris(form.value, options, taskStore, {
+        manualResult = await submitManualUris(form.value, options, taskStore, {
           enabled: preferenceStore.config.fileCategoryEnabled,
           categories: preferenceStore.config.fileCategories,
         })
-        magnetFailureCount = manualResult.magnetFailures.length
         // pendingMagnetGids is set directly inside addMagnetUri (task store)
       }
 
-      const failedCount = batch.filter((i) => i.status === 'failed').length + magnetFailureCount
+      const failedCount = batch.filter((i) => i.status === 'failed').length + manualResult.magnetFailures.length
       if (failedCount > 0) {
         message.warning(`${failedCount} ${t('task.failed') || 'failed'}`, { closable: true })
       } else {
         onClose()
+
+        // ── Start notification (aggregated) ──────────────────────
+        const taskNames: string[] = []
+        for (const item of batch) {
+          if (item.status === 'submitted') {
+            taskNames.push(item.displayName)
+          }
+        }
+        const allUris = normalizeUriLines(form.value.uris)
+        for (const uri of allUris) {
+          if (!isMagnetUri(uri)) {
+            taskNames.push(extractDecodedFilename(uri) || uri)
+          }
+        }
+        for (let i = 0; i < manualResult.magnetGids.length; i++) {
+          taskNames.push('Magnet Download')
+        }
+        handleTaskStart(taskNames, {
+          messageInfo: message.info,
+          t,
+          taskNotification: preferenceStore.config.taskNotification !== false,
+        })
+
         if (preferenceStore.config.newTaskShowDownloading !== false) {
           router.push({ path: '/task/all' }).catch(() => {})
         }

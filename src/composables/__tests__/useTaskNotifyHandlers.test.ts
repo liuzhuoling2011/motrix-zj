@@ -9,13 +9,14 @@
  * Tests written BEFORE implementation per TDD Iron Law.
  *
  * Key behaviors under test:
- *   1. onComplete handler sends in-app toast + OS notification.
- *   2. onBtComplete handler sends in-app toast + OS notification.
- *   3. onError handler sends in-app toast + OS notification with error text.
- *   4. All handlers respect the taskNotification preference gate.
+ *   1. onComplete handler always sends in-app toast; OS notification gated.
+ *   2. onBtComplete handler always sends in-app toast; OS notification gated.
+ *   3. onError handler: OS notification gated by taskNotification.
+ *   4. taskNotification=false skips OS notification but NOT toast.
  *   5. Metadata tasks are excluded from completion notifications.
  *   6. When action callbacks are provided, toast contains a render function.
  *   7. When action callbacks are absent, toast falls back to plain string.
+ *   8. handleTaskStart sends aggregated toast + OS notification.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Aria2Task } from '@shared/types'
@@ -38,7 +39,7 @@ vi.mock('../useNotificationToast', () => ({
   },
 }))
 
-import { handleTaskComplete, handleBtComplete, handleTaskError } from '../useTaskNotifyHandlers'
+import { handleTaskComplete, handleBtComplete, handleTaskError, handleTaskStart } from '../useTaskNotifyHandlers'
 
 // ── Test data factory ────────────────────────────────────────────────
 
@@ -77,7 +78,7 @@ function makeTask(overrides: Partial<Aria2Task> = {}): Aria2Task {
   } as Aria2Task
 }
 
-import type { NotifyDeps } from '../useTaskNotifyHandlers'
+import type { NotifyDeps, StartNotifyDeps } from '../useTaskNotifyHandlers'
 
 function makeDeps(overrides: Partial<NotifyDeps> = {}): NotifyDeps {
   return {
@@ -126,13 +127,13 @@ describe('handleTaskComplete', () => {
     expect(mockNotifyOs).toHaveBeenCalledWith('MotrixNext', 'test-file.zip completed')
   })
 
-  it('skips all notifications when taskNotification is false', () => {
+  it('sends toast but skips OS notification when taskNotification is false', () => {
     const deps = makeDeps({ taskNotification: false })
     const task = makeTask()
 
     handleTaskComplete(task, deps)
 
-    expect(deps.messageSuccess).not.toHaveBeenCalled()
+    expect(deps.messageSuccess).toHaveBeenCalledOnce()
     expect(mockNotifyOs).not.toHaveBeenCalled()
   })
 
@@ -223,13 +224,13 @@ describe('handleBtComplete', () => {
     expect(mockNotifyOs).toHaveBeenCalledWith('MotrixNext', 'Big Archive — download complete, seeding...')
   })
 
-  it('skips all notifications when taskNotification is false', () => {
+  it('sends toast but skips OS notification when taskNotification is false', () => {
     const deps = makeDeps({ taskNotification: false })
     const task = makeTask()
 
     handleBtComplete(task, deps)
 
-    expect(deps.messageSuccess).not.toHaveBeenCalled()
+    expect(deps.messageSuccess).toHaveBeenCalledOnce()
     expect(mockNotifyOs).not.toHaveBeenCalled()
   })
 
@@ -276,6 +277,84 @@ describe('handleTaskError', () => {
 
     handleTaskError(task, 'file: error', deps)
 
+    expect(mockNotifyOs).not.toHaveBeenCalled()
+  })
+})
+
+// ── handleTaskStart ─────────────────────────────────────────────
+
+function makeStartDeps(overrides: Partial<StartNotifyDeps> = {}): StartNotifyDeps {
+  return {
+    messageInfo: vi.fn(),
+    t: vi.fn((key: string, params?: Record<string, unknown>) => {
+      if (key === 'task.download-start-message' && params?.taskName) {
+        return `Started downloading ${params.taskName}`
+      }
+      if (key === 'task.download-batch-start-message' && params?.taskName) {
+        return `Started downloading ${params.taskName} and ${params.count} other task(s)`
+      }
+      return key
+    }) as unknown as StartNotifyDeps['t'],
+    taskNotification: true,
+    ...overrides,
+  }
+}
+
+describe('handleTaskStart', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('sends info toast for single task', () => {
+    const deps = makeStartDeps()
+
+    handleTaskStart(['movie.mp4'], deps)
+
+    expect(deps.messageInfo).toHaveBeenCalledOnce()
+    expect(deps.messageInfo).toHaveBeenCalledWith('Started downloading movie.mp4')
+  })
+
+  it('sends OS notification for single task', () => {
+    const deps = makeStartDeps()
+
+    handleTaskStart(['movie.mp4'], deps)
+
+    expect(mockNotifyOs).toHaveBeenCalledOnce()
+    expect(mockNotifyOs).toHaveBeenCalledWith('MotrixNext', 'Started downloading movie.mp4')
+  })
+
+  it('sends aggregated toast for batch tasks', () => {
+    const deps = makeStartDeps()
+
+    handleTaskStart(['a.zip', 'b.torrent', 'c.iso'], deps)
+
+    expect(deps.messageInfo).toHaveBeenCalledOnce()
+    expect(deps.messageInfo).toHaveBeenCalledWith('Started downloading a.zip and 2 other task(s)')
+  })
+
+  it('sends aggregated OS notification for batch tasks', () => {
+    const deps = makeStartDeps()
+
+    handleTaskStart(['a.zip', 'b.torrent', 'c.iso'], deps)
+
+    expect(mockNotifyOs).toHaveBeenCalledWith('MotrixNext', 'Started downloading a.zip and 2 other task(s)')
+  })
+
+  it('sends toast but skips OS notification when taskNotification is false', () => {
+    const deps = makeStartDeps({ taskNotification: false })
+
+    handleTaskStart(['movie.mp4'], deps)
+
+    expect(deps.messageInfo).toHaveBeenCalledOnce()
+    expect(mockNotifyOs).not.toHaveBeenCalled()
+  })
+
+  it('skips all when taskNames is empty', () => {
+    const deps = makeStartDeps()
+
+    handleTaskStart([], deps)
+
+    expect(deps.messageInfo).not.toHaveBeenCalled()
     expect(mockNotifyOs).not.toHaveBeenCalled()
   })
 })

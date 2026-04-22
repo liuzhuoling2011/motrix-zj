@@ -439,25 +439,10 @@ async fn monitor_loop(
                 }
             }
 
-            let notifications_enabled = app
-                .try_state::<super::config::RuntimeConfigState>()
-                .map(|rc| {
-                    // Use try_read to avoid blocking the async loop
-                    rc.0.try_read().map_or(true, |cfg| cfg.task_notification)
-                })
-                .unwrap_or(true);
-
-            if notifications_enabled {
-                for (event_name, payload) in events {
-                    if let Err(e) = app.emit(&event_name, &payload) {
-                        log::warn!("task_monitor: failed to emit {event_name}: {e}");
-                    }
+            for (event_name, payload) in events {
+                if let Err(e) = app.emit(&event_name, &payload) {
+                    log::warn!("task_monitor: failed to emit {event_name}: {e}");
                 }
-            } else {
-                log::debug!(
-                    "task_monitor: suppressed {} events (notifications disabled)",
-                    events.len()
-                );
             }
         }
 

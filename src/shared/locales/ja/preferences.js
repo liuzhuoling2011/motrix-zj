@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': '終了時に完了した記録をクリア',
   'continue': 'レジューム',
   'remote-time': 'ダウンロード日時ではなくファイルの元の日時を使用',
-  'task-completed-notify': 'ダウンロード完了時に通知',
+  'task-completed-notify': 'システム通知を有効にする',
   'auto-purge-record': '終了時にダウンロード記録を自動消去',
   'ui': 'インターフェース',
   'appearance-section': '外観',

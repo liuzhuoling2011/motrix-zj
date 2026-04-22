@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'ล้างรายการที่เสร็จสิ้นเมื่อออก',
   'continue': 'ดำเนินการดาวน์โหลดต่อ',
   'remote-time': 'ใช้วันที่ดั้งเดิมของไฟล์แทนวันที่ดาวน์โหลด',
-  'task-completed-notify': 'แจ้งเตือนเมื่อเสร็จ',
+  'task-completed-notify': 'เปิดใช้การแจ้งเตือนระบบ',
   'auto-purge-record': 'ล้างรายการเมื่อปิดโปรแกรม',
   'ui': 'อินเทอร์เฟซ',
   'appearance-section': 'รูปลักษณ์',

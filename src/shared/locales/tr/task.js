@@ -198,6 +198,7 @@ export default {
   'task-detail-title': 'Görev ayrıntıları',
   'task-info-dialog-title': '{title} ayrıntıları',
   'download-start-message': '{taskName} indirmesi başladı',
+  'download-batch-start-message': '{taskName} ve {count} diğerinin indirmesi başladı',
   'download-pause-message': '{taskName} duraklatıldı',
   'download-stop-message': '{taskName} durduruldu',
   'download-error-message': '{taskName} indirme hatası',

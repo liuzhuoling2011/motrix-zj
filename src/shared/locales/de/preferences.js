@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'Abgeschlossene Einträge beim Beenden löschen',
   'continue': 'Downloads fortsetzen',
   'remote-time': 'Originaldatum der Datei statt Downloaddatum verwenden',
-  'task-completed-notify': 'Bei Abschluss benachrichtigen',
+  'task-completed-notify': 'Systembenachrichtigungen aktivieren',
   'auto-purge-record': 'Einträge beim Beenden löschen',
   'ui': 'Oberfläche',
   'appearance-section': 'Darstellung',

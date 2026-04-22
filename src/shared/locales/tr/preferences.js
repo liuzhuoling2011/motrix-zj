@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'Çıkışta tamamlanan kayıtları temizle',
   'continue': 'İndirmeleri devam ettir',
   'remote-time': 'İndirme tarihi yerine dosyanın orijinal tarihini kullan',
-  'task-completed-notify': 'Tamamlandığında bildir',
+  'task-completed-notify': 'Sistem bildirimlerini etkinleştir',
   'auto-purge-record': 'Çıkışta kayıtları temizle',
   'ui': 'Arayüz',
   'appearance-section': 'Görünüm',

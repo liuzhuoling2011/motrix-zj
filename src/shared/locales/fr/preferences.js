@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'Effacer les enregistrements terminés à la fermeture',
   'continue': 'Reprise des téléchargements',
   'remote-time': 'Utiliser la date originale du fichier au lieu de la date de téléchargement',
-  'task-completed-notify': 'Notifier à la fin du téléchargement',
+  'task-completed-notify': 'Activer les notifications système',
   'auto-purge-record': 'Effacer les enregistrements à la fermeture',
   'ui': 'Interface',
   'appearance-section': 'Apparence',

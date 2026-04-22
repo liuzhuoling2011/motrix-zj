@@ -34,8 +34,6 @@ pub struct RuntimeConfig {
     pub max_overall_download_limit: String,
     #[serde(default)]
     pub max_overall_upload_limit: String,
-    #[serde(default = "default_true")]
-    pub task_notification: bool,
     #[serde(default)]
     pub tray_speedometer: bool,
     #[cfg(target_os = "macos")]
@@ -78,7 +76,6 @@ impl Default for RuntimeConfig {
             speed_schedule_days: 0,
             max_overall_download_limit: String::new(),
             max_overall_upload_limit: String::new(),
-            task_notification: true,
             tray_speedometer: false,
             #[cfg(target_os = "macos")]
             dock_badge_speed: true,
@@ -132,7 +129,6 @@ mod tests {
         assert_eq!(cfg.speed_schedule_days, 0);
         assert!(cfg.max_overall_download_limit.is_empty());
         assert!(cfg.max_overall_upload_limit.is_empty());
-        assert!(cfg.task_notification); // default ON
         assert!(!cfg.tray_speedometer); // default OFF
         #[cfg(target_os = "macos")]
         assert!(cfg.dock_badge_speed); // default ON
@@ -175,7 +171,6 @@ mod tests {
         assert_eq!(cfg.speed_schedule_days, 31);
         assert_eq!(cfg.max_overall_download_limit, "1M");
         assert_eq!(cfg.max_overall_upload_limit, "512K");
-        assert!(!cfg.task_notification);
         assert!(cfg.tray_speedometer);
         #[cfg(target_os = "macos")]
         assert!(!cfg.dock_badge_speed);
@@ -196,7 +191,6 @@ mod tests {
         let json = serde_json::json!({});
         let cfg: RuntimeConfig = serde_json::from_value(json).expect("deserialize");
         assert!(!cfg.speed_limit_enabled);
-        assert!(cfg.task_notification); // default true
         #[cfg(target_os = "macos")]
         assert!(cfg.dock_badge_speed); // default true
         assert_eq!(cfg.speed_schedule_from, "00:00");
@@ -221,7 +215,6 @@ mod tests {
         let state = RuntimeConfigState::new();
         let snap = state.snapshot().await;
         assert!(!snap.speed_limit_enabled);
-        assert!(snap.task_notification);
     }
 
     #[tokio::test]
@@ -238,7 +231,6 @@ mod tests {
 
         let snap = state.snapshot().await;
         assert!(snap.speed_limit_enabled);
-        assert!(!snap.task_notification);
         assert!(snap.tray_speedometer);
         assert_eq!(snap.speed_schedule_from, "23:00");
         assert_eq!(snap.speed_schedule_to, "07:00");

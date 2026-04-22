@@ -198,6 +198,7 @@ export default {
   'task-detail-title': 'Λεπτομέρειες εργασίας',
   'task-info-dialog-title': 'Λεπτομέρειες {title}',
   'download-start-message': 'Η λήψη του {taskName} ξεκίνησε',
+  'download-batch-start-message': 'Η λήψη του {taskName} και {count} ακόμα ξεκίνησε',
   'download-pause-message': '{taskName} σε παύση',
   'download-stop-message': '{taskName} σταμάτησε',
   'download-error-message': 'Σφάλμα λήψης {taskName}',

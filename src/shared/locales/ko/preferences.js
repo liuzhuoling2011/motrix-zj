@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': '종료 시 완료된 기록 삭제',
   'continue': '이어받기',
   'remote-time': '다운로드 날짜 대신 파일의 원래 날짜 사용',
-  'task-completed-notify': '다운로드 완료 시 알림',
+  'task-completed-notify': '시스템 알림 활성화',
   'auto-purge-record': '종료 시 다운로드 기록 자동 삭제',
   'ui': '인터페이스',
   'appearance-section': '외관',

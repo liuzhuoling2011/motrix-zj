@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'Befejezett bejegyzések törlése kilépéskor',
   'continue': 'Letöltések folytatása',
   'remote-time': 'Az eredeti fájldátum használata a letöltés dátuma helyett',
-  'task-completed-notify': 'Értesítés befejezéskor',
+  'task-completed-notify': 'Rendszerértesítések engedélyezése',
   'auto-purge-record': 'Bejegyzések törlése kilépéskor',
   'ui': 'Felület',
   'appearance-section': 'Megjelenés',

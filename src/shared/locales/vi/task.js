@@ -198,6 +198,7 @@ export default {
   'task-detail-title': 'Chi tiết tác vụ',
   'task-info-dialog-title': 'Chi tiết {title}',
   'download-start-message': 'Bắt đầu tải {taskName}',
+  'download-batch-start-message': 'Bắt đầu tải {taskName} và {count} mục khác',
   'download-pause-message': '{taskName} đã tạm dừng',
   'download-stop-message': '{taskName} đã dừng',
   'download-error-message': 'Lỗi khi tải {taskName}',

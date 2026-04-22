@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': '退出时清空已完成的下载记录',
   'continue': '断点续传',
   'remote-time': '使用文件的原始日期而非下载日期',
-  'task-completed-notify': '下载完成后通知',
+  'task-completed-notify': '启用系统通知',
   'auto-purge-record': '退出时自动清除下载记录',
   'ui': '界面',
   'appearance-section': '外观',

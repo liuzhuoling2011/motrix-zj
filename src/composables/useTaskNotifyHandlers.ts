@@ -5,9 +5,10 @@
  * service. Extracted here as pure functions for independent unit testing —
  * following the same pattern as useTaskLifecycle.ts.
  *
- * Each handler sends both an in-app toast (via Naive UI message) and
- * an OS-level notification (via tauri-plugin-notification), gated
- * by the user's taskNotification preference.
+ * **Notification architecture:**
+ * - In-app toast (Naive UI message) — always fires for immediate feedback.
+ * - OS-level notification (tauri-plugin-notification) — gated by the
+ *   user's `taskNotification` preference.
  *
  * When `onOpenFile` / `onShowInFolder` callbacks are provided in deps,
  * the in-app toast renders inline action buttons so the user can open
@@ -36,14 +37,13 @@ export interface NotifyDeps {
 
 /**
  * Handle a completed HTTP/FTP download.
- * Sends in-app toast + OS notification unless gated or metadata task.
+ * Always sends in-app toast; OS notification gated by `taskNotification`.
  *
  * When action callbacks are provided, the toast includes inline buttons
  * for "Open File" and "Show in Folder".
  */
 export function handleTaskComplete(task: Aria2Task, deps: NotifyDeps): void {
   if (isMetadataTask(task)) return
-  if (!deps.taskNotification) return
 
   const taskName = getTaskDisplayName(task)
   const body = deps.t('task.download-complete-message', { taskName })
@@ -55,20 +55,20 @@ export function handleTaskComplete(task: Aria2Task, deps: NotifyDeps): void {
     onShowInFolder: deps.onShowInFolder ? () => deps.onShowInFolder!(task) : undefined,
   })
   deps.messageSuccess(toastContent)
-  notifyOs('MotrixNext', body)
+  if (deps.taskNotification) {
+    notifyOs('MotrixNext', body)
+  }
   logger.info('TaskNotify.complete', `gid=${task.gid} name="${taskName}"`)
 }
 
 /**
  * Handle a BT download entering seeding state (download phase complete).
- * Sends in-app toast + OS notification unless gated.
+ * Always sends in-app toast; OS notification gated by `taskNotification`.
  *
  * When action callbacks are provided, the toast includes inline buttons
  * for "Open File" and "Show in Folder".
  */
 export function handleBtComplete(task: Aria2Task, deps: NotifyDeps): void {
-  if (!deps.taskNotification) return
-
   const taskName = getTaskDisplayName(task)
   const body = deps.t('task.bt-download-complete-message', { taskName })
 
@@ -79,16 +79,56 @@ export function handleBtComplete(task: Aria2Task, deps: NotifyDeps): void {
     onShowInFolder: deps.onShowInFolder ? () => deps.onShowInFolder!(task) : undefined,
   })
   deps.messageSuccess(toastContent)
-  notifyOs('MotrixNext', body)
+  if (deps.taskNotification) {
+    notifyOs('MotrixNext', body)
+  }
   logger.info('TaskNotify.btComplete', `gid=${task.gid} name="${taskName}" → seeding`)
 }
 
 /**
  * Handle a download error — send OS notification for the error text.
- * The in-app error toast is already handled by the caller in TaskView.
+ * The in-app error toast is already handled by the caller in MainLayout.
+ * OS notification gated by `taskNotification`.
  */
 export function handleTaskError(_task: Aria2Task, errorText: string, deps: NotifyDeps): void {
-  if (!deps.taskNotification) return
-  notifyOs('MotrixNext', errorText)
+  if (deps.taskNotification) {
+    notifyOs('MotrixNext', errorText)
+  }
   logger.warn('TaskNotify.error', `gid=${_task.gid} error="${errorText}"`)
+}
+
+// ── Download-start notification ─────────────────────────────────────
+
+/** Dependency interface for start notification — minimal subset. */
+export interface StartNotifyDeps {
+  messageInfo: (content: string) => void
+  t: (key: string, params?: Record<string, unknown>) => string
+  taskNotification: boolean
+}
+
+/**
+ * Handle download submission success — send start notification.
+ *
+ * For single tasks:  "Started downloading movie.mp4"
+ * For batch tasks:   "Started downloading movie.mp4 and 2 other task(s)"
+ *
+ * Toast always fires; OS notification gated by `taskNotification`.
+ */
+export function handleTaskStart(taskNames: string[], deps: StartNotifyDeps): void {
+  if (taskNames.length === 0) return
+
+  const firstName = taskNames[0]
+  const body =
+    taskNames.length === 1
+      ? deps.t('task.download-start-message', { taskName: firstName })
+      : deps.t('task.download-batch-start-message', {
+          taskName: firstName,
+          count: taskNames.length - 1,
+        })
+
+  deps.messageInfo(body)
+  if (deps.taskNotification) {
+    notifyOs('MotrixNext', body)
+  }
+  logger.info('TaskNotify.start', `count=${taskNames.length} first="${firstName}"`)
 }

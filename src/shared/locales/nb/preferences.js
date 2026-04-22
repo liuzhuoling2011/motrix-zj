@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'Fjern fullførte oppføringer ved avslutning',
   'continue': 'Gjenoppta nedlastinger',
   'remote-time': 'Bruk opprinnelig fildato i stedet for nedlastingsdato',
-  'task-completed-notify': 'Varsle ved fullført nedlasting',
+  'task-completed-notify': 'Aktiver systemvarsler',
   'auto-purge-record': 'Fjern oppføringer ved avslutning',
   'ui': 'Grensesnitt',
   'appearance-section': 'Utseende',

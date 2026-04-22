@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'Voltooide items wissen bij afsluiten',
   'continue': 'Downloads hervatten',
   'remote-time': 'Originele bestandsdatum gebruiken in plaats van downloaddatum',
-  'task-completed-notify': 'Melden bij voltooiing',
+  'task-completed-notify': 'Systeemmeldingen inschakelen',
   'auto-purge-record': 'Records wissen bij afsluiten',
   'ui': 'Interface',
   'appearance-section': 'Uiterlijk',

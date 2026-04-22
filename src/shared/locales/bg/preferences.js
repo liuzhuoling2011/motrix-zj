@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'Изчистване на завършените записи при изход',
   'continue': 'Продължи изтеглянията',
   'remote-time': 'Използвай оригиналната дата на файла вместо датата на изтегляне',
-  'task-completed-notify': 'Уведоми при завършване',
+  'task-completed-notify': 'Активиране на системните известия',
   'auto-purge-record': 'Изчисти записите при затваряне',
   'ui': 'Интерфейс',
   'appearance-section': 'Облик',

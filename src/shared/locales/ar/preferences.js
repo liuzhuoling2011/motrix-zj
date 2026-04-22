@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'مسح السجلات المكتملة عند الخروج',
   'continue': 'استئناف التنزيلات',
   'remote-time': 'استخدام التاريخ الأصلي للملف بدلاً من تاريخ التنزيل',
-  'task-completed-notify': 'الإشعار عند الاكتمال',
+  'task-completed-notify': 'تفعيل إشعارات النظام',
   'auto-purge-record': 'مسح السجلات عند الخروج',
   'ui': 'الواجهة',
   'appearance-section': 'المظهر',

@@ -37,7 +37,7 @@ export default {
   'clear-completed-on-exit': 'Limpar registros concluídos ao sair',
   'continue': 'Retomar downloads',
   'remote-time': 'Usar a data original do arquivo em vez da data de download',
-  'task-completed-notify': 'Notificar ao concluir download',
+  'task-completed-notify': 'Ativar notificações do sistema',
   'auto-purge-record': 'Limpar registros ao sair',
   'ui': 'Interface',
   'appearance-section': 'Aparência',
