@@ -1644,6 +1644,7 @@ git commit --allow-empty -m "chore(web-browser): MVP manual smoke test passed"
 
 ## Risks & Open Questions
 
+0. **Cookie crate leading-dot normalisation (discovered in Task 1/3)** — `cookie = "0.18"`'s `Cookie::domain()` always strips a leading dot (RFC 6265). Consequences: `.youtube.com` cookies land in `youtube.com.txt` and the serialised `include_subdomains` column is `FALSE`. Resolver still works because `candidates_for_url` probes both dotted and dotless forms. **Known MVP limitation**: a user logged into `google.com` whose YouTube video metadata lives under `www.music.youtube.com` may not get cookies auto-attached. Mitigation later: consult the cookie's `host_only` flag when building the group key, or parse Set-Cookie headers ourselves.
 1. **`unstable` feature churn** — `window.add_child` signature may shift between tauri 2.x releases. If compile breaks at Task 10, consult `docs.rs/tauri/<current-version>/tauri/window/struct.Window.html` for the live signature.
 2. **`Webview::cookies()` platform parity** — works on macOS/Windows/Linux per Tauri 2.8+. Verify locally before depending on it in CI. Linux (WebKitGTK) historically had the loosest coverage.
 3. **`on_navigation` signature** — Tauri's exact callback shape may differ (`Url` vs `&str`). Fall back to `on_page_load` if needed; the event payload should still expose the URL.
