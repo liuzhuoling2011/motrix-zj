@@ -1,1 +1,4 @@
-console.log('[web-toolbar] stub — Task 9 replaces this with the Vue app')
+import { createApp } from 'vue'
+import WebToolbarApp from './WebToolbarApp.vue'
+
+createApp(WebToolbarApp).mount('#app')
