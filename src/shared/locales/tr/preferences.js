@@ -38,6 +38,8 @@ export default {
   'continue': 'İndirmeleri devam ettir',
   'remote-time': 'İndirme tarihi yerine dosyanın orijinal tarihini kullan',
   'task-completed-notify': 'Sistem bildirimlerini etkinleştir',
+    'notify-on-start': 'İndirme başladığında bildir',
+    'notify-on-complete': 'İndirme tamamlandığında bildir',
   'auto-purge-record': 'Çıkışta kayıtları temizle',
   'ui': 'Arayüz',
   'appearance-section': 'Görünüm',

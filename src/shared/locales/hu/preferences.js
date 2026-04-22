@@ -38,6 +38,8 @@ export default {
   'continue': 'Letöltések folytatása',
   'remote-time': 'Az eredeti fájldátum használata a letöltés dátuma helyett',
   'task-completed-notify': 'Rendszerértesítések engedélyezése',
+    'notify-on-start': 'Értesítés letöltés indításakor',
+    'notify-on-complete': 'Értesítés letöltés befejezésekor',
   'auto-purge-record': 'Bejegyzések törlése kilépéskor',
   'ui': 'Felület',
   'appearance-section': 'Megjelenés',

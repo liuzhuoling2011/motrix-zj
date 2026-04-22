@@ -38,6 +38,8 @@ export default {
   'continue': 'Wznawianie pobierania',
   'remote-time': 'Użyj oryginalnej daty pliku zamiast daty pobrania',
   'task-completed-notify': 'Włącz powiadomienia systemowe',
+    'notify-on-start': 'Powiadom przy rozpoczęciu pobierania',
+    'notify-on-complete': 'Powiadom przy zakończeniu pobierania',
   'auto-purge-record': 'Wyczyść wpisy przy zamykaniu',
   'ui': 'Interfejs',
   'appearance-section': 'Wygląd',

@@ -38,6 +38,8 @@ export default {
   'continue': 'Reanudar descargas',
   'remote-time': 'Usar la fecha original del archivo en lugar de la fecha de descarga',
   'task-completed-notify': 'Activar notificaciones del sistema',
+    'notify-on-start': 'Notificar al iniciar la descarga',
+    'notify-on-complete': 'Notificar al completar la descarga',
   'auto-purge-record': 'Borrar registros al salir',
   'ui': 'Interfaz',
   'appearance-section': 'Apariencia',

@@ -38,6 +38,8 @@ export default {
   'continue': 'Resume downloads',
   'remote-time': 'Use original file date instead of download date',
   'task-completed-notify': 'Enable system notifications',
+    'notify-on-start': 'Notify on download start',
+    'notify-on-complete': 'Notify on download complete',
   'auto-purge-record': 'Clear download records on exit',
   'ui': 'Interface',
   'appearance-section': 'Appearance',

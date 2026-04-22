@@ -38,6 +38,8 @@ export default {
   'continue': 'ดำเนินการดาวน์โหลดต่อ',
   'remote-time': 'ใช้วันที่ดั้งเดิมของไฟล์แทนวันที่ดาวน์โหลด',
   'task-completed-notify': 'เปิดใช้การแจ้งเตือนระบบ',
+    'notify-on-start': 'แจ้งเตือนเมื่อเริ่มดาวน์โหลด',
+    'notify-on-complete': 'แจ้งเตือนเมื่อดาวน์โหลดเสร็จ',
   'auto-purge-record': 'ล้างรายการเมื่อปิดโปรแกรม',
   'ui': 'อินเทอร์เฟซ',
   'appearance-section': 'รูปลักษณ์',

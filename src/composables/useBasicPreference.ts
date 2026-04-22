@@ -36,6 +36,8 @@ export interface BasicForm {
   traySpeedometer: boolean
   dockBadgeSpeed: boolean
   taskNotification: boolean
+  notifyOnStart: boolean
+  notifyOnComplete: boolean
   newTaskShowDownloading: boolean
   noConfirmBeforeDeleteTask: boolean
   deleteFilesWhenSkipConfirm: boolean
@@ -129,6 +131,8 @@ export function buildBasicForm(config: AppConfig, defaultDir: string = ''): Basi
     traySpeedometer: config.traySpeedometer ?? D.traySpeedometer,
     dockBadgeSpeed: config.dockBadgeSpeed ?? D.dockBadgeSpeed,
     taskNotification: config.taskNotification ?? D.taskNotification,
+    notifyOnStart: config.notifyOnStart ?? D.notifyOnStart,
+    notifyOnComplete: config.notifyOnComplete ?? D.notifyOnComplete,
     newTaskShowDownloading: config.newTaskShowDownloading ?? D.newTaskShowDownloading,
     noConfirmBeforeDeleteTask: config.noConfirmBeforeDeleteTask ?? D.noConfirmBeforeDeleteTask,
     deleteFilesWhenSkipConfirm: config.deleteFilesWhenSkipConfirm ?? D.deleteFilesWhenSkipConfirm,

@@ -38,6 +38,8 @@ export default {
   'continue': '断点续传',
   'remote-time': '使用文件的原始日期而非下载日期',
   'task-completed-notify': '启用系统通知',
+    'notify-on-start': '下载开始时通知',
+    'notify-on-complete': '下载完成时通知',
   'auto-purge-record': '退出时自动清除下载记录',
   'ui': '界面',
   'appearance-section': '外观',

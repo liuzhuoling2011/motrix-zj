@@ -95,6 +95,7 @@ function makeDeps(overrides: Partial<NotifyDeps> = {}): NotifyDeps {
       return key
     }) as unknown as NotifyDeps['t'],
     taskNotification: true,
+    notifyOnComplete: true,
     ...overrides,
   }
 }
@@ -129,6 +130,16 @@ describe('handleTaskComplete', () => {
 
   it('sends toast but skips OS notification when taskNotification is false', () => {
     const deps = makeDeps({ taskNotification: false })
+    const task = makeTask()
+
+    handleTaskComplete(task, deps)
+
+    expect(deps.messageSuccess).toHaveBeenCalledOnce()
+    expect(mockNotifyOs).not.toHaveBeenCalled()
+  })
+
+  it('sends toast but skips OS notification when notifyOnComplete is false', () => {
+    const deps = makeDeps({ notifyOnComplete: false })
     const task = makeTask()
 
     handleTaskComplete(task, deps)
@@ -234,6 +245,16 @@ describe('handleBtComplete', () => {
     expect(mockNotifyOs).not.toHaveBeenCalled()
   })
 
+  it('sends toast but skips OS notification when notifyOnComplete is false', () => {
+    const deps = makeDeps({ notifyOnComplete: false })
+    const task = makeTask()
+
+    handleBtComplete(task, deps)
+
+    expect(deps.messageSuccess).toHaveBeenCalledOnce()
+    expect(mockNotifyOs).not.toHaveBeenCalled()
+  })
+
   it('sends render function when action callbacks are provided', () => {
     const onOpenFile = vi.fn()
     const onShowInFolder = vi.fn()
@@ -296,6 +317,7 @@ function makeStartDeps(overrides: Partial<StartNotifyDeps> = {}): StartNotifyDep
       return key
     }) as unknown as StartNotifyDeps['t'],
     taskNotification: true,
+    notifyOnStart: true,
     ...overrides,
   }
 }
@@ -342,6 +364,15 @@ describe('handleTaskStart', () => {
 
   it('sends toast but skips OS notification when taskNotification is false', () => {
     const deps = makeStartDeps({ taskNotification: false })
+
+    handleTaskStart(['movie.mp4'], deps)
+
+    expect(deps.messageInfo).toHaveBeenCalledOnce()
+    expect(mockNotifyOs).not.toHaveBeenCalled()
+  })
+
+  it('sends toast but skips OS notification when notifyOnStart is false', () => {
+    const deps = makeStartDeps({ notifyOnStart: false })
 
     handleTaskStart(['movie.mp4'], deps)
 

@@ -38,6 +38,8 @@ export default {
   'continue': 'استئناف التنزيلات',
   'remote-time': 'استخدام التاريخ الأصلي للملف بدلاً من تاريخ التنزيل',
   'task-completed-notify': 'تفعيل إشعارات النظام',
+    'notify-on-start': 'إشعار عند بدء التنزيل',
+    'notify-on-complete': 'إشعار عند اكتمال التنزيل',
   'auto-purge-record': 'مسح السجلات عند الخروج',
   'ui': 'الواجهة',
   'appearance-section': 'المظهر',

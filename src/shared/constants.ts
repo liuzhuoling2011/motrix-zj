@@ -246,6 +246,8 @@ export const DEFAULT_APP_CONFIG = {
   traySpeedometer: false, // opt-in: supported on macOS menu bar + Linux appindicator
   dockBadgeSpeed: true, // macOS Dock badge on by default
   taskNotification: true, // users expect download-complete notifications
+  notifyOnStart: false, // user just clicked submit — OS popup is noisy
+  notifyOnComplete: true, // main value of OS notification: background completion alert
   newTaskShowDownloading: true, // auto-navigate to downloads after adding task
   noConfirmBeforeDeleteTask: false, // require confirmation to prevent accidental deletion
   deleteFilesWhenSkipConfirm: false, // when skip-confirm is on, default to keeping files (safe)

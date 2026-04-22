@@ -38,6 +38,8 @@ export default {
   'continue': 'Downloads fortsetzen',
   'remote-time': 'Originaldatum der Datei statt Downloaddatum verwenden',
   'task-completed-notify': 'Systembenachrichtigungen aktivieren',
+    'notify-on-start': 'Benachrichtigung bei Download-Start',
+    'notify-on-complete': 'Benachrichtigung bei Download-Abschluss',
   'auto-purge-record': 'Einträge beim Beenden löschen',
   'ui': 'Oberfläche',
   'appearance-section': 'Darstellung',

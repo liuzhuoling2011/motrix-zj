@@ -668,6 +668,7 @@ onMounted(async () => {
         messageError: message.error,
         t,
         taskNotification: preferenceStore.config?.taskNotification !== false,
+        notifyOnComplete: preferenceStore.config?.notifyOnComplete !== false,
       })
     },
     onTaskComplete: async (task) => {
@@ -684,6 +685,7 @@ onMounted(async () => {
         messageError: message.error,
         t,
         taskNotification: preferenceStore.config?.taskNotification !== false,
+        notifyOnComplete: preferenceStore.config?.notifyOnComplete !== false,
         onOpenFile: openFileFromNotification,
         onShowInFolder: showInFolderFromNotification,
       })
@@ -760,6 +762,7 @@ onMounted(async () => {
         messageError: message.error,
         t,
         taskNotification: preferenceStore.config?.taskNotification !== false,
+        notifyOnComplete: preferenceStore.config?.notifyOnComplete !== false,
         onOpenFile: openFileFromNotification,
         onShowInFolder: showInFolderFromNotification,
       })

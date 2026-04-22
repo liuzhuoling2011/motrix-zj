@@ -38,6 +38,8 @@ export default {
   'continue': 'Downloads hervatten',
   'remote-time': 'Originele bestandsdatum gebruiken in plaats van downloaddatum',
   'task-completed-notify': 'Systeemmeldingen inschakelen',
+    'notify-on-start': 'Melding bij start download',
+    'notify-on-complete': 'Melding bij voltooide download',
   'auto-purge-record': 'Records wissen bij afsluiten',
   'ui': 'Interface',
   'appearance-section': 'Uiterlijk',

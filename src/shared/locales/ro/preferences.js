@@ -38,6 +38,8 @@ export default {
   'continue': 'Reia descărcările',
   'remote-time': 'Folosește data originală a fișierului în loc de data descărcării',
   'task-completed-notify': 'Activează notificările de sistem',
+    'notify-on-start': 'Notificare la începerea descărcării',
+    'notify-on-complete': 'Notificare la finalizarea descărcării',
   'auto-purge-record': 'Curăță înregistrările la ieșire',
   'ui': 'Interfață',
   'appearance-section': 'Aspect',

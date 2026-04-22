@@ -38,6 +38,8 @@ export default {
   'continue': 'Reprise des téléchargements',
   'remote-time': 'Utiliser la date originale du fichier au lieu de la date de téléchargement',
   'task-completed-notify': 'Activer les notifications système',
+    'notify-on-start': 'Notifier au début du téléchargement',
+    'notify-on-complete': 'Notifier à la fin du téléchargement',
   'auto-purge-record': 'Effacer les enregistrements à la fermeture',
   'ui': 'Interface',
   'appearance-section': 'Apparence',

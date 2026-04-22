@@ -211,6 +211,10 @@ export interface AppConfig {
   deleteFilesWhenSkipConfirm: boolean
   resumeAllWhenAppLaunched: boolean
   taskNotification: boolean
+  /** OS notification when a download starts (gated by taskNotification). */
+  notifyOnStart: boolean
+  /** OS notification when a download completes or BT enters seeding (gated by taskNotification). */
+  notifyOnComplete: boolean
   showProgressBar: boolean
   traySpeedometer: boolean
   dockBadgeSpeed: boolean

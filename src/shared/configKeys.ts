@@ -46,6 +46,8 @@ const userKeys = [
   'speed-schedule-to',
   'speed-schedule-days',
   'task-notification',
+  'notify-on-start',
+  'notify-on-complete',
   'task-sort',
   'theme',
   'tracker-source',

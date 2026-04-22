@@ -38,6 +38,8 @@ export default {
   'continue': 'ادامه دانلودها',
   'remote-time': 'استفاده از تاریخ اصلی فایل به‌جای تاریخ دانلود',
   'task-completed-notify': 'فعال‌سازی اعلان‌های سیستم',
+    'notify-on-start': 'اعلان هنگام شروع دانلود',
+    'notify-on-complete': 'اعلان هنگام اتمام دانلود',
   'auto-purge-record': 'پاک کردن رکوردها هنگام خروج',
   'ui': 'رابط کاربری',
   'appearance-section': 'ظاهر',

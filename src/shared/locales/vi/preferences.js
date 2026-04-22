@@ -38,6 +38,8 @@ export default {
   'continue': 'Tiếp tục tải xuống',
   'remote-time': 'Sử dụng ngày gốc của tệp thay vì ngày tải xuống',
   'task-completed-notify': 'Bật thông báo hệ thống',
+    'notify-on-start': 'Thông báo khi bắt đầu tải xuống',
+    'notify-on-complete': 'Thông báo khi tải xuống hoàn tất',
   'auto-purge-record': 'Xóa bản ghi khi thoát',
   'ui': 'Giao diện',
   'appearance-section': 'Giao diện',

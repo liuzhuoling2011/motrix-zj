@@ -1085,6 +1085,14 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.task-completed-notify')">
         <NSwitch v-model:value="form.taskNotification" />
       </NFormItem>
+      <NCollapseTransition :show="form.taskNotification" class="collapse-indent">
+        <NFormItem :label="t('preferences.notify-on-start')">
+          <NSwitch v-model:value="form.notifyOnStart" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.notify-on-complete')">
+          <NSwitch v-model:value="form.notifyOnComplete" />
+        </NFormItem>
+      </NCollapseTransition>
       <NFormItem :label="t('preferences.no-confirm-before-delete-task')">
         <NSwitch v-model:value="form.noConfirmBeforeDeleteTask" />
       </NFormItem>

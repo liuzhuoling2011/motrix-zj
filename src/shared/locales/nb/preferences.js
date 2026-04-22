@@ -38,6 +38,8 @@ export default {
   'continue': 'Gjenoppta nedlastinger',
   'remote-time': 'Bruk opprinnelig fildato i stedet for nedlastingsdato',
   'task-completed-notify': 'Aktiver systemvarsler',
+    'notify-on-start': 'Varsle ved nedlastingsstart',
+    'notify-on-complete': 'Varsle ved fullført nedlasting',
   'auto-purge-record': 'Fjern oppføringer ved avslutning',
   'ui': 'Grensesnitt',
   'appearance-section': 'Utseende',

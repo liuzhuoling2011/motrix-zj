@@ -29,6 +29,8 @@ export interface NotifyDeps {
   messageError: (content: string, options?: Record<string, unknown>) => void
   t: (key: string, params?: Record<string, unknown>) => string
   taskNotification: boolean
+  /** Fine-grained: OS notification on download complete / BT seeding. */
+  notifyOnComplete: boolean
   /** Optional: open the downloaded file with the default application. */
   onOpenFile?: (task: Aria2Task) => void
   /** Optional: reveal the downloaded file in the system file manager. */
@@ -37,7 +39,7 @@ export interface NotifyDeps {
 
 /**
  * Handle a completed HTTP/FTP download.
- * Always sends in-app toast; OS notification gated by `taskNotification`.
+ * Always sends in-app toast; OS notification gated by `taskNotification` + `notifyOnComplete`.
  *
  * When action callbacks are provided, the toast includes inline buttons
  * for "Open File" and "Show in Folder".
@@ -55,7 +57,7 @@ export function handleTaskComplete(task: Aria2Task, deps: NotifyDeps): void {
     onShowInFolder: deps.onShowInFolder ? () => deps.onShowInFolder!(task) : undefined,
   })
   deps.messageSuccess(toastContent)
-  if (deps.taskNotification) {
+  if (deps.taskNotification && deps.notifyOnComplete) {
     notifyOs('MotrixNext', body)
   }
   logger.info('TaskNotify.complete', `gid=${task.gid} name="${taskName}"`)
@@ -63,7 +65,7 @@ export function handleTaskComplete(task: Aria2Task, deps: NotifyDeps): void {
 
 /**
  * Handle a BT download entering seeding state (download phase complete).
- * Always sends in-app toast; OS notification gated by `taskNotification`.
+ * Always sends in-app toast; OS notification gated by `taskNotification` + `notifyOnComplete`.
  *
  * When action callbacks are provided, the toast includes inline buttons
  * for "Open File" and "Show in Folder".
@@ -79,7 +81,7 @@ export function handleBtComplete(task: Aria2Task, deps: NotifyDeps): void {
     onShowInFolder: deps.onShowInFolder ? () => deps.onShowInFolder!(task) : undefined,
   })
   deps.messageSuccess(toastContent)
-  if (deps.taskNotification) {
+  if (deps.taskNotification && deps.notifyOnComplete) {
     notifyOs('MotrixNext', body)
   }
   logger.info('TaskNotify.btComplete', `gid=${task.gid} name="${taskName}" → seeding`)
@@ -104,6 +106,8 @@ export interface StartNotifyDeps {
   messageInfo: (content: string) => void
   t: (key: string, params?: Record<string, unknown>) => string
   taskNotification: boolean
+  /** Fine-grained: OS notification on download start. */
+  notifyOnStart: boolean
 }
 
 /**
@@ -112,7 +116,7 @@ export interface StartNotifyDeps {
  * For single tasks:  "Started downloading movie.mp4"
  * For batch tasks:   "Started downloading movie.mp4 and 2 other task(s)"
  *
- * Toast always fires; OS notification gated by `taskNotification`.
+ * Toast always fires; OS notification gated by `taskNotification` + `notifyOnStart`.
  */
 export function handleTaskStart(taskNames: string[], deps: StartNotifyDeps): void {
   if (taskNames.length === 0) return
@@ -127,7 +131,7 @@ export function handleTaskStart(taskNames: string[], deps: StartNotifyDeps): voi
         })
 
   deps.messageInfo(body)
-  if (deps.taskNotification) {
+  if (deps.taskNotification && deps.notifyOnStart) {
     notifyOs('MotrixNext', body)
   }
   logger.info('TaskNotify.start', `count=${taskNames.length} first="${firstName}"`)

@@ -38,6 +38,8 @@ export default {
   'continue': 'Lanjutkan unduhan',
   'remote-time': 'Gunakan tanggal file asli alih-alih tanggal unduhan',
   'task-completed-notify': 'Aktifkan notifikasi sistem',
+    'notify-on-start': 'Notifikasi saat unduhan dimulai',
+    'notify-on-complete': 'Notifikasi saat unduhan selesai',
   'auto-purge-record': 'Hapus catatan saat keluar',
   'ui': 'Antarmuka',
   'appearance-section': 'Tampilan',
