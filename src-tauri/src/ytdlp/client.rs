@@ -73,6 +73,12 @@ impl YtdlpHeaders {
             let path = write_cookies_file(app, target_url, cookie).await?;
             args.push("--cookies".to_string());
             args.push(path.to_string_lossy().into_owned());
+        } else if let Some(store) = app.try_state::<crate::cookies::CookieStore>() {
+            if let Some(path) = store.resolve_for_url(target_url) {
+                log::info!("ytdlp: auto-attaching cookies from {}", path.display());
+                args.push("--cookies".to_string());
+                args.push(path.to_string_lossy().into_owned());
+            }
         }
 
         // Point yt-dlp at the bundled ffmpeg / deno sidecars so video+audio
@@ -316,4 +322,21 @@ pub async fn parse_playlist_item(
         .ok_or_else(|| AppError::YtdlpParse("empty output".into()))?;
 
     serde_json::from_str(first_line).map_err(|e| AppError::YtdlpParse(e.to_string()))
+}
+
+#[cfg(test)]
+mod cookies_fallback_tests {
+    use super::super::super::cookies::CookieStore;
+    use std::fs;
+
+    #[test]
+    fn resolve_for_url_hits_written_domain() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        fs::write(dir.path().join("youtube.com.txt"), "# header\n").expect("write");
+        let store = CookieStore::new(dir.path());
+        let p = store
+            .resolve_for_url("https://www.youtube.com/watch?v=x")
+            .expect("hit");
+        assert!(p.ends_with("youtube.com.txt"));
+    }
 }
