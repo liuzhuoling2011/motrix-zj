@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated:** 2025-04-23
+**Last updated:** 2026-04-23
 
 Motrix Next is an open-source desktop download manager licensed under the [MIT License](https://opensource.org/licenses/MIT). This document describes what data the application handles and what network connections it makes.
 
