@@ -92,6 +92,7 @@ let unlistenStat: (() => void) | null = null
 let lifecycleService: ReturnType<typeof createTaskLifecycleService> | null = null
 let magnetPollTimer: ReturnType<typeof setTimeout> | null = null
 let unlistenFocusRecheck: (() => void) | null = null
+let unlistenAddFromWeb: (() => void) | null = null
 
 // ── Notification action helpers (reuse existing IPC commands) ────────
 
@@ -795,6 +796,22 @@ onMounted(async () => {
     if (focused) requestFileRecheck()
   })
 
+  // ── Web-browser download trigger ─────────────────────────────────────
+  // Rust emits `add-task-from-web` when the user clicks the download
+  // button inside the embedded web-browser window.  The payload carries
+  // the intercepted URL so we can pre-fill the AddTask dialog and bring
+  // the main window to the front (it may be hidden in tray).
+  unlistenAddFromWeb = await listen<{ url: string }>('add-task-from-web', async ({ payload }) => {
+    const win = getCurrentWindow()
+    try {
+      await win.show()
+      await win.setFocus()
+    } catch (e) {
+      logger.debug('MainLayout.addFromWeb.focus', String(e))
+    }
+    appStore.handleDeepLinkUrls([payload.url])
+  })
+
   // ── Magnet metadata monitoring (app-level) ────────────────────────
   // Watches pendingMagnetGids in app store and starts polling when
   // magnet tasks are added. Runs at MainLayout level so it works
@@ -926,6 +943,7 @@ onUnmounted(() => {
   if (unlistenResize) unlistenResize()
   if (unlistenExitDialog) unlistenExitDialog()
   if (unlistenPowerCountdown) unlistenPowerCountdown()
+  if (unlistenAddFromWeb) unlistenAddFromWeb()
   dismissCountdown()
   cancelPendingResize()
 })
