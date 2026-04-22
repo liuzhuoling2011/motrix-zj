@@ -36,6 +36,15 @@ pub enum AppError {
     /// Database read/write error (rusqlite).
     #[error("Database error: {0}")]
     Database(String),
+    /// yt-dlp URL parse / metadata extraction failure.
+    #[error("yt-dlp parse error: {0}")]
+    YtdlpParse(String),
+    /// yt-dlp direct download failure (HLS/DASH fallback).
+    #[error("yt-dlp download error: {0}")]
+    YtdlpDownload(String),
+    /// yt-dlp parse operation timed out.
+    #[error("yt-dlp parse timed out")]
+    YtdlpTimeout,
 }
 
 impl From<std::io::Error> for AppError {
@@ -155,13 +164,27 @@ mod tests {
             ("Protocol", AppError::Protocol("r".into())),
             ("Aria2", AppError::Aria2("a".into())),
             ("Database", AppError::Database("d".into())),
+            ("YtdlpParse", AppError::YtdlpParse("y".into())),
+            ("YtdlpDownload", AppError::YtdlpDownload("d".into())),
+            ("YtdlpTimeout", AppError::YtdlpTimeout),
         ];
         for (tag, err) in cases {
             let json = serde_json::to_string(&err).expect("serialize");
-            assert!(
-                json.starts_with(&format!("{{\"{tag}\"")),
-                "variant {tag} serialized as '{json}'"
-            );
+            // serde externally-tags tuple/struct variants as {"Variant":...},
+            // but unit variants (no inner data) serialize as the bare string "Variant".
+            let is_unit = matches!(err, AppError::YtdlpTimeout);
+            if is_unit {
+                assert_eq!(
+                    json,
+                    format!("\"{tag}\""),
+                    "unit variant {tag} serialized as '{json}'"
+                );
+            } else {
+                assert!(
+                    json.starts_with(&format!("{{\"{tag}\"")),
+                    "variant {tag} serialized as '{json}'"
+                );
+            }
         }
     }
 
@@ -184,5 +207,23 @@ mod tests {
         let rusqlite_err = rusqlite::Error::InvalidParameterCount(0, 1);
         let app_err = AppError::from(rusqlite_err);
         assert!(matches!(app_err, AppError::Database(_)));
+    }
+
+    #[test]
+    fn display_ytdlp_parse_error() {
+        let e = AppError::YtdlpParse("unsupported URL".into());
+        assert_eq!(e.to_string(), "yt-dlp parse error: unsupported URL");
+    }
+
+    #[test]
+    fn display_ytdlp_download_error() {
+        let e = AppError::YtdlpDownload("connection reset".into());
+        assert_eq!(e.to_string(), "yt-dlp download error: connection reset");
+    }
+
+    #[test]
+    fn display_ytdlp_timeout_error() {
+        let e = AppError::YtdlpTimeout;
+        assert_eq!(e.to_string(), "yt-dlp parse timed out");
     }
 }

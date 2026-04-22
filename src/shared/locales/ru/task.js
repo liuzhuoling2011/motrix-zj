@@ -198,6 +198,7 @@ export default {
   'task-detail-title': 'Детали задачи',
   'task-info-dialog-title': 'Детали {title}',
   'download-start-message': 'Загрузка {taskName} начата',
+  'download-batch-start-message': 'Загрузка {taskName} и ещё {count} начата',
   'download-pause-message': '{taskName} приостановлено',
   'download-stop-message': '{taskName} остановлено',
   'download-error-message': 'Ошибка загрузки {taskName}',

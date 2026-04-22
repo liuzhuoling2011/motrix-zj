@@ -10,6 +10,7 @@ mod menu;
 mod services;
 mod tray;
 mod upnp;
+mod ytdlp;
 
 // Re-export the Windows elevation entry point at the crate root so that
 // main.rs can call it before Tauri initialises.  The `commands` module
@@ -18,12 +19,14 @@ mod upnp;
 #[cfg(windows)]
 pub use commands::protocol::try_run_elevated;
 
+use crate::commands::power::ShutdownCancelState;
 use crate::commands::updater::{DownloadedUpdate, UpdateCancelState};
 use engine::EngineState;
 use tauri::{Emitter, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_store::StoreExt;
 use upnp::UpnpState;
+use ytdlp::YtdlpState;
 
 /// Pre-reads the user's log-level preference from the raw config.json file.
 ///
@@ -48,13 +51,70 @@ pub(crate) fn read_log_level() -> log::LevelFilter {
     .unwrap_or(log::LevelFilter::Debug)
 }
 
+/// Tracks the application lifecycle phase for window visibility decisions.
+///
+/// During the cold-start phase (`is_cold_start = true`), the autostart
+/// silent-mode guard may hide the window.  Once the user first dismisses
+/// the window (via close button, Cmd+W, or any minimize-to-tray path),
+/// the phase transitions to runtime (`is_cold_start = false`).
+/// This transition is **irreversible** within the process lifetime.
+///
+/// After the transition, `is_autostart_launch()` always returns `false`
+/// so that window recreations in lightweight mode correctly show the
+/// window instead of re-applying autostart-hide logic.
+///
+/// Fixes issue #206: without this, `is_autostart_launch()` reads process
+/// argv (which never changes), causing recreated windows to incorrectly
+/// call `window.hide()` via the frontend's MainLayout.windowVisibility
+/// defence-in-depth check.
+pub struct AppLifecycleState {
+    is_cold_start: std::sync::atomic::AtomicBool,
+}
+
+impl Default for AppLifecycleState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl AppLifecycleState {
+    pub fn new() -> Self {
+        Self {
+            is_cold_start: std::sync::atomic::AtomicBool::new(true),
+        }
+    }
+
+    /// Returns `true` during the initial cold-start phase (before the
+    /// user first dismisses the window).
+    pub fn is_cold_start(&self) -> bool {
+        self.is_cold_start.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// Ends the cold-start phase.  Called once by `handle_minimize_to_tray()`
+    /// when the user first dismisses the window.  Irreversible.
+    pub fn end_cold_start(&self) {
+        self.is_cold_start
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
 /// Minimizes the main window to tray, either by destroying the WebView
 /// (lightweight mode — reduces memory usage) or by
 /// hiding it (standard mode — instant show on tray click).
 ///
 /// Shared by `on_window_event(CloseRequested)` and `on_menu_event("close-window")`
 /// to keep the two close paths consistent.
-fn handle_minimize_to_tray(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
+pub(crate) fn handle_minimize_to_tray(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
+    // End the cold-start phase on the first window dismissal.
+    // After this point, is_autostart_launch() returns false so that
+    // window recreations in lightweight mode show the window instead
+    // of re-applying autostart-hide logic.  Issue #206.
+    if let Some(lifecycle) = app.try_state::<AppLifecycleState>() {
+        if lifecycle.is_cold_start() {
+            lifecycle.end_cold_start();
+            log::info!("lifecycle: cold-start phase ended");
+        }
+    }
     let store_prefs = app
         .store("config.json")
         .ok()
@@ -113,6 +173,12 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(services::stat::StatServiceState::new());
     app.manage(services::speed::SpeedSchedulerState::new());
     app.manage(services::monitor::TaskMonitorState::new());
+    app.manage(services::http_api::HttpApiState::new());
+    app.manage(services::http_api::PendingDeepLinkState::new());
+
+    // App lifecycle — tracks cold-start vs runtime phase for autostart
+    // visibility decisions.  See AppLifecycleState doc and issue #206.
+    app.manage(AppLifecycleState::new());
 
     // History database — opens the same DB as tauri-plugin-sql migrations.
     {
@@ -187,22 +253,36 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         _ => {}
     });
 
-    let app_handle = app.handle().clone();
-    app.deep_link().on_open_url(move |event| {
-        let urls: Vec<String> = event.urls().iter().map(ToString::to_string).collect();
-        // Ensure the window exists before emitting — in lightweight mode
-        // the WebView may have been destroyed, making emit a no-op.
-        #[cfg(target_os = "macos")]
-        {
+    // On macOS, runtime deep links arrive via RunEvent::Opened → the
+    // plugin emits "deep-link://new-url".  We listen for that event and
+    // re-emit it as "deep-link-open" so the frontend (useAppEvents.ts)
+    // can handle it with window-surfacing logic.
+    //
+    // On Windows/Linux this listener is compile-time excluded because
+    // runtime deep links there arrive via the single-instance plugin,
+    // which already: (a) calls handle_cli_arguments → emits
+    // "deep-link://new-url", and (b) invokes our callback → emits
+    // "single-instance-triggered".  The frontend handles case (b) via
+    // listen('single-instance-triggered') in useAppEvents.ts.
+    // Registering on_open_url on those platforms would cause
+    // handleDeepLinkUrls() to fire twice per URL (once from (a) hitting
+    // this listener, once from (b) hitting useAppEvents).
+    #[cfg(target_os = "macos")]
+    {
+        let app_handle = app.handle().clone();
+        app.deep_link().on_open_url(move |event| {
+            let urls: Vec<String> = event.urls().iter().map(ToString::to_string).collect();
+            // Ensure the window exists before emitting — in lightweight mode
+            // the WebView may have been destroyed, making emit a no-op.
             use tauri::ActivationPolicy;
             let _ = app_handle.set_activation_policy(ActivationPolicy::Regular);
-        }
-        if let Some(w) = tray::get_or_create_main_window(&app_handle) {
-            let _ = w.show();
-            let _ = w.set_focus();
-        }
-        let _ = app_handle.emit("deep-link-open", &urls);
-    });
+            if let Some(w) = tray::get_or_create_main_window(&app_handle) {
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+            let _ = app_handle.emit("deep-link-open", &urls);
+        });
+    }
 
     // Register all configured deep-link schemes at startup on Linux.
     //
@@ -504,6 +584,18 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
                 log::info!("aria2 session save attempted via managed client");
             }
             let _ = engine::stop_engine(app, true);
+            // Stop the extension HTTP API server gracefully.
+            if let Some(api_state) = app.try_state::<services::http_api::HttpApiState>() {
+                let _ = tauri::async_runtime::block_on(async {
+                    tokio::time::timeout(std::time::Duration::from_millis(500), async {
+                        if let Some(handle) = api_state.0.lock().await.take() {
+                            handle.stop().await;
+                        }
+                    })
+                    .await
+                });
+                log::info!("http_api: stopped");
+            }
             // Clean up UPnP port mappings on exit.
             if let Some(state) = app.try_state::<UpnpState>() {
                 tauri::async_runtime::block_on(async {
@@ -610,6 +702,9 @@ pub fn run() {
                 .level_for("maxminddb", log::LevelFilter::Warn)
                 .level_for("sqlx", log::LevelFilter::Warn)
                 .level_for("zbus", log::LevelFilter::Warn)
+                .level_for("hyper_util", log::LevelFilter::Warn)
+                .level_for("hyper", log::LevelFilter::Warn)
+                .level_for("reqwest", log::LevelFilter::Warn)
                 .filter(|metadata| {
                     !metadata.target().starts_with("tao")
                         && !metadata.target().starts_with("tracing")
@@ -710,8 +805,10 @@ pub fn run() {
     builder
         .manage(EngineState::new())
         .manage(UpnpState::new())
+        .manage(YtdlpState::new())
         .manage(std::sync::Arc::new(UpdateCancelState::new()))
         .manage(std::sync::Arc::new(DownloadedUpdate::new()))
+        .manage(std::sync::Arc::new(ShutdownCancelState::new()))
         .invoke_handler(tauri::generate_handler![
             commands::get_system_config,
             commands::save_system_config,
@@ -733,6 +830,7 @@ pub fn run() {
             commands::stop_upnp_mapping,
             commands::get_upnp_status,
             commands::set_dock_visible,
+            commands::minimize_to_tray,
             commands::probe_trackers,
             commands::fetch_tracker_sources,
             commands::is_autostart_launch,
@@ -755,6 +853,8 @@ pub fn run() {
             commands::get_system_proxy,
             commands::lookup_peer_ips,
             commands::refresh_runtime_config,
+            commands::restart_http_api,
+            commands::take_pending_deep_links,
             commands::history_add_record,
             commands::history_get_records,
             commands::history_remove_record,
@@ -792,6 +892,12 @@ pub fn run() {
             commands::aria2_batch_force_pause,
             commands::aria2_batch_force_remove,
             commands::wait_for_engine,
+            commands::system_shutdown,
+            commands::cancel_shutdown,
+            commands::ytdlp_parse_url,
+            commands::ytdlp_download_via_aria2,
+            commands::ytdlp_download_direct,
+            commands::ytdlp_cancel_download,
         ])
         // ── Window event interception ─────────────────────────────────
         //

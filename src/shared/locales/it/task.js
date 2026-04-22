@@ -198,6 +198,7 @@ export default {
   'task-detail-title': 'Dettagli attività',
   'task-info-dialog-title': 'Dettagli di {title}',
   'download-start-message': 'Download di {taskName} avviato',
+  'download-batch-start-message': 'Download di {taskName} e altri {count} avviato',
   'download-pause-message': '{taskName} in pausa',
   'download-stop-message': '{taskName} interrotto',
   'download-error-message': 'Errore nel download di {taskName}',

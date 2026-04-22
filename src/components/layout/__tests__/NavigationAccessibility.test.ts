@@ -45,6 +45,9 @@ vi.mock('@vicons/ionicons5', () => ({
   PlayOutline: { template: '<i />' },
   CheckmarkDoneOutline: { template: '<i />' },
   ConstructOutline: { template: '<i />' },
+  DownloadOutline: { template: '<i />' },
+  MagnetOutline: { template: '<i />' },
+  GlobeOutline: { template: '<i />' },
 }))
 
 import AsideBar from '../AsideBar.vue'
@@ -84,14 +87,14 @@ describe('keyboard-accessible navigation', () => {
   })
 
   it('renders PreferenceSubnav routes as buttons and marks the active route', async () => {
-    routeState.path = '/preference/basic'
+    routeState.path = '/preference/general'
     const wrapper = mount(PreferenceSubnav)
     const buttons = wrapper.findAll('button')
 
-    expect(buttons).toHaveLength(2)
+    expect(buttons).toHaveLength(5)
     expect(buttons[0].attributes('aria-current')).toBe('page')
 
-    await buttons[1].trigger('click')
+    await buttons[4].trigger('click')
     expect(pushMock).toHaveBeenCalledWith({ path: '/preference/advanced' })
   })
 })

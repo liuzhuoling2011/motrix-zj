@@ -198,6 +198,7 @@ export default {
   'task-detail-title': 'Taakdetails',
   'task-info-dialog-title': '{title} details',
   'download-start-message': 'Download van {taskName} gestart',
+  'download-batch-start-message': 'Download van {taskName} en {count} andere gestart',
   'download-pause-message': '{taskName} gepauzeerd',
   'download-stop-message': '{taskName} gestopt',
   'download-error-message': 'Fout bij downloaden van {taskName}',

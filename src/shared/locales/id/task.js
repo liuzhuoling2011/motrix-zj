@@ -198,6 +198,7 @@ export default {
   'task-detail-title': 'Detail tugas',
   'task-info-dialog-title': 'Detail {title}',
   'download-start-message': 'Unduhan {taskName} dimulai',
+  'download-batch-start-message': 'Unduhan {taskName} dan {count} lainnya dimulai',
   'download-pause-message': '{taskName} dijeda',
   'download-stop-message': '{taskName} dihentikan',
   'download-error-message': 'Kesalahan mengunduh {taskName}',

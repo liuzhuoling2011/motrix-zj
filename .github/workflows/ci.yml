@@ -73,6 +73,11 @@ jobs:
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
 
+      # Tauri's externalBin entries must exist before cargo check / test
+      # invoke the tauri build script. Runner is ubuntu-latest x86_64.
+      - name: Fetch sidecar binaries
+        run: pnpm fetch-sidecars x86_64-unknown-linux-gnu
+
       - name: Rust format check
         working-directory: src-tauri
         run: cargo fmt -- --check

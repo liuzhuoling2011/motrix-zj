@@ -198,6 +198,7 @@ export default {
   'task-detail-title': 'Oppgavedetaljer',
   'task-info-dialog-title': '{title} detaljer',
   'download-start-message': 'Nedlasting av {taskName} startet',
+  'download-batch-start-message': 'Nedlasting av {taskName} og {count} andre startet',
   'download-pause-message': '{taskName} satt på pause',
   'download-stop-message': '{taskName} stoppet',
   'download-error-message': 'Feil ved nedlasting av {taskName}',

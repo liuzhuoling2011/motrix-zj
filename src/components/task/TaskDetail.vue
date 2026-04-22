@@ -3,6 +3,7 @@
 import { ref, computed, watch, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { TASK_STATUS } from '@shared/constants'
+import { logger } from '@shared/logger'
 import {
   checkTaskIsBT,
   checkTaskIsSeeder,
@@ -66,7 +67,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ close: [] }>()
 
-const { t, locale } = useI18n()
+const { t, te, locale } = useI18n()
 const preferenceStore = usePreferenceStore()
 const taskStore = useTaskStore()
 const historyStore = useHistoryStore()
@@ -113,8 +114,11 @@ const prevTabIndex = ref(0)
 interface TabDef {
   key: string
   labelKey: string
+  /** Optional fallback shown verbatim when `labelKey` is missing in i18n. */
+  fallback?: string
   icon: typeof InformationCircleOutline
   btOnly?: boolean
+  ytdlpOnly?: boolean
 }
 const allTabs: TabDef[] = [
   { key: 'general', labelKey: 'task.task-tab-general', icon: InformationCircleOutline },
@@ -123,9 +127,29 @@ const allTabs: TabDef[] = [
   { key: 'options', labelKey: 'task.task-tab-options', icon: SettingsOutline },
   { key: 'peers', labelKey: 'task.task-tab-peers', icon: PeopleOutline, btOnly: true },
   { key: 'trackers', labelKey: 'task.task-tab-trackers', icon: ServerOutline, btOnly: true },
+  { key: 'logs', labelKey: 'task.task-tab-logs', fallback: '日志', icon: PulseOutline, ytdlpOnly: true },
 ]
 
-const visibleTabs = computed(() => allTabs.filter((tab) => !tab.btOnly || isBT.value))
+/** True for yt-dlp direct downloads (gid prefix `ytdlp-`). */
+const isYtdlpTask = computed(() => props.task?.gid?.startsWith('ytdlp-') ?? false)
+
+/** Log lines captured for the current yt-dlp task; empty otherwise. */
+const ytdlpLogs = computed(() => {
+  const gid = props.task?.gid
+  if (!gid || !isYtdlpTask.value) return []
+  // Reading through ytdlpLogMap (instead of getYtdlpLogs()) keeps this
+  // computed reactive when new lines stream in.
+  return taskStore.ytdlpLogMap.get(gid) ?? []
+})
+const ytdlpLogText = computed(() => ytdlpLogs.value.map((l) => l.line).join('\n'))
+
+const visibleTabs = computed(() =>
+  allTabs.filter((tab) => {
+    if (tab.btOnly && !isBT.value) return false
+    if (tab.ytdlpOnly && !isYtdlpTask.value) return false
+    return true
+  }),
+)
 
 function switchTab(key: string) {
   const oldIdx = visibleTabs.value.findIndex((t) => t.key === activeTab.value)
@@ -180,7 +204,8 @@ watch(
       } else {
         taskCompletedAt.value = ''
       }
-    } catch {
+    } catch (e) {
+      logger.debug('TaskDetail.completedAt', `gid=${gid} query failed: ${e}`)
       taskCompletedAt.value = ''
     }
   },
@@ -351,8 +376,8 @@ watch(
     }
     try {
       geoCache.value = await lookupPeerIps(uniqueIps, locale.value)
-    } catch {
-      // Graceful degradation: flags show nothing when lookup fails
+    } catch (e) {
+      logger.debug('TaskDetail.geoip', `lookupPeerIps failed: ${e}`)
     }
   },
   { immediate: true },
@@ -562,7 +587,9 @@ function handleClose() {
           @click="switchTab(tab.key)"
         >
           <NIcon :size="16"><component :is="tab.icon" /></NIcon>
-          <span class="detail-tab-label">{{ t(tab.labelKey) }}</span>
+          <span class="detail-tab-label">{{
+            te(tab.labelKey) ? t(tab.labelKey) : (tab.fallback ?? tab.labelKey)
+          }}</span>
         </button>
       </div>
 
@@ -796,6 +823,11 @@ function handleClose() {
               striped
             />
           </div>
+
+          <div v-else-if="activeTab === 'logs'" key="logs" class="tab-content">
+            <div v-if="ytdlpLogs.length === 0" class="ytdlp-log-empty">暂无日志输出。</div>
+            <pre v-else class="ytdlp-log-pre">{{ ytdlpLogText }}</pre>
+          </div>
         </Transition>
       </div>
     </NDrawerContent>
@@ -994,5 +1026,31 @@ function handleClose() {
 :deep(.n-data-table-th__title) {
   white-space: normal;
   word-break: break-word;
+}
+
+/* ── yt-dlp logs tab ──────────────────────────────────────────────── */
+.ytdlp-log-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  opacity: 0.6;
+}
+.ytdlp-log-pre {
+  margin: 0;
+  padding: 12px;
+  font-family:
+    ui-monospace,
+    SF Mono,
+    Menlo,
+    Consolas,
+    monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  background: var(--n-merged-color, rgba(0, 0, 0, 0.06));
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 400px;
+  overflow: auto;
 }
 </style>

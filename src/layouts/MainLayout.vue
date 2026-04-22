@@ -9,11 +9,17 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { listen } from '@tauri-apps/api/event'
 import { logger } from '@shared/logger'
 import { createTaskLifecycleService } from '@/composables/useTaskLifecycleService'
-import { buildHistoryRecord, buildBtCompletionRecord, isMetadataTask } from '@/composables/useTaskLifecycle'
+import {
+  buildHistoryRecord,
+  buildBtCompletionRecord,
+  isMetadataTask,
+  updateHistoryFilePath,
+} from '@/composables/useTaskLifecycle'
+import { setArchivedPath, resolveTaskFilePath, requestFileRecheck } from '@/composables/useArchivedPaths'
 import { handleTaskComplete, handleBtComplete, handleTaskError } from '@/composables/useTaskNotifyHandlers'
 import { shouldDeleteTorrent, trashTorrentFile, cleanupTorrentMetadataFiles } from '@/composables/useDownloadCleanup'
 import { cleanupAria2ControlFile } from '@/composables/useFileDelete'
-import { getTaskDisplayName, resolveOpenTarget } from '@shared/utils'
+import { getTaskDisplayName, resolveOpenTarget, checkTaskIsSeeder } from '@shared/utils'
 import type { Aria2Task } from '@shared/types'
 import { ARIA2_ERROR_CODES } from '@shared/aria2ErrorCodes'
 import { TASK_STATUS } from '@shared/constants'
@@ -40,8 +46,8 @@ import MagnetFileSelect from '@/components/task/MagnetFileSelect.vue'
 import { useTaskStore } from '@/stores/task'
 import { usePreferenceStore } from '@/stores/preference'
 import { useAppMessage } from '@/composables/useAppMessage'
-import { NModal, NButton, NSpace, NIcon, NCheckbox, useDialog } from 'naive-ui'
-import { WarningOutline } from '@vicons/ionicons5'
+import { NModal, NButton, NCheckbox, NProgress, useDialog } from 'naive-ui'
+
 import { useAppEvents } from '@/composables/useAppEvents'
 import { loadAddedAtFromRecords } from '@/composables/useTaskOrder'
 import { resolveArchiveAction } from '@shared/utils/autoArchive'
@@ -66,6 +72,12 @@ const isMaximized = ref(false)
 const { platform: currentPlatform, isMac } = usePlatform()
 const showEngineOverlay = ref(false)
 
+// ── Auto-shutdown countdown state ──────────────────────────────────
+const showShutdownCountdown = ref(false)
+const shutdownCountdown = ref(60)
+let shutdownTimer: ReturnType<typeof setInterval> | null = null
+let unlistenPowerCountdown: (() => void) | null = null
+
 const updateDialogRef = ref<InstanceType<typeof UpdateDialog> | null>(null)
 
 let unlistenDragDrop: (() => void) | null = null
@@ -79,6 +91,7 @@ let unlistenExitDialog: (() => void) | null = null
 let unlistenStat: (() => void) | null = null
 let lifecycleService: ReturnType<typeof createTaskLifecycleService> | null = null
 let magnetPollTimer: ReturnType<typeof setTimeout> | null = null
+let unlistenFocusRecheck: (() => void) | null = null
 
 // ── Notification action helpers (reuse existing IPC commands) ────────
 
@@ -98,6 +111,7 @@ async function openFileFromNotification(task: Aria2Task) {
     const fileExists = await invoke<boolean>('check_path_exists', { path: target })
     if (!fileExists) {
       message.warning(t('task.file-not-exist'))
+      requestFileRecheck()
       return
     }
     const isDir = await invoke<boolean>('check_path_is_dir', { path: target })
@@ -106,6 +120,7 @@ async function openFileFromNotification(task: Aria2Task) {
   } catch (e) {
     logger.warn('Notification.openFile', e instanceof Error ? e.message : String(e))
     message.warning(t('task.file-not-exist'))
+    requestFileRecheck()
   }
 }
 
@@ -118,12 +133,9 @@ async function openFileFromNotification(task: Aria2Task) {
  */
 async function showInFolderFromNotification(task: Aria2Task) {
   const { invoke } = await import('@tauri-apps/api/core')
-  const files = task.files || []
-  if (files.length === 0) return
 
-  // Prefer user-selected files (same logic as resolveOpenTarget / TaskItem)
-  const selected = files.filter((f) => f.selected === 'true')
-  const filePath = (selected.length > 0 ? selected[0] : files[0])?.path
+  // Resolve correct path — archived location takes priority over aria2 original
+  const filePath = resolveTaskFilePath(task)
 
   if (!filePath) return
   try {
@@ -144,9 +156,11 @@ async function showInFolderFromNotification(task: Aria2Task) {
       }
     }
     message.warning(t('task.file-not-exist'))
+    requestFileRecheck()
   } catch (e) {
     logger.warn('Notification.showInFolder', e instanceof Error ? e.message : String(e))
     message.warning(t('task.file-not-exist'))
+    requestFileRecheck()
   }
 }
 
@@ -233,7 +247,7 @@ watch(
       negativeText: t('app.dismiss'),
       onPositiveClick: () => {
         if (!route.path.startsWith('/preference')) {
-          router.push('/preference/basic')
+          router.push('/preference/general')
         }
       },
     })
@@ -308,8 +322,8 @@ function startMagnetPoll() {
         magnetSelectName.value = task.bittorrent?.info?.name || parsed[0]?.name || 'Magnet Download'
         magnetSelectVisible.value = true
         return // Process one magnet at a time
-      } catch {
-        // Task may have been removed or metadata still downloading — skip
+      } catch (e) {
+        logger.debug('MainLayout.magnetPoll', `gid=${gid} metadata query skipped: ${e}`)
       }
     }
 
@@ -467,6 +481,86 @@ function handleExitCancel() {
   rememberChoice.value = false
 }
 
+// ── Auto-shutdown countdown ─────────────────────────────────────────
+
+function startShutdownCountdown() {
+  if (showShutdownCountdown.value) return
+  shutdownCountdown.value = 60
+  showShutdownCountdown.value = true
+
+  // Bring window to front so the user sees the countdown
+  getCurrentWindow()
+    .show()
+    .catch(() => {})
+  getCurrentWindow()
+    .setFocus()
+    .catch(() => {})
+
+  shutdownTimer = setInterval(async () => {
+    shutdownCountdown.value--
+    if (shutdownCountdown.value <= 0) {
+      dismissCountdown()
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('system_shutdown')
+      } catch (e) {
+        logger.error('Power.shutdown', e instanceof Error ? e.message : String(e))
+        message.error(t('app.shutdown-failed'))
+      }
+    }
+  }, 1000)
+}
+
+/** Shared countdown teardown — stops timer and hides dialog. */
+function dismissCountdown() {
+  showShutdownCountdown.value = false
+  if (shutdownTimer) {
+    clearInterval(shutdownTimer)
+    shutdownTimer = null
+  }
+  // Signal Rust safety-net to skip this shutdown cycle.
+  import('@tauri-apps/api/core').then(({ invoke }) =>
+    invoke('cancel_shutdown').catch((e: unknown) => logger.debug('Power.cancel', String(e))),
+  )
+}
+
+/** "Disable Auto-Shutdown" button — turns off the preference permanently. */
+function disableShutdownAndCancel() {
+  dismissCountdown()
+  preferenceStore.updateAndSave({ shutdownWhenComplete: false })
+}
+
+/** "Skip This Time" button — cancels only the current countdown. */
+function skipShutdownOnce() {
+  dismissCountdown()
+}
+
+/**
+ * Event-driven shutdown condition check.
+ *
+ * Called from lifecycle callbacks (onTaskComplete / onBtComplete) instead
+ * of a stat watcher. Queries aria2 directly for real-time task state,
+ * bypassing the stale taskStore.taskList and the unreliable
+ * appStore.stat.numActive (which counts seeders as active).
+ */
+async function checkShutdownCondition() {
+  if (!preferenceStore.config.shutdownWhenComplete) return
+  if (showShutdownCountdown.value) return
+
+  try {
+    const activeTasks = await aria2Api.fetchTaskList({ type: 'active' })
+    const activeNonSeeders = activeTasks.filter((t) => !checkTaskIsSeeder(t))
+    if (activeNonSeeders.length > 0) return
+
+    const waitingTasks = await aria2Api.fetchTaskList({ type: 'waiting' })
+    if (waitingTasks.length > 0) return
+
+    startShutdownCountdown()
+  } catch (e) {
+    logger.debug('Power.checkCondition', e instanceof Error ? e.message : String(e))
+  }
+}
+
 onMounted(async () => {
   // Platform is initialised by usePlatform() singleton — no per-component call needed.
 
@@ -536,6 +630,11 @@ onMounted(async () => {
 
   startStatListener()
 
+  // ── Auto-shutdown event from Rust monitor (lightweight mode fallback) ──
+  unlistenPowerCountdown = await listen('power:countdown', () => {
+    startShutdownCountdown()
+  })
+
   // ── App-level task lifecycle service ─────────────────────────────
   // Polls aria2 for active + stopped tasks independently of route/tab
   // state, ensuring completion/error/BT-seeding detection works even
@@ -560,7 +659,6 @@ onMounted(async () => {
       if (isMetadataTask(task)) return
       const record = buildHistoryRecord(task)
       historyStore.addRecord(record).catch((e) => logger.debug('Lifecycle.historyRecord.error', e))
-      if (preferenceStore.config?.taskNotification === false) return
       const i18nKey = task.errorCode ? ARIA2_ERROR_CODES[task.errorCode] : undefined
       const taskName = getTaskDisplayName(task, { defaultName: 'Unknown' })
       const errorText = i18nKey ? t(i18nKey) : task.errorMessage || t('task.error-unknown')
@@ -569,7 +667,8 @@ onMounted(async () => {
         messageSuccess: message.success,
         messageError: message.error,
         t,
-        taskNotification: true,
+        taskNotification: preferenceStore.config?.taskNotification !== false,
+        notifyOnComplete: preferenceStore.config?.notifyOnComplete !== false,
       })
     },
     onTaskComplete: async (task) => {
@@ -586,11 +685,18 @@ onMounted(async () => {
         messageError: message.error,
         t,
         taskNotification: preferenceStore.config?.taskNotification !== false,
+        notifyOnComplete: preferenceStore.config?.notifyOnComplete !== false,
         onOpenFile: openFileFromNotification,
         onShowInFolder: showInFolderFromNotification,
       })
 
       // ── Auto-archive: move file to category directory if applicable ──
+      logger.debug(
+        'AutoArchive.input',
+        `gid=${task.gid} enabled=${preferenceStore.config.fileCategoryEnabled} ` +
+          `categories=${preferenceStore.config.fileCategories?.length ?? 0} ` +
+          `baseDir=${preferenceStore.config.dir}`,
+      )
       const archiveAction = resolveArchiveAction(
         task,
         preferenceStore.config.fileCategoryEnabled,
@@ -605,10 +711,20 @@ onMounted(async () => {
             targetDir: archiveAction.targetDir,
           })
           logger.info('AutoArchive.moved', `${archiveAction.source} → ${newPath}`)
+
+          // Persist the new path so all consumers resolve to the archived location.
+          // Runtime Map — effective immediately for this session.
+          setArchivedPath(task.gid, newPath)
+          // History DB — effective after app restart (meta.files path update).
+          updateHistoryFilePath(historyStore, task.gid, archiveAction.source, newPath).catch((e) =>
+            logger.debug('AutoArchive.historyUpdate', e),
+          )
         } catch (e) {
           // Archive failure is non-critical — file remains at download location
           logger.warn('AutoArchive.failed', e instanceof Error ? e.message : String(e))
         }
+      } else {
+        logger.debug('AutoArchive.result', `gid=${task.gid} action=none`)
       }
 
       // Clean up .aria2 control file for BT tasks that auto-completed seeding
@@ -624,6 +740,9 @@ onMounted(async () => {
           )
         }
       }
+
+      // ── Auto-shutdown: check after task completion ──
+      checkShutdownCondition()
     },
     onBtComplete: async (task) => {
       // Persist immediately — download is complete, seeding is just uploading.
@@ -643,9 +762,15 @@ onMounted(async () => {
         messageError: message.error,
         t,
         taskNotification: preferenceStore.config?.taskNotification !== false,
+        notifyOnComplete: preferenceStore.config?.notifyOnComplete !== false,
         onOpenFile: openFileFromNotification,
         onShowInFolder: showInFolderFromNotification,
       })
+
+      // ── Auto-shutdown: check after BT download completion ──
+      // Must be BEFORE shouldDeleteTorrent early return to avoid being skipped.
+      checkShutdownCondition()
+
       if (!shouldDeleteTorrent(preferenceStore.config)) return
       const sourcePath = task.infoHash ? taskStore.consumeTorrentSource(task.infoHash) : undefined
       if (sourcePath) {
@@ -661,6 +786,14 @@ onMounted(async () => {
     },
   })
   lifecycleService.start(() => appStore.interval)
+
+  // ── Window-focus file-existence recheck ─────────────────────────────
+  // When the user switches back from Finder / Explorer after deleting a
+  // file, the focus event bumps recheckTrigger so visible TaskItems
+  // re-run check_path_exists.  Zero polling overhead.
+  unlistenFocusRecheck = await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+    if (focused) requestFileRecheck()
+  })
 
   // ── Magnet metadata monitoring (app-level) ────────────────────────
   // Watches pendingMagnetGids in app store and starts polling when
@@ -779,6 +912,7 @@ onMounted(async () => {
 onUnmounted(() => {
   stopStatListener()
   lifecycleService?.stop()
+  if (unlistenFocusRecheck) unlistenFocusRecheck()
   if (magnetPollTimer) {
     clearTimeout(magnetPollTimer)
     magnetPollTimer = null
@@ -791,6 +925,8 @@ onUnmounted(() => {
   if (unlistenTrayMenu) unlistenTrayMenu()
   if (unlistenResize) unlistenResize()
   if (unlistenExitDialog) unlistenExitDialog()
+  if (unlistenPowerCountdown) unlistenPowerCountdown()
+  dismissCountdown()
   cancelPendingResize()
 })
 </script>
@@ -844,12 +980,11 @@ onUnmounted(() => {
     <!-- Close action dialog: minimize-to-tray / quit / cancel -->
     <NModal
       :show="showExitDialog"
-      preset="card"
+      preset="dialog"
+      type="warning"
       :title="t('app.close-action-title')"
-      :bordered="false"
       :closable="true"
       :mask-closable="true"
-      size="small"
       style="width: 480px"
       transform-origin="center"
       @after-leave="onExitDialogAfterLeave"
@@ -859,30 +994,46 @@ onUnmounted(() => {
         }
       "
     >
-      <div class="exit-dialog-body">
-        <NIcon :size="20" color="var(--color-primary)" style="flex-shrink: 0">
-          <WarningOutline />
-        </NIcon>
-        <span>{{ t('app.close-action-message') }}</span>
-      </div>
+      <span>{{ t('app.close-action-message') }}</span>
       <div class="remember-choice">
         <NCheckbox v-model:checked="rememberChoice">
           {{ t('app.remember-close-choice') }}
         </NCheckbox>
       </div>
-      <template #footer>
-        <NSpace justify="end">
-          <NButton class="exit-btn" @click="handleExitCancel">
-            {{ t('app.cancel') }}
-          </NButton>
-          <NButton class="exit-btn" @click="handleMinimizeToTray">
-            {{ t('app.minimize-to-tray') }}
-          </NButton>
-          <NButton class="exit-btn" type="primary" @click="handleExitConfirm">
-            {{ t('app.quit-app') }}
-          </NButton>
-        </NSpace>
+      <template #action>
+        <NButton class="exit-btn" @click="handleExitCancel">
+          {{ t('app.cancel') }}
+        </NButton>
+        <NButton class="exit-btn" @click="handleMinimizeToTray">
+          {{ t('app.minimize-to-tray') }}
+        </NButton>
+        <NButton class="exit-btn" type="primary" @click="handleExitConfirm">
+          {{ t('app.quit-app') }}
+        </NButton>
       </template>
+    </NModal>
+
+    <NModal
+      :show="showShutdownCountdown"
+      preset="dialog"
+      type="warning"
+      :title="t('app.shutdown-countdown-title')"
+      :closable="false"
+      :mask-closable="false"
+      style="width: 480px"
+      transform-origin="center"
+      :positive-text="t('app.shutdown-skip-once')"
+      :negative-text="t('app.shutdown-disable')"
+      @positive-click="skipShutdownOnce"
+      @negative-click="disableShutdownAndCancel"
+    >
+      <span>{{ t('app.shutdown-countdown-message', { seconds: shutdownCountdown }) }}</span>
+      <NProgress
+        type="line"
+        :percentage="(shutdownCountdown / 60) * 100"
+        :show-indicator="false"
+        style="margin-top: 12px"
+      />
     </NModal>
   </div>
 </template>
@@ -907,15 +1058,7 @@ onUnmounted(() => {
 .window-controls {
   z-index: 100;
 }
-.exit-dialog-body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  font-size: 14px;
-  line-height: 1.6;
-  padding: 8px 0 4px;
-}
+
 .exit-btn {
   min-width: 88px;
   padding: 0 20px;
@@ -924,7 +1067,7 @@ onUnmounted(() => {
   margin-top: 16px;
   margin-bottom: 8px;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   font-size: 13px;
   opacity: 0.85;
 }

@@ -104,7 +104,8 @@ export const UPDATE_CHANNELS = ['stable', 'beta'] as const
 /**
  * Factory default values for every AppConfig field.
  * **This is the single source of truth** for both first-launch initialization
- * and the "Restore Defaults" action. All fallbacks in buildBasicForm() and
+ * and the "Restore Defaults" action. All fallbacks in buildGeneralForm(),
+ * buildDownloadsForm(), buildBtForm(), buildNetworkForm(), and
  * buildAdvancedForm() must reference these values via `?? D.field`.
  *
  * Each value is justified by industry research:
@@ -176,7 +177,7 @@ export const BUILTIN_CATEGORY_TEMPLATES = [
 /** Builds the default FileCategory[] with absolute directory paths derived from `baseDir`.
  *  Called when the user first enables classification or clicks "Restore Defaults". */
 export function buildDefaultCategories(baseDir: string): import('@shared/types').FileCategory[] {
-  const normalizedBase = baseDir.replace(/[\\/]+$/, '')
+  const normalizedBase = baseDir.replace(/\\/g, '/').replace(/\/+$/, '')
   return BUILTIN_CATEGORY_TEMPLATES.map((t) => ({
     label: t.label,
     extensions: [...t.extensions],
@@ -193,11 +194,11 @@ export const MAX_FILE_CATEGORIES = 20
 export const BUILTIN_CATEGORY_LABELS: ReadonlySet<string> = new Set(BUILTIN_CATEGORY_TEMPLATES.map((t) => t.label))
 
 export const DEFAULT_APP_CONFIG = {
-  configVersion: 2,
+  configVersion: 4,
   dbSchemaVersion: 2,
   // ── Appearance ──────────────────────────────────────────────────
   theme: 'auto' as const,
-  colorScheme: 'amber',
+  colorScheme: 'evergreen',
   locale: '',
 
   // ── Download Core (aria2 defaults: concurrent=5, split=5, conn/server=1) ──
@@ -246,6 +247,8 @@ export const DEFAULT_APP_CONFIG = {
   traySpeedometer: false, // opt-in: supported on macOS menu bar + Linux appindicator
   dockBadgeSpeed: true, // macOS Dock badge on by default
   taskNotification: true, // users expect download-complete notifications
+  notifyOnStart: false, // user just clicked submit — OS popup is noisy
+  notifyOnComplete: true, // main value of OS notification: background completion alert
   newTaskShowDownloading: true, // auto-navigate to downloads after adding task
   noConfirmBeforeDeleteTask: false, // require confirmation to prevent accidental deletion
   deleteFilesWhenSkipConfirm: false, // when skip-confirm is on, default to keeping files (safe)
@@ -263,6 +266,8 @@ export const DEFAULT_APP_CONFIG = {
   // ── Network & Security ────────────────────────────────────────
   enableUpnp: true, // old Motrix=true; required for BitTorrent behind NAT
   rpcListenPort: ENGINE_RPC_PORT,
+  extensionApiPort: 16801,
+  extensionApiSecret: '',
   // rpcSecret is intentionally ABSENT from defaults.
   // undefined → main.ts auto-generates on first launch.
   // '' → user intentionally cleared (respected, not regenerated).
@@ -272,8 +277,9 @@ export const DEFAULT_APP_CONFIG = {
   proxy: { enable: false, server: '', bypass: '', scope: ['download', 'update-app', 'update-trackers'] },
   protocols: { magnet: true, thunder: false, motrixnext: true },
   clipboard: { enable: true, http: true, ftp: true, magnet: true, thunder: true, btHash: true },
+  autoSubmitFromExtension: false,
   userAgent:
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
   logLevel: 'debug', // captures full diagnostic output for bug reports out of the box
   cookie: '',
   runMode: '',
@@ -295,9 +301,21 @@ export const DEFAULT_APP_CONFIG = {
   autoDeleteStaleRecords: false,
   clearCompletedOnExit: false,
 
+  // ── Power Management ────────────────────────────────────────────
+  shutdownWhenComplete: false,
+
+  // ── Retry & Timeout (matches aria2.conf defaults) ──────────────
+  maxTries: 0, // 0 = unlimited retries
+  retryWait: 10, // seconds; aria2 waits this long after 503 before retrying
+  connectTimeout: 10, // seconds to establish connection
+  timeout: 10, // seconds for data transfer after connection
+  fileAllocation: 'trunc', // 'none' | 'trunc' | 'prealloc' | 'falloc'
+
   // ── Task Sorting ─────────────────────────────────────────────
   taskSort: DEFAULT_TASK_SORT,
 }
+
+export const FILE_ALLOCATION_OPTIONS = ['none', 'trunc', 'prealloc', 'falloc'] as const
 
 export const MAX_BT_TRACKER_LENGTH = 6144
 

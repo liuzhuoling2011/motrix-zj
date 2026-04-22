@@ -65,33 +65,6 @@ window.addEventListener('unhandledrejection', (e) => {
     }
   }
 
-  async function autoCheckForUpdate() {
-    const config = preferenceStore.config
-    if (config.autoCheckUpdate === false) return
-
-    const lastCheck = Number(config.lastCheckUpdateTime) || 0
-    const intervalMs = (Number(config.autoCheckUpdateInterval) || 24) * 3_600_000
-    if (Date.now() - lastCheck < intervalMs) return
-
-    try {
-      const { invoke } = await import('@tauri-apps/api/core')
-      const channel = config.updateChannel || 'stable'
-      const proxy = config.proxy
-      const proxyServer =
-        proxy?.enable && proxy.server && (proxy.scope || []).includes('update-app') ? proxy.server : null
-      const update = await invoke<{ version: string; body: string | null; date: string | null } | null>(
-        'check_for_update',
-        { channel, proxy: proxyServer },
-      )
-      if (update) {
-        appStore.pendingUpdate = { version: update.version, body: update.body, date: update.date }
-      }
-      preferenceStore.updateAndSave({ lastCheckUpdateTime: Date.now() })
-    } catch (e) {
-      logger.warn('Updater', 'auto check failed: ' + (e as Error).message)
-    }
-  }
-
   async function autoSyncTrackerOnStartup() {
     const config = preferenceStore.config
     if (!config.autoSyncTracker) return
@@ -153,12 +126,12 @@ window.addEventListener('unhandledrejection', (e) => {
         const { downloadDir, homeDir } = await import('@tauri-apps/api/path')
         try {
           defaultDir = await downloadDir()
-        } catch {
-          logger.warn('Engine', 'downloadDir() unavailable, falling back to homeDir')
+        } catch (e) {
+          logger.warn('Engine', `downloadDir() unavailable, falling back to homeDir: ${e}`)
           try {
             defaultDir = (await homeDir()) + '/Downloads'
-          } catch {
-            logger.warn('Engine', 'homeDir() unavailable, dir fallback exhausted')
+          } catch (e) {
+            logger.warn('Engine', `homeDir() unavailable, dir fallback exhausted: ${e}`)
           }
         }
         // Persist the resolved dir so future launches skip the fallback chain
@@ -172,17 +145,24 @@ window.addEventListener('unhandledrejection', (e) => {
       // Seed system.json with the FULL set of default system config values.
       // This ensures CLI args include --split, --max-connection-per-server,
       // --user-agent, etc. even before the user opens the preference page.
-      // On subsequent launches, saved values from Basic/Advanced preferences
-      // already exist in system.json and will be merged (not overwritten).
-      const { buildBasicSystemConfig, buildBasicForm } = await import('@/composables/useBasicPreference')
+      // On subsequent launches, saved values from Downloads/BT/Network/Advanced
+      // preferences already exist in system.json and will be merged (not overwritten).
+      const { buildDownloadsSystemConfig, buildDownloadsForm } = await import('@/composables/useDownloadsPreference')
+      const { buildBtSystemConfig, buildBtForm } = await import('@/composables/useBtPreference')
+      const { buildNetworkSystemConfig, buildNetworkForm } = await import('@/composables/useNetworkPreference')
       const { buildAdvancedSystemConfig, buildAdvancedForm } = await import('@/composables/useAdvancedPreference')
-      const basicSystem = buildBasicSystemConfig(buildBasicForm(config, defaultDir))
+
+      const downloadsSystem = buildDownloadsSystemConfig(buildDownloadsForm(config, defaultDir))
+      const btSystem = buildBtSystemConfig(buildBtForm(config))
+      const networkSystem = buildNetworkSystemConfig(buildNetworkForm(config))
       const { form: advForm } = buildAdvancedForm(config)
       const advancedSystem = buildAdvancedSystemConfig(advForm)
 
       await invoke('save_system_config', {
         config: {
-          ...basicSystem,
+          ...downloadsSystem,
+          ...btSystem,
+          ...networkSystem,
           ...advancedSystem,
           // Override with runtime values — secret may have been auto-generated
           'rpc-secret': secret,
@@ -215,14 +195,20 @@ window.addEventListener('unhandledrejection', (e) => {
   /** Setup deep-link handler to accept URLs/files from OS. */
   async function setupDeepLinks(): Promise<void> {
     try {
-      const { getCurrent, onOpenUrl } = await import('@tauri-apps/plugin-deep-link')
+      const { getCurrent } = await import('@tauri-apps/plugin-deep-link')
       const startUrls = await getCurrent()
       if (startUrls && startUrls.length > 0) {
         appStore.handleDeepLinkUrls(startUrls)
       }
-      await onOpenUrl((urls) => {
-        appStore.handleDeepLinkUrls(urls)
-      })
+      // Runtime deep-link handling is unified in useAppEvents.ts:
+      //
+      //   macOS:         listen('deep-link-open')          ← from Rust on_open_url()
+      //   Windows/Linux: listen('single-instance-triggered') ← from single-instance callback
+      //
+      // Do NOT register onOpenUrl() here — it listens to the same
+      // underlying "deep-link://new-url" event that the Rust-side
+      // on_open_url() callback already forwards, causing
+      // handleDeepLinkUrls() to fire multiple times per URL.
     } catch (e) {
       logger.warn('DeepLink', 'setup failed: ' + (e as Error).message)
     }
@@ -400,7 +386,6 @@ window.addEventListener('unhandledrejection', (e) => {
     }
 
     // ── Phase 4: deferred non-critical tasks ───────────────────────────────
-    autoCheckForUpdate()
     autoSyncTrackerOnStartup()
 
     // Initialize download history database, then schedule stale record cleanup
@@ -452,6 +437,39 @@ window.addEventListener('unhandledrejection', (e) => {
     setTimeout(() => {
       import('@tauri-apps/plugin-fs').then(({ exists }) => exists('/')).catch(() => {})
     }, 3000)
+
+    // ── Lightweight mode: destroy WebView after autostart init ─────────
+    //
+    // When autostart + autoHideWindow + lightweightMode are all enabled,
+    // destroy the WebView to free ~300MB RAM.  This MUST run after all
+    // critical invoke() calls complete (engine start, option sync,
+    // resume-all, history init) because invoke() requires a live WebView.
+    //
+    // Delegates to handle_minimize_to_tray() in Rust which handles:
+    //   - end_cold_start()  → prevents re-hide on window recreation
+    //   - lightweightMode   → window.destroy() vs window.hide()
+    //   - macOS Dock hiding → hideDockOnMinimize (cfg-gated in Rust)
+    //
+    // Cross-platform: macOS (WKWebView), Windows (WebView2), Linux (WebKitGTK)
+    // all release the renderer process on destroy().  ExitRequested handler
+    // in handle_run_event() calls prevent_exit() to keep the process alive.
+    if (config.lightweightMode && config.autoHideWindow) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        const isAutostart = await invoke<boolean>('is_autostart_launch')
+        if (isAutostart) {
+          logger.info('main', 'autostart + lightweight: destroying WebView via minimize_to_tray')
+          await invoke('minimize_to_tray')
+          // WebView destroyed — JS execution stops here.
+          // All background services (stat, monitor, speed scheduler) continue in Rust.
+          return
+        }
+      } catch (e) {
+        // Non-fatal: WebView stays alive (standard autostart-hide behavior).
+        // Graceful degradation — the user just doesn't get the RAM savings.
+        logger.debug('main.lightweightAutostart', e)
+      }
+    }
 
     let lastClipboardText = ''
     getCurrentWindow().onFocusChanged(async ({ payload: focused }) => {

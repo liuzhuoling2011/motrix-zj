@@ -16,12 +16,12 @@
  *   3. Add tests in configMigration.test.ts.
  */
 
-import { PROXY_SCOPE_OPTIONS } from '@shared/constants'
+import { PROXY_SCOPE_OPTIONS, buildDefaultCategories } from '@shared/constants'
 import { logger } from '@shared/logger'
 import type { AppConfig } from '@shared/types'
 
 /** Current schema version. Must equal `migrations.length`. */
-export const CONFIG_VERSION = 2
+export const CONFIG_VERSION = 4
 
 /** Result returned by runMigrations for callers to act on (e.g. toast). */
 export interface MigrationResult {
@@ -66,7 +66,7 @@ const migrations: Migration[] = [
   // ── v1 → v2 ──────────────────────────────────────────────────────
   // Decouple split from maxConnectionPerServer.
   //
-  // Before v2, transformBasicForStore() forced split = maxConnectionPerServer.
+  // Before v2, transformDownloadsForStore() forced split = maxConnectionPerServer.
   // Both values are already persisted in config.json with the same number,
   // so no value migration is needed — we only remove the obsolete
   // engineMaxConnectionPerServer field that served as a sync anchor for
@@ -83,6 +83,86 @@ const migrations: Migration[] = [
       'ConfigMigration',
       'v2: removed engineMaxConnectionPerServer — split and maxConnectionPerServer are now independent',
     )
+  },
+
+  // ── v2 → v3 ──────────────────────────────────────────────────────
+  // Flatten autoSubmitFromExtension from nested object to boolean.
+  //
+  // Before v3, autoSubmitFromExtension was an object with sub-toggles
+  // per download type: { enable, http, magnet, torrent, metalink }.
+  // The torrent/metalink sub-toggles were architecturally broken —
+  // auto-submitting them called addUri() which downloaded the .torrent
+  // file itself rather than its content.  The sub-toggles for HTTP and
+  // magnet added unnecessary UX complexity without practical benefit.
+  //
+  // After v3, autoSubmitFromExtension is a simple boolean derived from
+  // the old master switch (enable).  URI types (HTTP/FTP/magnet) are
+  // auto-submitted when true; torrent/metalink always show the dialog.
+  function migrateV3(config: Partial<AppConfig>): void {
+    const old = (config as Record<string, unknown>).autoSubmitFromExtension
+    if (old && typeof old === 'object' && 'enable' in old) {
+      config.autoSubmitFromExtension = (old as { enable: boolean }).enable
+      logger.info(
+        'ConfigMigration',
+        `v3: flattened autoSubmitFromExtension object to boolean (${config.autoSubmitFromExtension})`,
+      )
+    }
+  },
+
+  // ── v3 → v4 ──────────────────────────────────────────────────────
+  // Fix auto-archive regression on Windows (Issue #229 / #230).
+  //
+  // Two independent issues caused file classification to silently fail:
+  //
+  // 1. Path separator mismatch: On Windows, `config.dir` is stored with
+  //    backslashes (`C:\Users\x\Downloads`) while buildDefaultCategories()
+  //    joins with forward slashes, producing mixed paths like
+  //    `C:\Users\x\Downloads/Archives`.  resolveArchiveAction() then
+  //    compares these mixed-separator strings with strict equality and
+  //    always fails.  Fix: normalize all persisted path values to `/`.
+  //
+  // 2. Empty categories array: Users who enabled `fileCategoryEnabled`
+  //    without visiting the settings page have `fileCategories: []`,
+  //    causing both pre-download classification and post-download
+  //    archiving to silently skip.  Fix: populate defaults from `dir`.
+  //
+  // This migration is idempotent — forward-slash-only paths and
+  // already-populated categories are left untouched.
+  function migrateV4(config: Partial<AppConfig>): void {
+    let changed = false
+
+    // Normalize dir separator (Windows backslash → forward slash)
+    if (config.dir && config.dir.includes('\\')) {
+      config.dir = config.dir.replace(/\\/g, '/')
+      changed = true
+    }
+
+    // Normalize category directory separators
+    if (Array.isArray(config.fileCategories)) {
+      for (const cat of config.fileCategories) {
+        if (cat.directory && cat.directory.includes('\\')) {
+          cat.directory = cat.directory.replace(/\\/g, '/')
+          changed = true
+        }
+      }
+    }
+
+    // Auto-populate empty categories when classification is enabled
+    if (
+      config.fileCategoryEnabled === true &&
+      (!Array.isArray(config.fileCategories) || config.fileCategories.length === 0)
+    ) {
+      const baseDir = config.dir || ''
+      if (baseDir) {
+        config.fileCategories = buildDefaultCategories(baseDir)
+        changed = true
+        logger.info('ConfigMigration', `v4: populated default file categories (baseDir=${baseDir})`)
+      }
+    }
+
+    if (changed) {
+      logger.info('ConfigMigration', 'v4: normalized path separators and/or populated file categories')
+    }
   },
 ]
 
