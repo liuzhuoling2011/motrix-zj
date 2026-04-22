@@ -3,7 +3,7 @@ export default {
   'downloads': '下载',
   'bt': 'BitTorrent',
   'network': '网络',
-  'advanced': '进阶设置',
+  'advanced': '高级',
   'save': '保存并应用',
   'save-success-message': '偏好设置已保存',
   'save-fail-message': '偏好设置保存失败',
