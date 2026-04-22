@@ -8,6 +8,7 @@ import { LogoGithub, HeartOutline, DocumentTextOutline, RocketOutline } from '@v
 import { open } from '@tauri-apps/plugin-shell'
 import { getVersion } from '@tauri-apps/api/app'
 import { getVersion as getAria2Version } from '@/api/aria2'
+import { fetchSidecarVersion } from '@shared/utils/sidecarVersion'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { logger } from '@shared/logger'
 
@@ -20,8 +21,38 @@ const appVersion = ref('')
 const aria2Version = ref('')
 const aria2Loading = ref(true)
 const aria2Error = ref(false)
-const year = new Date().getFullYear()
 const animate = ref(false)
+
+interface SidecarEntry {
+  key: 'ytdlp' | 'ffmpeg' | 'ffprobe'
+  label: string
+  loading: boolean
+  error: boolean
+  version: string
+}
+const sidecars = ref<SidecarEntry[]>([
+  { key: 'ytdlp', label: 'yt-dlp', loading: true, error: false, version: '' },
+  { key: 'ffmpeg', label: 'ffmpeg', loading: true, error: false, version: '' },
+  { key: 'ffprobe', label: 'ffprobe', loading: true, error: false, version: '' },
+])
+
+async function loadSidecarVersions() {
+  await Promise.all(
+    sidecars.value.map(async (entry) => {
+      entry.loading = true
+      entry.error = false
+      entry.version = ''
+      try {
+        entry.version = await fetchSidecarVersion(entry.key)
+      } catch (e) {
+        logger.warn('AboutPanel', `${entry.key} version fetch failed: ${e}`)
+        entry.error = true
+      } finally {
+        entry.loading = false
+      }
+    }),
+  )
+}
 
 onMounted(async () => {
   appVersion.value = await getVersion()
@@ -50,6 +81,7 @@ watch(
       } finally {
         aria2Loading.value = false
       }
+      loadSidecarVersions()
     }
   },
 )
@@ -142,17 +174,17 @@ function openUrl(url: string) {
 
       <!-- Logo -->
       <div class="about-logo stagger stagger-1">
-        <img src="@/assets/logo.png" alt="Motrix Next" width="96" height="96" />
+        <img src="@/assets/logo.png" alt="Motrix ZJ" width="96" height="96" />
       </div>
 
       <!-- Title -->
-      <div class="about-title stagger stagger-2">Motrix <span class="accent">Next</span></div>
+      <div class="about-title stagger stagger-2">Motrix <span class="accent">ZJ</span></div>
 
       <!-- Version Badges (stacked, prominent) -->
       <div class="about-versions stagger stagger-2">
         <MTooltip>
           <template #trigger>
-            <button class="version-badge" @click="copyToClipboard(`Motrix Next v${appVersion}`, 'Motrix Next')">
+            <button class="version-badge" @click="copyToClipboard(`Motrix ZJ v${appVersion}`, 'Motrix ZJ')">
               <span class="version-label">{{ t('about.app-version') }}</span>
               <span class="version-value">v{{ appVersion }}</span>
               <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -195,6 +227,37 @@ function openUrl(url: string) {
             {{ t('about.click-to-copy') }}
           </MTooltip>
         </Transition>
+
+        <!-- Sidecar versions: yt-dlp / ffmpeg / ffprobe -->
+        <template v-for="entry in sidecars" :key="entry.key">
+          <div v-if="entry.loading" class="version-badge version-badge--loading">
+            <span class="version-label">{{ entry.label }}</span>
+            <span class="version-loading">
+              <svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" opacity="0.2" />
+                <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+              </svg>
+              {{ t('about.loading') }}
+            </span>
+          </div>
+          <div v-else-if="entry.error" class="version-badge version-badge--loading">
+            <span class="version-label">{{ entry.label }}</span>
+            <span class="version-error">{{ t('about.unavailable') }}</span>
+          </div>
+          <MTooltip v-else>
+            <template #trigger>
+              <button class="version-badge" @click="copyToClipboard(`${entry.label} v${entry.version}`, entry.label)">
+                <span class="version-label">{{ entry.label }}</span>
+                <span class="version-value">v{{ entry.version }}</span>
+                <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
+                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
+                </svg>
+              </button>
+            </template>
+            {{ t('about.click-to-copy') }}
+          </MTooltip>
+        </template>
       </div>
 
       <!-- Description -->
@@ -231,12 +294,12 @@ function openUrl(url: string) {
       <!-- Footer -->
       <div class="about-footer stagger stagger-6">
         <span>
-          Developed by
-          <a class="about-link" @click="openUrl('https://github.com/AnInsomniacy')">AnInsomniacy</a>
-          · Inspired by
-          <a class="about-link" @click="openUrl('https://github.com/agalwood/Motrix')">Motrix</a>
+          Developed by Zoran • Inspired by
+          <a class="about-link" @click="openUrl('https://github.com/AnInsomniacy/motrix-next')">Motrix Next</a>
+          /
+          <a class="about-link" @click="openUrl('https://github.com/yt-dlp/yt-dlp')">YT-DLP</a>
         </span>
-        <span>&copy; {{ year }} AnInsomniacy</span>
+        <span>&copy; 2026 ZoranJojo</span>
       </div>
     </div>
   </NModal>

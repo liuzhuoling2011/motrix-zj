@@ -128,7 +128,7 @@ onBeforeUnmount(() => {
       <!-- Permanent brand watermark — positioned outside the scroll container
            so it stays fixed while task cards scroll underneath -->
       <div class="watermark" @dragstart.prevent @selectstart.prevent>
-        <img :src="watermarkSrc" alt="Motrix Next" class="watermark-brand" draggable="false" />
+        <img :src="watermarkSrc" alt="Motrix ZJ" class="watermark-brand" draggable="false" />
       </div>
       <div class="panel-content">
         <TaskList

@@ -18,6 +18,7 @@ import {
   transformGeneralForStore,
 } from '@/composables/useGeneralPreference'
 import { COLOR_SCHEMES, ENGINE_RPC_PORT } from '@shared/constants'
+import { fetchSidecarVersion, type SidecarName } from '@shared/utils/sidecarVersion'
 import { useAppMessage } from '@/composables/useAppMessage'
 import {
   NForm,
@@ -52,6 +53,12 @@ const sysOsVersion = ref('')
 const sysAppVersion = ref('')
 const sysAria2Version = ref('')
 const archLabelDisplay = computed(() => getArchLabel(sysArch.value))
+
+const sidecarRows = ref<Array<{ label: string; name: SidecarName; version: string }>>([
+  { label: 'yt-dlp', name: 'ytdlp', version: '' },
+  { label: 'ffmpeg', name: 'ffmpeg', version: '' },
+  { label: 'ffprobe', name: 'ffprobe', version: '' },
+])
 
 async function copyVersionToClipboard(text: string, label: string) {
   try {
@@ -267,6 +274,15 @@ onMounted(async () => {
   } catch (e) {
     logger.debug('General.aria2Version', e)
   }
+  await Promise.all(
+    sidecarRows.value.map(async (row) => {
+      try {
+        row.version = await fetchSidecarVersion(row.name)
+      } catch (e) {
+        logger.debug(`General.${row.name}Version`, e)
+      }
+    }),
+  )
   resetSnapshot()
 })
 </script>
@@ -287,7 +303,7 @@ onMounted(async () => {
           <template #trigger>
             <button
               class="sysinfo-ver-badge"
-              @click="copyVersionToClipboard(`Motrix Next v${sysAppVersion}`, 'Motrix Next')"
+              @click="copyVersionToClipboard(`Motrix ZJ v${sysAppVersion}`, 'Motrix ZJ')"
             >
               <span class="sysinfo-ver-value">v{{ sysAppVersion || '\u2014' }}</span>
               <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -304,6 +320,26 @@ onMounted(async () => {
           <template #trigger>
             <button class="sysinfo-ver-badge" @click="copyVersionToClipboard(`aria2 v${sysAria2Version}`, 'aria2')">
               <span class="sysinfo-ver-value">v{{ sysAria2Version }}</span>
+              <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
+              </svg>
+            </button>
+          </template>
+          {{ t('about.click-to-copy') }}
+        </MTooltip>
+        <div v-else class="sysinfo-ver-badge sysinfo-ver-badge--muted">
+          <span class="sysinfo-ver-muted">{{ t('about.unavailable') }}</span>
+        </div>
+      </NFormItem>
+      <NFormItem v-for="row in sidecarRows" :key="row.name" :label="row.label">
+        <MTooltip v-if="row.version">
+          <template #trigger>
+            <button
+              class="sysinfo-ver-badge"
+              @click="copyVersionToClipboard(`${row.label} v${row.version}`, row.label)"
+            >
+              <span class="sysinfo-ver-value">v{{ row.version }}</span>
               <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
                 <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
