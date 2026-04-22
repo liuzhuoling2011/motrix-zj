@@ -3,7 +3,7 @@
  *
  * Verifies that:
  * 1. macStyleControls is removed from all shared types and config structures
- * 2. BasicForm no longer includes macStyleControls
+ * 2. GeneralForm no longer includes macStyleControls
  * 3. configKeys no longer contains 'mac-style-controls'
  * 4. DEFAULT_APP_CONFIG no longer contains macStyleControls
  *
@@ -31,9 +31,9 @@ describe('configKeys: mac-style-controls removal', () => {
   })
 })
 
-// ── macStyleControls removal from BasicForm ─────────────────────────
+// ── macStyleControls removal from GeneralForm ───────────────────────
 
-describe('BasicForm: macStyleControls removal', () => {
+describe('GeneralForm: macStyleControls removal', () => {
   it('buildGeneralForm output does not include macStyleControls', () => {
     const form = buildGeneralForm({} as AppConfig)
     expect(form).not.toHaveProperty('macStyleControls')
