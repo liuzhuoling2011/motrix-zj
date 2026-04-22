@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "web-browser",
+  "description": "Capability for the in-app browser window and its child webviews",
+  "windows": ["web-browser"],
+  "webviews": ["web-browser-toolbar", "web-browser-content"],
+  "permissions": [
+    "core:default",
+    "core:webview:allow-webview-close",
+    "core:event:default",
+    "core:event:allow-emit",
+    "core:event:allow-listen"
+  ]
+}
