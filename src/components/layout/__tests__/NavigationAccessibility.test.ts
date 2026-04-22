@@ -64,7 +64,8 @@ describe('keyboard-accessible navigation', () => {
     const wrapper = mount(AsideBar)
     const buttons = wrapper.findAll('button')
 
-    expect(buttons).toHaveLength(4)
+    // 5 buttons: task-list, add-task, web-browser, about, preferences
+    expect(buttons).toHaveLength(5)
 
     await buttons[0].trigger('click')
     expect(pushMock).toHaveBeenCalledWith({ path: '/task/all' })
