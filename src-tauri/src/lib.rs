@@ -904,6 +904,7 @@ pub fn run() {
             commands::ytdlp_download_direct,
             commands::ytdlp_cancel_download,
             commands::get_sidecar_version,
+            commands::open_web_browser,
         ])
         // ── Window event interception ─────────────────────────────────
         //
