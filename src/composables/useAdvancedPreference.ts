@@ -54,6 +54,21 @@ export interface AdvancedForm {
   userAgent: string
   logLevel: string
   hardwareRendering: boolean
+  // Clipboard detection (migrated from Basic.vue)
+  clipboardEnable: boolean
+  clipboardHttp: boolean
+  clipboardFtp: boolean
+  clipboardMagnet: boolean
+  clipboardThunder: boolean
+  clipboardBtHash: boolean
+  // Protocol handlers (migrated from Basic.vue)
+  protocolMagnet: boolean
+  protocolThunder: boolean
+  protocolMotrixnext: boolean
+  // Timeout & disk (shared with Network tab but kept for backward compat)
+  connectTimeout: number
+  timeout: number
+  fileAllocation: string
 }
 
 // ── Pure Functions ──────────────────────────────────────────────────
@@ -114,6 +129,21 @@ export function buildAdvancedForm(config: AppConfig): {
       userAgent: config.userAgent ?? D.userAgent,
       logLevel: config.logLevel ?? D.logLevel,
       hardwareRendering: config.hardwareRendering ?? D.hardwareRendering,
+      // Clipboard detection
+      clipboardEnable: config.clipboard?.enable ?? D.clipboard.enable,
+      clipboardHttp: config.clipboard?.http ?? D.clipboard.http,
+      clipboardFtp: config.clipboard?.ftp ?? D.clipboard.ftp,
+      clipboardMagnet: config.clipboard?.magnet ?? D.clipboard.magnet,
+      clipboardThunder: config.clipboard?.thunder ?? D.clipboard.thunder,
+      clipboardBtHash: config.clipboard?.btHash ?? D.clipboard.btHash,
+      // Protocol handlers
+      protocolMagnet: config.protocols?.magnet ?? D.protocols.magnet,
+      protocolThunder: config.protocols?.thunder ?? D.protocols.thunder,
+      protocolMotrixnext: config.protocols?.motrixnext ?? D.protocols.motrixnext,
+      // Timeout & disk
+      connectTimeout: config.connectTimeout ?? D.connectTimeout,
+      timeout: config.timeout ?? D.timeout,
+      fileAllocation: config.fileAllocation ?? D.fileAllocation,
     },
     generatedSecret,
     generatedApiSecret,
@@ -144,12 +174,38 @@ export function buildAdvancedSystemConfig(f: AdvancedForm): Record<string, strin
 
 /**
  * Transforms the advanced form for store persistence.
- * Normalizes tracker format and port types.
+ * Collapses flat clipboard/protocol fields into nested objects and
+ * normalizes tracker format.
  */
 export function transformAdvancedForStore(f: AdvancedForm): Record<string, unknown> {
+  const {
+    clipboardEnable,
+    clipboardHttp,
+    clipboardFtp,
+    clipboardMagnet,
+    clipboardThunder,
+    clipboardBtHash,
+    protocolMagnet,
+    protocolThunder,
+    protocolMotrixnext,
+    ...rest
+  } = f
   return {
-    ...f,
+    ...rest,
     btTracker: convertLineToComma(f.btTracker),
+    clipboard: {
+      enable: clipboardEnable,
+      http: clipboardHttp,
+      ftp: clipboardFtp,
+      magnet: clipboardMagnet,
+      thunder: clipboardThunder,
+      btHash: clipboardBtHash,
+    },
+    protocols: {
+      magnet: protocolMagnet,
+      thunder: protocolThunder,
+      motrixnext: protocolMotrixnext,
+    },
   }
 }
 

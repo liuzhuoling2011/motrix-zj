@@ -247,7 +247,7 @@ watch(
       negativeText: t('app.dismiss'),
       onPositiveClick: () => {
         if (!route.path.startsWith('/preference')) {
-          router.push('/preference/basic')
+          router.push('/preference/general')
         }
       },
     })

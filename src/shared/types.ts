@@ -272,6 +272,17 @@ export interface AppConfig {
   clearCompletedOnExit: boolean
   /** When true, the system shuts down after all downloads complete. */
   shutdownWhenComplete: boolean
+  /** Maximum number of retries per download (0 = unlimited). Maps to aria2 --max-tries. */
+  maxTries: number
+  /** Seconds to wait between retries after HTTP 503 or similar errors. Maps to aria2 --retry-wait. */
+  retryWait: number
+  /** Seconds to wait when establishing a connection. Maps to aria2 --connect-timeout. */
+  connectTimeout: number
+  /** Seconds to wait for data transfer after connection is established. Maps to aria2 --timeout. */
+  timeout: number
+  /** Disk space pre-allocation method. Maps to aria2 --file-allocation.
+   *  Values: 'none' | 'trunc' | 'prealloc' | 'falloc' */
+  fileAllocation: string
   /** Per-tab sort configuration (field + direction), persisted independently per tab. */
   taskSort: import('@/composables/useTaskSort').TaskSortConfig
   [key: string]: unknown

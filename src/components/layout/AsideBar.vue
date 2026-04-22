@@ -111,7 +111,7 @@ function showAddTask() {
                 type="button"
                 class="menu-button non-draggable"
                 :aria-label="t('app.preferences')"
-                @click="nav('/preference/basic')"
+                @click="nav('/preference/general')"
               >
                 <NIcon :size="20"><SettingsOutline /></NIcon>
               </button>

@@ -63,15 +63,8 @@ export interface BasicForm {
   clearCompletedOnExit: boolean
   fileCategoryEnabled: boolean
   fileCategories: FileCategory[]
-  clipboardEnable: boolean
-  clipboardHttp: boolean
-  clipboardFtp: boolean
-  clipboardMagnet: boolean
-  clipboardThunder: boolean
-  clipboardBtHash: boolean
-  protocolMagnet: boolean
-  protocolThunder: boolean
-  protocolMotrixnext: boolean
+  maxTries: number
+  retryWait: number
   shutdownWhenComplete: boolean
 }
 
@@ -161,15 +154,8 @@ export function buildBasicForm(config: AppConfig, defaultDir: string = ''): Basi
       config.fileCategories && config.fileCategories.length > 0
         ? hydrateCategories(config.fileCategories, config.dir || defaultDir)
         : buildDefaultCategories(config.dir || defaultDir),
-    clipboardEnable: config.clipboard?.enable ?? D.clipboard.enable,
-    clipboardHttp: config.clipboard?.http ?? D.clipboard.http,
-    clipboardFtp: config.clipboard?.ftp ?? D.clipboard.ftp,
-    clipboardMagnet: config.clipboard?.magnet ?? D.clipboard.magnet,
-    clipboardThunder: config.clipboard?.thunder ?? D.clipboard.thunder,
-    clipboardBtHash: config.clipboard?.btHash ?? D.clipboard.btHash,
-    protocolMagnet: config.protocols?.magnet ?? D.protocols.magnet,
-    protocolThunder: config.protocols?.thunder ?? D.protocols.thunder,
-    protocolMotrixnext: config.protocols?.motrixnext ?? D.protocols.motrixnext,
+    maxTries: config.maxTries ?? D.maxTries,
+    retryWait: config.retryWait ?? D.retryWait,
     shutdownWhenComplete: config.shutdownWhenComplete ?? D.shutdownWhenComplete,
   }
 }
@@ -199,6 +185,8 @@ export function buildBasicSystemConfig(f: BasicForm): Record<string, string> {
     'pause-metadata': String(!autoContent),
     continue: String(f.continue !== false),
     'remote-time': String(!!f.remoteTime),
+    'max-tries': String(f.maxTries),
+    'retry-wait': String(f.retryWait),
   }
 }
 
@@ -229,29 +217,5 @@ export function transformBasicForStore(f: BasicForm): Partial<AppConfig> {
     data.followMetalink = false
     data.pauseMetadata = true
   }
-  // Collapse flattened clipboard fields back into nested ClipboardConfig object
-  data.clipboard = {
-    enable: f.clipboardEnable,
-    http: f.clipboardHttp,
-    ftp: f.clipboardFtp,
-    magnet: f.clipboardMagnet,
-    thunder: f.clipboardThunder,
-    btHash: f.clipboardBtHash,
-  }
-  delete data.clipboardEnable
-  delete data.clipboardHttp
-  delete data.clipboardFtp
-  delete data.clipboardMagnet
-  delete data.clipboardThunder
-  delete data.clipboardBtHash
-  // Collapse flattened protocol fields back into nested ProtocolsConfig object
-  data.protocols = {
-    magnet: f.protocolMagnet,
-    thunder: f.protocolThunder,
-    motrixnext: f.protocolMotrixnext,
-  }
-  delete data.protocolMagnet
-  delete data.protocolThunder
-  delete data.protocolMotrixnext
   return data
 }

@@ -278,7 +278,7 @@ export const DEFAULT_APP_CONFIG = {
   clipboard: { enable: true, http: true, ftp: true, magnet: true, thunder: true, btHash: true },
   autoSubmitFromExtension: false,
   userAgent:
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
   logLevel: 'debug', // captures full diagnostic output for bug reports out of the box
   cookie: '',
   runMode: '',
@@ -303,9 +303,18 @@ export const DEFAULT_APP_CONFIG = {
   // ── Power Management ────────────────────────────────────────────
   shutdownWhenComplete: false,
 
+  // ── Retry & Timeout (matches aria2.conf defaults) ──────────────
+  maxTries: 0, // 0 = unlimited retries
+  retryWait: 10, // seconds; aria2 waits this long after 503 before retrying
+  connectTimeout: 10, // seconds to establish connection
+  timeout: 10, // seconds for data transfer after connection
+  fileAllocation: 'trunc', // 'none' | 'trunc' | 'prealloc' | 'falloc'
+
   // ── Task Sorting ─────────────────────────────────────────────
   taskSort: DEFAULT_TASK_SORT,
 }
+
+export const FILE_ALLOCATION_OPTIONS = ['none', 'trunc', 'prealloc', 'falloc'] as const
 
 export const MAX_BT_TRACKER_LENGTH = 6144
 

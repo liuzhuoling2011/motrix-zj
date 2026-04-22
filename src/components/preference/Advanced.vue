@@ -1,9 +1,7 @@
 <script setup lang="ts">
-/** @fileoverview Advanced preference form: proxy, tracker, RPC, port, and user-agent settings. */
-import { ref, computed, nextTick, onMounted, h } from 'vue'
-import type { VNodeChild } from 'vue'
+/** @fileoverview Advanced preference tab: RPC, extension, clipboard, protocols, engine, log, history, diagnostics. */
+import { ref, nextTick, onMounted, h } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
 import { usePlatform } from '@/composables/usePlatform'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
@@ -15,22 +13,15 @@ import { useAdvancedActions } from '@/composables/useAdvancedActions'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { useIpc } from '@/composables/useIpc'
 import { appDataDir, appLogDir, join } from '@tauri-apps/api/path'
-import { LOG_LEVELS, PROXY_SCOPE_OPTIONS } from '@shared/constants'
-import { convertTrackerDataToLine } from '@shared/utils/tracker'
-import { SYNC_MIN_DURATION } from '@shared/timing'
+import { LOG_LEVELS } from '@shared/constants'
 import {
   generateSecret,
   buildAdvancedForm,
   buildAdvancedSystemConfig,
   transformAdvancedForStore,
   validateAdvancedForm,
-  isValidTrackerSourceUrl,
   randomRpcPort,
-  randomBtPort,
-  randomDhtPort,
 } from '@/composables/useAdvancedPreference'
-import userAgentMap from '@shared/ua'
-import { hasUnsafeHeaderChars, sanitizeHeaderValue } from '@shared/utils/headerSanitize'
 import {
   NForm,
   NFormItem,
@@ -40,30 +31,19 @@ import {
   NSwitch,
   NSelect,
   NButton,
-  NButtonGroup,
   NSpace,
   NDivider,
   NIcon,
   NModal,
   NDataTable,
   NEmpty,
+  NCollapseTransition,
   useDialog,
 } from 'naive-ui'
 import { useAppMessage } from '@/composables/useAppMessage'
-import {
-  SyncOutline,
-  DiceOutline,
-  DownloadOutline,
-  FolderOpenOutline,
-  TrashOutline,
-  CopyOutline,
-  AddCircleOutline,
-  CloseCircleOutline,
-  SearchOutline,
-} from '@vicons/ionicons5'
+import { DiceOutline, DownloadOutline, FolderOpenOutline, TrashOutline, CopyOutline } from '@vicons/ionicons5'
 import { logger } from '@shared/logger'
 import PreferenceActionBar from './PreferenceActionBar.vue'
-import { trackerSourceOptions } from '@shared/constants/trackerSources'
 
 const { restartEngine } = useEngineRestart()
 
@@ -74,112 +54,12 @@ const historyStore = useHistoryStore()
 const message = useAppMessage()
 const dialog = useDialog()
 
-const { isLinux } = usePlatform()
+const { isLinux, isMac } = usePlatform()
 
-import { DEFAULT_TRACKER_SOURCE, ENGINE_RPC_PORT } from '@shared/constants'
+import { ENGINE_RPC_PORT } from '@shared/constants'
 import { diffConfig, checkIsNeedRestart } from '@shared/utils/config'
 
-const proxyScopeOptions = PROXY_SCOPE_OPTIONS.map((s: string) => ({
-  label: t(`preferences.proxy-scope-${s}`),
-  value: s,
-}))
-
 const logLevelOptions = LOG_LEVELS.map((l: string) => ({ label: l, value: l }))
-
-const syncingTracker = ref(false)
-const customTrackerInput = ref('')
-
-const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect({
-  onSuccess(info) {
-    form.value.proxy.server = info.server
-    if (info.bypass) form.value.proxy.bypass = info.bypass
-    if (!form.value.proxy.enable) form.value.proxy.enable = true
-    message.success(t('preferences.proxy-detected-success'))
-  },
-  onSocks() {
-    message.warning(t('preferences.proxy-system-socks-rejected'))
-  },
-  onNotFound() {
-    message.info(t('preferences.proxy-system-not-detected'))
-  },
-  onError() {
-    message.error(t('preferences.proxy-system-detect-failed'))
-  },
-})
-
-/** All known preset tracker source values for fast O(1) classification. */
-const presetTrackerValues = new Set(
-  trackerSourceOptions.flatMap((group) => ('children' in group ? group.children.map((c) => c.value) : [])),
-)
-
-/**
- * Writable computed: preset portion of form.trackerSource.
- * Reading returns only values that exist in trackerSourceOptions.
- * Writing merges the new preset values with existing custom values.
- */
-const presetSources = computed({
-  get: () => form.value.trackerSource.filter((v) => presetTrackerValues.has(v)),
-  set: (vals: string[]) => {
-    const custom = form.value.trackerSource.filter((v) => !presetTrackerValues.has(v))
-    form.value.trackerSource = [...vals, ...custom]
-  },
-})
-
-/** NSelect options derived from persisted custom URL registry. */
-const customSelectOptions = computed(() =>
-  form.value.customTrackerUrls.map((url: string) => ({ label: url, value: url })),
-)
-
-/**
- * Writable computed: active custom portion of form.trackerSource.
- * Reading returns only values NOT in trackerSourceOptions.
- * Writing merges the new custom values with existing preset values.
- */
-const customSources = computed({
-  get: () => form.value.trackerSource.filter((v) => !presetTrackerValues.has(v)),
-  set: (vals: string[]) => {
-    const preset = form.value.trackerSource.filter((v) => presetTrackerValues.has(v))
-    form.value.trackerSource = [...preset, ...vals]
-  },
-})
-
-/** Permanently removes a custom URL from both the registry and active selection. */
-function onDeleteCustomTracker(url: string, e: Event) {
-  e.stopPropagation() // prevent NSelect from toggling selection
-  form.value.customTrackerUrls = form.value.customTrackerUrls.filter((v: string) => v !== url)
-  customSources.value = customSources.value.filter((v) => v !== url)
-}
-
-/**
- * NSelect render-option: wraps each option with a delete button on the right.
- * Clicking the option text toggles selection; clicking the delete icon permanently removes.
- */
-function renderCustomOption(info: {
-  node: VNodeChild
-  option: { value?: string | number }
-  selected: boolean
-}): VNodeChild {
-  const url = String(info.option.value ?? '')
-  return h('div', { style: 'display:flex;align-items:center;position:relative;padding-right:32px' }, [
-    h('div', { style: 'flex:1;min-width:0' }, [info.node]),
-    h(
-      'span',
-      {
-        style:
-          'position:absolute;right:8px;display:flex;align-items:center;cursor:pointer;color:var(--error-color, #e88080)',
-        onClick: (e: Event) => onDeleteCustomTracker(url, e),
-      },
-      [h(NIcon, { size: 18 }, { default: () => h(CloseCircleOutline) })],
-    ),
-  ])
-}
-
-/** Dynamic placeholder: distinguishes empty registry from 'has URLs but none selected'. */
-const customPlaceholder = computed(() =>
-  form.value.customTrackerUrls.length
-    ? t('preferences.bt-tracker-source-custom-select')
-    : t('preferences.bt-tracker-source-custom-empty'),
-)
 
 const aria2ConfPath = ref('')
 const sessionPath = ref('')
@@ -253,14 +133,46 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
       if (!ok) return false
     }
 
+    // Protocol disable confirmation — single merged dialog.
+    const prev = preferenceStore.config.protocols
+    const disabledLinks: string[] = []
+    if (prev.magnet && !f.protocolMagnet) disabledLinks.push('magnet')
+    if (prev.thunder && !f.protocolThunder) disabledLinks.push('thunder')
+    const disabledExt = prev.motrixnext && !f.protocolMotrixnext
+
+    if (disabledLinks.length > 0 || disabledExt) {
+      const items: ReturnType<typeof h>[] = []
+      for (const p of disabledLinks) {
+        items.push(h('div', `• ${t('preferences.protocol-disable-link-warning', { protocols: `${p}://` })}`))
+      }
+      if (disabledExt) {
+        items.push(h('div', `• ${t('preferences.protocol-disable-ext-warning')}`))
+      }
+      const content =
+        items.length > 1
+          ? () =>
+              h('div', { style: 'display: flex; flex-direction: column; gap: 8px' }, [
+                h('div', t('preferences.protocol-disable-intro')),
+                ...items,
+              ])
+          : () => h('div', items)
+      const ok = await new Promise<boolean>((resolve) => {
+        dialog.warning({
+          title: t('preferences.protocol-disable-title'),
+          content,
+          positiveText: t('preferences.protocol-disable-confirm'),
+          negativeText: t('app.cancel'),
+          onPositiveClick: () => resolve(true),
+          onNegativeClick: () => resolve(false),
+          onClose: () => resolve(false),
+        })
+      })
+      if (!ok) return false
+    }
+
     return true
   },
   afterSave: async (f, prevConfig) => {
-    // Sync UPnP mapping state only after a successful Save.
-    if (f.enableUpnp !== prevConfig.enableUpnp) {
-      syncUpnpState(!!f.enableUpnp, f.listenPort, f.dhtListenPort)
-    }
-
     const changed = diffConfig(prevConfig, f)
 
     // Engine restart — user already confirmed in beforeSave, execute immediately.
@@ -318,22 +230,58 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
         message.error(t('preferences.extension-api-port-failed', { port: newPort }))
       }
     }
+
+    // Protocol handler registration (reconcile-based, migrated from Basic.vue).
+    {
+      const prevProtocols = prevConfig.protocols ?? { magnet: false, thunder: false, motrixnext: true }
+      for (const [protocol, formKey, prev] of [
+        ['magnet', 'protocolMagnet', prevProtocols.magnet],
+        ['thunder', 'protocolThunder', prevProtocols.thunder],
+        ['motrixnext', 'protocolMotrixnext', prevProtocols.motrixnext],
+      ] as const) {
+        const enabled = f[formKey] as boolean
+        try {
+          if (enabled) {
+            const isDefault = await invoke<boolean>('is_default_protocol_client', { protocol })
+            if (!isDefault) {
+              await invoke('set_default_protocol_client', { protocol })
+              message.success(t('preferences.protocol-registered', { protocol }))
+            }
+          } else if (prev) {
+            if (isMac.value) {
+              message.info(t('preferences.protocol-macos-unregister-hint', { protocol }))
+            } else {
+              await invoke('remove_as_default_protocol_client', { protocol })
+              message.success(t('preferences.protocol-unregistered', { protocol }))
+            }
+          }
+        } catch (e) {
+          const reason =
+            e instanceof Error
+              ? e.message
+              : typeof e === 'object' && e !== null
+                ? Object.values(e as Record<string, unknown>).join(': ')
+                : String(e)
+          logger.warn('Advanced.protocol', `Failed to ${enabled ? 'register' : 'unregister'} ${protocol}: ${reason}`)
+          message.error(t('preferences.protocol-failed', { protocol, reason }))
+          ;(f as Record<string, unknown>)[formKey] = prev
+          resetSnapshot()
+          const revertedProtocols = { ...preferenceStore.config.protocols, [protocol]: prev }
+          preferenceStore.updateAndSave({ protocols: revertedProtocols })
+        }
+      }
+    }
   },
 })
 
 function buildForm() {
   const c = preferenceStore.config
   const { form: formData, generatedSecret, generatedApiSecret } = buildAdvancedForm(c)
-  // Side effect: persist auto-generated secrets
   if (generatedSecret) {
     preferenceStore.updateAndSave({ rpcSecret: generatedSecret })
   }
   if (generatedApiSecret) {
     preferenceStore.updateAndSave({ extensionApiSecret: generatedApiSecret })
-  }
-  // Restore trackerSource default that buildAdvancedForm doesn't know about
-  if (!c.trackerSource) {
-    formData.trackerSource = [...DEFAULT_TRACKER_SOURCE]
   }
   return formData
 }
@@ -363,112 +311,6 @@ async function loadPaths() {
   }
 }
 
-async function handleSyncTracker() {
-  if (form.value.trackerSource.length === 0) {
-    message.warning(t('preferences.bt-tracker-select-source'))
-    return
-  }
-  syncingTracker.value = true
-  try {
-    // Minimum visible loading duration prevents animation flash
-    const [result] = await Promise.all([
-      preferenceStore.fetchBtTracker(form.value.trackerSource),
-      new Promise((r) => setTimeout(r, SYNC_MIN_DURATION)),
-    ])
-
-    const text = convertTrackerDataToLine(result.data)
-
-    if (result.failures.length === 0 && text) {
-      // All sources succeeded with data
-      form.value.btTracker = text
-      form.value.lastSyncTrackerTime = Date.now()
-      message.success(t('preferences.bt-tracker-sync-succeed'))
-    } else if (result.data.length > 0 && text) {
-      // Partial success — use available data, warn about failures
-      form.value.btTracker = text
-      form.value.lastSyncTrackerTime = Date.now()
-      showSyncFailureDialog(result.failures, result.data.length, form.value.trackerSource.length)
-    } else {
-      // Total failure — no usable data
-      showSyncFailureDialog(result.failures, 0, form.value.trackerSource.length)
-    }
-  } catch (e) {
-    logger.debug('Advanced.syncTracker', e)
-    message.error(t('preferences.bt-tracker-sync-failed'))
-  } finally {
-    syncingTracker.value = false
-  }
-}
-
-/**
- * Shows a dialog listing which tracker source URLs failed and why.
- * Uses NDialog warning for partial success, error for total failure.
- */
-function showSyncFailureDialog(
-  failures: Array<{ url: string; reason: string }>,
-  successCount: number,
-  totalCount: number,
-) {
-  const isPartial = successCount > 0
-  const dialogType = isPartial ? 'warning' : 'error'
-  const title = isPartial ? t('preferences.bt-tracker-sync-partial-title') : t('preferences.bt-tracker-sync-failed')
-
-  dialog[dialogType]({
-    title,
-    content: () =>
-      h('div', { style: 'max-height:300px;overflow-y:auto' }, [
-        isPartial
-          ? h(
-              'p',
-              { style: 'margin:0 0 8px;color:var(--text-color-secondary, #999)' },
-              `${successCount}/${totalCount} ${t('preferences.bt-tracker-sync-sources-ok')}`,
-            )
-          : null,
-        h('p', { style: 'margin:0 0 8px;font-weight:500' }, t('preferences.bt-tracker-sync-failed-sources')),
-        ...failures.map((f) =>
-          h(
-            'div',
-            {
-              style:
-                'margin:6px 0;padding:6px 8px;border-radius:4px;background:var(--error-color-hover, rgba(232,128,128,0.08))',
-            },
-            [
-              h('div', { style: 'font-size:12px;word-break:break-all;font-weight:500' }, f.url),
-              h('div', { style: 'font-size:11px;color:var(--error-color, #e88080);margin-top:2px' }, f.reason),
-            ],
-          ),
-        ),
-      ]),
-    positiveText: 'OK',
-  })
-}
-
-/**
- * Adds a custom tracker source URL after validation.
- * Called when user clicks the Add button or presses Enter in the custom URL input.
- */
-function onAddCustomTracker() {
-  const url = customTrackerInput.value.trim()
-  if (!url) return
-
-  if (!isValidTrackerSourceUrl(url)) {
-    message.warning(t('preferences.bt-tracker-source-invalid-url'))
-    return
-  }
-
-  // Add to registry if not already known
-  if (!form.value.customTrackerUrls.includes(url)) {
-    form.value.customTrackerUrls = [...form.value.customTrackerUrls, url]
-  }
-
-  // Add to active selection if not already selected
-  if (!form.value.trackerSource.includes(url)) {
-    form.value.trackerSource = [...form.value.trackerSource, url]
-  }
-
-  customTrackerInput.value = ''
-}
-
 function onRpcPortDice() {
   form.value.rpcListenPort = randomRpcPort()
 }
@@ -489,41 +331,6 @@ async function copyToClipboard(text: string, label: string) {
   } catch (e) {
     logger.debug('Advanced.clipboard', `writeText failed: ${e}`)
   }
-}
-
-function onBtPortDice() {
-  form.value.listenPort = randomBtPort()
-}
-
-function onDhtPortDice() {
-  form.value.dhtListenPort = randomDhtPort()
-}
-
-// ─── UPnP Save-time Sync ─────────────────────────────────────────────
-
-/** Sync UPnP port-mapping state after preferences are saved. */
-async function syncUpnpState(enabled: boolean, btPort: number, dhtPort: number) {
-  try {
-    if (enabled) {
-      await invoke('start_upnp_mapping', { btPort, dhtPort })
-    } else {
-      await invoke('stop_upnp_mapping')
-    }
-  } catch (e) {
-    logger.warn('UPnP', `sync failed: ${e}`)
-    message.warning(t('preferences.upnp-mapping-failed'))
-  }
-}
-
-function changeUA(type: string) {
-  const ua = userAgentMap[type]
-  if (ua) form.value.userAgent = ua
-}
-
-const uaHasIssue = computed(() => !!form.value.userAgent && hasUnsafeHeaderChars(form.value.userAgent))
-
-function cleanUserAgent() {
-  form.value.userAgent = sanitizeHeaderValue(form.value.userAgent)
 }
 
 // ─── Advanced Actions (delegated to composable) ─────────────────────
@@ -560,126 +367,30 @@ function handleManualRestart() {
   handleManualRestartAction(form.value.rpcListenPort as number, form.value.rpcSecret as string)
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadForm()
   resetSnapshot()
   loadPaths()
+
+  // Read actual OS registration state for protocol toggles (all platforms).
+  // Uses custom Rust commands that support macOS NSWorkspace + Windows/Linux deep-link.
+  // This ensures the switches reflect reality even if another app has taken
+  // over the protocol association since Motrix last ran.
+  try {
+    form.value.protocolMagnet = await invoke<boolean>('is_default_protocol_client', { protocol: 'magnet' })
+    form.value.protocolThunder = await invoke<boolean>('is_default_protocol_client', { protocol: 'thunder' })
+    form.value.protocolMotrixnext = await invoke<boolean>('is_default_protocol_client', { protocol: 'motrixnext' })
+    // Patch snapshot so OS-queried values don't falsely trigger dirty state.
+    resetSnapshot()
+  } catch (e) {
+    logger.debug('Advanced.protocolCheck', e)
+  }
 })
 </script>
 
 <template>
   <div class="preference-form-wrapper">
     <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
-      <NDivider title-placement="left">{{ t('preferences.proxy') }}</NDivider>
-      <NFormItem :label="t('preferences.enable-proxy')">
-        <NSwitch v-model:value="form.proxy.enable" />
-      </NFormItem>
-      <div class="proxy-collapse" :class="{ 'proxy-collapse--open': form.proxy.enable }">
-        <div class="proxy-collapse__inner collapse-indent">
-          <NFormItem :label="t('preferences.proxy-server')">
-            <NInputGroup>
-              <NInput v-model:value="form.proxy.server" placeholder="[http://][USER:PASSWORD@]HOST[:PORT]" />
-              <NButton :loading="detectingProxy" @click="detectProxy">
-                <template #icon>
-                  <NIcon><SearchOutline /></NIcon>
-                </template>
-                {{ t('preferences.detect-system-proxy') }}
-              </NButton>
-            </NInputGroup>
-          </NFormItem>
-          <NFormItem :show-label="false">
-            <div class="info-text">{{ t('preferences.proxy-http-only-hint') }}</div>
-          </NFormItem>
-          <NFormItem :label="t('preferences.proxy-bypass')">
-            <NInput
-              v-model:value="form.proxy.bypass"
-              type="textarea"
-              :autosize="{ minRows: 2, maxRows: 3 }"
-              :placeholder="t('preferences.proxy-bypass-input-tips')"
-            />
-          </NFormItem>
-          <NFormItem :label="t('preferences.proxy-scope')">
-            <NSelect v-model:value="form.proxy.scope" :options="proxyScopeOptions" multiple style="width: 100%" />
-          </NFormItem>
-        </div>
-      </div>
-
-      <NDivider title-placement="left">{{ t('preferences.bt-tracker') }}</NDivider>
-      <NFormItem :label="t('preferences.bt-tracker-source-preset')">
-        <NSelect
-          v-model:value="presetSources"
-          :options="trackerSourceOptions"
-          multiple
-          :placeholder="t('preferences.bt-tracker-source-placeholder')"
-          clearable
-          max-tag-count="responsive"
-        />
-      </NFormItem>
-      <NFormItem :label="t('preferences.bt-tracker-source-custom')">
-        <NInputGroup>
-          <NInput
-            v-model:value="customTrackerInput"
-            :placeholder="t('preferences.bt-tracker-source-custom-placeholder')"
-            clearable
-            @keydown.enter="onAddCustomTracker"
-          />
-          <NButton size="small" style="flex-shrink: 0" @click="onAddCustomTracker">
-            <template #icon>
-              <NIcon><AddCircleOutline /></NIcon>
-            </template>
-          </NButton>
-        </NInputGroup>
-      </NFormItem>
-      <NFormItem label=" ">
-        <NSelect
-          v-model:value="customSources"
-          :options="customSelectOptions"
-          :render-option="renderCustomOption"
-          multiple
-          clearable
-          :placeholder="customPlaceholder"
-          max-tag-count="responsive"
-        />
-      </NFormItem>
-      <NFormItem label=" ">
-        <NButton :loading="syncingTracker" type="primary" secondary style="min-width: 140px" @click="handleSyncTracker">
-          <template #icon>
-            <NIcon><SyncOutline /></NIcon>
-          </template>
-          {{ t('preferences.bt-tracker-sync') }}
-        </NButton>
-      </NFormItem>
-      <NFormItem :label="t('preferences.bt-tracker-content')">
-        <NInput
-          v-model:value="form.btTracker"
-          type="textarea"
-          :autosize="{ minRows: 3, maxRows: 8 }"
-          :placeholder="t('preferences.bt-tracker-input-tips')"
-        />
-      </NFormItem>
-      <NFormItem :show-label="false">
-        <div class="info-text">
-          {{ t('preferences.bt-tracker-tips') }}
-          <a target="_blank" href="https://github.com/ngosang/trackerslist" rel="noopener noreferrer" class="info-link"
-            >ngosang/trackerslist ↗</a
-          >
-          <a
-            target="_blank"
-            href="https://github.com/XIU2/TrackersListCollection"
-            rel="noopener noreferrer"
-            class="info-link"
-            style="margin-left: 8px"
-            >XIU2/TrackersListCollection ↗</a
-          >
-        </div>
-      </NFormItem>
-      <NFormItem :label="t('preferences.auto-sync-tracker')">
-        <NSwitch v-model:value="form.autoSyncTracker" />
-      </NFormItem>
-      <NFormItem v-if="form.lastSyncTrackerTime" :show-label="false">
-        <div class="info-text">{{ new Date(form.lastSyncTrackerTime).toLocaleString() }}</div>
-      </NFormItem>
-
       <NDivider title-placement="left">{{ t('preferences.extension-section') }}</NDivider>
       <NFormItem :label="t('preferences.auto-submit-from-extension')">
         <NSwitch v-model:value="form.autoSubmitFromExtension" />
@@ -756,67 +467,6 @@ onMounted(() => {
             </template>
           </NButton>
         </NInputGroup>
-      </NFormItem>
-
-      <NDivider title-placement="left">{{ t('preferences.port') }}</NDivider>
-      <NFormItem label="UPnP/NAT-PMP">
-        <NSwitch v-model:value="form.enableUpnp" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.bt-port')">
-        <NInputGroup>
-          <NInputNumber v-model:value="form.listenPort" :min="1024" :max="65535" style="width: 160px" />
-          <NButton style="padding: 0 10px" @click="onBtPortDice">
-            <template #icon>
-              <NIcon :size="14"><DiceOutline /></NIcon>
-            </template>
-          </NButton>
-        </NInputGroup>
-      </NFormItem>
-      <NFormItem :label="t('preferences.dht-port')">
-        <NInputGroup>
-          <NInputNumber v-model:value="form.dhtListenPort" :min="1024" :max="65535" style="width: 160px" />
-          <NButton style="padding: 0 10px" @click="onDhtPortDice">
-            <template #icon>
-              <NIcon :size="14"><DiceOutline /></NIcon>
-            </template>
-          </NButton>
-        </NInputGroup>
-      </NFormItem>
-
-      <NDivider title-placement="left">{{ t('preferences.user-agent') }}</NDivider>
-      <NFormItem :label="t('preferences.mock-user-agent')">
-        <div class="ua-field-wrapper">
-          <NInput
-            v-model:value="form.userAgent"
-            type="textarea"
-            :autosize="{ minRows: 2, maxRows: 4 }"
-            placeholder="User-Agent"
-          />
-          <!-- UA sanitization hint — slides in via CSS Grid 0fr→1fr -->
-          <div class="ua-warn-collapse" :class="{ 'ua-warn-collapse--open': uaHasIssue }">
-            <div class="ua-warn-collapse__inner">
-              <div class="ua-warn-bar">
-                <span class="ua-warn-text">⚠ {{ t('preferences.ua-unsafe-chars-detected') }}</span>
-                <NButton size="tiny" type="primary" ghost @click="cleanUserAgent">
-                  {{ t('preferences.ua-sanitize') }}
-                </NButton>
-              </div>
-            </div>
-          </div>
-        </div>
-      </NFormItem>
-      <NFormItem :show-label="false">
-        <div class="ua-preset-row">
-          <NButtonGroup size="small">
-            <NButton @click="changeUA('aria2')">Aria2</NButton>
-            <NButton @click="changeUA('transmission')">Transmission</NButton>
-            <NButton @click="changeUA('chrome')">Chrome</NButton>
-            <NButton @click="changeUA('du')">du</NButton>
-          </NButtonGroup>
-          <NButton class="ua-reset-btn" size="small" ghost @click="form.userAgent = ''">
-            {{ t('preferences.ua-reset') }}
-          </NButton>
-        </div>
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.engine-section') }}</NDivider>
@@ -928,6 +578,43 @@ onMounted(() => {
           </NButton>
         </NSpace>
       </NFormItem>
+
+      <!-- Clipboard Detection (migrated from Basic) -->
+      <NDivider title-placement="left">{{ t('preferences.clipboard-detection') }}</NDivider>
+      <NFormItem :label="t('preferences.clipboard-auto-detect')">
+        <NSwitch v-model:value="form.clipboardEnable" />
+      </NFormItem>
+      <NCollapseTransition :show="form.clipboardEnable" class="collapse-indent">
+        <NFormItem :label="t('preferences.clipboard-http')">
+          <NSwitch v-model:value="form.clipboardHttp" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.clipboard-ftp')">
+          <NSwitch v-model:value="form.clipboardFtp" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.clipboard-magnet')">
+          <NSwitch v-model:value="form.clipboardMagnet" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.clipboard-thunder')">
+          <NSwitch v-model:value="form.clipboardThunder" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.clipboard-bt-hash')">
+          <NSwitch v-model:value="form.clipboardBtHash" />
+        </NFormItem>
+      </NCollapseTransition>
+
+      <!-- Default Programs (migrated from Basic) -->
+      <NDivider title-placement="left">{{ t('preferences.default-programs') }}</NDivider>
+      <NFormItem :label="t('preferences.protocol-magnet')">
+        <NSwitch v-model:value="form.protocolMagnet" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.protocol-thunder')">
+        <NSwitch v-model:value="form.protocolThunder" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.protocol-motrixnext')">
+        <NSwitch v-model:value="form.protocolMotrixnext" />
+      </NFormItem>
+
+      <!-- Timeout & Disk -->
     </NForm>
 
     <!-- Database records viewer modal -->
@@ -1066,8 +753,9 @@ onMounted(() => {
 /* ── UA preset row — button group + standalone reset ─────────────── */
 .ua-preset-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 /* ── UA field wrapper — stacks textarea + warning within same NFormItem ── */

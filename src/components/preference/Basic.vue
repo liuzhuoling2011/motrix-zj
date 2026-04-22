@@ -165,54 +165,6 @@ function confirmSafeLimits(f: Record<string, unknown>, exceeded: typeof safeLimi
   })
 }
 
-/**
- * Builds dynamic VNode content for the protocol-disable confirmation dialog.
- *
- * Layout adapts to the combination of disabled protocols:
- * - Single category → plain sentence (no bullet list)
- * - Both categories → intro line + bullet list
- */
-function buildProtocolDisableContent(disabledLinks: string[], disabledExt: boolean) {
-  const totalItems = disabledLinks.length + (disabledExt ? 1 : 0)
-  const useBullets = totalItems > 1
-
-  const items: ReturnType<typeof h>[] = []
-  for (const p of disabledLinks) {
-    const text = t('preferences.protocol-disable-link-warning', { protocols: `${p}://` })
-    items.push(h('div', useBullets ? `• ${text}` : text))
-  }
-  if (disabledExt) {
-    const text = t('preferences.protocol-disable-ext-warning')
-    items.push(h('div', useBullets ? `• ${text}` : text))
-  }
-
-  if (useBullets) {
-    return h('div', { style: 'display: flex; flex-direction: column; gap: 8px' }, [
-      h('div', t('preferences.protocol-disable-intro')),
-      ...items,
-    ])
-  }
-  return h('div', items)
-}
-
-/**
- * Single merged confirmation dialog when one or more protocol toggles
- * are being disabled. Returns false to abort the save.
- */
-function confirmProtocolDisable(disabledLinks: string[], disabledExt: boolean): Promise<boolean> {
-  return new Promise<boolean>((resolve) => {
-    dialog.warning({
-      title: t('preferences.protocol-disable-title'),
-      content: () => buildProtocolDisableContent(disabledLinks, disabledExt),
-      positiveText: t('preferences.protocol-disable-confirm'),
-      negativeText: t('app.cancel'),
-      onPositiveClick: () => resolve(true),
-      onNegativeClick: () => resolve(false),
-      onClose: () => resolve(false),
-    })
-  })
-}
-
 const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } = usePreferenceForm({
   buildForm,
   buildSystemConfig: buildBasicSystemConfig,
@@ -227,21 +179,6 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
       const ok = await confirmSafeLimits(f, exceeded)
       if (!ok) return false
     }
-
-    // Protocol disable confirmation — single merged dialog.
-    // Separates link protocols (magnet/thunder) from extension protocol (motrixnext)
-    // to give the user distinct, understandable warnings.
-    const prev = preferenceStore.config.protocols
-    const disabledLinks: string[] = []
-    if (prev.magnet && !f.protocolMagnet) disabledLinks.push('magnet')
-    if (prev.thunder && !f.protocolThunder) disabledLinks.push('thunder')
-    const disabledExt = prev.motrixnext && !f.protocolMotrixnext
-
-    if (disabledLinks.length > 0 || disabledExt) {
-      const ok = await confirmProtocolDisable(disabledLinks, disabledExt)
-      if (!ok) return false
-    }
-
     return true
   },
   afterSave: async (f, prevConfig) => {
@@ -290,70 +227,6 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
         else if (!f.openAtLogin && currentlyEnabled) await disable()
       } catch (e) {
         logger.error('Preference.autostart', e)
-      }
-    }
-
-    // Sync protocol handler registration on save (reconcile-based).
-    //
-    // For ENABLED protocols: always query OS actual state and register if
-    // not already the default handler.  This fixes the bug where config.json
-    // already says "enabled" (true) but macOS/Windows lost the association
-    // (reinstall, another app taking over).  The old diff-based approach
-    // compared form values against prevConfig and saw true===true → skipped
-    // registration silently.
-    //
-    // For DISABLED protocols: use prevConfig diff (only unregister when the
-    // user explicitly toggles ON→OFF, not on every save).
-    //
-    // This matches the autostart reconcile pattern in the same afterSave
-    // callback (L277-L286) which queries isEnabled() from the OS.
-    {
-      const { invoke } = await import('@tauri-apps/api/core')
-      const prevProtocols = prevConfig.protocols ?? { magnet: false, thunder: false, motrixnext: true }
-      for (const [protocol, formKey, prev] of [
-        ['magnet', 'protocolMagnet', prevProtocols.magnet],
-        ['thunder', 'protocolThunder', prevProtocols.thunder],
-        ['motrixnext', 'protocolMotrixnext', prevProtocols.motrixnext],
-      ] as const) {
-        const enabled = f[formKey] as boolean
-        try {
-          if (enabled) {
-            // Reconcile: query OS actual state, register only if needed.
-            const isDefault = await invoke<boolean>('is_default_protocol_client', { protocol })
-            if (!isDefault) {
-              await invoke('set_default_protocol_client', { protocol })
-              message.success(t('preferences.protocol-registered', { protocol }))
-            }
-          } else if (prev) {
-            // Explicit OFF: user toggled ON→OFF — unregister.
-            if (isMac.value) {
-              message.info(t('preferences.protocol-macos-unregister-hint', { protocol }))
-            } else {
-              await invoke('remove_as_default_protocol_client', { protocol })
-              message.success(t('preferences.protocol-unregistered', { protocol }))
-            }
-          }
-        } catch (e) {
-          // Tauri IPC errors arrive as serialized AppError objects
-          // (e.g. { Protocol: "message" }), not Error instances.
-          // String() on a plain object produces "[object Object]".
-          const reason =
-            e instanceof Error
-              ? e.message
-              : typeof e === 'object' && e !== null
-                ? Object.values(e as Record<string, unknown>).join(': ')
-                : String(e)
-          logger.warn('Basic.protocol', `Failed to ${enabled ? 'register' : 'unregister'} ${protocol}: ${reason}`)
-          message.error(t('preferences.protocol-failed', { protocol, reason }))
-
-          // Roll back the toggle to its pre-save state and persist the
-          // reverted value so the switch doesn't stay in an inconsistent
-          // state after a failed OS registration attempt.
-          ;(f as Record<string, unknown>)[formKey] = prev
-          patchSnapshot({ [formKey]: prev } as Partial<typeof form.value>)
-          const revertedProtocols = { ...preferenceStore.config.protocols, [protocol]: prev }
-          preferenceStore.updateAndSave({ protocols: revertedProtocols })
-        }
       }
     }
   },
@@ -682,32 +555,13 @@ onMounted(async () => {
   }
   loadForm()
   resetSnapshot()
-
-  // Read actual OS registration state for protocol toggles (all platforms).
-  // Uses custom Rust commands that support macOS NSWorkspace + Windows/Linux deep-link.
-  // This ensures the switches reflect reality even if another app has taken
-  // over the protocol association since Motrix last ran.
-  try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    form.value.protocolMagnet = await invoke<boolean>('is_default_protocol_client', { protocol: 'magnet' })
-    form.value.protocolThunder = await invoke<boolean>('is_default_protocol_client', { protocol: 'thunder' })
-    form.value.protocolMotrixnext = await invoke<boolean>('is_default_protocol_client', { protocol: 'motrixnext' })
-    // Patch snapshot so OS-queried values don't falsely trigger dirty state.
-    patchSnapshot({
-      protocolMagnet: form.value.protocolMagnet,
-      protocolThunder: form.value.protocolThunder,
-      protocolMotrixnext: form.value.protocolMotrixnext,
-    } as Partial<typeof form.value>)
-  } catch (e) {
-    logger.debug('Basic.protocolCheck', e)
-  }
 })
 </script>
 
 <template>
   <div class="preference-form-wrapper">
     <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
-      <!-- System info — About-panel badge style -->
+      <!-- ① System info — About-panel badge style -->
       <NDivider title-placement="left">{{ t('preferences.system-info') }}</NDivider>
       <NFormItem :label="t('preferences.detected-platform')">
         <NSpace :size="8">
@@ -749,6 +603,8 @@ onMounted(async () => {
           <span class="sysinfo-ver-muted">{{ t('about.unavailable') }}</span>
         </div>
       </NFormItem>
+
+      <!-- ② Language -->
       <NDivider title-placement="left">
         {{ locale === 'en-US' ? t('preferences.language') : `${t('preferences.language')} · Language` }}
       </NDivider>
@@ -762,6 +618,7 @@ onMounted(async () => {
         <NSelect v-model:value="form.locale" :options="localeOptions" style="width: 280px" />
       </NFormItem>
 
+      <!-- ③ Auto Update -->
       <NDivider title-placement="left">{{ t('preferences.auto-update') }}</NDivider>
       <NFormItem :label="t('preferences.auto-check-update')">
         <NSwitch v-model:value="form.autoCheckUpdate" />
@@ -779,8 +636,6 @@ onMounted(async () => {
             async (v: string) => {
               const ok = await preferenceStore.updateAndSave({ updateChannel: v as 'stable' | 'beta' })
               if (ok) {
-                // Only sync updateChannel in the snapshot — preserve dirty state
-                // for other unsaved fields (download dir, speed limits, etc.).
                 patchSnapshot({ updateChannel: v } as Partial<typeof form.value>)
               }
             }
@@ -806,12 +661,11 @@ onMounted(async () => {
       </NFormItem>
       <UpdateDialog ref="updateDialogRef" />
 
+      <!-- ④ Appearance -->
       <NDivider title-placement="left">{{ t('preferences.appearance-section') }}</NDivider>
       <NFormItem :label="t('preferences.appearance')">
         <NSelect v-model:value="form.theme" :options="themeOptions" style="width: 200px" />
       </NFormItem>
-
-      <!-- ── Color Scheme Picker ────────────────────────────────── -->
       <NFormItem :label="t('preferences.color-scheme')">
         <div class="color-scheme-picker">
           <MTooltip v-for="scheme in COLOR_SCHEMES" :key="scheme.id">
@@ -840,51 +694,11 @@ onMounted(async () => {
       <NFormItem v-if="isMac || isWindows" :label="t('preferences.show-progress-bar')">
         <NSwitch v-model:value="form.showProgressBar" />
       </NFormItem>
-
       <NFormItem v-if="isMac" :label="t('preferences.dock-badge-speed')">
         <NSwitch v-model:value="form.dockBadgeSpeed" />
       </NFormItem>
 
-      <NDivider title-placement="left">{{ t('preferences.window-and-tray') }}</NDivider>
-      <NFormItem :label="t('preferences.minimize-to-tray-on-close')">
-        <NSwitch v-model:value="form.minimizeToTrayOnClose" />
-      </NFormItem>
-      <NFormItem v-if="isMac" :label="t('preferences.hide-dock-on-minimize')">
-        <NSwitch v-model:value="form.hideDockOnMinimize" />
-      </NFormItem>
-      <NFormItem v-if="isMac || isLinux" :label="t('preferences.tray-speedometer')">
-        <NSwitch v-model:value="form.traySpeedometer" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.shutdown-when-complete')">
-        <NSwitch v-model:value="form.shutdownWhenComplete" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.lightweight-mode')">
-        <NSwitch v-model:value="form.lightweightMode" />
-      </NFormItem>
-      <NText
-        depth="3"
-        style="font-size: 12px; display: block; margin-top: -8px; margin-bottom: 8px; padding-left: 50px"
-      >
-        ⓘ {{ t('preferences.lightweight-mode') }}:
-        {{ t('preferences.lightweight-mode-hint') }}
-      </NText>
-
-      <NDivider title-placement="left">{{ t('preferences.startup') }}</NDivider>
-      <NFormItem :label="t('preferences.open-at-login')">
-        <NSwitch v-model:value="form.openAtLogin" />
-      </NFormItem>
-      <NCollapseTransition :show="form.openAtLogin" class="collapse-indent">
-        <NFormItem :label="t('preferences.auto-hide-window')">
-          <NSwitch v-model:value="form.autoHideWindow" />
-        </NFormItem>
-      </NCollapseTransition>
-      <NFormItem :label="t('preferences.keep-window-state')">
-        <NSwitch v-model:value="form.keepWindowState" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.auto-resume-all')">
-        <NSwitch v-model:value="form.resumeAllWhenAppLaunched" />
-      </NFormItem>
-
+      <!-- ⑤ Download Path -->
       <NDivider title-placement="left">{{ t('preferences.download-path') }}</NDivider>
       <NFormItem :label="t('preferences.default-path')">
         <NInputGroup>
@@ -959,11 +773,49 @@ onMounted(async () => {
         </NFormItem>
       </NCollapseTransition>
 
+      <!-- ⑥ Task Management -->
+      <NDivider title-placement="left">{{ t('preferences.task-manage') }}</NDivider>
+      <NFormItem :label="t('preferences.max-concurrent-downloads')">
+        <NInputNumber v-model:value="form.maxConcurrentDownloads" :min="1" :max="10" style="width: 120px" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.split-count')">
+        <NInputNumber
+          v-model:value="form.split"
+          :min="1"
+          :max="ENGINE_MAX_CONNECTION_PER_SERVER"
+          style="width: 120px"
+        />
+      </NFormItem>
+      <NFormItem :label="t('preferences.max-connection-per-server')">
+        <NInputNumber
+          v-model:value="form.maxConnectionPerServer"
+          :min="1"
+          :max="ENGINE_MAX_CONNECTION_PER_SERVER"
+          style="width: 120px"
+        />
+      </NFormItem>
+      <NFormItem :label="t('preferences.max-tries')">
+        <NInputNumber v-model:value="form.maxTries" :min="0" :max="60" style="width: 120px" />
+        <NText depth="3" style="font-size: 12px; margin-left: 8px">
+          {{ t('preferences.max-tries-hint') }}
+        </NText>
+      </NFormItem>
+      <NFormItem :label="t('preferences.retry-wait')">
+        <NInputNumber v-model:value="form.retryWait" :min="0" :max="600" style="width: 120px" />
+        <NText depth="3" style="font-size: 12px; margin-left: 8px">sec</NText>
+      </NFormItem>
+      <NFormItem :label="t('preferences.continue')">
+        <NSwitch v-model:value="form.continue" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.remote-time')">
+        <NSwitch v-model:value="form.remoteTime" />
+      </NFormItem>
+
+      <!-- ⑦ Speed Limit -->
       <NDivider title-placement="left">{{ t('preferences.speed-limit') }}</NDivider>
       <NFormItem :label="t('app.speedometer-enable-limit')">
         <NSwitch :value="preferenceStore.config.speedLimitEnabled" @update:value="handleSpeedLimitToggle" />
       </NFormItem>
-
       <NFormItem :label="t('preferences.speed-schedule-enabled')">
         <NSwitch :value="preferenceStore.config.speedScheduleEnabled" @update:value="handleScheduleToggle" />
       </NFormItem>
@@ -988,7 +840,6 @@ onMounted(async () => {
           {{ t('preferences.schedule-hint') }}
         </NText>
       </NCollapseTransition>
-
       <div>
         <NFormItem :label="t('preferences.transfer-speed-upload')">
           <NInputGroup>
@@ -1028,6 +879,7 @@ onMounted(async () => {
         </NFormItem>
       </div>
 
+      <!-- ⑧ BT Settings -->
       <NDivider title-placement="left">{{ t('preferences.bt-settings') }}</NDivider>
       <NFormItem :label="t('preferences.bt-auto-download-content')">
         <NSwitch v-model:value="form.btAutoDownloadContent" />
@@ -1038,7 +890,6 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.keep-seeding')">
         <NSwitch v-model:value="form.keepSeeding" @update:value="onKeepSeedingChange" />
       </NFormItem>
-
       <NCollapseTransition :show="!form.keepSeeding" class="collapse-indent">
         <NFormItem :label="t('preferences.seed-ratio')">
           <NInputNumber v-model:value="form.seedRatio" :min="1" :max="100" :step="0.1" style="width: 120px" />
@@ -1047,37 +898,11 @@ onMounted(async () => {
           <NInputNumber v-model:value="form.seedTime" :min="60" :max="525600" style="width: 120px" />
         </NFormItem>
       </NCollapseTransition>
-
-      <NDivider title-placement="left">{{ t('preferences.task-manage') }}</NDivider>
-      <NFormItem :label="t('preferences.max-concurrent-downloads')">
-        <NInputNumber v-model:value="form.maxConcurrentDownloads" :min="1" :max="10" style="width: 120px" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.split-count')">
-        <NInputNumber
-          v-model:value="form.split"
-          :min="1"
-          :max="ENGINE_MAX_CONNECTION_PER_SERVER"
-          style="width: 120px"
-        />
-      </NFormItem>
-      <NFormItem :label="t('preferences.max-connection-per-server')">
-        <NInputNumber
-          v-model:value="form.maxConnectionPerServer"
-          :min="1"
-          :max="ENGINE_MAX_CONNECTION_PER_SERVER"
-          style="width: 120px"
-        />
-      </NFormItem>
       <NFormItem :label="t('preferences.bt-max-peers')">
         <NInputNumber v-model:value="form.btMaxPeers" :min="1" :max="ENGINE_MAX_BT_MAX_PEERS" style="width: 120px" />
       </NFormItem>
-      <NFormItem :label="t('preferences.continue')">
-        <NSwitch v-model:value="form.continue" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.remote-time')">
-        <NSwitch v-model:value="form.remoteTime" />
-      </NFormItem>
 
+      <!-- ⑨ Notification & Confirm -->
       <NDivider title-placement="left">{{ t('preferences.notification-and-confirm') }}</NDivider>
       <NFormItem :label="t('preferences.new-task-show-downloading')">
         <NSwitch v-model:value="form.newTaskShowDownloading" />
@@ -1101,7 +926,11 @@ onMounted(async () => {
           <NSwitch v-model:value="form.notifyOnComplete" />
         </NFormItem>
       </NCollapseTransition>
+      <NFormItem :label="t('preferences.shutdown-when-complete')">
+        <NSwitch v-model:value="form.shutdownWhenComplete" />
+      </NFormItem>
 
+      <!-- ⑩ Auto Cleanup -->
       <NDivider title-placement="left">{{ t('preferences.auto-cleanup') }}</NDivider>
       <NFormItem :label="t('preferences.delete-torrent-after-complete')">
         <NSwitch v-model:value="form.deleteTorrentAfterComplete" />
@@ -1113,39 +942,41 @@ onMounted(async () => {
         <NSwitch v-model:value="form.clearCompletedOnExit" />
       </NFormItem>
 
-      <NDivider title-placement="left">{{ t('preferences.clipboard-detection') }}</NDivider>
-      <NFormItem :label="t('preferences.clipboard-auto-detect')">
-        <NSwitch v-model:value="form.clipboardEnable" />
+      <!-- ⑪ Startup & Window (set-once settings, lowest priority) -->
+      <NDivider title-placement="left">{{ t('preferences.startup-and-window') }}</NDivider>
+      <NFormItem :label="t('preferences.open-at-login')">
+        <NSwitch v-model:value="form.openAtLogin" />
       </NFormItem>
-      <NCollapseTransition :show="form.clipboardEnable" class="collapse-indent">
-        <NFormItem :label="t('preferences.clipboard-http')">
-          <NSwitch v-model:value="form.clipboardHttp" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.clipboard-ftp')">
-          <NSwitch v-model:value="form.clipboardFtp" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.clipboard-magnet')">
-          <NSwitch v-model:value="form.clipboardMagnet" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.clipboard-thunder')">
-          <NSwitch v-model:value="form.clipboardThunder" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.clipboard-bt-hash')">
-          <NSwitch v-model:value="form.clipboardBtHash" />
+      <NCollapseTransition :show="form.openAtLogin" class="collapse-indent">
+        <NFormItem :label="t('preferences.auto-hide-window')">
+          <NSwitch v-model:value="form.autoHideWindow" />
         </NFormItem>
       </NCollapseTransition>
-
-      <!-- ── Default Programs (all platforms) ─────────────────────── -->
-      <NDivider title-placement="left">{{ t('preferences.default-programs') }}</NDivider>
-      <NFormItem :label="t('preferences.protocol-magnet')">
-        <NSwitch v-model:value="form.protocolMagnet" />
+      <NFormItem :label="t('preferences.keep-window-state')">
+        <NSwitch v-model:value="form.keepWindowState" />
       </NFormItem>
-      <NFormItem :label="t('preferences.protocol-thunder')">
-        <NSwitch v-model:value="form.protocolThunder" />
+      <NFormItem :label="t('preferences.auto-resume-all')">
+        <NSwitch v-model:value="form.resumeAllWhenAppLaunched" />
       </NFormItem>
-      <NFormItem :label="t('preferences.protocol-motrixnext')">
-        <NSwitch v-model:value="form.protocolMotrixnext" />
+      <NFormItem :label="t('preferences.minimize-to-tray-on-close')">
+        <NSwitch v-model:value="form.minimizeToTrayOnClose" />
       </NFormItem>
+      <NFormItem v-if="isMac" :label="t('preferences.hide-dock-on-minimize')">
+        <NSwitch v-model:value="form.hideDockOnMinimize" />
+      </NFormItem>
+      <NFormItem v-if="isMac || isLinux" :label="t('preferences.tray-speedometer')">
+        <NSwitch v-model:value="form.traySpeedometer" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.lightweight-mode')">
+        <NSwitch v-model:value="form.lightweightMode" />
+      </NFormItem>
+      <NText
+        depth="3"
+        style="font-size: 12px; display: block; margin-top: -8px; margin-bottom: 8px; padding-left: 50px"
+      >
+        ⓘ {{ t('preferences.lightweight-mode') }}:
+        {{ t('preferences.lightweight-mode-hint') }}
+      </NText>
     </NForm>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
   </div>

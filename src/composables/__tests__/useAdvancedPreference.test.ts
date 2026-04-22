@@ -246,6 +246,18 @@ describe('buildAdvancedSystemConfig', () => {
     extensionApiPort: 16801,
     extensionApiSecret: 'test-api-secret',
     autoSubmitFromExtension: false,
+    clipboardEnable: true,
+    clipboardHttp: true,
+    clipboardFtp: false,
+    clipboardMagnet: true,
+    clipboardThunder: false,
+    clipboardBtHash: true,
+    protocolMagnet: false,
+    protocolThunder: false,
+    protocolMotrixnext: true,
+    connectTimeout: 60,
+    timeout: 60,
+    fileAllocation: 'prealloc',
   }
 
   it('maps all required aria2 config keys', () => {
@@ -321,6 +333,18 @@ describe('transformAdvancedForStore', () => {
       extensionApiPort: 16801,
       extensionApiSecret: 'test-api-secret',
       autoSubmitFromExtension: false,
+      clipboardEnable: true,
+      clipboardHttp: true,
+      clipboardFtp: false,
+      clipboardMagnet: true,
+      clipboardThunder: false,
+      clipboardBtHash: true,
+      protocolMagnet: false,
+      protocolThunder: false,
+      protocolMotrixnext: true,
+      connectTimeout: 60,
+      timeout: 60,
+      fileAllocation: 'prealloc',
     }
     const result = transformAdvancedForStore(form)
     expect(result.btTracker).toBe('udp://a,udp://b')
@@ -345,6 +369,18 @@ describe('transformAdvancedForStore', () => {
       extensionApiPort: 16801,
       extensionApiSecret: 'test-api-secret',
       autoSubmitFromExtension: false,
+      clipboardEnable: true,
+      clipboardHttp: true,
+      clipboardFtp: false,
+      clipboardMagnet: true,
+      clipboardThunder: false,
+      clipboardBtHash: true,
+      protocolMagnet: false,
+      protocolThunder: false,
+      protocolMotrixnext: true,
+      connectTimeout: 60,
+      timeout: 60,
+      fileAllocation: 'prealloc',
     }
     const result = transformAdvancedForStore(form)
     expect(result.listenPort).toBe(21301)
@@ -467,6 +503,18 @@ describe('validateAdvancedForm', () => {
     extensionApiPort: 16801,
     extensionApiSecret: 'test-api-secret',
     autoSubmitFromExtension: false,
+    clipboardEnable: true,
+    clipboardHttp: true,
+    clipboardFtp: false,
+    clipboardMagnet: true,
+    clipboardThunder: false,
+    clipboardBtHash: true,
+    protocolMagnet: false,
+    protocolThunder: false,
+    protocolMotrixnext: true,
+    connectTimeout: 60,
+    timeout: 60,
+    fileAllocation: 'prealloc',
   }
 
   it('returns null for valid form', () => {
@@ -610,6 +658,18 @@ describe('proxy configuration invariants', () => {
       extensionApiPort: 16801,
       extensionApiSecret: 'test-api-secret',
       autoSubmitFromExtension: false,
+      clipboardEnable: true,
+      clipboardHttp: true,
+      clipboardFtp: false,
+      clipboardMagnet: true,
+      clipboardThunder: false,
+      clipboardBtHash: true,
+      protocolMagnet: false,
+      protocolThunder: false,
+      protocolMotrixnext: true,
+      connectTimeout: 60,
+      timeout: 60,
+      fileAllocation: 'prealloc',
     }
     const systemConfig = buildAdvancedSystemConfig(form)
     // Empty string is intentional — aria2 accepts '' to clear the proxy
@@ -641,6 +701,18 @@ describe('proxy configuration invariants', () => {
       extensionApiPort: 16801,
       extensionApiSecret: 'test-api-secret',
       autoSubmitFromExtension: false,
+      clipboardEnable: true,
+      clipboardHttp: true,
+      clipboardFtp: false,
+      clipboardMagnet: true,
+      clipboardThunder: false,
+      clipboardBtHash: true,
+      protocolMagnet: false,
+      protocolThunder: false,
+      protocolMotrixnext: true,
+      connectTimeout: 60,
+      timeout: 60,
+      fileAllocation: 'prealloc',
     }
     const systemConfig = buildAdvancedSystemConfig(form)
     expect(systemConfig['all-proxy']).toBe('')
@@ -670,6 +742,18 @@ describe('proxy configuration invariants', () => {
       extensionApiPort: 16801,
       extensionApiSecret: 'test-api-secret',
       autoSubmitFromExtension: false,
+      clipboardEnable: true,
+      clipboardHttp: true,
+      clipboardFtp: false,
+      clipboardMagnet: true,
+      clipboardThunder: false,
+      clipboardBtHash: true,
+      protocolMagnet: false,
+      protocolThunder: false,
+      protocolMotrixnext: true,
+      connectTimeout: 60,
+      timeout: 60,
+      fileAllocation: 'prealloc',
     }
     const systemConfig = buildAdvancedSystemConfig(form)
     expect(systemConfig['all-proxy']).toBe('http://proxy:8080')
@@ -718,6 +802,18 @@ describe('transformAdvancedForStore — hardwareRendering', () => {
       extensionApiPort: 16801,
       extensionApiSecret: 'test-api-secret',
       autoSubmitFromExtension: false,
+      clipboardEnable: true,
+      clipboardHttp: true,
+      clipboardFtp: false,
+      clipboardMagnet: true,
+      clipboardThunder: false,
+      clipboardBtHash: true,
+      protocolMagnet: false,
+      protocolThunder: false,
+      protocolMotrixnext: true,
+      connectTimeout: 60,
+      timeout: 60,
+      fileAllocation: 'prealloc',
     }
     const result = transformAdvancedForStore(form)
     expect(result.hardwareRendering).toBe(true)

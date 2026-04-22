@@ -3,7 +3,7 @@
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { NIcon } from 'naive-ui'
-import { SettingsOutline, ConstructOutline } from '@vicons/ionicons5'
+import { SettingsOutline, DownloadOutline, MagnetOutline, GlobeOutline, ConstructOutline } from '@vicons/ionicons5'
 import { type Component } from 'vue'
 
 const { t } = useI18n()
@@ -11,7 +11,10 @@ const router = useRouter()
 const route = useRoute()
 
 const items: { key: string; icon: Component; route: string }[] = [
-  { key: 'basic', icon: SettingsOutline, route: '/preference/basic' },
+  { key: 'general', icon: SettingsOutline, route: '/preference/general' },
+  { key: 'downloads', icon: DownloadOutline, route: '/preference/downloads' },
+  { key: 'bt', icon: MagnetOutline, route: '/preference/bt' },
+  { key: 'network', icon: GlobeOutline, route: '/preference/network' },
   { key: 'advanced', icon: ConstructOutline, route: '/preference/advanced' },
 ]
 

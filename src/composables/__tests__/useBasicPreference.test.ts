@@ -37,6 +37,26 @@ describe('buildBasicForm', () => {
     expect(form.continue).toBe(true)
   })
 
+  it('defaults maxTries to 0 (unlimited retries)', () => {
+    const form = buildBasicForm(emptyConfig)
+    expect(form.maxTries).toBe(0)
+  })
+
+  it('defaults retryWait to 10 seconds', () => {
+    const form = buildBasicForm(emptyConfig)
+    expect(form.retryWait).toBe(10)
+  })
+
+  it('reads maxTries from config when set', () => {
+    const form = buildBasicForm({ maxTries: 5 } as unknown as AppConfig)
+    expect(form.maxTries).toBe(5)
+  })
+
+  it('reads retryWait from config when set', () => {
+    const form = buildBasicForm({ retryWait: 30 } as unknown as AppConfig)
+    expect(form.retryWait).toBe(30)
+  })
+
   it('defaults shutdownWhenComplete to false', () => {
     const form = buildBasicForm(emptyConfig)
     expect(form.shutdownWhenComplete).toBe(false)
@@ -185,17 +205,8 @@ describe('buildBasicSystemConfig', () => {
     clearCompletedOnExit: false,
     fileCategoryEnabled: false,
     fileCategories: buildDefaultCategories('/downloads'),
-    clipboardEnable: true,
-    clipboardHttp: true,
-    clipboardFtp: true,
-    clipboardMagnet: true,
-    clipboardThunder: true,
-    clipboardBtHash: true,
-    autoSubmitFromExtension: false,
-    extensionApiPort: 16801,
-    protocolMagnet: true,
-    protocolThunder: false,
-    protocolMotrixnext: true,
+    maxTries: 0,
+    retryWait: 10,
     shutdownWhenComplete: false,
   }
 
@@ -207,6 +218,8 @@ describe('buildBasicSystemConfig', () => {
     expect(config['seed-ratio']).toBe('1')
     expect(config['seed-time']).toBe('60')
     expect(config.continue).toBe('true')
+    expect(config['max-tries']).toBe('0')
+    expect(config['retry-wait']).toBe('10')
   })
 
   it('emits split independently from maxConnectionPerServer', () => {
@@ -263,6 +276,12 @@ describe('buildBasicSystemConfig', () => {
     expect(withSeeding).not.toHaveProperty('force-save')
     expect(withoutSeeding).not.toHaveProperty('force-save')
   })
+
+  it('emits max-tries and retry-wait as strings', () => {
+    const config = buildBasicSystemConfig({ ...baseForm, maxTries: 5, retryWait: 30 })
+    expect(config['max-tries']).toBe('5')
+    expect(config['retry-wait']).toBe('30')
+  })
 })
 
 // ── transformBasicForStore ──────────────────────────────────────────
@@ -314,17 +333,8 @@ describe('transformBasicForStore', () => {
     clearCompletedOnExit: false,
     fileCategoryEnabled: false,
     fileCategories: buildDefaultCategories('/downloads'),
-    clipboardEnable: true,
-    clipboardHttp: true,
-    clipboardFtp: true,
-    clipboardMagnet: true,
-    clipboardThunder: true,
-    clipboardBtHash: true,
-    autoSubmitFromExtension: false,
-    extensionApiPort: 16801,
-    protocolMagnet: true,
-    protocolThunder: false,
-    protocolMotrixnext: true,
+    maxTries: 0,
+    retryWait: 10,
     shutdownWhenComplete: false,
   }
 
@@ -362,5 +372,11 @@ describe('transformBasicForStore', () => {
   it('preserves shutdownWhenComplete through transform', () => {
     const result = transformBasicForStore({ ...baseForm, shutdownWhenComplete: true })
     expect(result.shutdownWhenComplete).toBe(true)
+  })
+
+  it('preserves maxTries and retryWait through transform', () => {
+    const result = transformBasicForStore({ ...baseForm, maxTries: 5, retryWait: 30 })
+    expect(result.maxTries).toBe(5)
+    expect(result.retryWait).toBe(30)
   })
 })
