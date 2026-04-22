@@ -119,13 +119,9 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
     const stopEngineWatch: WatchStopHandle = watch(
       () => appStore.engineRestarting,
       (initializing) => {
-        if (!initializing) {
-          if (appStore.engineReady) {
-            message.success(t('app.engine-ready'))
-          } else {
-            message.error(t('app.engine-failed'), { closable: true })
-            showEngineOverlay.value = true
-          }
+        if (!initializing && !appStore.engineReady) {
+          message.error(t('app.engine-failed'), { closable: true })
+          showEngineOverlay.value = true
         }
       },
     )
