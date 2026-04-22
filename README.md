@@ -164,11 +164,11 @@ We provide **NSIS installers** for Windows — lightweight (~20 MB), fast to ins
 
 ## Code Signing
 
-Windows binaries are signed via [SignPath Foundation](https://signpath.org). macOS builds are currently unsigned — see the [FAQ](#faq) for workarounds.
+Motrix Next is **not code-signed** on macOS or Windows, so your browser or antivirus software may show a security warning when downloading or running the installer.
 
-Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org). See our [Code Signing Policy](docs/CODE_SIGNING.md) and [Privacy Policy](docs/PRIVACY.md).
+The app is fully open-source and every release binary is built automatically by [GitHub Actions CI](https://github.com/AnInsomniacy/motrix-next/actions). For added peace of mind, you can always [build from source](#development).
 
-Every release binary is built automatically by [GitHub Actions CI](https://github.com/AnInsomniacy/motrix-next/actions). For added peace of mind, you can always [build from source](#development).
+See also: [Code Signing Policy](docs/CODE_SIGNING.md) · [Privacy Policy](docs/PRIVACY.md)
 
 ## Development
 
@@ -247,9 +247,9 @@ PRs and issues are welcome! Please read the [Contributing Guide](docs/CONTRIBUTI
 
 Built in the hours I should've been writing my thesis — I'm a PhD student surviving on instant noodles 🍜
 
-Windows builds are now signed thanks to [SignPath Foundation](https://signpath.org). macOS code signing still requires an Apple Developer Program membership ($99/year) — sponsorship helps cover that cost.
+This app is not code-signed on macOS or Windows — Apple charges $99/year, and a Windows Authenticode certificate costs $300–600/year. That's a lot of instant noodles.
 
-[Buy me a coffee ☕](https://github.com/AnInsomniacy/AnInsomniacy/blob/main/SPONSOR.md) — help keep the project signed and the noodles warm 🍜
+[Buy me a coffee ☕](https://github.com/AnInsomniacy/AnInsomniacy/blob/main/SPONSOR.md) — maybe one day I can afford those certificates, so antivirus software stops treating my app like a criminal 🥲
 
 ## Star History
 
