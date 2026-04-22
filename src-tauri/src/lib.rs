@@ -906,6 +906,7 @@ pub fn run() {
             commands::get_sidecar_version,
             commands::open_web_browser,
             commands::web_browser_navigate,
+            commands::save_cookies_and_trigger_download,
         ])
         // ── Window event interception ─────────────────────────────────
         //

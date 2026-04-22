@@ -9,7 +9,7 @@ use serde::Deserialize;
 use tauri::webview::{PageLoadEvent, WebviewBuilder};
 use tauri::window::WindowBuilder;
 use tauri::{
-    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Url, WebviewUrl, WindowEvent,
+    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, State, Url, WebviewUrl, WindowEvent,
 };
 
 const WIN_LABEL: &str = "web-browser";
@@ -144,6 +144,38 @@ pub async fn web_browser_navigate(
             content.navigate(u).map_err(|e| e.to_string())?
         }
     }
+    Ok(())
+}
+
+/// Captures cookies from the content webview, groups them by domain into
+/// Netscape cookies.txt files under `$APP_DATA/cookies/`, then asks the
+/// main window to open AddTask pre-filled with `url`.
+///
+/// Called by the toolbar "下载视频" button. The WebView window is left open
+/// so the user can keep browsing for more videos without re-logging in.
+#[tauri::command]
+pub async fn save_cookies_and_trigger_download(
+    app: AppHandle,
+    store: State<'_, crate::cookies::CookieStore>,
+    url: String,
+) -> Result<(), String> {
+    let content = app
+        .get_webview(CONTENT_LABEL)
+        .ok_or_else(|| "content webview not available".to_string())?;
+    let cookies = content
+        .cookies()
+        .map_err(|e| format!("cookies read failed: {e}"))?;
+    let written = store
+        .save_from_webview(cookies)
+        .map_err(|e| format!("cookies write failed: {e}"))?;
+    log::info!(
+        "save_cookies_and_trigger_download: saved {} domain(s): {:?}",
+        written.len(),
+        written,
+    );
+
+    app.emit("add-task-from-web", serde_json::json!({ "url": url }))
+        .map_err(|e| format!("emit failed: {e}"))?;
     Ok(())
 }
 
