@@ -166,6 +166,10 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     ));
     app.manage(aria2_state);
 
+    // On-disk cookie jar for the in-app browser.
+    let cookies_dir = app.path().app_data_dir()?.join("cookies");
+    app.manage(cookies::CookieStore::new(cookies_dir));
+
     // Runtime config cache — refreshed by frontend after each config save.
     app.manage(services::config::RuntimeConfigState::new());
 
