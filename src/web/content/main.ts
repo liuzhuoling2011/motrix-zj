@@ -1,1 +1,4 @@
-console.log('[web-content] stub — Task 8 replaces this with the Vue app')
+import { createApp } from 'vue'
+import WebContentApp from './WebContentApp.vue'
+
+createApp(WebContentApp).mount('#app')
