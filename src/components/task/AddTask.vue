@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /** @fileoverview Add task dialog: dual-tab layout (URI / Torrent) with AutoAnimate list transitions. */
 import { ref, computed, watch, onMounted } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
@@ -73,6 +74,32 @@ const selectedBatchIndex = ref(0)
 
 const videoFlow = useVideoFlow()
 
+// ── Cookie-expired banner ─────────────────────────────────────────────────────
+const cookieExpired = ref(false)
+
+function checkCookieExpired(err: unknown): void {
+  const msg = String(err ?? '').toLowerCase()
+  if (/cookies|login|authentication required|unable to extract|sign in to confirm/i.test(msg)) {
+    cookieExpired.value = true
+  }
+}
+
+async function openWebBrowser() {
+  try {
+    await invoke('open_web_browser')
+  } catch {
+    /* ignore */
+  }
+}
+
+// Watch videoFlow.parseError to also catch cookie errors from the parse path
+watch(
+  () => videoFlow.parseError.value,
+  (err) => {
+    if (err) checkCookieExpired(err)
+  },
+)
+
 const form = ref({
   uris: '',
   out: '',
@@ -129,6 +156,8 @@ async function handleParseMedia() {
     })
     return
   }
+  // Reset cookie-expired state on each new parse attempt
+  cookieExpired.value = false
   await videoFlow.tryParseUrl(trimmed, form.value.cookie, form.value.userAgent, form.value.cookiesFromBrowser)
 }
 
@@ -386,15 +415,125 @@ function handleClose() {
   })
   submitting.value = false
   selectedBatchIndex.value = 0
+  cookieExpired.value = false
   videoFlow.reset()
+}
+
+/** Submits the yt-dlp video/playlist branch. Returns true if handled. */
+async function submitVideoBranch(
+  effectiveForm: typeof form.value & { globalProxyServer: string },
+  options: ReturnType<typeof buildEngineOptions>,
+): Promise<boolean> {
+  if (!videoFlow.isVideo.value && !videoFlow.isPlaylist.value) return false
+
+  // Flatten Aria2EngineOptions to Record<string, string> for yt-dlp bridge
+  const videoOptions: Record<string, string> = {}
+  for (const [k, v] of Object.entries(options)) {
+    if (v === undefined) continue
+    videoOptions[k] = Array.isArray(v) ? v.join('\n') : v
+  }
+  if (!videoOptions.dir) videoOptions.dir = effectiveForm.dir
+
+  try {
+    if (videoFlow.isVideo.value) {
+      await videoFlow.submitVideoDownload(videoOptions, form.value.cookiesFromBrowser)
+    } else if (videoFlow.isPlaylist.value && videoFlow.playlistInfo.value) {
+      const pl = videoFlow.playlistInfo.value
+      const indices = Array.from(videoFlow.selectedPlaylistItems.value).sort((a, b) => a - b)
+      for (const i of indices) {
+        const entry = pl.entries[i]
+        if (!entry) continue
+        try {
+          await ytdlpApi.downloadDirect({
+            url: entry.url,
+            formatId: videoFlow.selectedFormatId.value || 'bestvideo+bestaudio/best',
+            title: entry.title || entry.url,
+            ext: 'mp4',
+            meta: {
+              video_title: entry.title,
+              thumbnail: entry.thumbnail,
+              duration: entry.duration,
+              playlist_title: pl.title,
+              download_mode: 'ytdlp_direct',
+            },
+            options: videoOptions,
+            cookiesFromBrowser: form.value.cookiesFromBrowser,
+          })
+        } catch (err) {
+          logger.error('AddTask.playlistItemDownload', { title: entry.title, err })
+        }
+      }
+    }
+    await taskStore.fetchList()
+    handleClose()
+    if (preferenceStore.config.newTaskShowDownloading !== false) {
+      router.push({ path: '/task/all' }).catch(() => {})
+    }
+    return true
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    logger.error('AddTask.videoSubmit', err)
+    checkCookieExpired(errMsg)
+    message.error(errMsg, { closable: true })
+    submitting.value = false
+    return true
+  }
+}
+
+/** Submits normal aria2 batch/URI branch and shows notifications. */
+async function submitNormalBranch(
+  effectiveForm: typeof form.value & { globalProxyServer: string },
+  options: ReturnType<typeof buildEngineOptions>,
+) {
+  let manualResult = { magnetGids: [] as string[], magnetFailures: [] as { uri: string; error: string }[] }
+
+  if (hasBatch.value) {
+    await submitBatchItems(batch.value, options, taskStore)
+  }
+  if (form.value.uris.trim()) {
+    const shouldClassify = preferenceStore.config.fileCategoryEnabled && !dirUserModified.value
+    manualResult = await submitManualUris(effectiveForm, options, taskStore, {
+      enabled: shouldClassify,
+      categories: preferenceStore.config.fileCategories,
+    })
+  }
+
+  const failedCount = batch.value.filter((i) => i.status === 'failed').length + manualResult.magnetFailures.length
+  if (failedCount > 0) {
+    message.warning(`${failedCount} ${t('task.failed') || 'failed'}`, { closable: true })
+    return
+  }
+
+  // Collect task names BEFORE handleClose clears form state
+  const taskNames: string[] = []
+  for (const item of batch.value) {
+    if (item.status === 'submitted') taskNames.push(item.displayName)
+  }
+  for (const uri of normalizeUriLines(form.value.uris)) {
+    if (!isMagnetUri(uri)) taskNames.push(extractDecodedFilename(uri) || uri)
+  }
+  for (let i = 0; i < manualResult.magnetGids.length; i++) {
+    taskNames.push('Magnet Download')
+  }
+
+  handleClose()
+  handleTaskStart(taskNames, {
+    messageInfo: message.info,
+    t,
+    taskNotification: preferenceStore.config.taskNotification !== false,
+    notifyOnStart: preferenceStore.config.notifyOnStart === true,
+  })
+  if (preferenceStore.config.newTaskShowDownloading !== false) {
+    router.push({ path: '/task/all' }).catch(() => {})
+  }
 }
 
 async function handleSubmit() {
   if (submitting.value) return
   submitting.value = true
+  cookieExpired.value = false
 
   try {
-    // Validate custom proxy before building options
     if (form.value.proxyMode === 'custom' && form.value.customProxy) {
       if (!isValidAria2ProxyUrl(form.value.customProxy)) {
         message.error(t('task.proxy-unsupported-protocol'), { closable: true })
@@ -403,121 +542,17 @@ async function handleSubmit() {
       }
     }
 
-    // When dir field is empty (user left it blank for auto-classification),
-    // fall back to the global default dir so aria2 always has a valid path.
     const effectiveForm = {
       ...form.value,
       dir: form.value.dir.trim() || preferenceStore.config.dir,
       globalProxyServer: globalProxyServer.value,
     }
     const options = buildEngineOptions(effectiveForm)
-    let manualResult = { magnetGids: [] as string[], magnetFailures: [] as { uri: string; error: string }[] }
 
-    // ── yt-dlp video/playlist branch ──────────────────────────────────
-    if (videoFlow.isVideo.value || videoFlow.isPlaylist.value) {
-      // Flatten Aria2EngineOptions (string | string[] | undefined) to Record<string, string>
-      // required by the yt-dlp bridge — arrays are joined with newlines (aria2 convention),
-      // and undefined values are dropped.
-      const videoOptions: Record<string, string> = {}
-      for (const [k, v] of Object.entries(options)) {
-        if (v === undefined) continue
-        videoOptions[k] = Array.isArray(v) ? v.join('\n') : v
-      }
-      if (!videoOptions.dir) videoOptions.dir = effectiveForm.dir
+    const handled = await submitVideoBranch(effectiveForm, options)
+    if (handled) return
 
-      try {
-        if (videoFlow.isVideo.value) {
-          await videoFlow.submitVideoDownload(videoOptions, form.value.cookiesFromBrowser)
-        } else if (videoFlow.isPlaylist.value && videoFlow.playlistInfo.value) {
-          const pl = videoFlow.playlistInfo.value
-          const indices = Array.from(videoFlow.selectedPlaylistItems.value).sort((a, b) => a - b)
-          for (const i of indices) {
-            const entry = pl.entries[i]
-            if (!entry) continue
-            try {
-              await ytdlpApi.downloadDirect({
-                url: entry.url,
-                formatId: videoFlow.selectedFormatId.value || 'bestvideo+bestaudio/best',
-                title: entry.title || entry.url,
-                ext: 'mp4',
-                meta: {
-                  video_title: entry.title,
-                  thumbnail: entry.thumbnail,
-                  duration: entry.duration,
-                  playlist_title: pl.title,
-                  download_mode: 'ytdlp_direct',
-                },
-                options: videoOptions,
-                cookiesFromBrowser: form.value.cookiesFromBrowser,
-              })
-            } catch (err) {
-              logger.error('AddTask.playlistItemDownload', { title: entry.title, err })
-            }
-          }
-        }
-        await taskStore.fetchList()
-        handleClose()
-        if (preferenceStore.config.newTaskShowDownloading !== false) {
-          router.push({ path: '/task/all' }).catch(() => {})
-        }
-        return
-      } catch (err: unknown) {
-        const errMsg = err instanceof Error ? err.message : String(err)
-        logger.error('AddTask.videoSubmit', err)
-        message.error(errMsg, { closable: true })
-        submitting.value = false
-        return
-      }
-    }
-    // ── End yt-dlp branch ─────────────────────────────────────────────
-
-    if (hasBatch.value) {
-      await submitBatchItems(batch.value, options, taskStore)
-    }
-    if (form.value.uris.trim()) {
-      // User's custom path takes highest priority — skip classification when overridden
-      const shouldClassify = preferenceStore.config.fileCategoryEnabled && !dirUserModified.value
-      manualResult = await submitManualUris(effectiveForm, options, taskStore, {
-        enabled: shouldClassify,
-        categories: preferenceStore.config.fileCategories,
-      })
-    }
-
-    const failedCount = batch.value.filter((i) => i.status === 'failed').length + manualResult.magnetFailures.length
-    if (failedCount > 0) {
-      message.warning(`${failedCount} ${t('task.failed') || 'failed'}`, { closable: true })
-    } else {
-      // ── Collect task names BEFORE handleClose clears form state ──
-      const taskNames: string[] = []
-      for (const item of batch.value) {
-        if (item.status === 'submitted') {
-          taskNames.push(item.displayName)
-        }
-      }
-      const allUris = normalizeUriLines(form.value.uris)
-      for (const uri of allUris) {
-        if (!isMagnetUri(uri)) {
-          taskNames.push(extractDecodedFilename(uri) || uri)
-        }
-      }
-      for (let i = 0; i < manualResult.magnetGids.length; i++) {
-        taskNames.push('Magnet Download')
-      }
-
-      handleClose()
-
-      // ── Start notification (aggregated) ────────────────────────
-      handleTaskStart(taskNames, {
-        messageInfo: message.info,
-        t,
-        taskNotification: preferenceStore.config.taskNotification !== false,
-        notifyOnStart: preferenceStore.config.notifyOnStart === true,
-      })
-
-      if (preferenceStore.config.newTaskShowDownloading !== false) {
-        router.push({ path: '/task/all' }).catch(() => {})
-      }
-    }
+    await submitNormalBranch(effectiveForm, options)
   } catch (e: unknown) {
     const category = classifySubmitError(e)
     const errMsg = e instanceof Error ? e.message : String(e)
@@ -734,6 +769,11 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
               视频解析失败：{{ videoFlow.parseError.value }}。将按普通链接处理。
             </div>
 
+            <div v-if="cookieExpired" class="cookie-expired-banner">
+              <span>登录可能已过期，请重新打开浏览器登录：</span>
+              <button type="button" class="link-btn" @click="openWebBrowser">打开浏览器</button>
+            </div>
+
             <VideoInfoPanel
               v-if="videoFlow.isVideo.value && videoFlow.videoInfo.value"
               :video="videoFlow.videoInfo.value"
@@ -875,6 +915,34 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
   color: var(--n-warning-color, #f0a020);
   font-size: 12px;
   line-height: 1.5;
+}
+
+/* ── Cookie-expired warning banner ───────────────────────────────── */
+.cookie-expired-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 4px 0;
+  border: 1px solid var(--m3-warning-border, #fde68a);
+  background: var(--m3-warning-bg, #fef3c7);
+  border-radius: 6px;
+  color: var(--m3-warning-text, #92400e);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--color-primary, #15803d);
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0;
+  text-decoration: underline;
+  font-size: 13px;
+}
+.link-btn:hover {
+  color: var(--color-primary-hover, #166534);
 }
 </style>
 
