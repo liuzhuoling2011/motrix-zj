@@ -75,7 +75,11 @@ impl YtdlpHeaders {
             args.push(path.to_string_lossy().into_owned());
         } else if let Some(store) = app.try_state::<crate::cookies::CookieStore>() {
             if let Some(path) = store.resolve_for_url(target_url) {
-                log::info!("ytdlp: auto-attaching cookies from {}", path.display());
+                log::debug!(
+                    "ytdlp: auto-attaching cookies from {} for {}",
+                    path.display(),
+                    target_url
+                );
                 args.push("--cookies".to_string());
                 args.push(path.to_string_lossy().into_owned());
             }
@@ -326,7 +330,7 @@ pub async fn parse_playlist_item(
 
 #[cfg(test)]
 mod cookies_fallback_tests {
-    use super::super::super::cookies::CookieStore;
+    use crate::cookies::CookieStore;
     use std::fs;
 
     #[test]
