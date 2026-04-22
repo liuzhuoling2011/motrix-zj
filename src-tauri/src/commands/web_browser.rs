@@ -5,9 +5,12 @@
 //! (`web-browser-content`). The content webview is the one that navigates
 //! to external sites; the toolbar is a static local entry.
 
-use tauri::webview::WebviewBuilder;
+use serde::Deserialize;
+use tauri::webview::{PageLoadEvent, WebviewBuilder};
 use tauri::window::WindowBuilder;
-use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, WebviewUrl};
+use tauri::{
+    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Url, WebviewUrl, WindowEvent,
+};
 
 const WIN_LABEL: &str = "web-browser";
 const TOOLBAR_LABEL: &str = "web-browser-toolbar";
@@ -58,7 +61,24 @@ pub async fn open_web_browser(app: AppHandle) -> Result<(), String> {
         })?;
 
     // Content webview: below toolbar, local HTML entry (SiteGrid).
-    let content = WebviewBuilder::new(CONTENT_LABEL, WebviewUrl::App("web-content.html".into()));
+    //
+    // URL-change forwarding is installed here (on the builder) — Tauri's
+    // `on_page_load` is a builder-only hook. When the content webview
+    // finishes navigating to a page we forward the URL to the toolbar so
+    // its address input stays in sync.
+    let app_for_load = app.clone();
+    let content = WebviewBuilder::new(CONTENT_LABEL, WebviewUrl::App("web-content.html".into()))
+        .on_page_load(move |_webview, payload| {
+            if matches!(payload.event(), PageLoadEvent::Finished) {
+                let url = payload.url().as_str().to_string();
+                let payload = serde_json::json!({
+                    "url": url,
+                    "canGoBack": true,
+                    "canGoForward": true,
+                });
+                let _ = app_for_load.emit_to(TOOLBAR_LABEL, "web-browser-url-changed", payload);
+            }
+        });
     window
         .add_child(
             content,
@@ -69,6 +89,102 @@ pub async fn open_web_browser(app: AppHandle) -> Result<(), String> {
             let _ = window.close();
             format!("content add_child failed: {e}")
         })?;
+
+    install_hooks(&app)?;
+
+    Ok(())
+}
+
+/// Toolbar → content navigation actions.
+///
+/// Deserialised from `{ action: "back" | "forward" | ... }` payloads sent
+/// by the toolbar webview over IPC.
+#[derive(Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NavAction {
+    Back,
+    Forward,
+    Reload,
+    Home,
+    Load,
+}
+
+/// Executes a navigation action inside the content webview on behalf of
+/// the toolbar webview.
+///
+/// - `Back` / `Forward` / `Reload` drive the History API via `eval`.
+/// - `Home` resets to the local SiteGrid entry page.
+/// - `Load` navigates to the supplied URL (required for this variant).
+#[tauri::command]
+pub async fn web_browser_navigate(
+    app: AppHandle,
+    action: NavAction,
+    url: Option<String>,
+) -> Result<(), String> {
+    let content = app
+        .get_webview(CONTENT_LABEL)
+        .ok_or_else(|| "content webview not available".to_string())?;
+
+    match action {
+        NavAction::Back => content.eval("history.back()").map_err(|e| e.to_string())?,
+        NavAction::Forward => content
+            .eval("history.forward()")
+            .map_err(|e| e.to_string())?,
+        NavAction::Reload => content
+            .eval("location.reload()")
+            .map_err(|e| e.to_string())?,
+        NavAction::Home => {
+            let u = Url::parse("tauri://localhost/web-content.html")
+                .map_err(|e| e.to_string())?;
+            content.navigate(u).map_err(|e| e.to_string())?
+        }
+        NavAction::Load => {
+            let raw = url.ok_or_else(|| "missing url for load action".to_string())?;
+            let u = Url::parse(&raw).map_err(|e| format!("invalid url: {e}"))?;
+            content.navigate(u).map_err(|e| e.to_string())?
+        }
+    }
+    Ok(())
+}
+
+/// Installs a window-level resize handler that keeps both child webviews
+/// sized to the window: toolbar stays at `TOOLBAR_HEIGHT` high across the
+/// top, content fills the remainder (clamped to zero).
+///
+/// Called once by `open_web_browser` after both child webviews exist.
+/// The URL-change forwarding hook is attached on the content builder
+/// itself (see `on_page_load` in `open_web_browser`), because Tauri only
+/// exposes that callback on `WebviewBuilder`, not on a constructed
+/// `Webview`.
+fn install_hooks(app: &AppHandle) -> Result<(), String> {
+    let window = app
+        .get_window(WIN_LABEL)
+        .ok_or_else(|| "web-browser window not available".to_string())?;
+
+    // Resize handler: keep toolbar 48px high, content fills the rest.
+    let app2 = app.clone();
+    window.on_window_event(move |event| {
+        if let WindowEvent::Resized(_) = event {
+            let Some(window) = app2.get_window(WIN_LABEL) else {
+                return;
+            };
+            let Ok(size) = window.inner_size() else {
+                return;
+            };
+            let Ok(scale) = window.scale_factor() else {
+                return;
+            };
+            let logical = size.to_logical::<f64>(scale);
+            let content_height = (logical.height - TOOLBAR_HEIGHT).max(0.0);
+
+            if let Some(toolbar) = app2.get_webview(TOOLBAR_LABEL) {
+                let _ = toolbar.set_size(LogicalSize::new(logical.width, TOOLBAR_HEIGHT));
+            }
+            if let Some(content) = app2.get_webview(CONTENT_LABEL) {
+                let _ = content.set_size(LogicalSize::new(logical.width, content_height));
+            }
+        }
+    });
 
     Ok(())
 }
