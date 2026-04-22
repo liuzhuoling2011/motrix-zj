@@ -9,7 +9,7 @@ import { usePreferenceStore } from '@/stores/preference'
 import { ADD_TASK_TYPE, ENGINE_MAX_CONNECTION_PER_SERVER } from '@shared/constants'
 import { detectResource, bytesToSize } from '@shared/utils'
 import { calcColumnWidth } from '@shared/utils/calcColumnWidth'
-import { mergeUriLines } from '@shared/utils/batchHelpers'
+import { mergeUriLines, normalizeUriLines, extractDecodedFilename } from '@shared/utils/batchHelpers'
 import {
   buildEngineOptions,
   classifySubmitError,
@@ -19,6 +19,8 @@ import {
   isGlobalDownloadProxyActive,
 } from '@/composables/useAddTaskSubmit'
 import { isValidAria2ProxyUrl } from '@/composables/useAdvancedPreference'
+import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
+import { isMagnetUri } from '@/composables/useMagnetFlow'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { downloadDir } from '@tauri-apps/api/path'
 import { logger } from '@shared/logger'
@@ -396,7 +398,32 @@ async function handleSubmit() {
     if (failedCount > 0) {
       message.warning(`${failedCount} ${t('task.failed') || 'failed'}`, { closable: true })
     } else {
+      // ── Collect task names BEFORE handleClose clears form state ──
+      const taskNames: string[] = []
+      for (const item of batch.value) {
+        if (item.status === 'submitted') {
+          taskNames.push(item.displayName)
+        }
+      }
+      const allUris = normalizeUriLines(form.value.uris)
+      for (const uri of allUris) {
+        if (!isMagnetUri(uri)) {
+          taskNames.push(extractDecodedFilename(uri) || uri)
+        }
+      }
+      for (let i = 0; i < manualResult.magnetGids.length; i++) {
+        taskNames.push('Magnet Download')
+      }
+
       handleClose()
+
+      // ── Start notification (aggregated) ────────────────────────
+      handleTaskStart(taskNames, {
+        messageInfo: message.info,
+        t,
+        taskNotification: preferenceStore.config.taskNotification !== false,
+      })
+
       if (preferenceStore.config.newTaskShowDownloading !== false) {
         router.push({ path: '/task/all' }).catch(() => {})
       }
