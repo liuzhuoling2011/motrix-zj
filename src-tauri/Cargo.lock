@@ -2931,6 +2931,7 @@ version = "3.8.1-beta.3"
 dependencies = [
  "axum",
  "chrono",
+ "cookie",
  "core-foundation",
  "dirs 6.0.0",
  "dunce",
