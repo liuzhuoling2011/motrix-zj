@@ -613,8 +613,6 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.protocol-motrixnext')">
         <NSwitch v-model:value="form.protocolMotrixnext" />
       </NFormItem>
-
-      <!-- Timeout & Disk -->
     </NForm>
 
     <!-- Database records viewer modal -->
@@ -655,6 +653,7 @@ onMounted(async () => {
 .form-preference {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px 30px 64px 36px;
 }
 .form-preference :deep(.n-form-item) {
