@@ -340,7 +340,10 @@ impl CookieStore {
         let mut written = Vec::with_capacity(groups.len());
         for (d, jar) in groups {
             let path = self.base_dir.join(format!("{d}.txt"));
-            let content = netscape::serialise(&jar);
+            // `serialise` signature was revised during Task 1 to take domain
+            // explicitly — the cookie crate's `domain()` normaliser strips
+            // any leading dot, so the grouping key must be the source of truth.
+            let content = netscape::serialise(&d, &jar);
             fs::write(&path, content)?;
             written.push(d);
         }
