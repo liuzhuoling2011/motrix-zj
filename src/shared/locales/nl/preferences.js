@@ -309,4 +309,9 @@ export default {
   'connect-timeout': 'Verbindingstime-out',
   'timeout': 'Overdrachtstime-out',
   'file-allocation': 'Bestandsvoorallocatie',
+  'startup-behavior': 'Opstarten',
+  'tray-and-dock': 'Systeemvak en Dock',
+  'unit-seconds': 'sec',
+  'concurrency-and-segments': 'Verbindingen en segmenten',
+  'retry-and-file-behavior': 'Herstel en opnieuw proberen',
 }

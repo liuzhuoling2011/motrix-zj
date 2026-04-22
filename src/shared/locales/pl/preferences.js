@@ -309,4 +309,9 @@ export default {
   'connect-timeout': 'Limit czasu połączenia',
   'timeout': 'Limit czasu transferu',
   'file-allocation': 'Wstępna alokacja pliku',
+  'startup-behavior': 'Uruchamianie',
+  'tray-and-dock': 'Zasobnik i Dock',
+  'unit-seconds': 'sek',
+  'concurrency-and-segments': 'Połączenia i segmenty',
+  'retry-and-file-behavior': 'Wznawianie i ponowne próby',
 }

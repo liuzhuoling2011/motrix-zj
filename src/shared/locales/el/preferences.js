@@ -309,4 +309,9 @@ export default {
   'connect-timeout': 'Χρονικό όριο σύνδεσης',
   'timeout': 'Χρονικό όριο μεταφοράς',
   'file-allocation': 'Προ-εκχώρηση αρχείου',
+  'startup-behavior': 'Εκκίνηση',
+  'tray-and-dock': 'Περιοχή ειδοποιήσεων & Dock',
+  'unit-seconds': 'δευτ',
+  'concurrency-and-segments': 'Συνδέσεις & τμήματα',
+  'retry-and-file-behavior': 'Ανάκτηση & επανάληψη',
 }

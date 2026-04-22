@@ -309,4 +309,9 @@ export default {
   'connect-timeout': 'Tilkoblingsavbrudd',
   'timeout': 'Overføringsavbrudd',
   'file-allocation': 'Forhåndstildeling av fil',
+  'startup-behavior': 'Oppstart',
+  'tray-and-dock': 'Systemstatusfeltet og Dock',
+  'unit-seconds': 'sek',
+  'concurrency-and-segments': 'Tilkoblinger og segmenter',
+  'retry-and-file-behavior': 'Gjenoppretting og nytt forsøk',
 }

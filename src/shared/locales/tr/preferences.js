@@ -309,4 +309,9 @@ export default {
   'connect-timeout': 'Bağlantı zaman aşımı',
   'timeout': 'Aktarım zaman aşımı',
   'file-allocation': 'Dosya ön tahsisi',
+  'startup-behavior': 'Başlangıç',
+  'tray-and-dock': 'Tepsi ve Dock',
+  'unit-seconds': 'sn',
+  'concurrency-and-segments': 'Bağlantılar ve segmentler',
+  'retry-and-file-behavior': 'Kurtarma ve yeniden deneme',
 }

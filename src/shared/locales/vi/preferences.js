@@ -309,4 +309,9 @@ export default {
   'connect-timeout': 'Hết hạn kết nối',
   'timeout': 'Hết hạn truyền tải',
   'file-allocation': 'Phân bổ trước tệp',
+  'startup-behavior': 'Khởi động',
+  'tray-and-dock': 'Khay hệ thống và Dock',
+  'unit-seconds': 'giây',
+  'concurrency-and-segments': 'Kết nối và phân đoạn',
+  'retry-and-file-behavior': 'Khôi phục và thử lại',
 }

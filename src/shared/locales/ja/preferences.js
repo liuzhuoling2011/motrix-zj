@@ -309,4 +309,9 @@ export default {
   'connect-timeout': '接続タイムアウト',
   'timeout': '転送タイムアウト',
   'file-allocation': 'ファイル事前割り当て',
+  'startup-behavior': '起動',
+  'tray-and-dock': 'トレイと Dock',
+  'unit-seconds': '秒',
+  'concurrency-and-segments': '接続とセグメント',
+  'retry-and-file-behavior': '復旧とリトライ',
 }

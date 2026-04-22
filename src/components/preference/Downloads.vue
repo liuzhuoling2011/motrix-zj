@@ -293,6 +293,46 @@ onMounted(async () => {
 <template>
   <div class="preference-form-wrapper">
     <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
+      <!-- Concurrency & Segments -->
+      <NDivider title-placement="left">{{ t('preferences.concurrency-and-segments') }}</NDivider>
+      <NFormItem :label="t('preferences.max-concurrent-downloads')">
+        <NInputNumber v-model:value="form.maxConcurrentDownloads" :min="1" :max="10" style="width: 120px" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.split-count')">
+        <NInputNumber
+          v-model:value="form.split"
+          :min="1"
+          :max="ENGINE_MAX_CONNECTION_PER_SERVER"
+          style="width: 120px"
+        />
+      </NFormItem>
+      <NFormItem :label="t('preferences.max-connection-per-server')">
+        <NInputNumber
+          v-model:value="form.maxConnectionPerServer"
+          :min="1"
+          :max="ENGINE_MAX_CONNECTION_PER_SERVER"
+          style="width: 120px"
+        />
+      </NFormItem>
+      <!-- Retry & File Options -->
+      <NDivider title-placement="left">{{ t('preferences.retry-and-file-behavior') }}</NDivider>
+      <NFormItem :label="t('preferences.max-tries')">
+        <NInputNumber v-model:value="form.maxTries" :min="0" :max="60" style="width: 120px" />
+        <NText depth="3" style="font-size: 12px; margin-left: 8px">
+          {{ t('preferences.max-tries-hint') }}
+        </NText>
+      </NFormItem>
+      <NFormItem :label="t('preferences.retry-wait')">
+        <NInputNumber v-model:value="form.retryWait" :min="0" :max="600" style="width: 120px" />
+        <NText depth="3" style="font-size: 12px; margin-left: 8px">{{ t('preferences.unit-seconds') }}</NText>
+      </NFormItem>
+      <NFormItem :label="t('preferences.continue')">
+        <NSwitch v-model:value="form.continue" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.remote-time')">
+        <NSwitch v-model:value="form.remoteTime" />
+      </NFormItem>
+
       <!-- Download Path -->
       <NDivider title-placement="left">{{ t('preferences.download-path') }}</NDivider>
       <NFormItem :label="t('preferences.default-path')">
@@ -367,44 +407,6 @@ onMounted(async () => {
           </div>
         </NFormItem>
       </NCollapseTransition>
-
-      <!-- Task Management -->
-      <NDivider title-placement="left">{{ t('preferences.task-manage') }}</NDivider>
-      <NFormItem :label="t('preferences.max-concurrent-downloads')">
-        <NInputNumber v-model:value="form.maxConcurrentDownloads" :min="1" :max="10" style="width: 120px" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.split-count')">
-        <NInputNumber
-          v-model:value="form.split"
-          :min="1"
-          :max="ENGINE_MAX_CONNECTION_PER_SERVER"
-          style="width: 120px"
-        />
-      </NFormItem>
-      <NFormItem :label="t('preferences.max-connection-per-server')">
-        <NInputNumber
-          v-model:value="form.maxConnectionPerServer"
-          :min="1"
-          :max="ENGINE_MAX_CONNECTION_PER_SERVER"
-          style="width: 120px"
-        />
-      </NFormItem>
-      <NFormItem :label="t('preferences.max-tries')">
-        <NInputNumber v-model:value="form.maxTries" :min="0" :max="60" style="width: 120px" />
-        <NText depth="3" style="font-size: 12px; margin-left: 8px">
-          {{ t('preferences.max-tries-hint') }}
-        </NText>
-      </NFormItem>
-      <NFormItem :label="t('preferences.retry-wait')">
-        <NInputNumber v-model:value="form.retryWait" :min="0" :max="600" style="width: 120px" />
-        <NText depth="3" style="font-size: 12px; margin-left: 8px">sec</NText>
-      </NFormItem>
-      <NFormItem :label="t('preferences.continue')">
-        <NSwitch v-model:value="form.continue" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.remote-time')">
-        <NSwitch v-model:value="form.remoteTime" />
-      </NFormItem>
 
       <!-- Speed Limit -->
       <NDivider title-placement="left">{{ t('preferences.speed-limit') }}</NDivider>

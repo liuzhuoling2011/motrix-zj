@@ -309,4 +309,9 @@ export default {
   'connect-timeout': 'Kapcsolódási időtúllépés',
   'timeout': 'Átviteli időtúllépés',
   'file-allocation': 'Fájl előfoglalás',
+  'startup-behavior': 'Indítás',
+  'tray-and-dock': 'Tálca és Dock',
+  'unit-seconds': 'mp',
+  'concurrency-and-segments': 'Kapcsolatok és szegmensek',
+  'retry-and-file-behavior': 'Visszaállítás és újrapróbálkozás',
 }

@@ -309,4 +309,9 @@ export default {
   'connect-timeout': 'Timeout conexiune',
   'timeout': 'Timeout transfer',
   'file-allocation': 'Pre-alocare fișier',
+  'startup-behavior': 'Pornire',
+  'tray-and-dock': 'Tavă și Dock',
+  'unit-seconds': 'sec',
+  'concurrency-and-segments': 'Conexiuni și segmente',
+  'retry-and-file-behavior': 'Recuperare și reîncercare',
 }

@@ -309,4 +309,9 @@ export default {
   'connect-timeout': 'Времеви лимит за свързване',
   'timeout': 'Времеви лимит за трансфер',
   'file-allocation': 'Предварително разпределяне на файл',
+  'startup-behavior': 'Стартиране',
+  'tray-and-dock': 'Трей и Dock',
+  'unit-seconds': 'сек',
+  'concurrency-and-segments': 'Връзки и сегменти',
+  'retry-and-file-behavior': 'Възстановяване и повторен опит',
 }

@@ -309,4 +309,9 @@ export default {
   'connect-timeout': '連線逾時',
   'timeout': '傳輸逾時',
   'file-allocation': '檔案預分配',
+  'startup-behavior': '啟動',
+  'tray-and-dock': '系統匣與 Dock',
+  'unit-seconds': '秒',
+  'concurrency-and-segments': '連線與分段',
+  'retry-and-file-behavior': '恢復與重試',
 }

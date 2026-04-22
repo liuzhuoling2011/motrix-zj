@@ -309,4 +309,9 @@ export default {
   'connect-timeout': 'Тайм-аут з\'єднання',
   'timeout': 'Тайм-аут передачі',
   'file-allocation': 'Попереднє виділення файлу',
+  'startup-behavior': 'Запуск',
+  'tray-and-dock': 'Трей та Dock',
+  'unit-seconds': 'сек',
+  'concurrency-and-segments': 'З\'єднання та сегменти',
+  'retry-and-file-behavior': 'Відновлення та повтор',
 }

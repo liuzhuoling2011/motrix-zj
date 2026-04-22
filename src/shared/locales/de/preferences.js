@@ -309,4 +309,9 @@ export default {
   'connect-timeout': 'Verbindungs-Zeitlimit',
   'timeout': 'Übertragungs-Zeitlimit',
   'file-allocation': 'Datei-Vorabzuweisung',
+  'startup-behavior': 'Autostart',
+  'tray-and-dock': 'Taskleiste & Dock',
+  'unit-seconds': 'Sek',
+  'concurrency-and-segments': 'Verbindungen & Segmente',
+  'retry-and-file-behavior': 'Wiederaufnahme & Wiederholung',
 }

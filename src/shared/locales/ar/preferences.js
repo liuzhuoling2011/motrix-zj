@@ -309,4 +309,9 @@ export default {
   'connect-timeout': 'مهلة الاتصال',
   'timeout': 'مهلة النقل',
   'file-allocation': 'تخصيص الملف المسبق',
+  'startup-behavior': 'التشغيل',
+  'tray-and-dock': 'شريط المهام والـ Dock',
+  'unit-seconds': 'ثانية',
+  'concurrency-and-segments': 'الاتصال والتجزئة',
+  'retry-and-file-behavior': 'الاستعادة وإعادة المحاولة',
 }

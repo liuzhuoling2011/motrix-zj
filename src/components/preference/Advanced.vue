@@ -407,11 +407,14 @@ onMounted(async () => {
             v-model:value="form.extensionApiSecret"
             type="password"
             show-password-on="click"
-            placeholder="API Secret"
+            :placeholder="t('preferences.extension-api-secret')"
             style="flex: 1"
             :status="form.extensionApiSecret ? undefined : 'warning'"
           />
-          <NButton style="padding: 0 10px" @click="copyToClipboard(form.extensionApiSecret, 'API Secret')">
+          <NButton
+            style="padding: 0 10px"
+            @click="copyToClipboard(form.extensionApiSecret, t('preferences.extension-api-secret'))"
+          >
             <template #icon>
               <NIcon :size="14"><CopyOutline /></NIcon>
             </template>
@@ -452,11 +455,11 @@ onMounted(async () => {
             v-model:value="form.rpcSecret"
             type="password"
             show-password-on="click"
-            placeholder="RPC Secret"
+            :placeholder="t('preferences.rpc-secret')"
             style="flex: 1"
             :status="form.rpcSecret ? undefined : 'warning'"
           />
-          <NButton style="padding: 0 10px" @click="copyToClipboard(form.rpcSecret, 'RPC Secret')">
+          <NButton style="padding: 0 10px" @click="copyToClipboard(form.rpcSecret, t('preferences.rpc-secret'))">
             <template #icon>
               <NIcon :size="14"><CopyOutline /></NIcon>
             </template>

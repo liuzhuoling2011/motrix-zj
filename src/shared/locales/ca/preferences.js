@@ -309,4 +309,9 @@ export default {
   'connect-timeout': 'Temps d\'espera de connexió',
   'timeout': 'Temps d\'espera de transferència',
   'file-allocation': 'Preasignació de fitxer',
+  'startup-behavior': 'Inici',
+  'tray-and-dock': 'Safata i Dock',
+  'unit-seconds': 'seg',
+  'concurrency-and-segments': 'Connexions i segments',
+  'retry-and-file-behavior': 'Recuperació i reintents',
 }

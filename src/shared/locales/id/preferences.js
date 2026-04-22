@@ -309,4 +309,9 @@ export default {
   'connect-timeout': 'Batas waktu koneksi',
   'timeout': 'Batas waktu transfer',
   'file-allocation': 'Pra-alokasi file',
+  'startup-behavior': 'Mulai',
+  'tray-and-dock': 'Baki & Dock',
+  'unit-seconds': 'dtk',
+  'concurrency-and-segments': 'Koneksi & segmen',
+  'retry-and-file-behavior': 'Pemulihan & coba ulang',
 }
