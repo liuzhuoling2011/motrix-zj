@@ -26,6 +26,8 @@ export default defineConfig(async () => ({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
+        webToolbar: resolve(__dirname, 'web-toolbar.html'),
+        webContent: resolve(__dirname, 'web-content.html'),
       },
       output: {
         manualChunks: {
