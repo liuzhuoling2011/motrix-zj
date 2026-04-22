@@ -14,11 +14,19 @@ use url::Url;
 ///   [".www.youtube.com", "www.youtube.com", ".youtube.com", "youtube.com"]
 pub fn candidates_for_url(url: &str) -> Vec<String> {
     let Ok(parsed) = Url::parse(url) else { return Vec::new() };
-    let Some(host) = parsed.host_str() else { return Vec::new() };
-    candidates_for_host(host)
+    // Only real DNS names produce useful cookie scopes. Reject IP literals
+    // (including IPv6 which also contains filesystem-invalid chars on Windows).
+    match parsed.host() {
+        Some(url::Host::Domain(h)) => candidates_for_host(h),
+        _ => Vec::new(),
+    }
 }
 
 fn candidates_for_host(host: &str) -> Vec<String> {
+    let host = host.trim_end_matches('.');
+    if host.is_empty() {
+        return Vec::new();
+    }
     let mut out = Vec::new();
     let mut current: &str = host;
     loop {
@@ -68,5 +76,34 @@ mod tests {
         assert!(v.contains(&"b.c.example.com".to_string()));
         assert!(v.contains(&"c.example.com".to_string()));
         assert!(v.contains(&"example.com".to_string()));
+    }
+
+    #[test]
+    fn single_label_host_returns_two_forms() {
+        assert_eq!(
+            candidates_for_url("http://localhost/"),
+            vec![".localhost", "localhost"]
+        );
+    }
+
+    #[test]
+    fn ipv4_host_returns_empty() {
+        assert!(candidates_for_url("https://192.168.1.1/").is_empty());
+    }
+
+    #[test]
+    fn ipv6_host_returns_empty() {
+        assert!(candidates_for_url("https://[::1]/").is_empty());
+    }
+
+    #[test]
+    fn trailing_dot_is_stripped() {
+        let v = candidates_for_url("https://example.com./");
+        assert_eq!(v, vec![".example.com", "example.com"]);
+    }
+
+    #[test]
+    fn file_url_without_host_returns_empty() {
+        assert!(candidates_for_url("file:///etc/passwd").is_empty());
     }
 }
