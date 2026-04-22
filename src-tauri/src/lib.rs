@@ -898,6 +898,7 @@ pub fn run() {
             commands::ytdlp_download_via_aria2,
             commands::ytdlp_download_direct,
             commands::ytdlp_cancel_download,
+            commands::get_sidecar_version,
         ])
         // ── Window event interception ─────────────────────────────────
         //

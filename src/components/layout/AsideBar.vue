@@ -51,7 +51,7 @@ function showAddTask() {
               text-anchor="middle"
               letter-spacing="1"
             >
-              NEXT
+              ZJ
             </text>
           </svg>
         </a>
