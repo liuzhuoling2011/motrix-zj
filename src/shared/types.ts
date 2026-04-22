@@ -211,6 +211,10 @@ export interface AppConfig {
   deleteFilesWhenSkipConfirm: boolean
   resumeAllWhenAppLaunched: boolean
   taskNotification: boolean
+  /** OS notification when a download starts (gated by taskNotification). */
+  notifyOnStart: boolean
+  /** OS notification when a download completes or BT enters seeding (gated by taskNotification). */
+  notifyOnComplete: boolean
   showProgressBar: boolean
   traySpeedometer: boolean
   dockBadgeSpeed: boolean
@@ -220,6 +224,11 @@ export interface AppConfig {
   proxy: ProxyConfig
   protocols: ProtocolsConfig
   clipboard: ClipboardConfig
+  /** When true, extension-intercepted URI downloads (HTTP/FTP/magnet) bypass
+   *  the AddTask dialog and submit immediately using user defaults.
+   *  Torrent/metalink URLs always show the dialog regardless — they require
+   *  a fetch→parse→file-select pipeline that cannot be skipped. */
+  autoSubmitFromExtension: boolean
   trackerSource: string[]
   customTrackerUrls: string[]
   historyDirectories: string[]
@@ -234,6 +243,13 @@ export interface AppConfig {
   runMode: string
   userAgent: string
   rpcListenPort: number
+  /** Port for the embedded HTTP API that browser extensions use to submit
+   *  downloads.  Defaults to 16801 (one above the aria2 RPC port). */
+  extensionApiPort: number
+  /** Shared secret for the extension HTTP API.  The browser extension must
+   *  send this as a `Bearer` token in the `Authorization` header.  When empty,
+   *  authentication is disabled (not recommended). */
+  extensionApiSecret: string
   rpcSecret: string
   listenPort: number
   dhtListenPort: number
@@ -254,6 +270,19 @@ export interface AppConfig {
   deleteTorrentAfterComplete: boolean
   autoDeleteStaleRecords: boolean
   clearCompletedOnExit: boolean
+  /** When true, the system shuts down after all downloads complete. */
+  shutdownWhenComplete: boolean
+  /** Maximum number of retries per download (0 = unlimited). Maps to aria2 --max-tries. */
+  maxTries: number
+  /** Seconds to wait between retries after HTTP 503 or similar errors. Maps to aria2 --retry-wait. */
+  retryWait: number
+  /** Seconds to wait when establishing a connection. Maps to aria2 --connect-timeout. */
+  connectTimeout: number
+  /** Seconds to wait for data transfer after connection is established. Maps to aria2 --timeout. */
+  timeout: number
+  /** Disk space pre-allocation method. Maps to aria2 --file-allocation.
+   *  Values: 'none' | 'trunc' | 'prealloc' | 'falloc' */
+  fileAllocation: string
   /** Per-tab sort configuration (field + direction), persisted independently per tab. */
   taskSort: import('@/composables/useTaskSort').TaskSortConfig
   [key: string]: unknown
@@ -415,4 +444,75 @@ export interface TaskApi {
   removeTaskRecord: (params: { gid: string }) => Promise<string>
   purgeTaskRecord: () => Promise<string>
   saveSession: () => Promise<string>
+}
+
+// ── yt-dlp types ───────────────────────────────────────────────────
+
+export interface VideoFormat {
+  formatId: string
+  ext: string
+  resolution?: string
+  height?: number
+  fps?: number
+  vcodec?: string
+  acodec?: string
+  filesize?: number
+  filesizeApprox?: number
+  tbr?: number
+  url?: string
+  protocol: string
+}
+
+export interface VideoInfo {
+  id: string
+  title: string
+  url: string
+  thumbnail?: string
+  duration?: number
+  uploader?: string
+  extractor: string
+  formats: VideoFormat[]
+  isLive?: boolean
+  playlistIndex?: number
+}
+
+export interface PlaylistItem {
+  id: string
+  title: string
+  url: string
+  duration?: number
+  thumbnail?: string
+}
+
+export interface PlaylistInfo {
+  id: string
+  title: string
+  uploader?: string
+  entries: PlaylistItem[]
+}
+
+export type ParseResult = ({ type: 'Video' } & VideoInfo) | ({ type: 'Playlist' } & PlaylistInfo) | { type: 'NotMedia' }
+
+export interface FormatPreset {
+  label: string
+  formatId: string
+  estimatedSize?: number
+}
+
+export type YtdlpTaskStatus = 'Downloading' | 'Merging' | 'Complete' | 'Error'
+
+export interface YtdlpProgress {
+  taskId: string
+  status: YtdlpTaskStatus
+  percent: number
+  downloadedBytes?: number
+  totalBytes?: number
+  speed?: string
+  eta?: string
+}
+
+export interface YtdlpLog {
+  taskId: string
+  stream: 'stdout' | 'stderr'
+  line: string
 }

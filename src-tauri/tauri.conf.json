@@ -31,12 +31,16 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["dmg", "nsis"],
     "publisher": "AnInsomniacy",
     "copyright": "Copyright © 2025 AnInsomniacy. All rights reserved.",
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "externalBin": [
-      "binaries/motrixnext-aria2c"
+      "binaries/motrixnext-aria2c",
+      "binaries/motrixnext-ytdlp",
+      "binaries/motrixnext-deno",
+      "binaries/motrixnext-ffmpeg",
+      "binaries/ffprobe"
     ],
     "resources": [
       "binaries/aria2.conf",

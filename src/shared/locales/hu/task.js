@@ -198,6 +198,7 @@ export default {
   'task-detail-title': 'Feladat részletei',
   'task-info-dialog-title': '{title} részletei',
   'download-start-message': '{taskName} letöltése megkezdődött',
+  'download-batch-start-message': '{taskName} és {count} további letöltése megkezdődött',
   'download-pause-message': '{taskName} szüneteltetve',
   'download-stop-message': '{taskName} leállítva',
   'download-error-message': 'Hiba a(z) {taskName} letöltésénél',

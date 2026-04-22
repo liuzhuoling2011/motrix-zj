@@ -198,6 +198,7 @@ export default {
   'task-detail-title': '작업 상세',
   'task-info-dialog-title': '{title} 상세',
   'download-start-message': '{taskName} 다운로드 시작',
+  'download-batch-start-message': '{taskName} 외 {count}개 다운로드 시작',
   'download-pause-message': '{taskName} 일시 중지됨',
   'download-stop-message': '{taskName} 중지됨',
   'download-error-message': '{taskName} 다운로드 오류',

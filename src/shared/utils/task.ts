@@ -2,6 +2,7 @@
 import { difference, parseInt } from 'lodash-es'
 import { join } from '@tauri-apps/api/path'
 import type { Aria2Task, Aria2File } from '@shared/types'
+import { resolveTaskFilePath } from '@/composables/useArchivedPaths'
 
 /** Calculates download progress as a percentage. */
 export const calcProgress = (totalLength: string | number, completedLength: string | number, decimal = 2): number => {
@@ -218,12 +219,9 @@ export const resolveOpenTarget = async (task: Aria2Task): Promise<string> => {
     return await join(dir, bittorrent.info.name)
   }
 
-  // Single file (BT or HTTP): prefer user-selected files
-  if (files.length > 0) {
-    const selected = files.filter((f) => f.selected === 'true')
-    const target = (selected.length > 0 ? selected[0] : files[0])?.path
-    if (target) return target
-  }
+  // Single file (BT or HTTP): prefer archived path, then selected file
+  const resolved = resolveTaskFilePath(task)
+  if (resolved) return resolved
 
   // Fallback: open the download directory
   return dir

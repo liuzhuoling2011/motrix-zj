@@ -41,6 +41,9 @@ vi.mock('vue-router', () => ({
     beforeEach: (...args: unknown[]) => routerBeforeEachMock(...args),
     push: vi.fn().mockResolvedValue(undefined),
   }),
+  useRoute: () => ({
+    path: '/task/all',
+  }),
 }))
 
 vi.mock('@/api/aria2', () => ({
@@ -54,6 +57,10 @@ vi.mock('@shared/logger', () => ({
     error: vi.fn(),
     info: vi.fn(),
   },
+}))
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn().mockResolvedValue([]),
 }))
 
 import { useAppEvents } from '../useAppEvents'

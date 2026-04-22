@@ -198,6 +198,7 @@ export default {
   'task-detail-title': 'タスク詳細',
   'task-info-dialog-title': '{title} の詳細',
   'download-start-message': '{taskName} のダウンロードを開始',
+  'download-batch-start-message': '{taskName} 他 {count} 件のダウンロードを開始',
   'download-pause-message': '{taskName} を一時停止',
   'download-stop-message': '{taskName} が停止しました',
   'download-error-message': '{taskName} のダウンロードでエラーが発生',

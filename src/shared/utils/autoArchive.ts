@@ -13,7 +13,23 @@
  *   - Only processes the first file (files[0]) for single-file HTTP downloads
  */
 import type { Aria2Task, FileCategory } from '@shared/types'
+import { logger } from '@shared/logger'
 import { extractExtension, resolveCategory } from './fileCategory'
+
+/**
+ * Normalizes path separators to forward slash for cross-platform comparison.
+ *
+ * On Windows, paths arrive in mixed formats from different sources:
+ * - aria2 (`task.files[0].path`):       `C:/Users/x/Downloads/file.zip`
+ * - preferenceStore.config.dir:          `C:\Users\x\Downloads`
+ * - buildDefaultCategories():            `C:\Users\x\Downloads/Archives`
+ *
+ * This function canonicalizes all paths to forward slashes before comparison,
+ * matching the industry-standard approach used by VS Code, ESLint, and Vite.
+ */
+export function normalizeSep(p: string): string {
+  return p.replace(/\\/g, '/')
+}
 
 /**
  * Determines whether a completed task's file should be archived (moved)
@@ -32,31 +48,53 @@ export function resolveArchiveAction(
   categories: FileCategory[],
   baseDir: string,
 ): { source: string; targetDir: string } | null {
-  if (!enabled) return null
-  if (categories.length === 0) return null
+  if (!enabled) {
+    logger.debug('AutoArchive.skip', 'classification disabled')
+    return null
+  }
+  if (categories.length === 0) {
+    logger.debug('AutoArchive.skip', 'empty categories array')
+    return null
+  }
 
   // Skip BT tasks — multi-file torrents manage their own directory structure
-  if (task.bittorrent) return null
+  if (task.bittorrent) {
+    logger.debug('AutoArchive.skip', 'BT task')
+    return null
+  }
 
   // Get the primary file's resolved path
   const firstFile = task.files?.[0]
   const filePath = firstFile?.path
-  if (!filePath) return null
+  if (!filePath) {
+    logger.debug('AutoArchive.skip', 'no file path')
+    return null
+  }
 
   // Extract filename from the full path
   const fileName = filePath.split(/[/\\]/).pop()
-  if (!fileName) return null
+  if (!fileName) {
+    logger.debug('AutoArchive.skip', 'empty filename')
+    return null
+  }
 
   // Only archive files that are in the default download directory.
   // Files in user-specified custom paths were intentionally placed there — leave untouched.
-  const fileDir = filePath.substring(0, filePath.length - fileName.length).replace(/[\\/]+$/, '')
-  const normalizedBase = baseDir.replace(/[\\/]+$/, '')
-  if (fileDir !== normalizedBase) return null
+  // Normalize separators before comparison to handle Windows mixed-separator paths.
+  const fileDir = normalizeSep(filePath.substring(0, filePath.length - fileName.length).replace(/[\\/]+$/, ''))
+  const normalizedBase = normalizeSep(baseDir.replace(/[\\/]+$/, ''))
+  if (fileDir !== normalizedBase) {
+    logger.debug('AutoArchive.skip', `baseDir mismatch (fileDir=${fileDir}, base=${normalizedBase})`)
+    return null
+  }
 
   // Determine category from real filename extension
   const ext = extractExtension(fileName)
   const category = resolveCategory(ext, categories)
-  if (!category) return null
+  if (!category) {
+    logger.debug('AutoArchive.skip', `no category match (ext=${ext || 'none'})`)
+    return null
+  }
 
   return { source: filePath, targetDir: category.directory }
 }

@@ -14,7 +14,8 @@ import {
 } from '@shared/utils'
 import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@shared/logger'
-import { NProgress, NIcon } from 'naive-ui'
+import { resolveTaskFilePath, recheckTrigger } from '@/composables/useArchivedPaths'
+import { NProgress, NIcon, NTag } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
 import {
   ArrowUpOutline,
@@ -47,6 +48,32 @@ const { t } = useI18n()
 const taskFullName = computed(() =>
   getTaskDisplayName(props.task, { defaultName: t('task.get-task-name') || 'Unknown' }),
 )
+
+interface VideoMetaPayload {
+  video_title?: string
+  extractor?: string
+  resolution?: string
+  thumbnail?: string
+  duration?: number
+  download_mode?: string
+}
+
+const videoMeta = computed<VideoMetaPayload | null>(() => {
+  // Video metadata is stored in history.db's `meta` field as JSON.
+  // Tasks merged from history in stopped/all tab carry this field.
+  // Regular aria2 tasks (no history) have no meta field.
+  const rawMeta = (props.task as unknown as { meta?: string }).meta
+  if (!rawMeta || typeof rawMeta !== 'string') return null
+  try {
+    const parsed = JSON.parse(rawMeta) as VideoMetaPayload
+    if (parsed && typeof parsed === 'object' && parsed.video_title) {
+      return parsed
+    }
+  } catch {
+    /* non-video task meta */
+  }
+  return null
+})
 
 const isSeeder = computed(() => checkTaskIsSeeder(props.task))
 const isBT = computed(() => checkTaskIsBT(props.task))
@@ -143,14 +170,7 @@ const fileCheckTargetPath = computed(() => {
   if (status === TASK_STATUS.ACTIVE || status === TASK_STATUS.WAITING || status === TASK_STATUS.PAUSED) {
     return null
   }
-
-  const files = props.task.files
-  if (!props.task.dir || !files || files.length === 0) {
-    return null
-  }
-
-  const selected = files.filter((file) => file.selected === 'true')
-  return (selected.length > 0 ? selected[0] : files[0])?.path ?? null
+  return resolveTaskFilePath(props.task)
 })
 
 async function checkFileExists(targetPath: string | null) {
@@ -184,7 +204,9 @@ function scheduleFileExistsCheck(targetPath: string | null) {
   }, FILE_CHECK_THROTTLE_MS)
 }
 
-watch(fileCheckTargetPath, scheduleFileExistsCheck, { immediate: true })
+// Dual-source trigger: re-check when path changes (archive) OR on explicit
+// recheck request (action handler file-not-found, periodic background timer).
+watch([fileCheckTargetPath, recheckTrigger], ([path]) => scheduleFileExistsCheck(path), { immediate: true })
 onBeforeUnmount(() => {
   if (fileCheckTimer) {
     clearTimeout(fileCheckTimer)
@@ -262,9 +284,9 @@ onBeforeUnmount(() => {
           <Transition name="name-crossfade" mode="out-in">
             <span :key="taskFullName">{{ taskFullName }}</span>
           </Transition>
-          <div class="tags-wrapper" :class="{ 'has-tags': isSeeder || finishedTag || fileMissing }">
+          <div class="tags-wrapper" :class="{ 'has-tags': isSeeder || finishedTag || fileMissing || videoMeta }">
             <div class="tags-inner">
-              <div v-if="isSeeder || finishedTag || fileMissing" class="task-tags">
+              <div v-if="isSeeder || finishedTag || fileMissing || videoMeta" class="task-tags">
                 <span v-if="isSeeder" class="seeding-tag">
                   <NIcon :size="13"><CloudUploadOutline /></NIcon>
                   {{ t('task.seeding') || 'Seeding' }}
@@ -277,6 +299,14 @@ onBeforeUnmount(() => {
                   <NIcon :size="13"><AlertCircleOutline /></NIcon>
                   {{ t('task.file-missing') || 'File missing' }}
                 </span>
+                <template v-if="videoMeta">
+                  <NTag v-if="videoMeta.extractor" size="tiny" :bordered="false" type="info" class="video-tag">
+                    {{ videoMeta.extractor }}
+                  </NTag>
+                  <NTag v-if="videoMeta.resolution" size="tiny" :bordered="false" class="video-tag">
+                    {{ videoMeta.resolution }}
+                  </NTag>
+                </template>
               </div>
             </div>
           </div>
@@ -559,6 +589,10 @@ onBeforeUnmount(() => {
   opacity: 0.9;
   vertical-align: middle;
   animation: m3-tag-enter 0.35s cubic-bezier(0.05, 0.7, 0.1, 1);
+}
+.video-tag {
+  margin-left: 4px;
+  vertical-align: middle;
 }
 .error-message {
   flex-basis: 100%;

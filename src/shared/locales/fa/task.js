@@ -198,6 +198,7 @@ export default {
   'task-detail-title': 'جزئیات وظیفه',
   'task-info-dialog-title': 'جزئیات {title}',
   'download-start-message': 'دانلود {taskName} شروع شد',
+  'download-batch-start-message': 'دانلود {taskName} و {count} مورد دیگر شروع شد',
   'download-pause-message': '{taskName} متوقف شد',
   'download-stop-message': '{taskName} متوقف شد',
   'download-error-message': 'خطا در دانلود {taskName}',

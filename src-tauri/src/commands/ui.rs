@@ -211,3 +211,25 @@ pub fn set_window_alpha(app: AppHandle, alpha: f64) -> Result<(), AppError> {
     let _ = (app, alpha);
     Ok(())
 }
+
+/// Programmatically triggers the minimize-to-tray flow from the frontend.
+///
+/// Delegates entirely to [`handle_minimize_to_tray()`](crate::handle_minimize_to_tray)
+/// — the same code path used by `CloseRequested` and `Cmd+W`.  In lightweight
+/// mode this destroys the WebView; in standard mode it hides the window.
+///
+/// Primary use case: autostart + lightweight mode.  The frontend calls this
+/// **after** completing all initialization (engine start, option sync,
+/// resume-all) so the WebView can be safely destroyed without breaking
+/// the startup sequence.  All background services (stat polling, task
+/// monitor, speed scheduler) continue running in Rust.
+///
+/// Cross-platform: macOS Dock hiding (`hideDockOnMinimize`) and the
+/// cold-start phase transition (`end_cold_start`) are handled internally
+/// by `handle_minimize_to_tray` — no platform-specific logic needed here.
+#[tauri::command]
+pub fn minimize_to_tray(app: AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        crate::handle_minimize_to_tray(&app, &window);
+    }
+}

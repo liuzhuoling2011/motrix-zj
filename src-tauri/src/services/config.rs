@@ -34,8 +34,6 @@ pub struct RuntimeConfig {
     pub max_overall_download_limit: String,
     #[serde(default)]
     pub max_overall_upload_limit: String,
-    #[serde(default = "default_true")]
-    pub task_notification: bool,
     #[serde(default)]
     pub tray_speedometer: bool,
     #[cfg(target_os = "macos")]
@@ -44,8 +42,15 @@ pub struct RuntimeConfig {
     #[cfg(not(target_os = "linux"))]
     #[serde(default)]
     pub show_progress_bar: bool,
+    /// Whether to shut down the system after all downloads complete.
+    #[serde(default)]
+    pub shutdown_when_complete: bool,
+    /// Port for the embedded HTTP API (browser extension communication).
+    #[serde(default = "default_extension_api_port")]
+    pub extension_api_port: u16,
 }
 
+#[cfg(target_os = "macos")]
 fn default_true() -> bool {
     true
 }
@@ -58,6 +63,10 @@ fn default_schedule_to() -> String {
     "06:00".to_string()
 }
 
+fn default_extension_api_port() -> u16 {
+    16801
+}
+
 impl Default for RuntimeConfig {
     fn default() -> Self {
         Self {
@@ -68,12 +77,13 @@ impl Default for RuntimeConfig {
             speed_schedule_days: 0,
             max_overall_download_limit: String::new(),
             max_overall_upload_limit: String::new(),
-            task_notification: true,
             tray_speedometer: false,
             #[cfg(target_os = "macos")]
             dock_badge_speed: true,
             #[cfg(not(target_os = "linux"))]
             show_progress_bar: false,
+            shutdown_when_complete: false,
+            extension_api_port: default_extension_api_port(),
         }
     }
 }
@@ -120,12 +130,12 @@ mod tests {
         assert_eq!(cfg.speed_schedule_days, 0);
         assert!(cfg.max_overall_download_limit.is_empty());
         assert!(cfg.max_overall_upload_limit.is_empty());
-        assert!(cfg.task_notification); // default ON
         assert!(!cfg.tray_speedometer); // default OFF
         #[cfg(target_os = "macos")]
         assert!(cfg.dock_badge_speed); // default ON
         #[cfg(not(target_os = "linux"))]
         assert!(!cfg.show_progress_bar);
+        assert!(!cfg.shutdown_when_complete); // default OFF — opt-in only
     }
 
     // ── Deserialization from AppConfig-shaped JSON ───────────────────
@@ -144,6 +154,7 @@ mod tests {
             "traySpeedometer": true,
             "dockBadgeSpeed": false,
             "showProgressBar": true,
+            "shutdownWhenComplete": true,
             // Extra fields from AppConfig that RuntimeConfig ignores:
             "theme": "dark",
             "locale": "en-US",
@@ -161,12 +172,19 @@ mod tests {
         assert_eq!(cfg.speed_schedule_days, 31);
         assert_eq!(cfg.max_overall_download_limit, "1M");
         assert_eq!(cfg.max_overall_upload_limit, "512K");
-        assert!(!cfg.task_notification);
         assert!(cfg.tray_speedometer);
         #[cfg(target_os = "macos")]
         assert!(!cfg.dock_badge_speed);
         #[cfg(not(target_os = "linux"))]
         assert!(cfg.show_progress_bar);
+        assert!(cfg.shutdown_when_complete);
+    }
+
+    #[test]
+    fn deserialize_shutdown_when_complete_defaults_to_false() {
+        let json = serde_json::json!({ "speedLimitEnabled": true });
+        let cfg: RuntimeConfig = serde_json::from_value(json).expect("deserialize");
+        assert!(!cfg.shutdown_when_complete);
     }
 
     #[test]
@@ -174,7 +192,6 @@ mod tests {
         let json = serde_json::json!({});
         let cfg: RuntimeConfig = serde_json::from_value(json).expect("deserialize");
         assert!(!cfg.speed_limit_enabled);
-        assert!(cfg.task_notification); // default true
         #[cfg(target_os = "macos")]
         assert!(cfg.dock_badge_speed); // default true
         assert_eq!(cfg.speed_schedule_from, "00:00");
@@ -199,7 +216,6 @@ mod tests {
         let state = RuntimeConfigState::new();
         let snap = state.snapshot().await;
         assert!(!snap.speed_limit_enabled);
-        assert!(snap.task_notification);
     }
 
     #[tokio::test]
@@ -216,7 +232,6 @@ mod tests {
 
         let snap = state.snapshot().await;
         assert!(snap.speed_limit_enabled);
-        assert!(!snap.task_notification);
         assert!(snap.tray_speedometer);
         assert_eq!(snap.speed_schedule_from, "23:00");
         assert_eq!(snap.speed_schedule_to, "07:00");

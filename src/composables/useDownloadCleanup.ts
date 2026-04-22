@@ -33,8 +33,8 @@ export async function findStaleRecords(records: StaleCheckItem[]): Promise<strin
             anyExists = true
             break
           }
-        } catch {
-          // Treat errors as non-existent
+        } catch (e) {
+          logger.debug('StaleCheck', `check_path_exists failed for ${fp}: ${e}`)
         }
       }
       if (!anyExists) staleGids.push(record.gid)
@@ -53,7 +53,8 @@ export async function findStaleRecords(records: StaleCheckItem[]): Promise<strin
       if (!fileExists) {
         staleGids.push(record.gid)
       }
-    } catch {
+    } catch (e) {
+      logger.debug('StaleCheck', `path join/check failed for ${record.gid}: ${e}`)
       staleGids.push(record.gid)
     }
   }

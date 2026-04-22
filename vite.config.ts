@@ -24,6 +24,9 @@ export default defineConfig(async () => ({
   clearScreen: false,
   build: {
     rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+      },
       output: {
         manualChunks: {
           'naive-ui': ['naive-ui'],

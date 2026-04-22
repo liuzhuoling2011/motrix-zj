@@ -198,6 +198,7 @@ export default {
   'task-detail-title': 'Szczegóły zadania',
   'task-info-dialog-title': 'Szczegóły {title}',
   'download-start-message': 'Rozpoczęto pobieranie {taskName}',
+  'download-batch-start-message': 'Rozpoczęto pobieranie {taskName} i {count} innych',
   'download-pause-message': '{taskName} wstrzymane',
   'download-stop-message': '{taskName} zatrzymane',
   'download-error-message': 'Błąd pobierania {taskName}',

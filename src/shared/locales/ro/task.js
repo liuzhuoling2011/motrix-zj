@@ -198,6 +198,7 @@ export default {
   'task-detail-title': 'Detalii sarcină',
   'task-info-dialog-title': 'Detalii {title}',
   'download-start-message': 'Descărcarea {taskName} a început',
+  'download-batch-start-message': 'Descărcarea {taskName} și alte {count} a început',
   'download-pause-message': '{taskName} suspendat',
   'download-stop-message': '{taskName} oprit',
   'download-error-message': 'Eroare la descărcarea {taskName}',

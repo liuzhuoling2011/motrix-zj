@@ -351,7 +351,7 @@ async function handleScheduleToggle(enabled: boolean) {
   display: flex;
   align-items: center;
   box-sizing: border-box;
-  min-width: 100px;
+  min-width: 56px;
   height: 46px;
   padding: 6px 14px 6px 10px;
   border-radius: 100px;
@@ -390,6 +390,7 @@ async function handleScheduleToggle(enabled: boolean) {
   opacity: 0.55;
 }
 .speedometer.idle .speed-text {
+  flex: 0;
   width: 0;
   opacity: 0;
   gap: 0;
@@ -552,7 +553,6 @@ async function handleScheduleToggle(enabled: boolean) {
 
 /* ── Limit zone (auto width, never truncates) ──────────────────────── */
 .limit-zone {
-  min-width: 38px;
   flex-shrink: 0;
   display: flex;
   align-items: center;

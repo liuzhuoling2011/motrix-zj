@@ -59,8 +59,8 @@ export const useHistoryStore = defineStore('history', () => {
       if (db) {
         try {
           await db.close()
-        } catch {
-          /* already broken */
+        } catch (e) {
+          logger.debug('HistoryDB', `close before rebuild failed (already broken): ${e}`)
         }
         db = null
       }
@@ -261,7 +261,8 @@ export const useHistoryStore = defineStore('history', () => {
         await getDb()
       ).select<Array<{ version: number }>>('SELECT MAX(version) as version FROM _sqlx_migrations', [])
       return result[0]?.version ?? 0
-    } catch {
+    } catch (e) {
+      logger.debug('HistoryDB', `schema version query failed: ${e}`)
       return 0
     }
   }

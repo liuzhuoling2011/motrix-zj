@@ -9,6 +9,7 @@
  */
 import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { logger } from '@shared/logger'
 import type { SystemProxyInfo } from '@shared/types'
 
 import { DETECT_MIN_DURATION } from '@shared/timing'
@@ -55,6 +56,7 @@ export function useSystemProxyDetect(callbacks: SystemProxyDetectCallbacks) {
 
       callbacks.onSuccess(info)
     } catch (err: unknown) {
+      logger.warn('SystemProxy', `detection failed: ${err}`)
       callbacks.onError(err)
     } finally {
       detecting.value = false

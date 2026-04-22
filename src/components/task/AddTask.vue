@@ -9,7 +9,7 @@ import { usePreferenceStore } from '@/stores/preference'
 import { ADD_TASK_TYPE, ENGINE_MAX_CONNECTION_PER_SERVER } from '@shared/constants'
 import { detectResource, bytesToSize } from '@shared/utils'
 import { calcColumnWidth } from '@shared/utils/calcColumnWidth'
-import { mergeUriLines } from '@shared/utils/batchHelpers'
+import { mergeUriLines, normalizeUriLines, extractDecodedFilename } from '@shared/utils/batchHelpers'
 import {
   buildEngineOptions,
   classifySubmitError,
@@ -19,11 +19,17 @@ import {
   isGlobalDownloadProxyActive,
 } from '@/composables/useAddTaskSubmit'
 import { isValidAria2ProxyUrl } from '@/composables/useAdvancedPreference'
+import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
+import { isMagnetUri } from '@/composables/useMagnetFlow'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { downloadDir } from '@tauri-apps/api/path'
 import { logger } from '@shared/logger'
 
 import { resolveUnresolvedItems, chooseTorrentFile as chooseTorrentFileImpl } from '@/composables/useAddTaskFileOps'
+import { useVideoFlow } from '@/composables/useVideoFlow'
+import * as ytdlpApi from '@/api/ytdlp'
+import VideoInfoPanel from './VideoInfoPanel.vue'
+import PlaylistPanel from './PlaylistPanel.vue'
 import {
   NModal,
   NCard,
@@ -65,6 +71,8 @@ const showAdvanced = ref(false)
 const submitting = ref(false)
 const selectedBatchIndex = ref(0)
 
+const videoFlow = useVideoFlow()
+
 const form = ref({
   uris: '',
   out: '',
@@ -74,6 +82,7 @@ const form = ref({
   authorization: '',
   referer: '',
   cookie: '',
+  cookiesFromBrowser: '',
   proxyMode: (isGlobalDownloadProxyActive(preferenceStore.config.proxy) ? 'global' : 'none') as
     | 'none'
     | 'global'
@@ -100,6 +109,28 @@ watch(globalProxyAvailable, (available) => {
     form.value.proxyMode = 'none'
   }
 })
+
+// Reset video parse state whenever the URL changes so a stale result from
+// a previous URL doesn't linger under the Parse Media button.
+watch(
+  () => form.value.uris,
+  () => videoFlow.reset(),
+)
+
+/** Explicit user-triggered parse — wired to the "Parse Media" button inside
+ *  the advanced options panel. Unlike the previous auto-parse-on-paste,
+ *  this only fires when the user clicks, so pasting a plain download URL
+ *  never incurs yt-dlp latency. */
+async function handleParseMedia() {
+  const trimmed = form.value.uris.trim()
+  if (!trimmed || trimmed.includes('\n') || !/^https?:\/\//i.test(trimmed)) {
+    message.warning(t('task.video-parse-needs-single-url') || '请先填入一个以 http/https 开头的视频链接', {
+      closable: true,
+    })
+    return
+  }
+  await videoFlow.tryParseUrl(trimmed, form.value.cookie, form.value.userAgent, form.value.cookiesFromBrowser)
+}
 
 const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
 
@@ -175,6 +206,17 @@ watch(
       form.value.split = preferenceStore.config.split ?? form.value.split
       // Reset the manual-override flag each time the dialog opens
       dirUserModified.value = false
+
+      // Pre-fill referer and cookie from browser extension deep-link.
+      // These are extracted by handleDeepLinkUrls() and stored as pending
+      // values. Without this, the manual-submit path silently discards
+      // them — causing cookie-gated CDNs (Quark, Baidu) to return 412.
+      if (appStore.pendingReferer) {
+        form.value.referer = appStore.pendingReferer
+      }
+      if (appStore.pendingCookie) {
+        form.value.cookie = appStore.pendingCookie
+      }
     }
   },
 )
@@ -258,7 +300,7 @@ watch(
       try {
         const { readText } = await import('@tauri-apps/plugin-clipboard-manager')
         const text = await readText()
-        if (text && detectResource(text)) {
+        if (text && detectResource(text, preferenceStore.config.clipboard)) {
           form.value.uris = text.trim()
         }
       } catch (e) {
@@ -338,11 +380,13 @@ function handleClose() {
     authorization: '',
     referer: '',
     cookie: '',
+    cookiesFromBrowser: '',
     proxyMode: isGlobalDownloadProxyActive(preferenceStore.config.proxy) ? 'global' : 'none',
     customProxy: '',
   })
   submitting.value = false
   selectedBatchIndex.value = 0
+  videoFlow.reset()
 }
 
 async function handleSubmit() {
@@ -369,6 +413,64 @@ async function handleSubmit() {
     const options = buildEngineOptions(effectiveForm)
     let manualResult = { magnetGids: [] as string[], magnetFailures: [] as { uri: string; error: string }[] }
 
+    // ── yt-dlp video/playlist branch ──────────────────────────────────
+    if (videoFlow.isVideo.value || videoFlow.isPlaylist.value) {
+      // Flatten Aria2EngineOptions (string | string[] | undefined) to Record<string, string>
+      // required by the yt-dlp bridge — arrays are joined with newlines (aria2 convention),
+      // and undefined values are dropped.
+      const videoOptions: Record<string, string> = {}
+      for (const [k, v] of Object.entries(options)) {
+        if (v === undefined) continue
+        videoOptions[k] = Array.isArray(v) ? v.join('\n') : v
+      }
+      if (!videoOptions.dir) videoOptions.dir = effectiveForm.dir
+
+      try {
+        if (videoFlow.isVideo.value) {
+          await videoFlow.submitVideoDownload(videoOptions, form.value.cookiesFromBrowser)
+        } else if (videoFlow.isPlaylist.value && videoFlow.playlistInfo.value) {
+          const pl = videoFlow.playlistInfo.value
+          const indices = Array.from(videoFlow.selectedPlaylistItems.value).sort((a, b) => a - b)
+          for (const i of indices) {
+            const entry = pl.entries[i]
+            if (!entry) continue
+            try {
+              await ytdlpApi.downloadDirect({
+                url: entry.url,
+                formatId: videoFlow.selectedFormatId.value || 'bestvideo+bestaudio/best',
+                title: entry.title || entry.url,
+                ext: 'mp4',
+                meta: {
+                  video_title: entry.title,
+                  thumbnail: entry.thumbnail,
+                  duration: entry.duration,
+                  playlist_title: pl.title,
+                  download_mode: 'ytdlp_direct',
+                },
+                options: videoOptions,
+                cookiesFromBrowser: form.value.cookiesFromBrowser,
+              })
+            } catch (err) {
+              logger.error('AddTask.playlistItemDownload', { title: entry.title, err })
+            }
+          }
+        }
+        await taskStore.fetchList()
+        handleClose()
+        if (preferenceStore.config.newTaskShowDownloading !== false) {
+          router.push({ path: '/task/all' }).catch(() => {})
+        }
+        return
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err)
+        logger.error('AddTask.videoSubmit', err)
+        message.error(errMsg, { closable: true })
+        submitting.value = false
+        return
+      }
+    }
+    // ── End yt-dlp branch ─────────────────────────────────────────────
+
     if (hasBatch.value) {
       await submitBatchItems(batch.value, options, taskStore)
     }
@@ -385,7 +487,33 @@ async function handleSubmit() {
     if (failedCount > 0) {
       message.warning(`${failedCount} ${t('task.failed') || 'failed'}`, { closable: true })
     } else {
+      // ── Collect task names BEFORE handleClose clears form state ──
+      const taskNames: string[] = []
+      for (const item of batch.value) {
+        if (item.status === 'submitted') {
+          taskNames.push(item.displayName)
+        }
+      }
+      const allUris = normalizeUriLines(form.value.uris)
+      for (const uri of allUris) {
+        if (!isMagnetUri(uri)) {
+          taskNames.push(extractDecodedFilename(uri) || uri)
+        }
+      }
+      for (let i = 0; i < manualResult.magnetGids.length; i++) {
+        taskNames.push('Magnet Download')
+      }
+
       handleClose()
+
+      // ── Start notification (aggregated) ────────────────────────
+      handleTaskStart(taskNames, {
+        messageInfo: message.info,
+        t,
+        taskNotification: preferenceStore.config.taskNotification !== false,
+        notifyOnStart: preferenceStore.config.notifyOnStart === true,
+      })
+
       if (preferenceStore.config.newTaskShowDownloading !== false) {
         router.push({ path: '/task/all' }).catch(() => {})
       }
@@ -576,11 +704,57 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
             v-model:authorization="form.authorization"
             v-model:referer="form.referer"
             v-model:cookie="form.cookie"
+            v-model:cookies-from-browser="form.cookiesFromBrowser"
             v-model:proxy-mode="form.proxyMode"
             v-model:custom-proxy="form.customProxy"
             :global-proxy-available="globalProxyAvailable"
             :global-proxy-server="globalProxyServer"
           />
+
+          <!-- ── Media parser (manual trigger) ───────────────────────── -->
+          <div v-if="showAdvanced" class="media-parse-section">
+            <NButton
+              size="small"
+              :loading="videoFlow.isParsing.value"
+              :disabled="videoFlow.isParsing.value"
+              @click="handleParseMedia"
+            >
+              {{ videoFlow.isParsing.value ? '正在解析...' : '解析媒体' }}
+            </NButton>
+
+            <div
+              v-if="
+                !videoFlow.isParsing.value &&
+                videoFlow.parseError.value &&
+                !videoFlow.isVideo.value &&
+                !videoFlow.isPlaylist.value
+              "
+              class="video-error"
+            >
+              视频解析失败：{{ videoFlow.parseError.value }}。将按普通链接处理。
+            </div>
+
+            <VideoInfoPanel
+              v-if="videoFlow.isVideo.value && videoFlow.videoInfo.value"
+              :video="videoFlow.videoInfo.value"
+              :presets="videoFlow.formatPresets.value"
+              :selected-format-id="videoFlow.selectedFormatId.value"
+              :show-all-formats="videoFlow.showAllFormats.value"
+              @update:selected-format-id="(id: string) => (videoFlow.selectedFormatId.value = id)"
+              @update:show-all-formats="(show: boolean) => (videoFlow.showAllFormats.value = show)"
+            />
+
+            <PlaylistPanel
+              v-if="videoFlow.isPlaylist.value && videoFlow.playlistInfo.value"
+              :playlist="videoFlow.playlistInfo.value"
+              :selected-items="videoFlow.selectedPlaylistItems.value"
+              :presets="videoFlow.formatPresets.value"
+              :selected-format-id="videoFlow.selectedFormatId.value"
+              @toggle-item="videoFlow.togglePlaylistItem"
+              @toggle-select-all="videoFlow.toggleSelectAll"
+              @update:selected-format-id="(id: string) => (videoFlow.selectedFormatId.value = id)"
+            />
+          </div>
         </div>
       </NForm>
       <template #footer>
@@ -683,6 +857,24 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
   font-size: var(--font-size-sm);
   color: var(--m3-error);
   flex: 1;
+}
+
+/* ── Media parser (manual trigger inside advanced options) ────────── */
+.media-parse-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--n-border-color, rgba(128, 128, 128, 0.2));
+}
+.video-error {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--n-warning-color-suppl, #fcf3cf);
+  color: var(--n-warning-color, #f0a020);
+  font-size: 12px;
+  line-height: 1.5;
 }
 </style>
 

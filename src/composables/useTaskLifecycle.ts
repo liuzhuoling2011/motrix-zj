@@ -5,7 +5,9 @@
  */
 import type { Aria2Task, Aria2File, HistoryRecord, HistoryMeta, HistoryFileSnapshot } from '@shared/types'
 import { decodePathSegment } from '@shared/utils/batchHelpers'
+import { normalizeSep } from '@shared/utils/autoArchive'
 import { getAddedAt } from '@/composables/useTaskOrder'
+import { logger } from '@shared/logger'
 
 /** Detect BT metadata-only downloads (the intermediate magnet resolution phase).
  *
@@ -232,4 +234,66 @@ export function mergeHistoryIntoTasks(aria2Tasks: Aria2Task[], historyRecords: H
   })
 
   return [...aria2Tasks, ...historyOnly.map(historyRecordToTask)]
+}
+
+// ── Post-archive history path update ────────────────────────────────
+
+/** Minimal history store interface needed by updateHistoryFilePath.
+ *  Avoids coupling to the full Pinia store type. */
+interface HistoryStoreSubset {
+  getRecordByGid: (gid: string) => Promise<HistoryRecord | null>
+  addRecord: (record: HistoryRecord) => Promise<void>
+}
+
+/**
+ * Update a history record's file paths after auto-archive moves the file.
+ *
+ * Handles two record flavours:
+ * - **Multi-file / mirror** records (meta.files present): patches matching
+ *   `files[].path` entries in the JSON snapshot.
+ * - **Single-file** records (no meta.files): updates `record.dir` to the
+ *   archive directory so `historyRecordToTask()` synthesizes the correct
+ *   `dir/name` path.
+ *
+ * Uses the existing `addRecord` upsert — no new SQL needed.
+ */
+export async function updateHistoryFilePath(
+  store: HistoryStoreSubset,
+  gid: string,
+  oldPath: string,
+  newPath: string,
+): Promise<void> {
+  const record = await store.getRecordByGid(gid)
+  if (!record) return
+
+  const meta = parseHistoryMeta(record)
+  let changed = false
+  const normalizedOld = normalizeSep(oldPath)
+
+  // Patch meta.files snapshot — used by multi-file and mirror tasks
+  if (meta.files && meta.files.length > 0) {
+    for (const f of meta.files) {
+      if (normalizeSep(f.path) === normalizedOld) {
+        f.path = newPath
+        changed = true
+      }
+    }
+  }
+
+  // Update dir to the archive directory (parent of newPath).
+  // historyRecordToTask() uses dir+name for single-file fallback.
+  const lastSlash = newPath.lastIndexOf('/')
+  if (lastSlash > 0) {
+    const newDir = newPath.substring(0, lastSlash)
+    if (record.dir !== newDir) {
+      record.dir = newDir
+      changed = true
+    }
+  }
+
+  if (!changed) return
+
+  record.meta = Object.keys(meta).length > 0 ? JSON.stringify(meta) : undefined
+  await store.addRecord(record)
+  logger.debug('AutoArchive.historyUpdated', `gid=${gid} dir=${record.dir}`)
 }

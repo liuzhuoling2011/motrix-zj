@@ -198,6 +198,7 @@ export default {
   'task-detail-title': 'Детайли на задачата',
   'task-info-dialog-title': 'Детайли на {title}',
   'download-start-message': 'Изтеглянето на {taskName} започна',
+  'download-batch-start-message': 'Изтеглянето на {taskName} и още {count} започна',
   'download-pause-message': '{taskName} е на пауза',
   'download-stop-message': '{taskName} е спряно',
   'download-error-message': 'Грешка при изтегляне на {taskName}',

@@ -63,6 +63,18 @@ describe('detectResource', () => {
     it('detects URL with trailing whitespace', () => {
       expect(detectResource('  https://example.com/file.zip  ')).toBe(true)
     })
+
+    it('detects uppercase HTTP:// URL', () => {
+      expect(detectResource('HTTP://EXAMPLE.COM/file.zip')).toBe(true)
+    })
+
+    it('detects mixed-case Https:// URL', () => {
+      expect(detectResource('Https://cdn.example.com/release.tar.gz')).toBe(true)
+    })
+
+    it('detects uppercase FTP:// URL', () => {
+      expect(detectResource('FTP://mirror.example.com/pub/file.iso')).toBe(true)
+    })
   })
 
   // ── Valid multi-line resource lists (should trigger) ────────────────
@@ -229,6 +241,34 @@ describe('detectResource', () => {
 
     it('returns false for email addresses', () => {
       expect(detectResource('user@http://example.com')).toBe(false)
+    })
+  })
+
+  // ── Bare protocol rejection ───────────────────────────────────────
+
+  describe('bare protocol rejection', () => {
+    it('rejects bare https:// protocol', () => {
+      expect(detectResource('https://')).toBe(false)
+    })
+
+    it('rejects bare http:// protocol', () => {
+      expect(detectResource('http://')).toBe(false)
+    })
+
+    it('rejects bare ftp:// protocol', () => {
+      expect(detectResource('ftp://')).toBe(false)
+    })
+
+    it('rejects bare magnet: protocol', () => {
+      expect(detectResource('magnet:')).toBe(false)
+    })
+
+    it('rejects bare thunder:// protocol', () => {
+      expect(detectResource('thunder://')).toBe(false)
+    })
+
+    it('still detects URL with content after protocol', () => {
+      expect(detectResource('https://x')).toBe(true)
     })
   })
 })
