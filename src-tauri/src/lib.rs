@@ -1,5 +1,6 @@
 mod aria2;
 mod commands;
+mod cookies;
 mod db_guard;
 mod engine;
 mod error;
