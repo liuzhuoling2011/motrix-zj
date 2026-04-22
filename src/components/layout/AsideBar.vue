@@ -6,7 +6,9 @@ import { useAppStore } from '@/stores/app'
 
 import { NIcon } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
-import { ListOutline, AddOutline, SettingsOutline, HelpCircleOutline } from '@vicons/ionicons5'
+import { ListOutline, AddOutline, SettingsOutline, HelpCircleOutline, GlobeOutline } from '@vicons/ionicons5'
+import { invoke } from '@tauri-apps/api/core'
+import { logger } from '@shared/logger'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -21,6 +23,14 @@ function nav(path: string) {
 
 function showAddTask() {
   appStore.showAddTaskDialog()
+}
+
+async function openWebBrowser() {
+  try {
+    await invoke('open_web_browser')
+  } catch (e) {
+    logger.warn('AsideBar', `open_web_browser failed: ${e}`)
+  }
 }
 </script>
 
@@ -85,6 +95,21 @@ function showAddTask() {
               </button>
             </template>
             {{ t('app.add-task') }}
+          </MTooltip>
+        </li>
+        <li>
+          <MTooltip placement="right">
+            <template #trigger>
+              <button
+                type="button"
+                class="menu-button non-draggable"
+                aria-label="打开浏览器登录"
+                @click="openWebBrowser"
+              >
+                <NIcon :size="20"><GlobeOutline /></NIcon>
+              </button>
+            </template>
+            打开浏览器登录
           </MTooltip>
         </li>
       </ul>
