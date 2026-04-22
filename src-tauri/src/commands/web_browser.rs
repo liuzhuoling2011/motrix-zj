@@ -21,6 +21,8 @@ const TOOLBAR_HEIGHT: f64 = 48.0;
 #[tauri::command]
 pub async fn open_web_browser(app: AppHandle) -> Result<(), String> {
     if let Some(existing) = app.get_window(WIN_LABEL) {
+        let _ = existing.unminimize();
+        let _ = existing.show();
         let _ = existing.set_focus();
         return Ok(());
     }
@@ -39,6 +41,7 @@ pub async fn open_web_browser(app: AppHandle) -> Result<(), String> {
         .scale_factor()
         .map_err(|e| format!("scale_factor failed: {e}"))?;
     let logical = size.to_logical::<f64>(scale);
+    let content_height = (logical.height - TOOLBAR_HEIGHT).max(0.0);
 
     // Toolbar webview: top 48px, local HTML entry.
     let toolbar = WebviewBuilder::new(TOOLBAR_LABEL, WebviewUrl::App("web-toolbar.html".into()));
@@ -48,7 +51,11 @@ pub async fn open_web_browser(app: AppHandle) -> Result<(), String> {
             LogicalPosition::new(0.0, 0.0),
             LogicalSize::new(logical.width, TOOLBAR_HEIGHT),
         )
-        .map_err(|e| format!("toolbar add_child failed: {e}"))?;
+        .map_err(|e| {
+            // Roll back the half-created window so retries can start clean.
+            let _ = window.close();
+            format!("toolbar add_child failed: {e}")
+        })?;
 
     // Content webview: below toolbar, local HTML entry (SiteGrid).
     let content = WebviewBuilder::new(CONTENT_LABEL, WebviewUrl::App("web-content.html".into()));
@@ -56,9 +63,12 @@ pub async fn open_web_browser(app: AppHandle) -> Result<(), String> {
         .add_child(
             content,
             LogicalPosition::new(0.0, TOOLBAR_HEIGHT),
-            LogicalSize::new(logical.width, logical.height - TOOLBAR_HEIGHT),
+            LogicalSize::new(logical.width, content_height),
         )
-        .map_err(|e| format!("content add_child failed: {e}"))?;
+        .map_err(|e| {
+            let _ = window.close();
+            format!("content add_child failed: {e}")
+        })?;
 
     Ok(())
 }
