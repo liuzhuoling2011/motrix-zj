@@ -47,9 +47,11 @@ impl CookieStore {
         }
         let mut written = Vec::with_capacity(groups.len());
         for (d, jar) in groups {
-            let path = self.base_dir.join(format!("{d}.txt"));
+            let final_path = self.base_dir.join(format!("{d}.txt"));
+            let tmp_path = self.base_dir.join(format!("{d}.txt.tmp"));
             let content = netscape::serialise(&d, &jar);
-            fs::write(&path, content)?;
+            fs::write(&tmp_path, content)?;
+            fs::rename(&tmp_path, &final_path)?;
             written.push(d);
         }
         Ok(written)
@@ -142,5 +144,19 @@ mod tests {
     fn resolve_returns_none_when_nothing_matches() {
         let (store, _guard) = tmp_store();
         assert!(store.resolve_for_url("https://example.com/").is_none());
+    }
+
+    #[test]
+    fn saved_file_starts_with_netscape_header() {
+        let (store, _guard) = tmp_store();
+        store
+            .save_from_webview(vec![cookie("a", "1", ".youtube.com")])
+            .expect("save");
+        let content =
+            fs::read_to_string(store.base_dir().join("youtube.com.txt")).expect("read");
+        assert!(
+            content.starts_with("# Netscape HTTP Cookie File"),
+            "unexpected content: {content}"
+        );
     }
 }
