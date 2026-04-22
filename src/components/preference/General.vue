@@ -331,48 +331,54 @@ onMounted(async () => {
         <NSelect v-model:value="form.locale" :options="localeOptions" style="width: 280px" />
       </NFormItem>
 
-      <!-- ③ Auto Update -->
-      <NDivider title-placement="left">{{ t('preferences.auto-update') }}</NDivider>
-      <NFormItem :label="t('preferences.auto-check-update')">
-        <NSwitch v-model:value="form.autoCheckUpdate" />
-      </NFormItem>
-      <NCollapseTransition :show="form.autoCheckUpdate" class="collapse-indent">
-        <NFormItem :label="t('preferences.check-frequency')">
-          <NSelect v-model:value="form.autoCheckUpdateInterval" :options="checkIntervalOptions" style="width: 180px" />
+      <!-- ③ Auto Update (hidden) -->
+      <template v-if="false">
+        <NDivider title-placement="left">{{ t('preferences.auto-update') }}</NDivider>
+        <NFormItem :label="t('preferences.auto-check-update')">
+          <NSwitch v-model:value="form.autoCheckUpdate" />
         </NFormItem>
-      </NCollapseTransition>
-      <NFormItem :label="t('preferences.update-channel')">
-        <NRadioGroup
-          v-model:value="form.updateChannel"
-          size="small"
-          @update:value="
-            async (v: string) => {
-              const ok = await preferenceStore.updateAndSave({ updateChannel: v as 'stable' | 'beta' })
-              if (ok) {
-                patchSnapshot({ updateChannel: v } as Partial<typeof form.value>)
+        <NCollapseTransition :show="form.autoCheckUpdate" class="collapse-indent">
+          <NFormItem :label="t('preferences.check-frequency')">
+            <NSelect
+              v-model:value="form.autoCheckUpdateInterval"
+              :options="checkIntervalOptions"
+              style="width: 180px"
+            />
+          </NFormItem>
+        </NCollapseTransition>
+        <NFormItem :label="t('preferences.update-channel')">
+          <NRadioGroup
+            v-model:value="form.updateChannel"
+            size="small"
+            @update:value="
+              async (v: string) => {
+                const ok = await preferenceStore.updateAndSave({ updateChannel: v as 'stable' | 'beta' })
+                if (ok) {
+                  patchSnapshot({ updateChannel: v } as Partial<typeof form.value>)
+                }
               }
-            }
-          "
-        >
-          <NRadioButton value="stable">{{ t('preferences.update-channel-stable') }}</NRadioButton>
-          <NRadioButton value="beta">{{ t('preferences.update-channel-beta') }}</NRadioButton>
-        </NRadioGroup>
-      </NFormItem>
-      <NFormItem :label="t('preferences.last-check-update-time')">
-        <div style="display: flex; align-items: center; gap: 16px">
-          <NButton size="small" @click="handleCheckUpdate">
-            <template #icon>
-              <NIcon :size="14"><CloudDownloadOutline /></NIcon>
-            </template>
-            {{ t('app.check-updates-now') }}
-          </NButton>
-          <NText v-if="preferenceStore.config.lastCheckUpdateTime" depth="3" style="font-size: 13px">
-            {{ new Date(preferenceStore.config.lastCheckUpdateTime).toLocaleString() }}
-          </NText>
-          <NText v-else depth="3" style="font-size: 13px">—</NText>
-        </div>
-      </NFormItem>
-      <UpdateDialog ref="updateDialogRef" />
+            "
+          >
+            <NRadioButton value="stable">{{ t('preferences.update-channel-stable') }}</NRadioButton>
+            <NRadioButton value="beta">{{ t('preferences.update-channel-beta') }}</NRadioButton>
+          </NRadioGroup>
+        </NFormItem>
+        <NFormItem :label="t('preferences.last-check-update-time')">
+          <div style="display: flex; align-items: center; gap: 16px">
+            <NButton size="small" @click="handleCheckUpdate">
+              <template #icon>
+                <NIcon :size="14"><CloudDownloadOutline /></NIcon>
+              </template>
+              {{ t('app.check-updates-now') }}
+            </NButton>
+            <NText v-if="preferenceStore.config.lastCheckUpdateTime" depth="3" style="font-size: 13px">
+              {{ new Date(preferenceStore.config.lastCheckUpdateTime).toLocaleString() }}
+            </NText>
+            <NText v-else depth="3" style="font-size: 13px">—</NText>
+          </div>
+        </NFormItem>
+        <UpdateDialog ref="updateDialogRef" />
+      </template>
 
       <!-- ④ Appearance -->
       <NDivider title-placement="left">{{ t('preferences.appearance-section') }}</NDivider>

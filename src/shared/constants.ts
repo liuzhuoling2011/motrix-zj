@@ -198,7 +198,7 @@ export const DEFAULT_APP_CONFIG = {
   dbSchemaVersion: 2,
   // ── Appearance ──────────────────────────────────────────────────
   theme: 'auto' as const,
-  colorScheme: 'amber',
+  colorScheme: 'evergreen',
   locale: '',
 
   // ── Download Core (aria2 defaults: concurrent=5, split=5, conn/server=1) ──
