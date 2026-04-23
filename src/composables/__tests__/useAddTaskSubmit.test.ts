@@ -409,14 +409,14 @@ describe('submitManualUris', () => {
     expect(mockTaskStore.addUri).not.toHaveBeenCalled()
   })
 
-  it('submits single URI with empty outs to let aria2 handle filename natively', async () => {
+  it('submits single URI with extension — outs contains empty string (no HEAD needed)', async () => {
     await submitManualUris({ ...baseForm, uris: 'http://example.com/file.zip' }, { dir: '/dl' }, mockTaskStore)
 
-    expect(mockTaskStore.addUri).toHaveBeenCalledWith({
-      uris: ['http://example.com/file.zip'],
-      outs: [],
-      options: { dir: '/dl' },
-    })
+    const call = (mockTaskStore.addUri as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(call.uris).toEqual(['http://example.com/file.zip'])
+    // Each URI produces an empty string (= let aria2 decide), not a flat []
+    expect(call.outs).toEqual([''])
+    expect(call.options).toEqual({ dir: '/dl' })
   })
 
   it('generates numbered outs for multi-URI with out specified', async () => {
@@ -432,27 +432,30 @@ describe('submitManualUris', () => {
     expect(call.outs.length).toBeGreaterThan(0)
   })
 
-  it('does not auto-set outs for percent-encoded URIs — aria2 handles decode natively', async () => {
+  it('does not invoke HEAD for percent-encoded URIs with extension — aria2 handles decode natively', async () => {
     await submitManualUris({ ...baseForm, uris: 'http://example.com/AAA%20BBB.mp3' }, { dir: '/dl' }, mockTaskStore)
 
     const call = (mockTaskStore.addUri as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    // aria2 internally calls percentDecode() in determineFilename()
-    // and checks Content-Disposition first — no need to force out
-    expect(call.outs).toEqual([])
+    // .mp3 has an extension → hasExtension returns true → no HEAD request
+    expect(call.outs).toEqual([''])
   })
 
-  it('does not auto-set outs for redirect/API endpoint URLs — aria2 uses Content-Disposition', async () => {
-    // This is the exact scenario from the bug report:
-    // https://datashop.cboe.com/download/sample/215 redirects and uses C-D header
+  it('invokes resolve_filename for extensionless URL paths', async () => {
+    // This URL has no extension in the path — resolve_filename is invoked
+    const { invoke } = await import('@tauri-apps/api/core')
+    ;(invoke as ReturnType<typeof vi.fn>).mockResolvedValueOnce('215.zip')
+
     await submitManualUris(
       { ...baseForm, uris: 'https://datashop.cboe.com/download/sample/215' },
       { dir: '/dl' },
       mockTaskStore,
     )
 
+    expect(invoke).toHaveBeenCalledWith('resolve_filename', {
+      url: 'https://datashop.cboe.com/download/sample/215',
+    })
     const call = (mockTaskStore.addUri as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    // outs must be empty so aria2 can use Content-Disposition: filename="OptionQuotes_Sample.zip"
-    expect(call.outs).toEqual([])
+    expect(call.outs).toEqual(['215.zip'])
   })
 
   it('does not include magnet URIs in regular addUri call (they use separate addMagnetUri path)', async () => {
@@ -465,18 +468,20 @@ describe('submitManualUris', () => {
     const call = (mockTaskStore.addUri as ReturnType<typeof vi.fn>).mock.calls[0][0]
     // Only the regular URI should be in the addUri call
     expect(call.uris).toEqual(['http://example.com/file%20name.zip'])
-    expect(call.outs).toEqual([])
+    expect(call.outs).toEqual(['']) // .zip has extension → empty string (no HEAD)
   })
 
-  it('does not auto-generate outs when user has specified out', async () => {
+  it('does not invoke resolve_filename when user has specified out', async () => {
+    const { invoke } = await import('@tauri-apps/api/core')
+
     await submitManualUris(
       { ...baseForm, uris: 'http://example.com/AAA%20BBB.mp3', out: 'custom.mp3' },
       { dir: '/dl', out: 'custom.mp3' },
       mockTaskStore,
     )
 
-    const call = (mockTaskStore.addUri as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    expect(call.outs).toEqual([])
+    // User provided explicit out → buildOuts handles naming, resolve_filename not called
+    expect(invoke).not.toHaveBeenCalledWith('resolve_filename', expect.anything())
   })
 
   it('returns structured magnet failures without throwing away successful submissions', async () => {
