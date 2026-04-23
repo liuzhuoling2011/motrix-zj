@@ -61,7 +61,7 @@ function isActive(key: string) {
   overflow-y: auto;
 }
 .subnav-inner {
-  margin-top: 48px;
+  margin-top: var(--header-top-offset);
   padding: 0 16px;
   user-select: none;
 }

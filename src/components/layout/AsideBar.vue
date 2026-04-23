@@ -142,7 +142,7 @@ function showAddTask() {
   margin: 0;
   padding: 0;
   width: 100%;
-  margin-top: 50px;
+  margin-top: var(--header-top-offset);
 }
 .logo-mini > a {
   display: block;

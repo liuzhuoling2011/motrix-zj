@@ -122,6 +122,13 @@
   --subnav-width: 200px;
   --titlebar-height: 0px;
 
+  /* Unified top offset for the three-column header row (sidebar logo,
+     subnav title, content title).  Sized to clear the macOS traffic-
+     light buttons (28 px system title bar + 24 px breathing room) and
+     keep all platforms visually consistent.  Every column references
+     this single token so alignment stays locked across refactors. */
+  --header-top-offset: 48px;
+
   /* ── Typography ────────────────────────────────────────────────── */
   --font-family:
     'Monospaced Number', 'Chinese Quote', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC',

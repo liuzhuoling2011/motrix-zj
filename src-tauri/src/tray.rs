@@ -256,7 +256,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
     {
         let app_handle = app.clone();
         tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             if let Some(tray) = app_handle.tray_by_id("main") {
                 let icon = tray_icon_image();
                 let _ = tray.set_icon(Some(icon));
