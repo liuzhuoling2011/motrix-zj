@@ -229,6 +229,44 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
         })
         .build(app)?;
 
+    // ── Linux: deferred icon re-set ──────────────────────────────────
+    //
+    // On Linux, the tray-icon crate uses the SNI D-Bus protocol via
+    // libappindicator.  The icon is written to a temp PNG file under
+    // $XDG_RUNTIME_DIR/tray-icon/ and registered with the session's
+    // StatusNotifierWatcher.  When the app is launched at login by the
+    // OS autostart mechanism, KDE Plasma Shell's StatusNotifierHost may
+    // not be fully initialised — the SNI registration succeeds at the
+    // D-Bus level but the host either misses the initial NewIcon signal
+    // or fails to read the icon pixmap, resulting in a black square.
+    //
+    // Work around this by re-setting the icon after a short delay.
+    // set_icon() overwrites the same temp PNG and calls
+    // AppIndicator::set_icon_full(), which emits a fresh NewIcon signal.
+    // The now-ready host receives it and re-reads the file correctly.
+    //
+    // This is the same pattern as the macOS set_title workaround in
+    // stat.rs (L479-485) and aligns with the Electron community standard
+    // of "sleep && relaunch" — but implemented non-blockingly inside the
+    // app so no user-side .desktop file changes are needed.
+    //
+    // The call is idempotent: on manual launches where the host is
+    // already ready, this is a harmless no-op.  Issue #242.
+    #[cfg(target_os = "linux")]
+    {
+        let app_handle = app.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+            if let Some(tray) = app_handle.tray_by_id("main") {
+                let icon = tray_icon_image();
+                let _ = tray.set_icon(Some(icon));
+                log::info!(
+                    "tray:linux-deferred-icon-refresh — re-set icon after 3 s startup delay"
+                );
+            }
+        });
+    }
+
     Ok(TrayMenuState {
         items: Mutex::new(items_map),
     })
