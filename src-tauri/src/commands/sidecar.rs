@@ -7,10 +7,15 @@
 
 use std::collections::HashMap;
 use std::sync::RwLock;
+use std::time::Duration;
 
 use tauri_plugin_shell::ShellExt;
 
 const SIDECAR_NAMES: [&str; 3] = ["ytdlp", "ffmpeg", "ffprobe"];
+
+/// Per-sidecar probe budget. Keeps a slow/hung binary from starving the
+/// others and keeps the About panel from waiting forever.
+const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// In-memory cache of first-line `--version` / `-version` output per sidecar.
 /// `None` means "fetch attempted and failed" (or not yet attempted at init).
@@ -46,10 +51,13 @@ impl SidecarVersionState {
 
 /// Runs `<sidecar> <version-flag>` and returns the first non-empty stdout line.
 async fn probe_version(app: &tauri::AppHandle, name: &str) -> Result<String, String> {
-    let (binary, flag) = match name {
-        "ytdlp" => ("motrixnext-ytdlp", "--version"),
-        "ffmpeg" => ("motrixnext-ffmpeg", "-version"),
-        "ffprobe" => ("ffprobe", "-version"),
+    // `--no-config` stops yt-dlp from reading ~/.config/yt-dlp/config, which
+    // can block on user-set update checks or invalid options.  ffmpeg /
+    // ffprobe get `-hide_banner` so stdout is the single version line.
+    let (binary, args): (&str, &[&str]) = match name {
+        "ytdlp" => ("motrixnext-ytdlp", &["--no-config", "--version"]),
+        "ffmpeg" => ("motrixnext-ffmpeg", &["-hide_banner", "-version"]),
+        "ffprobe" => ("ffprobe", &["-hide_banner", "-version"]),
         other => return Err(format!("unknown sidecar: {other}")),
     };
 
@@ -57,7 +65,7 @@ async fn probe_version(app: &tauri::AppHandle, name: &str) -> Result<String, Str
         .shell()
         .sidecar(binary)
         .map_err(|e| format!("sidecar resolve failed: {e}"))?
-        .args([flag])
+        .args(args)
         .output()
         .await
         .map_err(|e| format!("sidecar execute failed: {e}"))?;
@@ -76,30 +84,44 @@ async fn probe_version(app: &tauri::AppHandle, name: &str) -> Result<String, Str
     Ok(first)
 }
 
+async fn probe_with_timeout(app: &tauri::AppHandle, name: &str) -> Option<String> {
+    log::info!("sidecar {name}: probing version");
+    match tokio::time::timeout(PROBE_TIMEOUT, probe_version(app, name)).await {
+        Ok(Ok(v)) => {
+            log::info!("sidecar {name}: version = {v}");
+            Some(v)
+        }
+        Ok(Err(e)) => {
+            log::warn!("sidecar {name}: probe failed: {e}");
+            None
+        }
+        Err(_) => {
+            log::warn!(
+                "sidecar {name}: probe timed out after {}s",
+                PROBE_TIMEOUT.as_secs()
+            );
+            None
+        }
+    }
+}
+
 /// Fire-and-forget background probe of all bundled sidecars at startup.
-/// Errors are swallowed into `None` so the About panel just shows
-/// "unavailable" for that row instead of blocking the user.
+/// Runs all three in parallel so a slow one doesn't delay the others.
 pub fn prefetch_sidecar_versions(app: tauri::AppHandle) {
     // `tauri::async_runtime::spawn` uses Tauri's own runtime handle, which
     // is available inside `setup_app` (plain `tokio::spawn` panics there
     // because the tokio reactor hasn't started yet).
     tauri::async_runtime::spawn(async move {
         use tauri::Manager;
-        for name in SIDECAR_NAMES {
-            let result = probe_version(&app, name).await;
-            let value = match result {
-                Ok(v) => {
-                    log::debug!("sidecar {name} version: {v}");
-                    Some(v)
-                }
-                Err(e) => {
-                    log::warn!("sidecar {name} version probe failed: {e}");
-                    None
-                }
-            };
-            if let Some(state) = app.try_state::<SidecarVersionState>() {
-                state.set(name, value);
-            }
+        let (ytdlp, ffmpeg, ffprobe) = tokio::join!(
+            probe_with_timeout(&app, "ytdlp"),
+            probe_with_timeout(&app, "ffmpeg"),
+            probe_with_timeout(&app, "ffprobe"),
+        );
+        if let Some(state) = app.try_state::<SidecarVersionState>() {
+            state.set("ytdlp", ytdlp);
+            state.set("ffmpeg", ffmpeg);
+            state.set("ffprobe", ffprobe);
         }
     });
 }
