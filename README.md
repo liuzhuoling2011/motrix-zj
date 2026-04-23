@@ -168,6 +168,9 @@ Motrix Next is **not code-signed** on macOS or Windows, so your browser or antiv
 
 The app is fully open-source and every release binary is built automatically by [GitHub Actions CI](https://github.com/AnInsomniacy/motrix-next/actions). For added peace of mind, you can always [build from source](#development).
 
+> [!NOTE]
+> See our [Code Signing Policy](docs/CODE_SIGNING.md) and [Privacy Policy](docs/PRIVACY.md).
+
 ## Development
 
 ### Prerequisites
