@@ -80,7 +80,10 @@ async fn probe_version(app: &tauri::AppHandle, name: &str) -> Result<String, Str
 /// Errors are swallowed into `None` so the About panel just shows
 /// "unavailable" for that row instead of blocking the user.
 pub fn prefetch_sidecar_versions(app: tauri::AppHandle) {
-    tokio::spawn(async move {
+    // `tauri::async_runtime::spawn` uses Tauri's own runtime handle, which
+    // is available inside `setup_app` (plain `tokio::spawn` panics there
+    // because the tokio reactor hasn't started yet).
+    tauri::async_runtime::spawn(async move {
         use tauri::Manager;
         for name in SIDECAR_NAMES {
             let result = probe_version(&app, name).await;
