@@ -32,12 +32,19 @@ fn chrome_user_agent() -> &'static str {
 
 /// JavaScript injected into every document before page scripts run.
 ///
-/// Suppresses common bot/automation fingerprints so services like Google
-/// Sign-In stop rejecting the login attempt as "this browser may not be
-/// secure". Can't fake deep signals (TLS JA3, WebGL GPU strings) but
-/// closes the easy-to-flag surface.
+/// Does two jobs:
+/// 1. **Navigation patches** — redirect `target="_blank"` anchor clicks and
+///    `window.open()` calls into the current webview so sites like Bilibili
+///    (which uses `_blank` for video cards) don't silently swallow clicks.
+/// 2. **Stealth patches** — suppress common bot/automation fingerprints so
+///    services like Google Sign-In stop rejecting login as "this browser
+///    may not be secure". Note: JS can't fake deep signals (TLS JA3,
+///    Client Hints, WebGL GPU strings); for Google OAuth, expect failure
+///    regardless — users should use yt-dlp's --cookies-from-browser firefox
+///    for YouTube instead.
 const STEALTH_INIT_SCRIPT: &str = r#"
 (() => {
+  // ── Stealth patches ───────────────────────────────────────────────
   try {
     Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => undefined, configurable: true });
   } catch (_) {}
@@ -53,8 +60,34 @@ const STEALTH_INIT_SCRIPT: &str = r#"
     Object.defineProperty(navigator, 'plugins', { get: () => fakePlugins, configurable: true });
   } catch (_) {}
   if (!window.chrome) {
-    window.chrome = { runtime: {}, loadTimes: () => ({}), csi: () => ({}) };
+    window.chrome = {
+      runtime: { id: undefined, onConnect: undefined, onMessage: undefined },
+      loadTimes: () => ({}),
+      csi: () => ({}),
+      app: { isInstalled: false },
+    };
   }
+  try {
+    // Client Hints — Chromium 131 on matching platform
+    if (!navigator.userAgentData) {
+      Object.defineProperty(navigator, 'userAgentData', {
+        configurable: true,
+        get: () => ({
+          brands: [
+            { brand: 'Chromium', version: '131' },
+            { brand: 'Google Chrome', version: '131' },
+            { brand: 'Not_A Brand', version: '24' },
+          ],
+          mobile: false,
+          platform: 'macOS',
+          getHighEntropyValues: () => Promise.resolve({
+            architecture: 'arm', bitness: '64', model: '',
+            platformVersion: '14.0.0', uaFullVersion: '131.0.6778.86',
+          }),
+        }),
+      });
+    }
+  } catch (_) {}
   try {
     const origQuery = navigator.permissions && navigator.permissions.query;
     if (origQuery) {
@@ -64,6 +97,32 @@ const STEALTH_INIT_SCRIPT: &str = r#"
           : origQuery.call(navigator.permissions, p);
     }
   } catch (_) {}
+
+  // ── Navigation patches (fix Bilibili/etc video card clicks) ──────
+  try {
+    // Redirect window.open to the current webview.
+    const origOpen = window.open;
+    window.open = function (url) {
+      if (url) {
+        try { window.location.href = String(url); } catch (_) {}
+      }
+      return window;
+    };
+    void origOpen;
+  } catch (_) {}
+  // Intercept <a target="_blank"> clicks and navigate in place.
+  document.addEventListener('click', (e) => {
+    try {
+      const a = e.target && e.target.closest && e.target.closest('a[href]');
+      if (!a) return;
+      const tgt = a.getAttribute('target');
+      if (tgt === '_blank' || tgt === '_new') {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.href = a.href;
+      }
+    } catch (_) {}
+  }, true);
 })();
 "#;
 
