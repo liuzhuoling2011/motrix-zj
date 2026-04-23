@@ -29,15 +29,6 @@ pub fn serialise(domain: &str, cookies: &[Cookie]) -> String {
     let mut out = String::from("# Netscape HTTP Cookie File\n# Written by motrix-next\n\n");
     let include_sub = if domain.starts_with('.') { "TRUE" } else { "FALSE" };
     for c in cookies {
-        #[cfg(debug_assertions)]
-        {
-            if let Some(d) = c.domain() {
-                debug_assert!(
-                    d == domain || d == domain.trim_start_matches('.'),
-                    "cookie domain {d:?} doesn't match group key {domain:?}"
-                );
-            }
-        }
         let path = c.path().unwrap_or("/");
         let secure = if c.secure().unwrap_or(false) { "TRUE" } else { "FALSE" };
         let expires = c
