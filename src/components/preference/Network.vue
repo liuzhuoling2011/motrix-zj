@@ -296,11 +296,11 @@ onMounted(() => {
       <NDivider title-placement="left">{{ t('preferences.transfer-params') }}</NDivider>
       <NFormItem :label="t('preferences.connect-timeout')">
         <NInputNumber v-model:value="form.connectTimeout" :min="1" :max="600" style="width: 120px" />
-        <NText depth="3" style="font-size: 12px; margin-left: 8px">sec</NText>
+        <NText depth="3" style="font-size: 12px; margin-left: 8px">{{ t('preferences.unit-seconds') }}</NText>
       </NFormItem>
       <NFormItem :label="t('preferences.timeout')">
         <NInputNumber v-model:value="form.timeout" :min="1" :max="600" style="width: 120px" />
-        <NText depth="3" style="font-size: 12px; margin-left: 8px">sec</NText>
+        <NText depth="3" style="font-size: 12px; margin-left: 8px">{{ t('preferences.unit-seconds') }}</NText>
       </NFormItem>
       <NFormItem :label="t('preferences.file-allocation')">
         <NSelect
