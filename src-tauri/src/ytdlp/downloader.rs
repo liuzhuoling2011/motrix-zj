@@ -108,6 +108,10 @@ pub async fn start_download(
         .shell()
         .sidecar("motrixnext-ytdlp")
         .map_err(|e| AppError::YtdlpDownload(format!("failed to create sidecar: {e}")))?
+        // Force UTF-8 stdout on Windows so progress logs and filename lines
+        // with Chinese characters don't arrive as GBK garbage.
+        .env("PYTHONIOENCODING", "utf-8")
+        .env("PYTHONUTF8", "1")
         .args(&args);
 
     let (mut rx, child) = sidecar
