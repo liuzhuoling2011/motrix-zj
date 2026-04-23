@@ -17,6 +17,19 @@ const TOOLBAR_LABEL: &str = "web-browser-toolbar";
 const CONTENT_LABEL: &str = "web-browser-content";
 const TOOLBAR_HEIGHT: f64 = 48.0;
 
+/// Returns a Chrome-131 User-Agent string matching the host OS.
+///
+/// Needed because Tauri's default WebView UA is too bare for sites like
+/// Bilibili / 爱奇艺, which detect "old browser" and disable playback when
+/// they can't parse Chrome/Safari version numbers.
+fn chrome_user_agent() -> &'static str {
+    match std::env::consts::OS {
+        "macos" => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "windows" => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        _ => "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    }
+}
+
 /// Opens (or focuses) the in-app browser window.
 ///
 /// Must be `async` — `Window::add_child` on Windows deadlocks when invoked
@@ -68,6 +81,7 @@ pub async fn open_web_browser(app: AppHandle) -> Result<(), String> {
     // its address input stays in sync.
     let app_for_load = app.clone();
     let content = WebviewBuilder::new(CONTENT_LABEL, WebviewUrl::App("web-content.html".into()))
+        .user_agent(chrome_user_agent())
         .on_page_load(move |_webview, payload| {
             if matches!(payload.event(), PageLoadEvent::Finished) {
                 let url = payload.url().as_str().to_string();
