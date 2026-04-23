@@ -113,6 +113,8 @@ describe('buildDownloadsForm', () => {
   it('defaults remoteTime from DEFAULT_APP_CONFIG', () => {
     const form = buildDownloadsForm(emptyConfig)
     expect(form.remoteTime).toBe(DEFAULT_APP_CONFIG.remoteTime)
+    // Sanity: new default is false (download date) to match aria2 upstream default
+    expect(form.remoteTime).toBe(false)
   })
 
   // ── Speed Limits ────────────────────────────────────────────────

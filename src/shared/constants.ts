@@ -233,7 +233,7 @@ export const DEFAULT_APP_CONFIG = {
   followMetalink: true, // aria2 default=true
   pauseMetadata: true, // pause follow-up download after metadata — let user select files first
   continue: true, // aria2 default=true; resume incomplete downloads
-  remoteTime: true, // aria2.conf default=true; apply server Last-Modified to local file
+  remoteTime: false, // aria2 default=false; file timestamp = download completion time
 
   // ── Interface & Behavior ──────────────────────────────────────
   openAtLogin: false, // never auto-start on first install

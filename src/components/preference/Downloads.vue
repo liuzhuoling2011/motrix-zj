@@ -53,6 +53,18 @@ const dialog = useDialog()
 const message = useAppMessage()
 const defaultDownloadDir = ref('')
 
+// ── File timestamp strategy ─────────────────────────────────────────
+const FILE_TS_DOWNLOAD = 'download'
+const FILE_TS_SERVER = 'server'
+const fileTimestampOptions = computed(() => [
+  { label: t('preferences.file-timestamp-download'), value: FILE_TS_DOWNLOAD },
+  { label: t('preferences.file-timestamp-server'), value: FILE_TS_SERVER },
+])
+const fileTimestampValue = computed(() => (form.value.remoteTime ? FILE_TS_SERVER : FILE_TS_DOWNLOAD))
+function handleFileTimestampChange(val: string) {
+  form.value.remoteTime = val === FILE_TS_SERVER
+}
+
 // ── Safe-limit warning ──────────────────────────────────────────────
 const safeLimits = [
   {
@@ -329,8 +341,13 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.continue')">
         <NSwitch v-model:value="form.continue" />
       </NFormItem>
-      <NFormItem :label="t('preferences.remote-time')">
-        <NSwitch v-model:value="form.remoteTime" />
+      <NFormItem :label="t('preferences.file-timestamp')">
+        <NSelect
+          :value="fileTimestampValue"
+          :options="fileTimestampOptions"
+          style="width: 260px"
+          @update:value="handleFileTimestampChange"
+        />
       </NFormItem>
 
       <!-- Download Path -->
