@@ -2,13 +2,12 @@
 /** @fileoverview About panel with staggered entrance animations and glass effect. */
 import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NModal, NIcon } from 'naive-ui'
+import { NModal } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
-import { LogoGithub, HeartOutline, DocumentTextOutline, RocketOutline } from '@vicons/ionicons5'
 import { open } from '@tauri-apps/plugin-shell'
 import { getVersion } from '@tauri-apps/api/app'
 import { getVersion as getAria2Version } from '@/api/aria2'
-import { useSidecarVersions, type SidecarName } from '@shared/utils/sidecarVersion'
+import { fetchSidecarVersion } from '@shared/utils/sidecarVersion'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { logger } from '@shared/logger'
 
@@ -23,13 +22,36 @@ const aria2Loading = ref(true)
 const aria2Error = ref(false)
 const animate = ref(false)
 
-const sidecarVersions = useSidecarVersions()
-const SIDECAR_LABELS: Record<SidecarName, string> = {
-  ytdlp: 'yt-dlp',
-  ffmpeg: 'ffmpeg',
-  ffprobe: 'ffprobe',
+interface SidecarEntry {
+  key: 'ytdlp' | 'ffmpeg' | 'ffprobe'
+  label: string
+  loading: boolean
+  error: boolean
+  version: string
 }
-const SIDECAR_KEYS: SidecarName[] = ['ytdlp', 'ffmpeg', 'ffprobe']
+const sidecars = ref<SidecarEntry[]>([
+  { key: 'ytdlp', label: 'yt-dlp', loading: true, error: false, version: '' },
+  { key: 'ffmpeg', label: 'ffmpeg', loading: true, error: false, version: '' },
+  { key: 'ffprobe', label: 'ffprobe', loading: true, error: false, version: '' },
+])
+
+async function loadSidecarVersions() {
+  await Promise.all(
+    sidecars.value.map(async (entry) => {
+      entry.loading = true
+      entry.error = false
+      entry.version = ''
+      try {
+        entry.version = await fetchSidecarVersion(entry.key)
+      } catch (e) {
+        logger.warn('AboutPanel', `${entry.key} version fetch failed: ${e}`)
+        entry.error = true
+      } finally {
+        entry.loading = false
+      }
+    }),
+  )
+}
 
 onMounted(async () => {
   appVersion.value = await getVersion()
@@ -58,63 +80,10 @@ watch(
       } finally {
         aria2Loading.value = false
       }
+      loadSidecarVersions()
     }
   },
 )
-
-const techStack = [
-  {
-    name: 'Tauri 2',
-    color: '#D49700',
-    /* Lucide app-window — desktop application framework */
-    svg: '<rect x="2" y="4" width="20" height="16" rx="2"/><line x1="8" y1="4" x2="8" y2="20"/>',
-  },
-  {
-    name: 'Vue 3',
-    color: '#2E8B57',
-    /* Lucide layers — layered composition framework */
-    svg: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.84Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
-  },
-  {
-    name: 'Rust',
-    color: '#DE5623',
-    /* Lucide shield — memory safety */
-    svg: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 .67-.95l7-2.5a1 1 0 0 1 .67 0l7 2.5A1 1 0 0 1 20 6z"/>',
-  },
-  {
-    name: 'Naive UI',
-    color: '#2A9D6E',
-    /* Lucide leaf — nature/green brand identity */
-    svg: '<path d="M11 20A7 7 0 0 1 9.8 6.9C15.5 4.9 20 .5 20 .5s-4.5 4.5-2.5 10.2A7 7 0 0 1 11 20"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
-  },
-]
-
-const links = [
-  {
-    key: 'github',
-    label: 'GitHub',
-    icon: LogoGithub,
-    url: 'https://github.com/AnInsomniacy/motrix-next',
-  },
-  {
-    key: 'release',
-    i18n: 'about.release',
-    icon: RocketOutline,
-    url: 'https://github.com/AnInsomniacy/motrix-next/releases',
-  },
-  {
-    key: 'license',
-    i18n: 'about.license',
-    icon: DocumentTextOutline,
-    url: 'https://github.com/AnInsomniacy/motrix-next/blob/main/LICENSE',
-  },
-  {
-    key: 'support',
-    i18n: 'about.support',
-    icon: HeartOutline,
-    url: 'https://github.com/AnInsomniacy/AnInsomniacy/blob/main/SPONSOR.md',
-  },
-]
 
 async function copyToClipboard(text: string, label: string) {
   try {
@@ -204,16 +173,27 @@ function openUrl(url: string) {
           </MTooltip>
         </Transition>
 
-        <!-- Sidecar versions: yt-dlp / ffmpeg / ffprobe (prefetched at startup) -->
-        <template v-for="key in SIDECAR_KEYS" :key="key">
-          <MTooltip v-if="sidecarVersions[key]">
+        <!-- Sidecar versions: yt-dlp / ffmpeg / ffprobe -->
+        <template v-for="entry in sidecars" :key="entry.key">
+          <div v-if="entry.loading" class="version-badge version-badge--loading">
+            <span class="version-label">{{ entry.label }}</span>
+            <span class="version-loading">
+              <svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" opacity="0.2" />
+                <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+              </svg>
+              {{ t('about.loading') }}
+            </span>
+          </div>
+          <div v-else-if="entry.error" class="version-badge version-badge--loading">
+            <span class="version-label">{{ entry.label }}</span>
+            <span class="version-error">{{ t('about.unavailable') }}</span>
+          </div>
+          <MTooltip v-else>
             <template #trigger>
-              <button
-                class="version-badge"
-                @click="copyToClipboard(`${SIDECAR_LABELS[key]} v${sidecarVersions[key]}`, SIDECAR_LABELS[key])"
-              >
-                <span class="version-label">{{ SIDECAR_LABELS[key] }}</span>
-                <span class="version-value">v{{ sidecarVersions[key] }}</span>
+              <button class="version-badge" @click="copyToClipboard(`${entry.label} v${entry.version}`, entry.label)">
+                <span class="version-label">{{ entry.label }}</span>
+                <span class="version-value">v{{ entry.version }}</span>
                 <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
                   <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
@@ -222,43 +202,11 @@ function openUrl(url: string) {
             </template>
             {{ t('about.click-to-copy') }}
           </MTooltip>
-          <div v-else class="version-badge version-badge--loading">
-            <span class="version-label">{{ SIDECAR_LABELS[key] }}</span>
-            <span class="version-error">{{ t('about.unavailable') }}</span>
-          </div>
         </template>
       </div>
 
       <!-- Description -->
       <p class="about-desc stagger stagger-3">{{ t('about.description') }}</p>
-
-      <!-- Tech Stack -->
-      <div class="about-section-label stagger stagger-4">Tech Stack</div>
-      <div class="about-tags stagger stagger-4">
-        <span v-for="tech in techStack" :key="tech.name" class="about-tag" :style="{ '--tag-color': tech.color }">
-          <svg
-            class="about-tag-icon"
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            v-html="tech.svg"
-          />
-          {{ tech.name }}
-        </span>
-      </div>
-
-      <!-- Links Grid -->
-      <div class="about-links stagger stagger-5">
-        <button v-for="link in links" :key="link.key" class="about-link-card" @click="openUrl(link.url)">
-          <NIcon :size="18"><component :is="link.icon" /></NIcon>
-          <span>{{ link.i18n ? t(link.i18n) : link.label }}</span>
-        </button>
-      </div>
 
       <!-- Footer -->
       <div class="about-footer stagger stagger-6">
@@ -391,72 +339,6 @@ function openUrl(url: string) {
   font-size: 13px;
   line-height: 1.7;
   color: var(--m3-on-surface-variant);
-}
-
-/* ── Section Label ────────────────────────────────────────────────── */
-.about-section-label {
-  margin-top: 20px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: var(--m3-outline);
-}
-
-/* ── Tech Tags ────────────────────────────────────────────────────── */
-.about-tags {
-  margin-top: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-}
-.about-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 12px;
-  color: var(--tag-color);
-  background: var(--about-card-bg);
-  border: 1px solid color-mix(in srgb, var(--tag-color) 40%, transparent);
-  letter-spacing: 0.3px;
-}
-.about-tag svg {
-  flex-shrink: 0;
-}
-.about-tag-icon {
-  opacity: 0.7;
-}
-
-/* ── Link Cards (2×2 Grid) ────────────────────────────────────────── */
-.about-links {
-  margin-top: 20px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.about-link-card {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px 0;
-  border: 1px solid var(--m3-outline-variant);
-  border-radius: 10px;
-  background: var(--about-card-bg);
-  color: var(--m3-on-surface-variant);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: var(--transition-all);
-}
-.about-link-card:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: var(--about-card-hover-bg);
 }
 
 /* ── Footer ───────────────────────────────────────────────────────── */
