@@ -11,6 +11,7 @@ import { useHistoryStore } from './stores/history'
 import aria2Api from './api/aria2'
 import { ENGINE_RPC_PORT, AUTO_SYNC_TRACKER_INTERVAL, DEFAULT_TRACKER_SOURCE } from '@shared/constants'
 import { convertTrackerDataToLine, convertTrackerDataToComma, reduceTrackerString } from '@shared/utils/tracker'
+import { preloadSidecarVersions } from '@shared/utils/sidecarVersion'
 import { logger } from '@shared/logger'
 import type { AppConfig } from '@shared/types'
 import App from './App.vue'
@@ -387,6 +388,7 @@ window.addEventListener('unhandledrejection', (e) => {
 
     // ── Phase 4: deferred non-critical tasks ───────────────────────────────
     autoSyncTrackerOnStartup()
+    preloadSidecarVersions()
 
     // Initialize download history database, then schedule stale record cleanup
     historyStore

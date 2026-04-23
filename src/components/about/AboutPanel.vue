@@ -8,7 +8,7 @@ import { LogoGithub, HeartOutline, DocumentTextOutline, RocketOutline } from '@v
 import { open } from '@tauri-apps/plugin-shell'
 import { getVersion } from '@tauri-apps/api/app'
 import { getVersion as getAria2Version } from '@/api/aria2'
-import { fetchSidecarVersion } from '@shared/utils/sidecarVersion'
+import { useSidecarVersions, type SidecarName } from '@shared/utils/sidecarVersion'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { logger } from '@shared/logger'
 
@@ -23,36 +23,13 @@ const aria2Loading = ref(true)
 const aria2Error = ref(false)
 const animate = ref(false)
 
-interface SidecarEntry {
-  key: 'ytdlp' | 'ffmpeg' | 'ffprobe'
-  label: string
-  loading: boolean
-  error: boolean
-  version: string
+const sidecarVersions = useSidecarVersions()
+const SIDECAR_LABELS: Record<SidecarName, string> = {
+  ytdlp: 'yt-dlp',
+  ffmpeg: 'ffmpeg',
+  ffprobe: 'ffprobe',
 }
-const sidecars = ref<SidecarEntry[]>([
-  { key: 'ytdlp', label: 'yt-dlp', loading: true, error: false, version: '' },
-  { key: 'ffmpeg', label: 'ffmpeg', loading: true, error: false, version: '' },
-  { key: 'ffprobe', label: 'ffprobe', loading: true, error: false, version: '' },
-])
-
-async function loadSidecarVersions() {
-  await Promise.all(
-    sidecars.value.map(async (entry) => {
-      entry.loading = true
-      entry.error = false
-      entry.version = ''
-      try {
-        entry.version = await fetchSidecarVersion(entry.key)
-      } catch (e) {
-        logger.warn('AboutPanel', `${entry.key} version fetch failed: ${e}`)
-        entry.error = true
-      } finally {
-        entry.loading = false
-      }
-    }),
-  )
-}
+const SIDECAR_KEYS: SidecarName[] = ['ytdlp', 'ffmpeg', 'ffprobe']
 
 onMounted(async () => {
   appVersion.value = await getVersion()
@@ -81,7 +58,6 @@ watch(
       } finally {
         aria2Loading.value = false
       }
-      loadSidecarVersions()
     }
   },
 )
@@ -228,27 +204,16 @@ function openUrl(url: string) {
           </MTooltip>
         </Transition>
 
-        <!-- Sidecar versions: yt-dlp / ffmpeg / ffprobe -->
-        <template v-for="entry in sidecars" :key="entry.key">
-          <div v-if="entry.loading" class="version-badge version-badge--loading">
-            <span class="version-label">{{ entry.label }}</span>
-            <span class="version-loading">
-              <svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" opacity="0.2" />
-                <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
-              </svg>
-              {{ t('about.loading') }}
-            </span>
-          </div>
-          <div v-else-if="entry.error" class="version-badge version-badge--loading">
-            <span class="version-label">{{ entry.label }}</span>
-            <span class="version-error">{{ t('about.unavailable') }}</span>
-          </div>
-          <MTooltip v-else>
+        <!-- Sidecar versions: yt-dlp / ffmpeg / ffprobe (prefetched at startup) -->
+        <template v-for="key in SIDECAR_KEYS" :key="key">
+          <MTooltip v-if="sidecarVersions[key]">
             <template #trigger>
-              <button class="version-badge" @click="copyToClipboard(`${entry.label} v${entry.version}`, entry.label)">
-                <span class="version-label">{{ entry.label }}</span>
-                <span class="version-value">v{{ entry.version }}</span>
+              <button
+                class="version-badge"
+                @click="copyToClipboard(`${SIDECAR_LABELS[key]} v${sidecarVersions[key]}`, SIDECAR_LABELS[key])"
+              >
+                <span class="version-label">{{ SIDECAR_LABELS[key] }}</span>
+                <span class="version-value">v{{ sidecarVersions[key] }}</span>
                 <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
                   <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
@@ -257,6 +222,10 @@ function openUrl(url: string) {
             </template>
             {{ t('about.click-to-copy') }}
           </MTooltip>
+          <div v-else class="version-badge version-badge--loading">
+            <span class="version-label">{{ SIDECAR_LABELS[key] }}</span>
+            <span class="version-error">{{ t('about.unavailable') }}</span>
+          </div>
         </template>
       </div>
 
