@@ -176,6 +176,7 @@ onBeforeUnmount(() => {
   font-size: 16px;
   font-weight: normal;
   line-height: 24px;
+  align-self: flex-start;
 }
 /*
  * .panel-body creates the positioning context for the watermark.

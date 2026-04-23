@@ -72,7 +72,7 @@ function isActive(key: string) {
   color: var(--subnav-title);
   font-weight: normal;
   line-height: 24px;
-  margin: 0 0 28px;
+  margin: 0 0 20px;
 }
 .subnav-inner ul {
   list-style: none;
