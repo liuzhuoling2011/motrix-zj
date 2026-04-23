@@ -125,7 +125,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
         ],
     )?;
 
-    let _tray = TrayIconBuilder::with_id("main")
+    let _tray = TrayIconBuilder::with_id("motrix-next")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .tooltip("Motrix Next")
@@ -256,8 +256,8 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
     {
         let app_handle = app.clone();
         tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-            if let Some(tray) = app_handle.tray_by_id("main") {
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            if let Some(tray) = app_handle.tray_by_id("motrix-next") {
                 let icon = tray_icon_image();
                 let _ = tray.set_icon(Some(icon));
                 log::info!(
