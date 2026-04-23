@@ -100,10 +100,7 @@ pub(crate) fn extract_basename(url: &str) -> String {
         Ok(parsed) => parsed.path().to_string(),
         Err(_) => url.split('?').next().unwrap_or("").to_string(),
     };
-    let raw = pathname
-        .split('/')
-        .rfind(|s| !s.is_empty())
-        .unwrap_or("");
+    let raw = pathname.split('/').rfind(|s| !s.is_empty()).unwrap_or("");
 
     // Percent-decode (e.g. "%E4%B8%AD" → "中")
     match urlencoding::decode(raw) {
