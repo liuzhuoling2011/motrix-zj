@@ -170,6 +170,12 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let cookies_dir = app.path().app_data_dir()?.join("cookies");
     app.manage(cookies::CookieStore::new(cookies_dir));
 
+    // Sidecar version cache + background probe at startup so About panel
+    // and Preferences → System info show versions instantly (no on-demand
+    // sidecar spawn per panel open).
+    app.manage(commands::SidecarVersionState::new());
+    commands::prefetch_sidecar_versions(app.handle().clone());
+
     // Runtime config cache — refreshed by frontend after each config save.
     app.manage(services::config::RuntimeConfigState::new());
 
@@ -903,7 +909,7 @@ pub fn run() {
             commands::ytdlp_download_via_aria2,
             commands::ytdlp_download_direct,
             commands::ytdlp_cancel_download,
-            commands::get_sidecar_version,
+            commands::get_sidecar_versions,
             commands::open_web_browser,
             commands::web_browser_navigate,
             commands::save_cookies_and_trigger_download,
