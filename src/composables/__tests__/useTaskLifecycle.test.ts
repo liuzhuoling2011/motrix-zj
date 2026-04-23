@@ -516,6 +516,127 @@ describe('mergeHistoryIntoTasks', () => {
     expect(result[0].gid).toBe('latest-gid')
     expect(result[1].gid).toBe('unrelated')
   })
+
+  // ── Post-archive path correction (Bug #243) ─────────────────────
+
+  it('patches stopped task dir from DB when archive moved the file', () => {
+    // aria2 reports original dir; DB has corrected dir after auto-archive
+    const aria2 = [
+      makeTask({
+        gid: 'archived-1',
+        status: 'complete',
+        dir: 'D:/download',
+        files: [
+          {
+            index: '1',
+            path: 'D:/download/setup.exe',
+            length: '1000',
+            completedLength: '1000',
+            selected: 'true',
+            uris: [],
+          },
+        ],
+      }),
+    ]
+    const history = [makeRecord({ gid: 'archived-1', dir: 'D:/download/Programs', name: 'setup.exe' })]
+    const result = mergeHistoryIntoTasks(aria2, history)
+    expect(result).toHaveLength(1)
+    expect(result[0].dir).toBe('D:/download/Programs')
+    expect(result[0].files[0].path).toBe('D:/download/Programs/setup.exe')
+  })
+
+  it('patches files[].path from meta.files snapshot when available', () => {
+    const meta = JSON.stringify({
+      files: [
+        {
+          path: 'D:/download/Videos/movie.mp4',
+          length: '5000',
+          selected: 'true',
+          uris: ['http://example.com/movie.mp4'],
+        },
+      ],
+    })
+    const aria2 = [
+      makeTask({
+        gid: 'vid-1',
+        status: 'complete',
+        dir: 'D:/download',
+        files: [
+          {
+            index: '1',
+            path: 'D:/download/movie.mp4',
+            length: '5000',
+            completedLength: '5000',
+            selected: 'true',
+            uris: [],
+          },
+        ],
+      }),
+    ]
+    const history = [makeRecord({ gid: 'vid-1', dir: 'D:/download/Videos', name: 'movie.mp4', meta })]
+    const result = mergeHistoryIntoTasks(aria2, history)
+    expect(result[0].dir).toBe('D:/download/Videos')
+    expect(result[0].files[0].path).toBe('D:/download/Videos/movie.mp4')
+  })
+
+  it('does NOT patch active/waiting/paused tasks', () => {
+    const aria2 = [
+      makeTask({ gid: 'active-1', status: 'active', dir: '/downloads' }),
+      makeTask({ gid: 'waiting-1', status: 'waiting', dir: '/downloads' }),
+      makeTask({ gid: 'paused-1', status: 'paused', dir: '/downloads' }),
+    ]
+    const history = [
+      makeRecord({ gid: 'active-1', dir: '/downloads/Archives' }),
+      makeRecord({ gid: 'waiting-1', dir: '/downloads/Archives' }),
+      makeRecord({ gid: 'paused-1', dir: '/downloads/Archives' }),
+    ]
+    const result = mergeHistoryIntoTasks(aria2, history)
+    // Active tasks must keep their original dir — they are still downloading
+    expect(result[0].dir).toBe('/downloads')
+    expect(result[1].dir).toBe('/downloads')
+    expect(result[2].dir).toBe('/downloads')
+  })
+
+  it('skips patching when DB dir matches aria2 dir (no archive)', () => {
+    const aria2 = [makeTask({ gid: 'same-1', status: 'complete', dir: '/downloads' })]
+    const history = [makeRecord({ gid: 'same-1', dir: '/downloads' })]
+    const result = mergeHistoryIntoTasks(aria2, history)
+    expect(result[0].dir).toBe('/downloads')
+    expect(result[0].files[0].path).toBe('/downloads/test.zip') // unchanged
+  })
+
+  it('normalizes path separators for comparison (Windows mixed paths)', () => {
+    const aria2 = [
+      makeTask({
+        gid: 'win-1',
+        status: 'complete',
+        dir: 'C:\\Users\\test\\Downloads',
+        files: [
+          {
+            index: '1',
+            path: 'C:\\Users\\test\\Downloads\\file.zip',
+            length: '100',
+            completedLength: '100',
+            selected: 'true',
+            uris: [],
+          },
+        ],
+      }),
+    ]
+    // DB uses forward slashes (from normalizeSep in updateHistoryFilePath)
+    const history = [makeRecord({ gid: 'win-1', dir: 'C:/Users/test/Downloads/Archives', name: 'file.zip' })]
+    const result = mergeHistoryIntoTasks(aria2, history)
+    // Should patch because normalized dirs differ
+    expect(result[0].dir).toBe('C:/Users/test/Downloads/Archives')
+    expect(result[0].files[0].path).toBe('C:/Users/test/Downloads/Archives/file.zip')
+  })
+
+  it('handles task with no DB record gracefully', () => {
+    const aria2 = [makeTask({ gid: 'orphan', status: 'complete', dir: '/downloads' })]
+    const history: HistoryRecord[] = [] // no matching record
+    const result = mergeHistoryIntoTasks(aria2, history)
+    expect(result[0].dir).toBe('/downloads') // unchanged
+  })
 })
 
 // ── buildHistoryMeta ────────────────────────────────────────────────

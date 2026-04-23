@@ -210,6 +210,40 @@ export function historyRecordToTask(record: HistoryRecord): Aria2Task {
 export function mergeHistoryIntoTasks(aria2Tasks: Aria2Task[], historyRecords: HistoryRecord[]): Aria2Task[] {
   if (historyRecords.length === 0) return aria2Tasks
 
+  // ── Post-archive path correction ────────────────────────────────
+  // After auto-archive moves a file, aria2's DownloadResult snapshot
+  // still reports the original dir (aria2 RPC has no mechanism to
+  // update stopped tasks — DownloadResult is immutable, see aria2
+  // DownloadResult.h).  The history DB stores the corrected dir from
+  // updateHistoryFilePath().  Patch aria2's stale paths here so that
+  // resolveTaskFilePath / check_path_exists see the archived location
+  // after WebView recreation (lightweight mode) or window re-open.
+  const recordByGid = new Map<string, HistoryRecord>()
+  for (const r of historyRecords) recordByGid.set(r.gid, r)
+
+  const LIVE_STATUSES: ReadonlySet<string> = new Set(['active', 'waiting', 'paused'])
+  for (const task of aria2Tasks) {
+    if (LIVE_STATUSES.has(task.status)) continue
+    const dbRecord = recordByGid.get(task.gid)
+    if (!dbRecord?.dir) continue
+    if (normalizeSep(dbRecord.dir) === normalizeSep(task.dir ?? '')) continue
+
+    // Patch dir — the DB value reflects the post-archive directory.
+    task.dir = dbRecord.dir
+
+    // Patch files[].path from the DB meta snapshot when available
+    // (multi-file or mirror tasks store individual file paths).
+    const meta = parseHistoryMeta(dbRecord)
+    if (meta.files && task.files) {
+      for (let i = 0; i < task.files.length && i < meta.files.length; i++) {
+        if (meta.files[i].path) task.files[i].path = meta.files[i].path
+      }
+    } else if (task.files?.[0] && dbRecord.name) {
+      // Single-file fallback: reconstruct from corrected dir + name.
+      task.files[0].path = `${dbRecord.dir}/${dbRecord.name}`
+    }
+  }
+
   // Primary dedup key: GID (handles same-session tasks)
   const seenGids = new Set(aria2Tasks.map((t) => t.gid))
 
