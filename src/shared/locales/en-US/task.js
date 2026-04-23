@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'Auto-classification is active, files will be saved to their category folders',
   'category-hint-overridden': 'Custom path specified, classification rules will be skipped',
   'category-dir-placeholder': 'Leave empty for auto-classification',
+  'favorite-folders': 'Favorites',
+  'recent-folders': 'Recent',
 }

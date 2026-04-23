@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'Automatische classificatie is actief, bestanden worden opgeslagen in hun categoriemappen',
   'category-hint-overridden': 'Aangepast pad opgegeven, classificatieregels worden overgeslagen',
   'category-dir-placeholder': 'Laat leeg voor automatische classificatie',
+  'favorite-folders': 'Favorietemappen',
+  'recent-folders': 'Recente mappen',
 }

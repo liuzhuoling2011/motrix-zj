@@ -340,6 +340,7 @@ export const useAppStore = defineStore('app', () => {
         enabled: preferenceStore.config.fileCategoryEnabled,
         categories: preferenceStore.config.fileCategories,
       })
+      preferenceStore.recordHistoryDirectory(form.dir || preferenceStore.config.dir)
       logger.info('autoSubmit', `auto-submitted: ${url}`)
     } catch (e) {
       logger.error('autoSubmit', e)

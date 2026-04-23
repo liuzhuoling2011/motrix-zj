@@ -49,6 +49,7 @@ import type { BatchItem } from '@shared/types'
 import { FolderOpenOutline, CloudUploadOutline } from '@vicons/ionicons5'
 import { vAutoAnimate } from '@formkit/auto-animate'
 import AdvancedOptions from './addtask/AdvancedOptions.vue'
+import DirectoryPopover from './addtask/DirectoryPopover.vue'
 
 const props = defineProps<{ show: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -335,6 +336,11 @@ async function chooseDirectory() {
   }
 }
 
+function onDirectorySelect(dir: string) {
+  form.value.dir = dir
+  dirUserModified.value = categoryEnabled.value && dir.trim().length > 0
+}
+
 function removeBatchItem(item: BatchItem) {
   appStore.pendingBatch = batch.value.filter((i) => i !== item)
   selectedBatchIndex.value = Math.min(selectedBatchIndex.value, Math.max(0, fileItems.value.length - 1))
@@ -416,6 +422,12 @@ async function handleSubmit() {
       }
 
       handleClose()
+
+      // ── Record directory for the recent-folders popover ────────
+      const effectiveDir = form.value.dir.trim() || preferenceStore.config.dir
+      if (effectiveDir) {
+        preferenceStore.recordHistoryDirectory(effectiveDir)
+      }
 
       // ── Start notification (aggregated) ────────────────────────
       handleTaskStart(taskNames, {
@@ -601,6 +613,7 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
                     <NIcon><FolderOpenOutline /></NIcon>
                   </template>
                 </NButton>
+                <DirectoryPopover @select="onDirectorySelect" />
               </NInputGroup>
               <Transition name="category-hint" mode="out-in">
                 <div v-if="categoryEnabled" :key="categoryHintKey" class="category-hint-text">

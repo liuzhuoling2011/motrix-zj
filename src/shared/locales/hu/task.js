@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'Az automatikus osztályozás aktív, a fájlok a megfelelő kategóriamappákba kerülnek',
   'category-hint-overridden': 'Egyéni útvonal megadva, az osztályozási szabályok kihagyásra kerülnek',
   'category-dir-placeholder': 'Hagyja üresen az automatikus osztályozáshoz',
+  'favorite-folders': 'Kedvenc mappák',
+  'recent-folders': 'Legutóbbi mappák',
 }

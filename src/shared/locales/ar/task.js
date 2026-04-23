@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'تم تفعيل التصنيف التلقائي، سيتم حفظ الملفات في المجلدات المقابلة',
   'category-hint-overridden': 'تم تحديد مسار مخصص، سيتم تجاهل قواعد التصنيف',
   'category-dir-placeholder': 'اتركه فارغاً للتصنيف التلقائي',
+  'favorite-folders': 'المجلدات المفضلة',
+  'recent-folders': 'المجلدات الأخيرة',
 }
