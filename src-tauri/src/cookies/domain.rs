@@ -22,6 +22,22 @@ pub fn candidates_for_url(url: &str) -> Vec<String> {
     }
 }
 
+/// Heuristic registrable-domain extractor — returns the last two labels of
+/// the host.  Handles the common `.com` / `.cn` / `.tv` etc. 2-part TLDs
+/// correctly; over-collapses for 3-part TLDs like `.co.uk` / `.com.cn`
+/// (acceptable for the MVP — yt-dlp's main target sites don't need them).
+pub fn registrable_domain(host: &str) -> Option<String> {
+    let host = host.trim_start_matches('.').trim_end_matches('.');
+    if host.is_empty() {
+        return None;
+    }
+    let parts: Vec<&str> = host.split('.').collect();
+    if parts.len() < 2 {
+        return None;
+    }
+    Some(parts[parts.len() - 2..].join("."))
+}
+
 fn candidates_for_host(host: &str) -> Vec<String> {
     let host = host.trim_end_matches('.');
     if host.is_empty() {
@@ -105,5 +121,23 @@ mod tests {
     #[test]
     fn file_url_without_host_returns_empty() {
         assert!(candidates_for_url("file:///etc/passwd").is_empty());
+    }
+
+    #[test]
+    fn registrable_domain_strips_subdomain() {
+        assert_eq!(registrable_domain("www.bilibili.com"), Some("bilibili.com".into()));
+        assert_eq!(registrable_domain("api.accounts.google.com"), Some("google.com".into()));
+        assert_eq!(registrable_domain(".bilibili.com"), Some("bilibili.com".into()));
+    }
+
+    #[test]
+    fn registrable_domain_keeps_two_label_host() {
+        assert_eq!(registrable_domain("bilibili.com"), Some("bilibili.com".into()));
+    }
+
+    #[test]
+    fn registrable_domain_rejects_single_label() {
+        assert!(registrable_domain("localhost").is_none());
+        assert!(registrable_domain("").is_none());
     }
 }

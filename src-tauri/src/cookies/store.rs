@@ -1,17 +1,23 @@
-//! On-disk cookie store: one Netscape cookies.txt per domain scope.
+//! On-disk cookie store: one Netscape cookies.txt per registrable domain.
 //!
 //! Layout:
 //!   <base_dir>/
-//!     youtube.com.txt      (cookie API strips leading dot; file key = domain())
-//!     google.com.txt
-//!     accounts.google.com.txt
+//!     .bilibili.com.txt     (all *.bilibili.com cookies merged)
+//!     .youtube.com.txt
+//!     .google.com.txt
 //!
-//! Filenames mirror the value returned by `Cookie::domain()` — which always
-//! strips the leading dot per cookie crate 0.18 design. Lookup tries the
-//! priority list from `cookies::domain::candidates_for_url`, which also
-//! includes the no-dot forms so they match correctly.
+//! All cookies under the same registrable domain (e.g. `bilibili.com`,
+//! `www.bilibili.com`, `api.bilibili.com`) are **merged into a single
+//! file** keyed by the registrable domain. Each record's `include_subdomains`
+//! column is `TRUE` so yt-dlp forwards the cookies to any subdomain it
+//! queries — this is the whole point: otherwise yt-dlp hits `api.bilibili.com`
+//! with no auth because the login cookies live on `.bilibili.com`.
+//!
+//! Pre-existing per-subdomain leftover files (e.g. `www.bilibili.com.txt`)
+//! within the same registrable domain are deleted on save to prevent stale
+//! shadowing of the merged file.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -32,27 +38,49 @@ impl CookieStore {
         &self.base_dir
     }
 
-    /// Groups cookies by `domain()`, serialises each group, writes one file
-    /// per domain. Returns the list of written domain keys for logging.
+    /// Groups cookies by registrable domain (last two labels), serialises
+    /// each group with a leading-dot domain column (include_subdomains=TRUE),
+    /// writes one file `.<reg>.txt` per group, and evicts stale leftovers
+    /// within the same registrable domain.
     ///
-    /// Note: `cookie::Cookie::domain()` (v0.18) always strips any leading dot,
-    /// so file names will never have a leading dot. The `netscape::serialise`
-    /// call receives the same stripped key as the domain argument.
+    /// Returns the list of written `.<reg>` keys.
     pub fn save_from_webview(&self, cookies: Vec<Cookie>) -> std::io::Result<Vec<String>> {
         fs::create_dir_all(&self.base_dir)?;
+
         let mut groups: HashMap<String, Vec<Cookie>> = HashMap::new();
         for c in cookies {
             let Some(d) = c.domain() else { continue };
-            groups.entry(d.to_string()).or_default().push(c);
+            let Some(reg) = domain::registrable_domain(d) else { continue };
+            groups.entry(reg).or_default().push(c);
         }
+
+        // Evict legacy / subdomain files that fall under any registrable
+        // domain we're about to rewrite. Keeps the merged `.reg.txt` the
+        // sole match for resolve_for_url.
+        let affected: HashSet<&str> = groups.keys().map(String::as_str).collect();
+        if let Ok(entries) = fs::read_dir(&self.base_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) != Some("txt") {
+                    continue;
+                }
+                let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else { continue };
+                let file_reg = domain::registrable_domain(stem).unwrap_or_default();
+                if affected.contains(file_reg.as_str()) {
+                    let _ = fs::remove_file(&path);
+                }
+            }
+        }
+
         let mut written = Vec::with_capacity(groups.len());
-        for (d, jar) in groups {
-            let final_path = self.base_dir.join(format!("{d}.txt"));
-            let tmp_path = self.base_dir.join(format!("{d}.txt.tmp"));
-            let content = netscape::serialise(&d, &jar);
+        for (reg, jar) in groups {
+            let scoped = format!(".{reg}");
+            let final_path = self.base_dir.join(format!("{scoped}.txt"));
+            let tmp_path = self.base_dir.join(format!("{scoped}.txt.tmp"));
+            let content = netscape::serialise(&scoped, &jar);
             fs::write(&tmp_path, content)?;
             fs::rename(&tmp_path, &final_path)?;
-            written.push(d);
+            written.push(scoped);
         }
         Ok(written)
     }
@@ -75,9 +103,8 @@ mod tests {
     use super::*;
     use tauri::webview::Cookie;
 
-    /// Build a test cookie.  `cookie::Cookie::domain()` (v0.18) strips any
-    /// leading dot, so the grouping key stored in the file name is always
-    /// the dot-free form regardless of what we pass to `.domain()`.
+    /// Build a test cookie. `cookie::Cookie::domain()` strips a leading dot,
+    /// so tests pass the dot-free form directly for clarity.
     fn cookie(name: &str, value: &str, domain: &str) -> Cookie<'static> {
         Cookie::build((name.to_string(), value.to_string()))
             .domain(domain.to_string())
@@ -91,53 +118,53 @@ mod tests {
     }
 
     #[test]
-    fn saves_one_file_per_domain() {
+    fn merges_subdomains_into_registrable_file() {
         let (store, _guard) = tmp_store();
-        // cookie 0.18: domain() strips leading dot, so ".youtube.com" → "youtube.com"
         let cookies = vec![
-            cookie("a", "1", ".youtube.com"),
-            cookie("b", "2", ".youtube.com"),
-            cookie("c", "3", ".google.com"),
+            cookie("SESSDATA", "login", "bilibili.com"),
+            cookie("X-TOKEN", "x", "www.bilibili.com"),
+            cookie("API-JAR", "j", "api.bilibili.com"),
+        ];
+        let written = store.save_from_webview(cookies).expect("save");
+        assert_eq!(written, vec![".bilibili.com"]);
+        let path = store.base_dir().join(".bilibili.com.txt");
+        assert!(path.exists());
+        let content = fs::read_to_string(&path).expect("read");
+        assert!(content.contains("SESSDATA\tlogin"));
+        assert!(content.contains("X-TOKEN\tx"));
+        assert!(content.contains("API-JAR\tj"));
+        // Every row should be domain-wide (TRUE include_subdomains)
+        for line in content.lines().filter(|l| !l.starts_with('#') && !l.is_empty()) {
+            let cols: Vec<&str> = line.split('\t').collect();
+            assert_eq!(cols.len(), 7);
+            assert_eq!(cols[0], ".bilibili.com");
+            assert_eq!(cols[1], "TRUE");
+        }
+    }
+
+    #[test]
+    fn separate_registrable_domains_get_separate_files() {
+        let (store, _guard) = tmp_store();
+        let cookies = vec![
+            cookie("a", "1", "youtube.com"),
+            cookie("b", "2", "google.com"),
         ];
         let written = store.save_from_webview(cookies).expect("save");
         assert_eq!(written.len(), 2);
-        // Files are keyed by domain() output (no leading dot)
-        assert!(store.base_dir().join("youtube.com.txt").exists());
-        assert!(store.base_dir().join("google.com.txt").exists());
+        assert!(store.base_dir().join(".youtube.com.txt").exists());
+        assert!(store.base_dir().join(".google.com.txt").exists());
     }
 
     #[test]
-    fn resolve_prefers_exact_host_over_parent() {
+    fn resolve_finds_registrable_file_for_subdomain_url() {
         let (store, _guard) = tmp_store();
-        // "www.youtube.com" → domain() → "www.youtube.com" → www.youtube.com.txt
-        // ".youtube.com"    → domain() → "youtube.com"     → youtube.com.txt
         store
-            .save_from_webview(vec![
-                cookie("a", "1", "www.youtube.com"),
-                cookie("b", "2", ".youtube.com"),
-            ])
+            .save_from_webview(vec![cookie("x", "1", "bilibili.com")])
             .expect("save");
-        // candidates_for_url produces: ".www.youtube.com", "www.youtube.com", ".youtube.com", "youtube.com"
-        // First existing file wins; "www.youtube.com.txt" exists → hits before "youtube.com.txt"
         let hit = store
-            .resolve_for_url("https://www.youtube.com/watch?v=x")
+            .resolve_for_url("https://api.bilibili.com/x/space/acc/info")
             .expect("hit");
-        assert!(hit.to_string_lossy().ends_with("www.youtube.com.txt"));
-    }
-
-    #[test]
-    fn resolve_falls_back_to_parent_domain() {
-        let (store, _guard) = tmp_store();
-        // ".youtube.com" → domain() → "youtube.com" → youtube.com.txt
-        store
-            .save_from_webview(vec![cookie("b", "2", ".youtube.com")])
-            .expect("save");
-        // candidates: ".www.youtube.com", "www.youtube.com", ".youtube.com", "youtube.com"
-        // only "youtube.com.txt" exists → falls back to it
-        let hit = store
-            .resolve_for_url("https://www.youtube.com/watch?v=x")
-            .expect("hit");
-        assert!(hit.to_string_lossy().ends_with("youtube.com.txt"));
+        assert!(hit.to_string_lossy().ends_with(".bilibili.com.txt"));
     }
 
     #[test]
@@ -147,16 +174,29 @@ mod tests {
     }
 
     #[test]
+    fn save_evicts_legacy_subdomain_files() {
+        let (store, _guard) = tmp_store();
+        // Seed legacy dotless + per-subdomain files
+        fs::create_dir_all(store.base_dir()).unwrap();
+        fs::write(store.base_dir().join("bilibili.com.txt"), "# old\n").unwrap();
+        fs::write(store.base_dir().join("www.bilibili.com.txt"), "# old\n").unwrap();
+        // Fresh save for bilibili.com
+        store
+            .save_from_webview(vec![cookie("SESSDATA", "new", "bilibili.com")])
+            .expect("save");
+        assert!(!store.base_dir().join("bilibili.com.txt").exists());
+        assert!(!store.base_dir().join("www.bilibili.com.txt").exists());
+        assert!(store.base_dir().join(".bilibili.com.txt").exists());
+    }
+
+    #[test]
     fn saved_file_starts_with_netscape_header() {
         let (store, _guard) = tmp_store();
         store
-            .save_from_webview(vec![cookie("a", "1", ".youtube.com")])
+            .save_from_webview(vec![cookie("a", "1", "youtube.com")])
             .expect("save");
         let content =
-            fs::read_to_string(store.base_dir().join("youtube.com.txt")).expect("read");
-        assert!(
-            content.starts_with("# Netscape HTTP Cookie File"),
-            "unexpected content: {content}"
-        );
+            fs::read_to_string(store.base_dir().join(".youtube.com.txt")).expect("read");
+        assert!(content.starts_with("# Netscape HTTP Cookie File"));
     }
 }
