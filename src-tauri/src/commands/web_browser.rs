@@ -30,6 +30,43 @@ fn chrome_user_agent() -> &'static str {
     }
 }
 
+/// JavaScript injected into every document before page scripts run.
+///
+/// Suppresses common bot/automation fingerprints so services like Google
+/// Sign-In stop rejecting the login attempt as "this browser may not be
+/// secure". Can't fake deep signals (TLS JA3, WebGL GPU strings) but
+/// closes the easy-to-flag surface.
+const STEALTH_INIT_SCRIPT: &str = r#"
+(() => {
+  try {
+    Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => undefined, configurable: true });
+  } catch (_) {}
+  try {
+    Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh', 'en-US', 'en'], configurable: true });
+  } catch (_) {}
+  try {
+    const fakePlugins = [
+      { name: 'PDF Viewer', filename: 'internal-pdf-viewer' },
+      { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer' },
+      { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer' },
+    ];
+    Object.defineProperty(navigator, 'plugins', { get: () => fakePlugins, configurable: true });
+  } catch (_) {}
+  if (!window.chrome) {
+    window.chrome = { runtime: {}, loadTimes: () => ({}), csi: () => ({}) };
+  }
+  try {
+    const origQuery = navigator.permissions && navigator.permissions.query;
+    if (origQuery) {
+      navigator.permissions.query = (p) =>
+        p && p.name === 'notifications'
+          ? Promise.resolve({ state: Notification.permission })
+          : origQuery.call(navigator.permissions, p);
+    }
+  } catch (_) {}
+})();
+"#;
+
 /// Opens (or focuses) the in-app browser window.
 ///
 /// Must be `async` — `Window::add_child` on Windows deadlocks when invoked
@@ -82,6 +119,7 @@ pub async fn open_web_browser(app: AppHandle) -> Result<(), String> {
     let app_for_load = app.clone();
     let content = WebviewBuilder::new(CONTENT_LABEL, WebviewUrl::App("web-content.html".into()))
         .user_agent(chrome_user_agent())
+        .initialization_script(STEALTH_INIT_SCRIPT)
         .on_page_load(move |_webview, payload| {
             if matches!(payload.event(), PageLoadEvent::Finished) {
                 let url = payload.url().as_str().to_string();
