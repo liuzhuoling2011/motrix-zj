@@ -160,6 +160,10 @@ async fn run_ytdlp(app: &tauri::AppHandle, args: &[&str]) -> Result<String, AppE
         .shell()
         .sidecar("motrixnext-ytdlp")
         .map_err(|e| AppError::YtdlpParse(format!("failed to create sidecar: {e}")))?
+        // Force UTF-8 stdout on Windows so non-ASCII titles/filenames (e.g.
+        // Bilibili 中文 video titles) don't come back as GBK garbage.
+        .env("PYTHONIOENCODING", "utf-8")
+        .env("PYTHONUTF8", "1")
         .args(args);
 
     let output = tokio::time::timeout(PARSE_TIMEOUT, sidecar.output())
