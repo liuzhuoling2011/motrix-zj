@@ -202,8 +202,38 @@ pub async fn open_web_browser(app: AppHandle) -> Result<(), String> {
         })?;
 
     install_hooks(&app)?;
+    spawn_url_watcher(&app);
 
     Ok(())
+}
+
+/// Polls the content webview's URL every 400ms and, on change, emits
+/// `web-browser-url-changed` to the toolbar. Needed because SPAs like
+/// YouTube / Bilibili change URL via `history.pushState` without a full
+/// navigation, so `on_page_load` never fires for subsequent clicks.
+/// Exits when the content webview is dropped (window closed).
+fn spawn_url_watcher(app: &AppHandle) {
+    let app = app.clone();
+    tokio::spawn(async move {
+        let mut last = String::new();
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+            let Some(content) = app.get_webview(CONTENT_LABEL) else {
+                return;
+            };
+            let Ok(url) = content.url() else { continue };
+            let s = url.as_str().to_string();
+            if s != last {
+                last = s.clone();
+                let payload = serde_json::json!({
+                    "url": s,
+                    "canGoBack": true,
+                    "canGoForward": true,
+                });
+                let _ = app.emit_to(TOOLBAR_LABEL, "web-browser-url-changed", payload);
+            }
+        }
+    });
 }
 
 /// Toolbar → content navigation actions.
