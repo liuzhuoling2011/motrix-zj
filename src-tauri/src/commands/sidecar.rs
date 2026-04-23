@@ -13,9 +13,10 @@ use tauri_plugin_shell::ShellExt;
 
 const SIDECAR_NAMES: [&str; 3] = ["ytdlp", "ffmpeg", "ffprobe"];
 
-/// Per-sidecar probe budget. Keeps a slow/hung binary from starving the
-/// others and keeps the About panel from waiting forever.
-const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
+/// Per-sidecar probe budget. PyInstaller-frozen yt-dlp's first launch on
+/// macOS (Gatekeeper verify + unpack) can easily take 3-5 seconds; 8s
+/// leaves headroom while still capping the wait on truly stuck binaries.
+const PROBE_TIMEOUT: Duration = Duration::from_secs(8);
 
 /// In-memory cache of first-line `--version` / `-version` output per sidecar.
 /// `None` means "fetch attempted and failed" (or not yet attempted at init).
