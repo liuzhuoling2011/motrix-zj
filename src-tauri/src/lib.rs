@@ -202,7 +202,25 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         let db_path = app_data.join("history.db");
         let history_db = history::HistoryDb::open(&db_path)
             .map_err(|e| format!("Failed to open history.db: {e}"))?;
-        app.manage(history::HistoryDbState(std::sync::Arc::new(history_db)));
+        let history_db_arc = std::sync::Arc::new(history_db);
+
+        // Reconcile yt-dlp orphan records from prior sessions (sidecar
+        // killed abruptly, never committed the 'error' status transition).
+        let db_for_reconcile = history_db_arc.clone();
+        let _ = tauri::async_runtime::block_on(async {
+            match tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                db_for_reconcile.reconcile_ytdlp_orphans(),
+            )
+            .await
+            {
+                Ok(Ok(n)) if n > 0 => log::info!("history: reconciled {n} orphan yt-dlp row(s)"),
+                Ok(Err(e)) => log::warn!("history: reconcile failed: {e}"),
+                _ => {}
+            }
+        });
+
+        app.manage(history::HistoryDbState(history_db_arc));
     }
 
     #[cfg(target_os = "macos")]

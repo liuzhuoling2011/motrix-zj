@@ -45,12 +45,18 @@ const PROGRESS_TEMPLATE: &str = "%(progress._percent_str)s %(progress.downloaded
 /// Managed Tauri state tracking active yt-dlp download processes.
 ///
 /// Maps `task_id → PID`.  A counter provides monotonically increasing task ids
-/// in the form `ytdlp-1`, `ytdlp-2`, …
+/// in the form `ytdlp-{boot_ts}-{N}` — the boot timestamp prefix prevents the
+/// counter from colliding with yt-dlp history records written by earlier app
+/// sessions, which would otherwise reuse the same gid and get
+/// `INSERT OR CONFLICT` merged (preserving the stale `added_at`).
 pub struct YtdlpState {
     /// PIDs of currently-running yt-dlp child processes, keyed by task id.
     processes: Arc<Mutex<HashMap<String, u32>>>,
     /// Counter used by [`generate_task_id`](Self::generate_task_id).
     next_id: Arc<AtomicU64>,
+    /// Unix millisecond timestamp captured at state creation; prefixes every
+    /// generated task id so gids never collide across app launches.
+    boot_ts: u64,
 }
 
 impl Default for YtdlpState {
@@ -62,16 +68,22 @@ impl Default for YtdlpState {
 impl YtdlpState {
     /// Creates a fresh state with an empty process map and the counter at 1.
     pub fn new() -> Self {
+        let boot_ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
         Self {
             processes: Arc::new(Mutex::new(HashMap::new())),
             next_id: Arc::new(AtomicU64::new(1)),
+            boot_ts,
         }
     }
 
-    /// Returns the next task id in the form `ytdlp-N`, incrementing the counter.
+    /// Returns the next task id in the form `ytdlp-{boot_ts}-{N}`, incrementing
+    /// the counter. The boot timestamp prevents cross-session gid collisions.
     pub fn generate_task_id(&self) -> String {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-        format!("ytdlp-{id}")
+        format!("ytdlp-{}-{}", self.boot_ts, id)
     }
 }
 
@@ -495,8 +507,33 @@ mod tests {
     #[test]
     fn state_generates_sequential_ids() {
         let state = YtdlpState::new();
-        assert_eq!(state.generate_task_id(), "ytdlp-1");
-        assert_eq!(state.generate_task_id(), "ytdlp-2");
-        assert_eq!(state.generate_task_id(), "ytdlp-3");
+        let id1 = state.generate_task_id();
+        let id2 = state.generate_task_id();
+        let id3 = state.generate_task_id();
+
+        // Each id has the boot-ts prefix followed by a sequential counter.
+        assert!(id1.starts_with("ytdlp-"), "unexpected format: {id1}");
+        assert!(id2.starts_with("ytdlp-"), "unexpected format: {id2}");
+        assert!(id3.starts_with("ytdlp-"), "unexpected format: {id3}");
+        assert!(id1.ends_with("-1"), "expected counter=1 suffix: {id1}");
+        assert!(id2.ends_with("-2"), "expected counter=2 suffix: {id2}");
+        assert!(id3.ends_with("-3"), "expected counter=3 suffix: {id3}");
+
+        // All ids share the same boot-ts prefix (same state instance).
+        let prefix1 = id1.rsplit_once('-').unwrap().0;
+        let prefix2 = id2.rsplit_once('-').unwrap().0;
+        assert_eq!(prefix1, prefix2);
+    }
+
+    #[test]
+    fn state_task_ids_differ_across_instances() {
+        // Each state captures its own boot-ts so cross-session collisions
+        // (previous app run reused counter 1) can't happen.
+        let state_a = YtdlpState::new();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        let state_b = YtdlpState::new();
+        let id_a = state_a.generate_task_id();
+        let id_b = state_b.generate_task_id();
+        assert_ne!(id_a, id_b);
     }
 }
