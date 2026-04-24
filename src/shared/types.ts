@@ -287,6 +287,9 @@ export interface AppConfig {
   /** Disk space pre-allocation method. Maps to aria2 --file-allocation.
    *  Values: 'none' | 'trunc' | 'prealloc' | 'falloc' */
   fileAllocation: string
+  /** Logical pixel width of the embedded web browser panel on the right of the main window.
+   *  Clamped at runtime so the main content area keeps at least 320px visible. */
+  webPanelWidth: number
   /** Per-tab sort configuration (field + direction), persisted independently per tab. */
   taskSort: import('@/composables/useTaskSort').TaskSortConfig
   [key: string]: unknown
