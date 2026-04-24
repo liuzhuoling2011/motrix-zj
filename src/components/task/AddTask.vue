@@ -86,7 +86,10 @@ function checkCookieExpired(err: unknown): void {
 
 async function openWebBrowser() {
   try {
-    await invoke('open_web_browser')
+    await invoke('toggle_web_panel', {
+      open: true,
+      width: preferenceStore.config.webPanelWidth,
+    })
   } catch {
     /* ignore */
   }
