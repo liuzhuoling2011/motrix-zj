@@ -30,11 +30,17 @@ const ASIDE_WIDTH: f64 = 78.0;
 const SUBNAV_WIDTH: f64 = 200.0;
 const MIN_MAIN_CONTENT_WIDTH: f64 = 320.0;
 
-/// Internal state tracking whether the panel webviews have been created
-/// and whether they are currently visible. Managed via `app.manage()`.
+/// Internal state tracking whether the panel webviews have been created,
+/// whether the user intends them visible, and whether a modal dialog has
+/// temporarily suspended display. Managed via `app.manage()`.
+///
+/// `suspended` exists so the frontend can hide the panel during modal
+/// overlays (e.g. AddTask dialog) without changing the user's intent —
+/// dismissing the modal restores visibility if `visible` is still true.
 pub struct WebPanelInner {
     pub created: bool,
     pub visible: bool,
+    pub suspended: bool,
     pub width: f64,
 }
 
@@ -43,6 +49,7 @@ impl Default for WebPanelInner {
         Self {
             created: false,
             visible: false,
+            suspended: false,
             // 0 = auto — compute_panel_rects will 50/50 split the content area.
             width: 0.0,
         }
@@ -189,11 +196,13 @@ fn main_window_logical_size(app: &AppHandle) -> Option<(f64, f64)> {
 }
 
 /// Applies the current visibility + width to both panel webviews.
+/// The panel is on-screen only when the user intent is visible AND no modal
+/// has temporarily suspended it.
 fn apply_panel_layout(app: &AppHandle, inner: &WebPanelInner) {
     let Some(toolbar_wv) = app.get_webview(TOOLBAR_LABEL) else { return };
     let Some(content_wv) = app.get_webview(CONTENT_LABEL) else { return };
 
-    if inner.visible {
+    if inner.visible && !inner.suspended {
         let Some((w, h)) = main_window_logical_size(app) else { return };
         let (tp, ts, cp, cs) = compute_panel_rects(w, h, inner.width);
         let _ = toolbar_wv.set_position(tp);
@@ -328,6 +337,35 @@ pub async fn toggle_web_panel(
     app.emit("web-panel-state-changed", serde_json::json!({ "open": target_visible }))
         .map_err(|e| format!("emit failed: {e}"))?;
 
+    Ok(())
+}
+
+/// Temporarily hide the panel (move webviews off-screen) while a modal
+/// overlay is open — without changing the user's visibility intent.
+/// When `suspended = false`, restores the panel to whatever visibility the
+/// user last set via `toggle_web_panel`. No-op if the panel was never
+/// created. Does NOT emit `web-panel-state-changed`, because `appStore.
+/// webPanelOpen` still reflects the user's intent.
+#[tauri::command]
+pub async fn suspend_web_panel(
+    app: AppHandle,
+    state: State<'_, WebPanelState>,
+    suspended: bool,
+) -> Result<(), String> {
+    let inner = {
+        let mut guard = state.0.lock().map_err(|e| format!("state lock poisoned: {e}"))?;
+        if !guard.created {
+            return Ok(());
+        }
+        guard.suspended = suspended;
+        WebPanelInner {
+            created: guard.created,
+            visible: guard.visible,
+            suspended: guard.suspended,
+            width: guard.width,
+        }
+    };
+    apply_panel_layout(&app, &inner);
     Ok(())
 }
 
