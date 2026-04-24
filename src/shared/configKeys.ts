@@ -59,6 +59,7 @@ const userKeys = [
   'tracker-source',
   'tray-speedometer',
   'update-channel',
+  'web-panel-width',
 ]
 
 const systemKeys = [
