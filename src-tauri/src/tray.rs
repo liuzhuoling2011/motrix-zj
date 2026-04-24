@@ -55,6 +55,31 @@ pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::WebviewWindow
     // Window was destroyed — recreate from config.
     log::warn!("tray:window-not-found label=main — recreating after compositor force-close");
 
+    // When the main window dies without normal teardown (OS compositor
+    // force-close, unhandled GPU crash, etc.) its child webviews can
+    // linger in Tauri's internal registry.  That includes the embedded
+    // web-panel pair and — on some platforms — the main webview itself,
+    // which then blocks WebviewWindowBuilder::new("main", …) with
+    // "a webview with label `main` already exists".
+    //
+    // Close every known-orphan webview before rebuilding so the label
+    // namespace is clear.  We also reset WebPanelState so the panel
+    // re-creates itself on the next user toggle instead of pointing at
+    // dead handles.
+    for label in ["web-panel-toolbar", "web-panel-content", "main"] {
+        if let Some(wv) = app.get_webview(label) {
+            log::info!("tray:closing orphan webview label={label}");
+            let _ = wv.close();
+        }
+    }
+    if let Some(state) = app.try_state::<crate::commands::web_browser::WebPanelState>() {
+        if let Ok(mut inner) = state.0.lock() {
+            inner.created = false;
+            inner.visible = false;
+            inner.suspended = false;
+        }
+    }
+
     let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("Motrix Next")
         .inner_size(1068.0, 680.0)
@@ -83,6 +108,9 @@ pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::WebviewWindow
     match builder.build() {
         Ok(w) => {
             log::info!("tray:window-recreated label=main");
+            // Re-install the resize hook so the embedded panel (if the user
+            // reopens it later in this session) tracks the new window.
+            crate::commands::web_browser::install_main_window_resize_hook(app);
             Some(w)
         }
         Err(e) => {
