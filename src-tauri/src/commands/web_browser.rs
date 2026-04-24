@@ -1,27 +1,55 @@
-//! In-app browser window commands.
+//! Embedded web-browser panel attached to the main window.
 //!
-//! Creates a dedicated `web-browser` window with two child webviews:
-//! a 48px toolbar on top (`web-browser-toolbar`) and a content area below
-//! (`web-browser-content`). The content webview is the one that navigates
-//! to external sites; the toolbar is a static local entry.
+//! The panel consists of two child webviews on the main window:
+//!   * `web-panel-toolbar`   — 48px strip at top-right, local `web-toolbar.html`
+//!   * `web-panel-content`   — fills the rest of the panel, local `web-content.html`
+//!
+//! Lifecycle:
+//!   * First toggle-open call: create both child webviews, position on right.
+//!   * Subsequent close: resize to zero + move off-screen (webviews stay alive;
+//!     login sessions and in-progress video playback persist).
+//!   * Subsequent open: resize back + move to right-panel coords.
+//!   * Main window resize: re-apply right-panel coords if visible.
+//!   * App exit: children auto-destroyed with parent window.
 
 use serde::Deserialize;
+use std::sync::Mutex;
 use tauri::webview::{PageLoadEvent, WebviewBuilder};
-use tauri::window::WindowBuilder;
 use tauri::{
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, State, Url, WebviewUrl, WindowEvent,
 };
 
-const WIN_LABEL: &str = "web-browser";
-const TOOLBAR_LABEL: &str = "web-browser-toolbar";
-const CONTENT_LABEL: &str = "web-browser-content";
+const MAIN_WINDOW_LABEL: &str = "main";
+const TOOLBAR_LABEL: &str = "web-panel-toolbar";
+const CONTENT_LABEL: &str = "web-panel-content";
 const TOOLBAR_HEIGHT: f64 = 48.0;
+const MIN_MAIN_CONTENT_WIDTH: f64 = 320.0;
+const DEFAULT_PANEL_WIDTH: f64 = 960.0;
+
+/// Internal state tracking whether the panel webviews have been created
+/// and whether they are currently visible. Managed via `app.manage()`.
+#[derive(Default)]
+pub struct WebPanelInner {
+    pub created: bool,
+    pub visible: bool,
+    pub width: f64,
+}
+
+pub struct WebPanelState(pub Mutex<WebPanelInner>);
+
+impl WebPanelState {
+    pub fn new() -> Self {
+        Self(Mutex::new(WebPanelInner::default()))
+    }
+}
+
+impl Default for WebPanelState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// Returns a Chrome-131 User-Agent string matching the host OS.
-///
-/// Needed because Tauri's default WebView UA is too bare for sites like
-/// Bilibili / 爱奇艺, which detect "old browser" and disable playback when
-/// they can't parse Chrome/Safari version numbers.
 fn chrome_user_agent() -> &'static str {
     match std::env::consts::OS {
         "macos" => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -30,27 +58,10 @@ fn chrome_user_agent() -> &'static str {
     }
 }
 
-/// JavaScript injected into every document before page scripts run.
-///
-/// Does two jobs:
-/// 1. **Navigation patches** — redirect `target="_blank"` anchor clicks and
-///    `window.open()` calls into the current webview so sites like Bilibili
-///    (which uses `_blank` for video cards) don't silently swallow clicks.
-/// 2. **Stealth patches** — suppress common bot/automation fingerprints so
-///    services like Google Sign-In stop rejecting login as "this browser
-///    may not be secure". Note: JS can't fake deep signals (TLS JA3,
-///    Client Hints, WebGL GPU strings); for Google OAuth, expect failure
-///    regardless — users should use yt-dlp's --cookies-from-browser firefox
-///    for YouTube instead.
 const STEALTH_INIT_SCRIPT: &str = r#"
 (() => {
-  // ── Stealth patches ───────────────────────────────────────────────
-  try {
-    Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => undefined, configurable: true });
-  } catch (_) {}
-  try {
-    Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh', 'en-US', 'en'], configurable: true });
-  } catch (_) {}
+  try { Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => undefined, configurable: true }); } catch (_) {}
+  try { Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh', 'en-US', 'en'], configurable: true }); } catch (_) {}
   try {
     const fakePlugins = [
       { name: 'PDF Viewer', filename: 'internal-pdf-viewer' },
@@ -68,7 +79,6 @@ const STEALTH_INIT_SCRIPT: &str = r#"
     };
   }
   try {
-    // Client Hints — Chromium 131 on matching platform
     if (!navigator.userAgentData) {
       Object.defineProperty(navigator, 'userAgentData', {
         configurable: true,
@@ -97,20 +107,14 @@ const STEALTH_INIT_SCRIPT: &str = r#"
           : origQuery.call(navigator.permissions, p);
     }
   } catch (_) {}
-
-  // ── Navigation patches (fix Bilibili/etc video card clicks) ──────
   try {
-    // Redirect window.open to the current webview.
     const origOpen = window.open;
     window.open = function (url) {
-      if (url) {
-        try { window.location.href = String(url); } catch (_) {}
-      }
+      if (url) { try { window.location.href = String(url); } catch (_) {} }
       return window;
     };
     void origOpen;
   } catch (_) {}
-  // Intercept <a target="_blank"> clicks and navigate in place.
   document.addEventListener('click', (e) => {
     try {
       const a = e.target && e.target.closest && e.target.closest('a[href]');
@@ -126,55 +130,81 @@ const STEALTH_INIT_SCRIPT: &str = r#"
 })();
 "#;
 
-/// Opens (or focuses) the in-app browser window.
-///
-/// Must be `async` — `Window::add_child` on Windows deadlocks when invoked
-/// from a synchronous command handler (see Webview2 upstream issue).
-#[tauri::command]
-pub async fn open_web_browser(app: AppHandle) -> Result<(), String> {
-    if let Some(existing) = app.get_window(WIN_LABEL) {
-        let _ = existing.unminimize();
-        let _ = existing.show();
-        let _ = existing.set_focus();
-        return Ok(());
-    }
+/// Computes the right-panel geometry given the main window's current size
+/// and the configured panel width. Falls back to (0.0, 0.0) if the window
+/// is so narrow that no panel fits (clamped by `MIN_MAIN_CONTENT_WIDTH`).
+fn compute_panel_rects(
+    window_width: f64,
+    window_height: f64,
+    config_width: f64,
+) -> (LogicalPosition<f64>, LogicalSize<f64>, LogicalPosition<f64>, LogicalSize<f64>) {
+    let effective = (window_width - MIN_MAIN_CONTENT_WIDTH)
+        .max(0.0)
+        .min(config_width.max(0.0));
+    let x = window_width - effective;
 
-    let window = WindowBuilder::new(&app, WIN_LABEL)
-        .title("Motrix ZJ – 内置浏览器")
-        .inner_size(1200.0, 800.0)
-        .resizable(true)
-        .build()
-        .map_err(|e| format!("window build failed: {e}"))?;
+    let toolbar_pos = LogicalPosition::new(x, 0.0);
+    let toolbar_sz = LogicalSize::new(effective, TOOLBAR_HEIGHT);
 
-    let size = window
-        .inner_size()
-        .map_err(|e| format!("inner_size failed: {e}"))?;
-    let scale = window
-        .scale_factor()
-        .map_err(|e| format!("scale_factor failed: {e}"))?;
+    let content_pos = LogicalPosition::new(x, TOOLBAR_HEIGHT);
+    let content_sz = LogicalSize::new(effective, (window_height - TOOLBAR_HEIGHT).max(0.0));
+
+    (toolbar_pos, toolbar_sz, content_pos, content_sz)
+}
+
+/// "Hidden" geometry: zero size + off-screen position. Using both ensures the
+/// webview is not painted and cannot receive input events across platforms.
+fn hidden_rect() -> (LogicalPosition<f64>, LogicalSize<f64>) {
+    (LogicalPosition::new(-20000.0, -20000.0), LogicalSize::new(0.0, 0.0))
+}
+
+/// Reads the main window's current logical size. Returns `None` if the
+/// window is missing (app is being torn down).
+fn main_window_logical_size(app: &AppHandle) -> Option<(f64, f64)> {
+    let window = app.get_window(MAIN_WINDOW_LABEL)?;
+    let size = window.inner_size().ok()?;
+    let scale = window.scale_factor().ok()?;
     let logical = size.to_logical::<f64>(scale);
-    let content_height = (logical.height - TOOLBAR_HEIGHT).max(0.0);
+    Some((logical.width, logical.height))
+}
 
-    // Toolbar webview: top 48px, local HTML entry.
+/// Applies the current visibility + width to both panel webviews.
+fn apply_panel_layout(app: &AppHandle, inner: &WebPanelInner) {
+    let Some(toolbar_wv) = app.get_webview(TOOLBAR_LABEL) else { return };
+    let Some(content_wv) = app.get_webview(CONTENT_LABEL) else { return };
+
+    if inner.visible {
+        let Some((w, h)) = main_window_logical_size(app) else { return };
+        let (tp, ts, cp, cs) = compute_panel_rects(w, h, inner.width);
+        let _ = toolbar_wv.set_position(tp);
+        let _ = toolbar_wv.set_size(ts);
+        let _ = content_wv.set_position(cp);
+        let _ = content_wv.set_size(cs);
+    } else {
+        let (hp, hs) = hidden_rect();
+        let _ = toolbar_wv.set_position(hp);
+        let _ = toolbar_wv.set_size(hs);
+        let _ = content_wv.set_position(hp);
+        let _ = content_wv.set_size(hs);
+    }
+}
+
+/// Creates the two child webviews the first time the panel opens.
+/// Caller holds the state lock and has confirmed `!inner.created`.
+fn create_panel_webviews(app: &AppHandle, width: f64) -> Result<(), String> {
+    let window = app
+        .get_window(MAIN_WINDOW_LABEL)
+        .ok_or_else(|| "main window not available".to_string())?;
+
+    let (w, h) = main_window_logical_size(app)
+        .ok_or_else(|| "main window size unavailable".to_string())?;
+    let (tp, ts, cp, cs) = compute_panel_rects(w, h, width);
+
     let toolbar = WebviewBuilder::new(TOOLBAR_LABEL, WebviewUrl::App("web-toolbar.html".into()));
     window
-        .add_child(
-            toolbar,
-            LogicalPosition::new(0.0, 0.0),
-            LogicalSize::new(logical.width, TOOLBAR_HEIGHT),
-        )
-        .map_err(|e| {
-            // Roll back the half-created window so retries can start clean.
-            let _ = window.close();
-            format!("toolbar add_child failed: {e}")
-        })?;
+        .add_child(toolbar, tp, ts)
+        .map_err(|e| format!("toolbar add_child failed: {e}"))?;
 
-    // Content webview: below toolbar, local HTML entry (SiteGrid).
-    //
-    // URL-change forwarding is installed here (on the builder) — Tauri's
-    // `on_page_load` is a builder-only hook. When the content webview
-    // finishes navigating to a page we forward the URL to the toolbar so
-    // its address input stays in sync.
     let app_for_load = app.clone();
     let content = WebviewBuilder::new(CONTENT_LABEL, WebviewUrl::App("web-content.html".into()))
         .user_agent(chrome_user_agent())
@@ -191,27 +221,102 @@ pub async fn open_web_browser(app: AppHandle) -> Result<(), String> {
             }
         });
     window
-        .add_child(
-            content,
-            LogicalPosition::new(0.0, TOOLBAR_HEIGHT),
-            LogicalSize::new(logical.width, content_height),
-        )
+        .add_child(content, cp, cs)
         .map_err(|e| {
-            let _ = window.close();
+            // Roll back the toolbar if content creation failed.
+            if let Some(tb) = app.get_webview(TOOLBAR_LABEL) {
+                let _ = tb.close();
+            }
             format!("content add_child failed: {e}")
         })?;
-
-    install_hooks(&app)?;
-    spawn_url_watcher(&app);
 
     Ok(())
 }
 
+/// Toggle or explicitly set the embedded web-panel visibility.
+///
+/// * `open = Some(true)` — ensure created + visible
+/// * `open = Some(false)` — ensure hidden (never destroys)
+/// * `open = None` — toggle from current visibility
+/// * `width` — update the panel width; takes effect immediately if visible
+#[tauri::command]
+pub async fn toggle_web_panel(
+    app: AppHandle,
+    state: State<'_, WebPanelState>,
+    open: Option<bool>,
+    width: Option<f64>,
+) -> Result<(), String> {
+    // 1. Compute target visibility under the lock; release before doing I/O.
+    let (target_visible, effective_width, need_create) = {
+        let mut inner = state.0.lock().map_err(|e| format!("state lock poisoned: {e}"))?;
+        if let Some(w) = width {
+            if w > 0.0 {
+                inner.width = w;
+            }
+        }
+        if inner.width <= 0.0 {
+            inner.width = DEFAULT_PANEL_WIDTH;
+        }
+        let next_visible = match open {
+            Some(v) => v,
+            None => !inner.visible,
+        };
+        let need_create = !inner.created && next_visible;
+        (next_visible, inner.width, need_create)
+    };
+
+    // 2. Create webviews outside the lock (Tauri I/O, can block briefly).
+    if need_create {
+        create_panel_webviews(&app, effective_width)?;
+    }
+
+    // 3. Commit new state + re-apply layout.
+    {
+        let mut inner = state.0.lock().map_err(|e| format!("state lock poisoned: {e}"))?;
+        if need_create {
+            inner.created = true;
+        }
+        inner.visible = target_visible;
+        apply_panel_layout(&app, &inner);
+    }
+
+    // 4. Spawn SPA URL watcher exactly once (first successful creation).
+    if need_create {
+        spawn_url_watcher(&app);
+    }
+
+    // 5. Broadcast state change so the frontend can sync appStore.
+    app.emit("web-panel-state-changed", serde_json::json!({ "open": target_visible }))
+        .map_err(|e| format!("emit failed: {e}"))?;
+
+    Ok(())
+}
+
+/// Registers a single main-window resize hook that re-applies panel layout
+/// whenever the window changes size. Called once from `setup_app`.
+pub fn install_main_window_resize_hook(app: &AppHandle) {
+    let Some(window) = app.get_window(MAIN_WINDOW_LABEL) else { return };
+    let app2 = app.clone();
+    window.on_window_event(move |event| {
+        if let WindowEvent::Resized(_) = event {
+            let Some(state) = app2.try_state::<WebPanelState>() else { return };
+            let inner = match state.0.lock() {
+                Ok(guard) => guard,
+                Err(_) => return,
+            };
+            if !inner.created {
+                return;
+            }
+            apply_panel_layout(&app2, &inner);
+        }
+    });
+}
+
 /// Polls the content webview's URL every 400ms and, on change, emits
-/// `web-browser-url-changed` to the toolbar. Needed because SPAs like
-/// YouTube / Bilibili change URL via `history.pushState` without a full
-/// navigation, so `on_page_load` never fires for subsequent clicks.
-/// Exits when the content webview is dropped (window closed).
+/// `web-browser-url-changed` to the toolbar. Handles SPA pushState sites
+/// (YouTube, Bilibili) where `on_page_load` does not fire.
+/// Loops for the remaining process lifetime — panel hide just leaves the
+/// URL stable.
 fn spawn_url_watcher(app: &AppHandle) {
     let app = app.clone();
     tokio::spawn(async move {
@@ -237,9 +342,6 @@ fn spawn_url_watcher(app: &AppHandle) {
 }
 
 /// Toolbar → content navigation actions.
-///
-/// Deserialised from `{ action: "back" | "forward" | ... }` payloads sent
-/// by the toolbar webview over IPC.
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum NavAction {
@@ -250,12 +352,6 @@ pub enum NavAction {
     Load,
 }
 
-/// Executes a navigation action inside the content webview on behalf of
-/// the toolbar webview.
-///
-/// - `Back` / `Forward` / `Reload` drive the History API via `eval`.
-/// - `Home` resets to the local SiteGrid entry page.
-/// - `Load` navigates to the supplied URL (required for this variant).
 #[tauri::command]
 pub async fn web_browser_navigate(
     app: AppHandle,
@@ -288,12 +384,6 @@ pub async fn web_browser_navigate(
     Ok(())
 }
 
-/// Captures cookies from the content webview, groups them by domain into
-/// Netscape cookies.txt files under `$APP_DATA/cookies/`, then asks the
-/// main window to open AddTask pre-filled with `url`.
-///
-/// Called by the toolbar "下载视频" button. The WebView window is left open
-/// so the user can keep browsing for more videos without re-logging in.
 #[tauri::command]
 pub async fn save_cookies_and_trigger_download(
     app: AppHandle,
@@ -320,44 +410,53 @@ pub async fn save_cookies_and_trigger_download(
     Ok(())
 }
 
-/// Installs a window-level resize handler that keeps both child webviews
-/// sized to the window: toolbar stays at `TOOLBAR_HEIGHT` high across the
-/// top, content fills the remainder (clamped to zero).
-///
-/// Called once by `open_web_browser` after both child webviews exist.
-/// The URL-change forwarding hook is attached on the content builder
-/// itself (see `on_page_load` in `open_web_browser`), because Tauri only
-/// exposes that callback on `WebviewBuilder`, not on a constructed
-/// `Webview`.
-fn install_hooks(app: &AppHandle) -> Result<(), String> {
-    let window = app
-        .get_window(WIN_LABEL)
-        .ok_or_else(|| "web-browser window not available".to_string())?;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    // Resize handler: keep toolbar 48px high, content fills the rest.
-    let app2 = app.clone();
-    window.on_window_event(move |event| {
-        if let WindowEvent::Resized(_) = event {
-            let Some(window) = app2.get_window(WIN_LABEL) else {
-                return;
-            };
-            let Ok(size) = window.inner_size() else {
-                return;
-            };
-            let Ok(scale) = window.scale_factor() else {
-                return;
-            };
-            let logical = size.to_logical::<f64>(scale);
-            let content_height = (logical.height - TOOLBAR_HEIGHT).max(0.0);
+    #[test]
+    fn panel_rects_basic() {
+        // Window is 1200px wide; MIN_MAIN_CONTENT_WIDTH = 320 clamps the
+        // panel to at most 1200 - 320 = 880 even though config asks for 960.
+        let (tp, ts, cp, cs) = compute_panel_rects(1200.0, 800.0, 960.0);
+        assert_eq!(tp.x, 320.0);
+        assert_eq!(tp.y, 0.0);
+        assert_eq!(ts.width, 880.0);
+        assert_eq!(ts.height, TOOLBAR_HEIGHT);
+        assert_eq!(cp.x, 320.0);
+        assert_eq!(cp.y, TOOLBAR_HEIGHT);
+        assert_eq!(cs.width, 880.0);
+        assert_eq!(cs.height, 800.0 - TOOLBAR_HEIGHT);
+    }
 
-            if let Some(toolbar) = app2.get_webview(TOOLBAR_LABEL) {
-                let _ = toolbar.set_size(LogicalSize::new(logical.width, TOOLBAR_HEIGHT));
-            }
-            if let Some(content) = app2.get_webview(CONTENT_LABEL) {
-                let _ = content.set_size(LogicalSize::new(logical.width, content_height));
-            }
-        }
-    });
+    #[test]
+    fn panel_rects_clamps_when_window_too_narrow() {
+        // Window is 500px wide; MIN_MAIN_CONTENT_WIDTH = 320 → panel ≤ 180.
+        let (_tp, ts, _cp, cs) = compute_panel_rects(500.0, 600.0, 960.0);
+        assert_eq!(ts.width, 180.0);
+        assert_eq!(cs.width, 180.0);
+    }
 
-    Ok(())
+    #[test]
+    fn panel_rects_zero_when_window_smaller_than_min_content() {
+        // Window smaller than MIN_MAIN_CONTENT_WIDTH — panel collapses to 0.
+        let (_tp, ts, _cp, cs) = compute_panel_rects(200.0, 400.0, 960.0);
+        assert_eq!(ts.width, 0.0);
+        assert_eq!(cs.width, 0.0);
+    }
+
+    #[test]
+    fn panel_rects_respects_smaller_config_width() {
+        let (_tp, ts, _cp, _cs) = compute_panel_rects(2000.0, 1000.0, 640.0);
+        assert_eq!(ts.width, 640.0);
+    }
+
+    #[test]
+    fn hidden_rect_is_off_screen_with_zero_size() {
+        let (pos, size) = hidden_rect();
+        assert!(pos.x < 0.0);
+        assert!(pos.y < 0.0);
+        assert_eq!(size.width, 0.0);
+        assert_eq!(size.height, 0.0);
+    }
 }
