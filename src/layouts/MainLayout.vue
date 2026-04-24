@@ -877,18 +877,23 @@ onMounted(async () => {
     },
   )
 
-  // Suspend the embedded panel while modal overlays are open — native
+  // Suspend the embedded panel while any modal overlay is open — native
   // child webviews sit above Naive UI modals in the compositor and would
-  // otherwise cover half of the dialog. Rust restores the panel when the
-  // modal closes.
+  // otherwise cover half of the dialog. Rust restores the panel when all
+  // modals close.
   watch(
-    () => appStore.addTaskVisible,
-    async (visible) => {
+    () =>
+      appStore.addTaskVisible ||
+      showExitDialog.value ||
+      showShutdownCountdown.value ||
+      showAbout.value ||
+      magnetSelectVisible.value,
+    async (modalOpen) => {
       if (!appStore.webPanelOpen) return
-      isPanelSuspended.value = visible
+      isPanelSuspended.value = modalOpen
       try {
         const { invoke } = await import('@tauri-apps/api/core')
-        await invoke('suspend_web_panel', { suspended: visible })
+        await invoke('suspend_web_panel', { suspended: modalOpen })
       } catch (e) {
         logger.debug('MainLayout.webPanelSuspend', String(e))
       }
