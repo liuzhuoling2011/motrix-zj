@@ -24,6 +24,7 @@ fn apply_optional_proxy(
     builder: reqwest::ClientBuilder,
     proxy: &Option<String>,
 ) -> reqwest::ClientBuilder {
+    log::debug!("apply_optional_proxy: proxy={proxy:?}");
     if let Some(ref server) = proxy {
         if !server.is_empty() {
             match reqwest::Proxy::all(server) {

@@ -395,10 +395,16 @@ async function handleSubmit() {
     if (form.value.uris.trim()) {
       // User's custom path takes highest priority — skip classification when overridden
       const shouldClassify = preferenceStore.config.fileCategoryEnabled && !dirUserModified.value
-      manualResult = await submitManualUris(effectiveForm, options, taskStore, {
-        enabled: shouldClassify,
-        categories: preferenceStore.config.fileCategories,
-      })
+      manualResult = await submitManualUris(
+        effectiveForm,
+        options,
+        taskStore,
+        {
+          enabled: shouldClassify,
+          categories: preferenceStore.config.fileCategories,
+        },
+        getDownloadProxy(preferenceStore.config.proxy),
+      )
     }
 
     const failedCount = batch.value.filter((i) => i.status === 'failed').length + manualResult.magnetFailures.length
