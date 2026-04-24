@@ -841,6 +841,8 @@ onMounted(async () => {
     } catch (e) {
       logger.debug('MainLayout.addFromWeb.focus', String(e))
     }
+    // Flag the dialog so AddTask renders the simplified video-download UI.
+    appStore.addTaskFromWebPanel = true
     appStore.handleDeepLinkUrls([payload.url])
   })
 

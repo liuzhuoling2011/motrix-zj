@@ -56,6 +56,10 @@ export const useAppStore = defineStore('app', () => {
     numStopped: 0,
   })
   const addTaskVisible = ref(false)
+  /** True when the AddTask dialog was triggered from the embedded web panel's
+   *  download button.  Drives a simplified dialog UI: URL/rename/segments/dir
+   *  inputs hidden, parse runs automatically, full format table expanded. */
+  const addTaskFromWebPanel = ref(false)
   const pendingBatch = ref<BatchItem[]>([])
   const addTaskOptions = ref<Aria2EngineOptions>({})
   /** Referer from the most recent deep-link, pre-filled into AddTask form. */
@@ -146,6 +150,7 @@ export const useAppStore = defineStore('app', () => {
 
   function hideAddTaskDialog() {
     addTaskVisible.value = false
+    addTaskFromWebPanel.value = false
     pendingBatch.value = []
     pendingReferer.value = ''
     pendingCookie.value = ''
@@ -359,6 +364,7 @@ export const useAppStore = defineStore('app', () => {
     interval,
     stat,
     addTaskVisible,
+    addTaskFromWebPanel,
     pendingBatch,
     addTaskOptions,
     pendingReferer,
