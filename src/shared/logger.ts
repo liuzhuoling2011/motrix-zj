@@ -102,8 +102,18 @@ export const logger = {
     }
   },
 
-  /** Logs a warning for degradable failures to both console and log file. */
-  warn(context: string, message: string): void {
+  /** Logs a warning for degradable failures to both console and log file.
+   *  Accepts any value: Error objects have their message extracted, strings
+   *  pass through unchanged, and other values are JSON-serialized. This
+   *  prevents the classic `[object Object]` string that masks the real
+   *  error when callers do `.catch((e) => logger.warn('ctx', e))`. */
+  warn(context: string, data: unknown): void {
+    const message =
+      data instanceof Error
+        ? (data.message ?? String(data))
+        : typeof data === 'string'
+          ? data
+          : formatDebugMessage(data)
     const formatted = formatMessage(context, message)
     console.warn(formatted)
     tauriWarn(formatted).catch(() => {})
