@@ -72,6 +72,12 @@ const isMaximized = ref(false)
 const { platform: currentPlatform, isMac } = usePlatform()
 const showEngineOverlay = ref(false)
 
+/** Reactive mirror of `window.innerWidth` used by `effectivePanelWidth`. Kept
+ *  in sync via a `resize` listener registered in `onMounted`. Needed because
+ *  `window.innerWidth` itself is not reactive, so a computed that reads it
+ *  directly would not refresh when the user resizes the main window. */
+const containerWidth = ref(window.innerWidth)
+
 /** Width applied to the right-side placeholder, clamped to keep the main
  *  content area at least 320px wide.  Kept in sync with Rust's
  *  `compute_panel_rects` formula so the native webview and DOM placeholder
@@ -79,8 +85,7 @@ const showEngineOverlay = ref(false)
 const effectivePanelWidth = computed(() => {
   if (!appStore.webPanelOpen) return 0
   const configured = preferenceStore.config.webPanelWidth
-  const containerWidth = window.innerWidth
-  return Math.max(0, Math.min(configured, containerWidth - 320))
+  return Math.max(0, Math.min(configured, containerWidth.value - 320))
 })
 
 // ── Auto-shutdown countdown state ──────────────────────────────────
@@ -824,6 +829,14 @@ onMounted(async () => {
     appStore.handleDeepLinkUrls([payload.url])
   })
 
+  // Keep containerWidth in sync with the DOM's viewport width so the
+  // web-panel placeholder resizes together with the main window.
+  const handleResize = () => {
+    containerWidth.value = window.innerWidth
+  }
+  window.addEventListener('resize', handleResize)
+  onUnmounted(() => window.removeEventListener('resize', handleResize))
+
   unlistenWebPanelState = await listen<{ open: boolean }>('web-panel-state-changed', ({ payload }) => {
     appStore.webPanelOpen = payload.open
   })
@@ -834,6 +847,11 @@ onMounted(async () => {
   watch(
     () => preferenceStore.config.webPanelWidth,
     async (width) => {
+      // Early-return also protects against config hydration at startup:
+      // preferenceStore.loadPreference() replaces config.value wholesale,
+      // which fires this watch — but webPanelOpen starts false (not
+      // persisted), so the guard short-circuits. Revisit if panel state
+      // ever becomes persisted.
       if (!appStore.webPanelOpen) return
       try {
         const { invoke } = await import('@tauri-apps/api/core')
