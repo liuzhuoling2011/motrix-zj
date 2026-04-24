@@ -302,8 +302,8 @@ export const DEFAULT_APP_CONFIG = {
   clearCompletedOnExit: false,
 
   // ── Embedded Web Panel ──────────────────────────────────────────
-  /** 0 = auto (match remaining content-area width, i.e. 50/50 split
-   *  after the sidebar + subnav).  Any positive value is used as-is. */
+  /** 0 = auto (panel fills the entire content area, i.e. W - aside -
+   *  subnav).  Any positive value is used as-is. */
   webPanelWidth: 0,
 
   // ── Power Management ────────────────────────────────────────────

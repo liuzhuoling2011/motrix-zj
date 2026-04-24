@@ -153,16 +153,17 @@ const STEALTH_INIT_SCRIPT: &str = r#"
 
 /// Computes the right-panel geometry given the main window's current size
 /// and the configured panel width.  When `config_width <= 0`, auto-sizes to
-/// half of the remaining content area (window - aside - subnav), yielding
-/// a 50/50 split with `.content`.  Otherwise uses `config_width` clamped by
-/// `MIN_MAIN_CONTENT_WIDTH` so the main content keeps ≥ 320px visible.
+/// the full content-area width (window - aside - subnav), so the panel
+/// fully replaces `.content` visually.  Otherwise uses `config_width`
+/// clamped by `MIN_MAIN_CONTENT_WIDTH` so the main content keeps
+/// ≥ 320px visible.
 fn compute_panel_rects(
     window_width: f64,
     window_height: f64,
     config_width: f64,
 ) -> (LogicalPosition<f64>, LogicalSize<f64>, LogicalPosition<f64>, LogicalSize<f64>) {
     let effective = if config_width <= 0.0 {
-        ((window_width - ASIDE_WIDTH - SUBNAV_WIDTH) / 2.0).max(0.0)
+        (window_width - ASIDE_WIDTH - SUBNAV_WIDTH).max(0.0)
     } else {
         (window_width - MIN_MAIN_CONTENT_WIDTH)
             .max(0.0)
@@ -492,23 +493,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn panel_rects_auto_splits_content_area_50_50() {
-        // config_width = 0 → auto mode: panel takes half of (W - aside - subnav).
-        // (1200 - 78 - 200) / 2 = 461
+    fn panel_rects_auto_fills_content_area() {
+        // config_width = 0 → auto mode: panel takes W - aside - subnav.
+        // 1200 - 78 - 200 = 922
         let (tp, ts, cp, cs) = compute_panel_rects(1200.0, 800.0, 0.0);
-        assert_eq!(tp.x, 1200.0 - 461.0);
+        assert_eq!(tp.x, 1200.0 - 922.0);
         assert_eq!(tp.y, 0.0);
-        assert_eq!(ts.width, 461.0);
+        assert_eq!(ts.width, 922.0);
         assert_eq!(ts.height, TOOLBAR_HEIGHT);
-        assert_eq!(cp.x, 1200.0 - 461.0);
+        assert_eq!(cp.x, 1200.0 - 922.0);
         assert_eq!(cp.y, TOOLBAR_HEIGHT);
-        assert_eq!(cs.width, 461.0);
+        assert_eq!(cs.width, 922.0);
         assert_eq!(cs.height, 800.0 - TOOLBAR_HEIGHT);
     }
 
     #[test]
     fn panel_rects_auto_collapses_when_window_smaller_than_chrome() {
-        // Auto mode, W smaller than aside + subnav — half of negative clamps to 0.
+        // Auto mode, W smaller than aside + subnav — negative clamps to 0.
         let (_tp, ts, _cp, cs) = compute_panel_rects(200.0, 400.0, 0.0);
         assert_eq!(ts.width, 0.0);
         assert_eq!(cs.width, 0.0);
