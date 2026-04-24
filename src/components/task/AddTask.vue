@@ -17,6 +17,7 @@ import {
   submitManualUris,
   isGlobalProxyConfigured,
   isGlobalDownloadProxyActive,
+  getDownloadProxy,
 } from '@/composables/useAddTaskSubmit'
 import { isValidAria2ProxyUrl } from '@/composables/useAdvancedPreference'
 import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
@@ -307,7 +308,7 @@ watch(
 // ── File resolution (delegated to useAddTaskFileOps) ────────────────
 
 async function localResolveUnresolvedItems() {
-  await resolveUnresolvedItems(batch.value, t)
+  await resolveUnresolvedItems(batch.value, t, getDownloadProxy(preferenceStore.config.proxy))
 }
 
 async function chooseTorrentFile() {

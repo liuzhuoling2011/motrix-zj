@@ -52,7 +52,10 @@ const mockTaskStoreForHook = {
 }
 
 const mockPreferenceStore = {
-  config: { newTaskShowDownloading: true },
+  config: {
+    newTaskShowDownloading: true,
+    proxy: { enable: false, server: '', scope: [], bypass: '' },
+  },
 }
 
 const mockMessage = {
@@ -453,6 +456,7 @@ describe('submitManualUris', () => {
 
     expect(invoke).toHaveBeenCalledWith('resolve_filename', {
       url: 'https://datashop.cboe.com/download/sample/215',
+      proxy: null,
     })
     const call = (mockTaskStore.addUri as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(call.outs).toEqual(['215.zip'])

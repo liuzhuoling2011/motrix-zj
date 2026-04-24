@@ -17,7 +17,7 @@ import { logger } from '@shared/logger'
 import { STAT_BASE_INTERVAL, STAT_PER_TASK_INTERVAL, STAT_MIN_INTERVAL, STAT_MAX_INTERVAL } from '@shared/timing'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
 import { buildEngineOptions, submitManualUris } from '@/composables/useAddTaskSubmit'
-import { isGlobalDownloadProxyActive } from '@/composables/useAddTaskSubmit'
+import { isGlobalDownloadProxyActive, getDownloadProxy } from '@/composables/useAddTaskSubmit'
 import { usePreferenceStore } from '@/stores/preference'
 import { useTaskStore } from '@/stores/task'
 import type { Aria2RawGlobalStat, Aria2EngineOptions, TauriUpdate, AppConfig, BatchItem } from '@shared/types'
@@ -336,10 +336,16 @@ export const useAppStore = defineStore('app', () => {
 
     const options = buildEngineOptions(form)
     try {
-      await submitManualUris(form, options, taskStore, {
-        enabled: preferenceStore.config.fileCategoryEnabled,
-        categories: preferenceStore.config.fileCategories,
-      })
+      await submitManualUris(
+        form,
+        options,
+        taskStore,
+        {
+          enabled: preferenceStore.config.fileCategoryEnabled,
+          categories: preferenceStore.config.fileCategories,
+        },
+        getDownloadProxy(preferenceStore.config.proxy),
+      )
       preferenceStore.recordHistoryDirectory(form.dir || preferenceStore.config.dir)
       logger.info('autoSubmit', `auto-submitted: ${url}`)
     } catch (e) {

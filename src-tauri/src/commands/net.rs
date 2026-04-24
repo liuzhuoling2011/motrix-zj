@@ -15,6 +15,26 @@
 ///   3. Content-Type MIME → extension via `mime2ext` (embeds mime-db)
 use crate::error::AppError;
 
+/// Applies an optional proxy to a `reqwest::ClientBuilder`.
+///
+/// Mirrors the pattern in `tracker.rs::fetch_tracker_sources`: when the
+/// frontend passes `Some("http://...")`, all requests go through the proxy;
+/// `None` or empty string means direct connection.
+fn apply_optional_proxy(
+    builder: reqwest::ClientBuilder,
+    proxy: &Option<String>,
+) -> reqwest::ClientBuilder {
+    if let Some(ref server) = proxy {
+        if !server.is_empty() {
+            match reqwest::Proxy::all(server) {
+                Ok(p) => return builder.proxy(p),
+                Err(e) => log::warn!("apply_optional_proxy: invalid proxy '{server}': {e}"),
+            }
+        }
+    }
+    builder
+}
+
 const MAX_TORRENT_SIZE: usize = 16 * 1024 * 1024; // 16 MiB — generous for any .torrent
 
 /// Timeout for HEAD requests in `resolve_filename`.  Short enough to avoid
@@ -33,7 +53,10 @@ pub(crate) const HEAD_TIMEOUT_SECS: u64 = 5;
 /// The frontend calls this for each extensionless URL before `aria2.addUri`,
 /// setting the returned name as the aria2 `out` option.
 #[tauri::command]
-pub async fn resolve_filename(url: String) -> Result<Option<String>, AppError> {
+pub async fn resolve_filename(
+    url: String,
+    proxy: Option<String>,
+) -> Result<Option<String>, AppError> {
     // 1. Extract basename from the URL path
     let basename = extract_basename(&url);
     if basename.is_empty() || has_extension(&basename) {
@@ -42,10 +65,11 @@ pub async fn resolve_filename(url: String) -> Result<Option<String>, AppError> {
 
     log::debug!("resolve_filename: basename={basename:?} has no extension, sending HEAD");
 
-    // 2. HEAD request (follows redirects)
-    let client = reqwest::Client::builder()
+    // 2. HEAD request (follows redirects, respects user proxy settings)
+    let builder = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(HEAD_TIMEOUT_SECS))
-        .redirect(reqwest::redirect::Policy::limited(5))
+        .redirect(reqwest::redirect::Policy::limited(5));
+    let client = apply_optional_proxy(builder, &proxy)
         .build()
         .map_err(|e| AppError::Io(format!("HEAD client init failed: {e}")))?;
 
@@ -168,12 +192,13 @@ pub(crate) fn parse_cd_filename(header: &str) -> Option<String> {
 // ── Remote byte fetching ────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn fetch_remote_bytes(url: String) -> Result<Vec<u8>, AppError> {
+pub async fn fetch_remote_bytes(url: String, proxy: Option<String>) -> Result<Vec<u8>, AppError> {
     log::info!("fetch_remote_bytes: url={url:?}");
 
-    let client = reqwest::Client::builder()
+    let builder = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
-        .redirect(reqwest::redirect::Policy::limited(5))
+        .redirect(reqwest::redirect::Policy::limited(5));
+    let client = apply_optional_proxy(builder, &proxy)
         .build()
         .map_err(|e| AppError::Io(format!("HTTP client init failed: {e}")))?;
 

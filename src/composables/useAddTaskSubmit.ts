@@ -114,6 +114,16 @@ export function isGlobalDownloadProxyActive(proxy: ProxyConfig): boolean {
 }
 
 /**
+ * Returns the proxy server URL when the download proxy is active,
+ * or `undefined` otherwise.  Used to pass the proxy to Rust commands
+ * (`resolve_filename`, `fetch_remote_bytes`) that make external HTTP
+ * requests on behalf of the download flow.
+ */
+export function getDownloadProxy(proxy: ProxyConfig): string | undefined {
+  return isGlobalDownloadProxyActive(proxy) ? proxy.server : undefined
+}
+
+/**
  * Classifies an error from task submission into a user-friendly category.
  * Pure function — fully testable.
  */
@@ -183,6 +193,7 @@ export async function submitManualUris(
   options: Aria2EngineOptions,
   taskStore: ReturnType<typeof useTaskStore>,
   fileCategory?: { enabled: boolean; categories: FileCategory[] },
+  downloadProxy?: string,
 ): Promise<ManualUriSubmitResult> {
   if (!form.uris.trim()) return { magnetGids: [], magnetFailures: [] }
   const allUris = normalizeUriLines(form.uris)
@@ -215,7 +226,7 @@ export async function submitManualUris(
           const pathFilename = extractDecodedFilename(uri)
           if (!pathFilename || hasExtension(pathFilename)) return ''
           try {
-            return (await invoke<string | null>('resolve_filename', { url: uri })) ?? ''
+            return (await invoke<string | null>('resolve_filename', { url: uri, proxy: downloadProxy ?? null })) ?? ''
           } catch {
             return '' // HEAD failure → graceful degradation
           }
@@ -268,10 +279,16 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
         await submitBatchItems(batch, options, taskStore)
       }
       if (form.value.uris.trim()) {
-        manualResult = await submitManualUris(form.value, options, taskStore, {
-          enabled: preferenceStore.config.fileCategoryEnabled,
-          categories: preferenceStore.config.fileCategories,
-        })
+        manualResult = await submitManualUris(
+          form.value,
+          options,
+          taskStore,
+          {
+            enabled: preferenceStore.config.fileCategoryEnabled,
+            categories: preferenceStore.config.fileCategories,
+          },
+          getDownloadProxy(preferenceStore.config.proxy),
+        )
         // pendingMagnetGids is set directly inside addMagnetUri (task store)
       }
 
