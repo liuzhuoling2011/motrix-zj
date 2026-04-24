@@ -87,8 +87,8 @@ const isPanelSuspended = ref(false)
  *  `compute_panel_rects` so the DOM placeholder and native webview overlap
  *  pixel-perfect.
  *
- *  • `configured <= 0` → auto mode: half of (W - aside - subnav), yielding
- *    a 50/50 split between `.content` and the panel.
+ *  • `configured <= 0` → auto mode: W - aside - subnav, so the panel fully
+ *    replaces the content area.
  *  • `configured > 0` → explicit width, clamped by a 320px minimum content
  *    area so the main view can't fully collapse.
  *
@@ -98,7 +98,7 @@ const effectivePanelWidth = computed(() => {
   if (!appStore.webPanelOpen || isPanelSuspended.value) return 0
   const configured = preferenceStore.config.webPanelWidth
   if (configured <= 0) {
-    return Math.max(0, (containerWidth.value - 78 - 200) / 2)
+    return Math.max(0, containerWidth.value - 78 - 200)
   }
   return Math.max(0, Math.min(configured, containerWidth.value - 320))
 })
