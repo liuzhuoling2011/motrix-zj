@@ -48,6 +48,25 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       } catch (e) {
         logger.debug('TaskOps.removeTask.ytdlpCancel', `gid=${task.gid} ${e}`)
       }
+      // Clean up yt-dlp's sidecar temp files so the Downloads folder
+      // doesn't accumulate orphan `.part` / `.ytdl` blobs after a
+      // partially-downloaded task is removed from the UI.
+      const finalPath = task.files?.[0]?.path
+      if (finalPath) {
+        const { invoke } = await import('@tauri-apps/api/core')
+        for (const suffix of ['.part', '.ytdl']) {
+          const temp = `${finalPath}${suffix}`
+          try {
+            const exists = await invoke<boolean>('check_path_exists', { path: temp })
+            if (exists) {
+              await invoke('trash_file', { path: temp })
+              logger.info('TaskOps.removeTask.trashTemp', temp)
+            }
+          } catch (e) {
+            logger.debug('TaskOps.removeTask.trashTemp', `${temp} ${e}`)
+          }
+        }
+      }
       try {
         await useHistoryStore().removeRecord(task.gid)
       } catch (e) {
