@@ -8,8 +8,8 @@ describe('webPanelWidth config key', () => {
     expect(userKeys).toContain('web-panel-width')
   })
 
-  it('has a default value of 960 logical pixels', () => {
-    expect(DEFAULT_APP_CONFIG.webPanelWidth).toBe(960)
+  it('defaults to 0 (auto = match remaining content area on first open)', () => {
+    expect(DEFAULT_APP_CONFIG.webPanelWidth).toBe(0)
   })
 
   it('is typed as number on AppConfig', () => {
