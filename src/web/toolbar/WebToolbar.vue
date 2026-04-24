@@ -14,6 +14,7 @@ const emit = defineEmits<{
   home: []
   navigate: [url: string]
   download: [url: string]
+  close: []
 }>()
 
 const input = ref(props.currentUrl)
@@ -48,6 +49,7 @@ function onEnter() {
     <button class="btn btn-download" :disabled="!isDownloadable()" @click="emit('download', currentUrl)">
       下载视频
     </button>
+    <button class="btn btn-close" aria-label="关闭面板" @click="emit('close')">✕</button>
   </div>
 </template>
 
@@ -86,6 +88,16 @@ function onEnter() {
 }
 .btn-download:hover:not(:disabled) {
   background: #166534;
+}
+.btn-close {
+  margin-left: 4px;
+  color: #666;
+  font-weight: 600;
+}
+.btn-close:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
 }
 .url-input {
   flex: 1;
