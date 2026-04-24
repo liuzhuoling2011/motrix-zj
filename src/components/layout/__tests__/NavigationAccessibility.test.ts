@@ -28,6 +28,15 @@ vi.mock('naive-ui', () => ({
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
     showAddTaskDialog: showAddTaskDialogMock,
+    webPanelOpen: false,
+  }),
+}))
+
+vi.mock('@/stores/preference', () => ({
+  usePreferenceStore: () => ({
+    config: {
+      webPanelWidth: 960,
+    },
   }),
 }))
 
