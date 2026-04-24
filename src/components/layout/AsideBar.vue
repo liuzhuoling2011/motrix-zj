@@ -3,6 +3,7 @@
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
+import { usePreferenceStore } from '@/stores/preference'
 
 import { NIcon } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
@@ -13,6 +14,7 @@ import { logger } from '@shared/logger'
 const { t } = useI18n()
 const router = useRouter()
 const appStore = useAppStore()
+const preferenceStore = usePreferenceStore()
 const emit = defineEmits<{ 'show-about': [] }>()
 
 function nav(path: string) {
@@ -25,11 +27,14 @@ function showAddTask() {
   appStore.showAddTaskDialog()
 }
 
-async function openWebBrowser() {
+async function toggleWebPanel() {
   try {
-    await invoke('open_web_browser')
+    await invoke('toggle_web_panel', {
+      open: !appStore.webPanelOpen,
+      width: preferenceStore.config.webPanelWidth,
+    })
   } catch (e) {
-    logger.warn('AsideBar', `open_web_browser failed: ${e}`)
+    logger.warn('AsideBar', `toggle_web_panel failed: ${e}`)
   }
 }
 </script>
@@ -103,13 +108,14 @@ async function openWebBrowser() {
               <button
                 type="button"
                 class="menu-button non-draggable"
-                aria-label="打开浏览器登录"
-                @click="openWebBrowser"
+                :class="{ active: appStore.webPanelOpen }"
+                aria-label="Web 浏览器面板"
+                @click="toggleWebPanel"
               >
                 <NIcon :size="20"><GlobeOutline /></NIcon>
               </button>
             </template>
-            打开浏览器登录
+            Web 浏览器面板
           </MTooltip>
         </li>
       </ul>
@@ -208,6 +214,10 @@ async function openWebBrowser() {
   background-color: var(--aside-icon-hover-bg);
   color: var(--m3-on-surface);
   outline: none;
+}
+.menu-button.active {
+  background-color: var(--aside-icon-hover-bg);
+  color: var(--m3-on-surface);
 }
 .top-menu {
   flex: 1;
