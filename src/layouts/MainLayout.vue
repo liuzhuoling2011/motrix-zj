@@ -125,6 +125,11 @@ let magnetPollTimer: ReturnType<typeof setTimeout> | null = null
 let unlistenFocusRecheck: (() => void) | null = null
 let unlistenAddFromWeb: (() => void) | null = null
 let unlistenWebPanelState: (() => void) | null = null
+let unlistenYtdlpError: (() => void) | null = null
+let unlistenYtdlpLog: (() => void) | null = null
+/** Keeps the most recent `ERROR:` line emitted by each active yt-dlp task so
+ *  we can surface a meaningful toast when the process terminates. */
+const ytdlpErrorLines = new Map<string, string>()
 
 // ── Notification action helpers (reuse existing IPC commands) ────────
 
@@ -858,6 +863,33 @@ onMounted(async () => {
     appStore.webPanelOpen = payload.open
   })
 
+  // ── yt-dlp error surfacing ──────────────────────────────────────────
+  // yt-dlp stderr goes to ytdlp-log events; on process termination a
+  // ytdlp-progress with status='Error' fires. Pair the two so the user
+  // sees a toast explaining why a download failed (e.g. YouTube 403,
+  // bot-check, expired cookies) instead of just silent disappearance.
+  const ytdlpModule = await import('@/api/ytdlp')
+  unlistenYtdlpLog = await ytdlpModule.onLog((entry) => {
+    if (entry.stream !== 'stderr') return
+    if (!/^error:/i.test(entry.line.trim())) return
+    ytdlpErrorLines.set(entry.taskId, entry.line.trim())
+  })
+  unlistenYtdlpError = await ytdlpModule.onProgress(async (p) => {
+    if (p.status !== 'Error') return
+    const errLine = ytdlpErrorLines.get(p.taskId) ?? t('task.error-unknown')
+    ytdlpErrorLines.delete(p.taskId)
+    let taskName = p.taskId
+    try {
+      const historyStore = useHistoryStore()
+      const rec = await historyStore.getRecordByGid(p.taskId)
+      if (rec?.name) taskName = rec.name
+    } catch (e) {
+      logger.debug('MainLayout.ytdlpError.lookup', String(e))
+    }
+    const truncated = errLine.length > 220 ? errLine.slice(0, 220) + '…' : errLine
+    message.error(`${taskName}: ${truncated}`, { closable: true, duration: 8000 })
+  })
+
   // Re-invoke Rust whenever the user changes the panel width preference while the
   // panel is open, so the native child webviews resize immediately.  Debounced
   // implicitly by Vue's reactivity (1 flush per tick).
@@ -1035,6 +1067,9 @@ onUnmounted(() => {
   if (unlistenPowerCountdown) unlistenPowerCountdown()
   if (unlistenAddFromWeb) unlistenAddFromWeb()
   if (unlistenWebPanelState) unlistenWebPanelState()
+  if (unlistenYtdlpError) unlistenYtdlpError()
+  if (unlistenYtdlpLog) unlistenYtdlpLog()
+  ytdlpErrorLines.clear()
   dismissCountdown()
   cancelPendingResize()
 })
