@@ -191,6 +191,10 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // visibility decisions.  See AppLifecycleState doc and issue #206.
     app.manage(AppLifecycleState::new());
 
+    // Embedded web-panel state — child webviews attached to the main window.
+    // The resize hook is installed below once the main window exists.
+    app.manage(commands::web_browser::WebPanelState::new());
+
     // History database — opens the same DB as tauri-plugin-sql migrations.
     {
         use tauri::Manager;
@@ -500,6 +504,9 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // ── GeoIP: load bundled DB-IP Country Lite for peer country flags ─
     let geoip_state = commands::geoip::init_geoip(&app.handle().clone());
     app.manage(geoip_state);
+
+    // Keep panel webviews anchored to the right edge whenever the window resizes.
+    commands::web_browser::install_main_window_resize_hook(app.handle());
 
     Ok(())
 }
@@ -910,7 +917,7 @@ pub fn run() {
             commands::ytdlp_download_direct,
             commands::ytdlp_cancel_download,
             commands::get_sidecar_versions,
-            commands::open_web_browser,
+            commands::toggle_web_panel,
             commands::web_browser_navigate,
             commands::save_cookies_and_trigger_download,
         ])
