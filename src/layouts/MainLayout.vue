@@ -1167,6 +1167,12 @@ onUnmounted(() => {
 }
 .content {
   flex: 1;
+  /* `min-width: auto` (flex default) prevents shrinking below the intrinsic
+   * width of TaskView's children, leaving a narrow strip of rendered task
+   * list visible to the left of the embedded web panel.  Explicit `0`
+   * lets the flex container collapse `.content` to zero when the panel
+   * placeholder claims the full content area. */
+  min-width: 0;
   overflow-y: auto;
   background-color: var(--main-bg);
 }
