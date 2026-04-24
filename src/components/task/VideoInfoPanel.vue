@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, h } from 'vue'
 import { NImage, NTag, NSpace, NButton, NRadioGroup, NRadio, NDataTable } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import type { VideoInfo, VideoFormat, FormatPreset } from '@shared/types'
@@ -36,7 +36,26 @@ const videoFormats = computed<VideoFormat[]>(() =>
   props.video.formats.filter((f: VideoFormat) => f.vcodec && f.vcodec !== 'none'),
 )
 
-const formatTableColumns: DataTableColumns<VideoFormat> = [
+function selectTableRow(row: VideoFormat) {
+  emit('update:selectedFormatId', row.formatId)
+}
+
+// The first column is an explicit radio indicator so row selection has
+// unambiguous visual feedback regardless of which CSS classes Naive UI's
+// scoped table shadow DOM actually propagates.  Clicking anywhere in the
+// row still fires the row-wide handler (see `row-props` below).
+const formatTableColumns = computed<DataTableColumns<VideoFormat>>(() => [
+  {
+    title: '',
+    key: '__selected',
+    width: 44,
+    align: 'center',
+    render: (row: VideoFormat) =>
+      h(NRadio, {
+        checked: row.formatId === props.selectedFormatId,
+        onChange: () => selectTableRow(row),
+      }),
+  },
   { title: '分辨率', key: 'resolution', width: 100, render: (row) => row.resolution || '-' },
   { title: '扩展名', key: 'ext', width: 70 },
   { title: '编码', key: 'vcodec', width: 120, render: (row) => row.vcodec || '-' },
@@ -47,11 +66,7 @@ const formatTableColumns: DataTableColumns<VideoFormat> = [
     render: (row) => formatFileSize(row.filesize ?? row.filesizeApprox),
   },
   { title: '协议', key: 'protocol', width: 90 },
-]
-
-function selectTableRow(row: VideoFormat) {
-  emit('update:selectedFormatId', row.formatId)
-}
+])
 </script>
 
 <template>

@@ -74,6 +74,11 @@ const selectedBatchIndex = ref(0)
 
 const videoFlow = useVideoFlow()
 
+/** True when the dialog was triggered from the embedded web panel's
+ *  download button — drives a simplified UI that hides URL/rename/split/dir
+ *  inputs, auto-runs the media parser, and pre-expands the format table. */
+const isFromWebPanel = computed(() => appStore.addTaskFromWebPanel)
+
 // ── Cookie-expired banner ─────────────────────────────────────────────────────
 const cookieExpired = ref(false)
 
@@ -145,6 +150,23 @@ watch(globalProxyAvailable, (available) => {
 watch(
   () => form.value.uris,
   () => videoFlow.reset(),
+)
+
+// Auto-parse when the dialog opens from the embedded web panel: the URL is
+// already known (injected via `add-task-from-web` deep-link flow) and the
+// user expects to be looking at format choices immediately.  The full
+// format table is pre-expanded so any non-preset option is one click away.
+watch(
+  () => [props.show, isFromWebPanel.value, form.value.uris] as const,
+  ([visible, fromPanel, uris]) => {
+    if (!visible || !fromPanel) return
+    const trimmed = uris.trim()
+    if (!trimmed) return
+    if (videoFlow.isParsing.value || videoFlow.isVideo.value || videoFlow.isPlaylist.value) return
+    videoFlow.showAllFormats.value = true
+    handleParseMedia()
+  },
+  { immediate: false },
 )
 
 /** Explicit user-triggered parse — wired to the "Parse Media" button inside
@@ -616,7 +638,13 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
       @close="handleClose"
     >
       <NForm label-placement="left" label-width="110px">
-        <NTabs :value="activeTab" type="line" animated @update:value="(v: string) => (activeTab = v)">
+        <NTabs
+          v-if="!isFromWebPanel"
+          :value="activeTab"
+          type="line"
+          animated
+          @update:value="(v: string) => (activeTab = v)"
+        >
           <!-- ── URI Tab ──────────────────────────────────────── -->
           <NTabPane :name="ADD_TASK_TYPE.URI" :tab="t('task.uri-task') || 'URL'">
             <div class="tab-pane-content">
@@ -696,8 +724,9 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
           </NTabPane>
         </NTabs>
 
-        <!-- ── Download settings: always visible ──────────────── -->
-        <div class="download-settings">
+        <!-- ── Download settings: hidden when triggered from web panel
+             (URL is injected, defaults are fine, user just wants formats) -->
+        <div v-if="!isFromWebPanel" class="download-settings">
           <NFormItem :label="t('task.task-out') + ':'">
             <NInput v-model:value="form.out" :placeholder="t('task.task-out-tips')" :autofocus="false" />
           </NFormItem>
@@ -748,56 +777,59 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
             :global-proxy-available="globalProxyAvailable"
             :global-proxy-server="globalProxyServer"
           />
+        </div>
 
-          <!-- ── Media parser (manual trigger) ───────────────────────── -->
-          <div v-if="showAdvanced" class="media-parse-section">
-            <NButton
-              size="small"
-              :loading="videoFlow.isParsing.value"
-              :disabled="videoFlow.isParsing.value"
-              @click="handleParseMedia"
-            >
-              {{ videoFlow.isParsing.value ? '正在解析...' : '解析媒体' }}
-            </NButton>
+        <!-- ── Media parser ────────────────────────────────────────────
+             Shown when the user expands advanced options, OR automatically
+             when the dialog was opened from the embedded web panel (in
+             which case the parse also runs on open). -->
+        <div v-if="showAdvanced || isFromWebPanel" class="media-parse-section">
+          <NButton
+            size="small"
+            :loading="videoFlow.isParsing.value"
+            :disabled="videoFlow.isParsing.value"
+            @click="handleParseMedia"
+          >
+            {{ videoFlow.isParsing.value ? '正在解析...' : '解析媒体' }}
+          </NButton>
 
-            <div
-              v-if="
-                !videoFlow.isParsing.value &&
-                videoFlow.parseError.value &&
-                !videoFlow.isVideo.value &&
-                !videoFlow.isPlaylist.value
-              "
-              class="video-error"
-            >
-              视频解析失败：{{ videoFlow.parseError.value }}。将按普通链接处理。
-            </div>
-
-            <div v-if="cookieExpired" class="cookie-expired-banner">
-              <span>登录可能已过期，请重新打开浏览器登录：</span>
-              <button type="button" class="link-btn" @click="openWebBrowser">打开浏览器</button>
-            </div>
-
-            <VideoInfoPanel
-              v-if="videoFlow.isVideo.value && videoFlow.videoInfo.value"
-              :video="videoFlow.videoInfo.value"
-              :presets="videoFlow.formatPresets.value"
-              :selected-format-id="videoFlow.selectedFormatId.value"
-              :show-all-formats="videoFlow.showAllFormats.value"
-              @update:selected-format-id="(id: string) => (videoFlow.selectedFormatId.value = id)"
-              @update:show-all-formats="(show: boolean) => (videoFlow.showAllFormats.value = show)"
-            />
-
-            <PlaylistPanel
-              v-if="videoFlow.isPlaylist.value && videoFlow.playlistInfo.value"
-              :playlist="videoFlow.playlistInfo.value"
-              :selected-items="videoFlow.selectedPlaylistItems.value"
-              :presets="videoFlow.formatPresets.value"
-              :selected-format-id="videoFlow.selectedFormatId.value"
-              @toggle-item="videoFlow.togglePlaylistItem"
-              @toggle-select-all="videoFlow.toggleSelectAll"
-              @update:selected-format-id="(id: string) => (videoFlow.selectedFormatId.value = id)"
-            />
+          <div
+            v-if="
+              !videoFlow.isParsing.value &&
+              videoFlow.parseError.value &&
+              !videoFlow.isVideo.value &&
+              !videoFlow.isPlaylist.value
+            "
+            class="video-error"
+          >
+            视频解析失败：{{ videoFlow.parseError.value }}。将按普通链接处理。
           </div>
+
+          <div v-if="cookieExpired" class="cookie-expired-banner">
+            <span>登录可能已过期，请重新打开浏览器登录：</span>
+            <button type="button" class="link-btn" @click="openWebBrowser">打开浏览器</button>
+          </div>
+
+          <VideoInfoPanel
+            v-if="videoFlow.isVideo.value && videoFlow.videoInfo.value"
+            :video="videoFlow.videoInfo.value"
+            :presets="videoFlow.formatPresets.value"
+            :selected-format-id="videoFlow.selectedFormatId.value"
+            :show-all-formats="videoFlow.showAllFormats.value"
+            @update:selected-format-id="(id: string) => (videoFlow.selectedFormatId.value = id)"
+            @update:show-all-formats="(show: boolean) => (videoFlow.showAllFormats.value = show)"
+          />
+
+          <PlaylistPanel
+            v-if="videoFlow.isPlaylist.value && videoFlow.playlistInfo.value"
+            :playlist="videoFlow.playlistInfo.value"
+            :selected-items="videoFlow.selectedPlaylistItems.value"
+            :presets="videoFlow.formatPresets.value"
+            :selected-format-id="videoFlow.selectedFormatId.value"
+            @toggle-item="videoFlow.togglePlaylistItem"
+            @toggle-select-all="videoFlow.toggleSelectAll"
+            @update:selected-format-id="(id: string) => (videoFlow.selectedFormatId.value = id)"
+          />
         </div>
       </NForm>
       <template #footer>
