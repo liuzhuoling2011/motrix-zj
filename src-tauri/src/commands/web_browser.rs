@@ -23,8 +23,12 @@ const MAIN_WINDOW_LABEL: &str = "main";
 const TOOLBAR_LABEL: &str = "web-panel-toolbar";
 const CONTENT_LABEL: &str = "web-panel-content";
 const TOOLBAR_HEIGHT: f64 = 48.0;
+// Must match `--aside-width` (78px) + `--subnav-width` (200px) in
+// src/styles/variables.css.  When config_width == 0 (auto mode), the panel
+// takes half of the remaining space, yielding a 50/50 split with `.content`.
+const ASIDE_WIDTH: f64 = 78.0;
+const SUBNAV_WIDTH: f64 = 200.0;
 const MIN_MAIN_CONTENT_WIDTH: f64 = 320.0;
-const DEFAULT_PANEL_WIDTH: f64 = 960.0;
 
 /// Internal state tracking whether the panel webviews have been created
 /// and whether they are currently visible. Managed via `app.manage()`.
@@ -39,7 +43,8 @@ impl Default for WebPanelInner {
         Self {
             created: false,
             visible: false,
-            width: DEFAULT_PANEL_WIDTH,
+            // 0 = auto — compute_panel_rects will 50/50 split the content area.
+            width: 0.0,
         }
     }
 }
@@ -140,16 +145,22 @@ const STEALTH_INIT_SCRIPT: &str = r#"
 "#;
 
 /// Computes the right-panel geometry given the main window's current size
-/// and the configured panel width. Falls back to (0.0, 0.0) if the window
-/// is so narrow that no panel fits (clamped by `MIN_MAIN_CONTENT_WIDTH`).
+/// and the configured panel width.  When `config_width <= 0`, auto-sizes to
+/// half of the remaining content area (window - aside - subnav), yielding
+/// a 50/50 split with `.content`.  Otherwise uses `config_width` clamped by
+/// `MIN_MAIN_CONTENT_WIDTH` so the main content keeps ≥ 320px visible.
 fn compute_panel_rects(
     window_width: f64,
     window_height: f64,
     config_width: f64,
 ) -> (LogicalPosition<f64>, LogicalSize<f64>, LogicalPosition<f64>, LogicalSize<f64>) {
-    let effective = (window_width - MIN_MAIN_CONTENT_WIDTH)
-        .max(0.0)
-        .min(config_width.max(0.0));
+    let effective = if config_width <= 0.0 {
+        ((window_width - ASIDE_WIDTH - SUBNAV_WIDTH) / 2.0).max(0.0)
+    } else {
+        (window_width - MIN_MAIN_CONTENT_WIDTH)
+            .max(0.0)
+            .min(config_width)
+    };
     let x = window_width - effective;
 
     let toolbar_pos = LogicalPosition::new(x, 0.0);
@@ -278,13 +289,12 @@ pub async fn toggle_web_panel(
     // 1. Compute target visibility under the lock; release before doing I/O.
     let (target_visible, effective_width, need_create) = {
         let mut inner = state.0.lock().map_err(|e| format!("state lock poisoned: {e}"))?;
+        // 0 = auto mode.  Only overwrite state when the caller supplied a
+        // concrete, non-negative width (positive = explicit size, 0 = auto).
         if let Some(w) = width {
-            if w > 0.0 {
+            if w >= 0.0 {
                 inner.width = w;
             }
-        }
-        if inner.width <= 0.0 {
-            inner.width = DEFAULT_PANEL_WIDTH;
         }
         let next_visible = match open {
             Some(v) => v,
@@ -444,22 +454,40 @@ mod tests {
     use super::*;
 
     #[test]
-    fn panel_rects_basic() {
-        // Window is 1200px wide; MIN_MAIN_CONTENT_WIDTH = 320 clamps the
-        // panel to at most 1200 - 320 = 880 even though config asks for 960.
-        let (tp, ts, cp, cs) = compute_panel_rects(1200.0, 800.0, 960.0);
-        assert_eq!(tp.x, 320.0);
+    fn panel_rects_auto_splits_content_area_50_50() {
+        // config_width = 0 → auto mode: panel takes half of (W - aside - subnav).
+        // (1200 - 78 - 200) / 2 = 461
+        let (tp, ts, cp, cs) = compute_panel_rects(1200.0, 800.0, 0.0);
+        assert_eq!(tp.x, 1200.0 - 461.0);
         assert_eq!(tp.y, 0.0);
-        assert_eq!(ts.width, 880.0);
+        assert_eq!(ts.width, 461.0);
         assert_eq!(ts.height, TOOLBAR_HEIGHT);
-        assert_eq!(cp.x, 320.0);
+        assert_eq!(cp.x, 1200.0 - 461.0);
         assert_eq!(cp.y, TOOLBAR_HEIGHT);
-        assert_eq!(cs.width, 880.0);
+        assert_eq!(cs.width, 461.0);
         assert_eq!(cs.height, 800.0 - TOOLBAR_HEIGHT);
     }
 
     #[test]
-    fn panel_rects_clamps_when_window_too_narrow() {
+    fn panel_rects_auto_collapses_when_window_smaller_than_chrome() {
+        // Auto mode, W smaller than aside + subnav — half of negative clamps to 0.
+        let (_tp, ts, _cp, cs) = compute_panel_rects(200.0, 400.0, 0.0);
+        assert_eq!(ts.width, 0.0);
+        assert_eq!(cs.width, 0.0);
+    }
+
+    #[test]
+    fn panel_rects_explicit_config_width_overrides_auto() {
+        // Non-zero config_width switches to explicit sizing, clamped by
+        // MIN_MAIN_CONTENT_WIDTH = 320.
+        let (tp, ts, _cp, _cs) = compute_panel_rects(1200.0, 800.0, 960.0);
+        // (1200 - 320) = 880 → clamped down from 960
+        assert_eq!(ts.width, 880.0);
+        assert_eq!(tp.x, 320.0);
+    }
+
+    #[test]
+    fn panel_rects_explicit_width_clamps_when_window_too_narrow() {
         // Window is 500px wide; MIN_MAIN_CONTENT_WIDTH = 320 → panel ≤ 180.
         let (_tp, ts, _cp, cs) = compute_panel_rects(500.0, 600.0, 960.0);
         assert_eq!(ts.width, 180.0);
@@ -467,7 +495,7 @@ mod tests {
     }
 
     #[test]
-    fn panel_rects_zero_when_window_smaller_than_min_content() {
+    fn panel_rects_explicit_width_zero_when_window_smaller_than_min_content() {
         // Window smaller than MIN_MAIN_CONTENT_WIDTH — panel collapses to 0.
         let (_tp, ts, _cp, cs) = compute_panel_rects(200.0, 400.0, 960.0);
         assert_eq!(ts.width, 0.0);
@@ -475,7 +503,7 @@ mod tests {
     }
 
     #[test]
-    fn panel_rects_respects_smaller_config_width() {
+    fn panel_rects_respects_smaller_explicit_config_width() {
         let (_tp, ts, _cp, _cs) = compute_panel_rects(2000.0, 1000.0, 640.0);
         assert_eq!(ts.width, 640.0);
     }

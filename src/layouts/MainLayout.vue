@@ -78,13 +78,23 @@ const showEngineOverlay = ref(false)
  *  directly would not refresh when the user resizes the main window. */
 const containerWidth = ref(window.innerWidth)
 
-/** Width applied to the right-side placeholder, clamped to keep the main
- *  content area at least 320px wide.  Kept in sync with Rust's
- *  `compute_panel_rects` formula so the native webview and DOM placeholder
- *  overlap pixel-perfect. */
+/** Width applied to the right-side placeholder.  Mirrors Rust's
+ *  `compute_panel_rects` so the DOM placeholder and native webview overlap
+ *  pixel-perfect.
+ *
+ *  • `configured <= 0` → auto mode: half of (W - aside - subnav), yielding
+ *    a 50/50 split between `.content` and the panel.
+ *  • `configured > 0` → explicit width, clamped by a 320px minimum content
+ *    area so the main view can't fully collapse.
+ *
+ *  The aside/subnav constants (78 / 200) must stay in sync with
+ *  `src/styles/variables.css` and the Rust constants in `web_browser.rs`. */
 const effectivePanelWidth = computed(() => {
   if (!appStore.webPanelOpen) return 0
   const configured = preferenceStore.config.webPanelWidth
+  if (configured <= 0) {
+    return Math.max(0, (containerWidth.value - 78 - 200) / 2)
+  }
   return Math.max(0, Math.min(configured, containerWidth.value - 320))
 })
 
