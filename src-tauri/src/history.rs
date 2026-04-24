@@ -231,6 +231,26 @@ impl HistoryDb {
         Ok(())
     }
 
+    /// Reconcile yt-dlp orphan records left `active` by the previous app
+    /// session.  On clean exit the `Terminated` event fires and the monitor
+    /// task updates status, but on abrupt termination (SIGKILL, OS shutdown)
+    /// the async update never runs, leaving "zombie" rows that misreport as
+    /// still downloading.  At the next startup we flip every such row to
+    /// `error` so the UI shows the real state and the user can delete/retry.
+    ///
+    /// Returns the number of rows reconciled.
+    pub async fn reconcile_ytdlp_orphans(&self) -> Result<u64, AppError> {
+        let conn = self.conn.lock().await;
+        let completed_at = chrono::Utc::now().to_rfc3339();
+        let changed = conn.execute(
+            "UPDATE download_history
+             SET status = 'error', completed_at = COALESCE(completed_at, ?1)
+             WHERE status = 'active' AND gid LIKE 'ytdlp-%'",
+            params![completed_at],
+        )?;
+        Ok(changed as u64)
+    }
+
     /// Remove records matching a BT infoHash in the meta JSON column.
     pub async fn remove_by_info_hash(
         &self,
