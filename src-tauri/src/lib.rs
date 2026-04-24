@@ -918,6 +918,7 @@ pub fn run() {
             commands::ytdlp_cancel_download,
             commands::get_sidecar_versions,
             commands::toggle_web_panel,
+            commands::suspend_web_panel,
             commands::web_browser_navigate,
             commands::save_cookies_and_trigger_download,
         ])

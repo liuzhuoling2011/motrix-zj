@@ -78,6 +78,11 @@ const showEngineOverlay = ref(false)
  *  directly would not refresh when the user resizes the main window. */
 const containerWidth = ref(window.innerWidth)
 
+/** Local-only flag set while a modal overlay temporarily hides the panel.
+ *  Keeps the DOM placeholder in sync with Rust's suspended state so the
+ *  content area reclaims the right side while the modal is open. */
+const isPanelSuspended = ref(false)
+
 /** Width applied to the right-side placeholder.  Mirrors Rust's
  *  `compute_panel_rects` so the DOM placeholder and native webview overlap
  *  pixel-perfect.
@@ -90,7 +95,7 @@ const containerWidth = ref(window.innerWidth)
  *  The aside/subnav constants (78 / 200) must stay in sync with
  *  `src/styles/variables.css` and the Rust constants in `web_browser.rs`. */
 const effectivePanelWidth = computed(() => {
-  if (!appStore.webPanelOpen) return 0
+  if (!appStore.webPanelOpen || isPanelSuspended.value) return 0
   const configured = preferenceStore.config.webPanelWidth
   if (configured <= 0) {
     return Math.max(0, (containerWidth.value - 78 - 200) / 2)
@@ -872,6 +877,24 @@ onMounted(async () => {
     },
   )
 
+  // Suspend the embedded panel while modal overlays are open — native
+  // child webviews sit above Naive UI modals in the compositor and would
+  // otherwise cover half of the dialog. Rust restores the panel when the
+  // modal closes.
+  watch(
+    () => appStore.addTaskVisible,
+    async (visible) => {
+      if (!appStore.webPanelOpen) return
+      isPanelSuspended.value = visible
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('suspend_web_panel', { suspended: visible })
+      } catch (e) {
+        logger.debug('MainLayout.webPanelSuspend', String(e))
+      }
+    },
+  )
+
   // ── Magnet metadata monitoring (app-level) ────────────────────────
   // Watches pendingMagnetGids in app store and starts polling when
   // magnet tasks are added. Runs at MainLayout level so it works
@@ -1033,7 +1056,7 @@ onUnmounted(() => {
       </router-view>
     </main>
     <div
-      v-if="appStore.webPanelOpen"
+      v-if="appStore.webPanelOpen && !isPanelSuspended"
       class="web-panel-placeholder"
       :style="{ width: `${effectivePanelWidth}px` }"
       aria-hidden="true"
