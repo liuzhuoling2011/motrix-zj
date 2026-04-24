@@ -28,11 +28,20 @@ const DEFAULT_PANEL_WIDTH: f64 = 960.0;
 
 /// Internal state tracking whether the panel webviews have been created
 /// and whether they are currently visible. Managed via `app.manage()`.
-#[derive(Default)]
 pub struct WebPanelInner {
     pub created: bool,
     pub visible: bool,
     pub width: f64,
+}
+
+impl Default for WebPanelInner {
+    fn default() -> Self {
+        Self {
+            created: false,
+            visible: false,
+            width: DEFAULT_PANEL_WIDTH,
+        }
+    }
 }
 
 pub struct WebPanelState(pub Mutex<WebPanelInner>);
@@ -246,6 +255,26 @@ pub async fn toggle_web_panel(
     open: Option<bool>,
     width: Option<f64>,
 ) -> Result<(), String> {
+    // 0. Self-heal: if a previous lifecycle destroyed the child webviews
+    //    (e.g. main window torn down in lightweight mode) but the state still
+    //    reports `created`, reset so the next branch re-creates them.
+    {
+        let mut inner = state.0.lock().map_err(|e| format!("state lock poisoned: {e}"))?;
+        if inner.created {
+            let toolbar_alive = app.get_webview(TOOLBAR_LABEL).is_some();
+            let content_alive = app.get_webview(CONTENT_LABEL).is_some();
+            if !toolbar_alive || !content_alive {
+                log::warn!(
+                    "web-panel: webviews went missing (toolbar_alive={}, content_alive={}); resetting state",
+                    toolbar_alive,
+                    content_alive,
+                );
+                inner.created = false;
+                inner.visible = false;
+            }
+        }
+    }
+
     // 1. Compute target visibility under the lock; release before doing I/O.
     let (target_visible, effective_width, need_create) = {
         let mut inner = state.0.lock().map_err(|e| format!("state lock poisoned: {e}"))?;
