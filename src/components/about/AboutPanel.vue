@@ -7,7 +7,7 @@ import MTooltip from '@/components/common/MTooltip.vue'
 import { open } from '@tauri-apps/plugin-shell'
 import { getVersion } from '@tauri-apps/api/app'
 import { getVersion as getAria2Version } from '@/api/aria2'
-import { fetchSidecarVersion } from '@shared/utils/sidecarVersion'
+import { preloadSidecarVersions, useSidecarVersions } from '@shared/utils/sidecarVersion'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { logger } from '@shared/logger'
 
@@ -35,22 +35,24 @@ const sidecars = ref<SidecarEntry[]>([
   { key: 'ffprobe', label: 'ffprobe', loading: true, error: false, version: '' },
 ])
 
+const sidecarVersionMap = useSidecarVersions()
+
 async function loadSidecarVersions() {
-  await Promise.all(
-    sidecars.value.map(async (entry) => {
-      entry.loading = true
+  try {
+    await preloadSidecarVersions()
+  } catch (e) {
+    logger.warn('AboutPanel', `sidecar version preload failed: ${e}`)
+  }
+  sidecars.value.forEach((entry) => {
+    const v = sidecarVersionMap.value[entry.key]
+    if (v) {
+      entry.version = v
       entry.error = false
-      entry.version = ''
-      try {
-        entry.version = await fetchSidecarVersion(entry.key)
-      } catch (e) {
-        logger.warn('AboutPanel', `${entry.key} version fetch failed: ${e}`)
-        entry.error = true
-      } finally {
-        entry.loading = false
-      }
-    }),
-  )
+    } else {
+      entry.error = true
+    }
+    entry.loading = false
+  })
 }
 
 onMounted(async () => {
