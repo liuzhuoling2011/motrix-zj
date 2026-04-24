@@ -45,4 +45,17 @@ const emit = defineEmits<{ navigate: [url: string] }>()
   font-weight: 500;
   color: #333;
 }
+
+@media (prefers-color-scheme: dark) {
+  .site-card {
+    background: #2a2a2a;
+    border-color: #444;
+  }
+  .site-card:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  }
+  .site-name {
+    color: #e0e0e0;
+  }
+}
 </style>

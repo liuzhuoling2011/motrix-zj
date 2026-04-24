@@ -459,9 +459,11 @@ async function submitVideoBranch(
   }
   if (!videoOptions.dir) videoOptions.dir = effectiveForm.dir
 
+  let successCount = 0
   try {
     if (videoFlow.isVideo.value) {
       await videoFlow.submitVideoDownload(videoOptions, form.value.cookiesFromBrowser)
+      successCount = 1
     } else if (videoFlow.isPlaylist.value && videoFlow.playlistInfo.value) {
       const pl = videoFlow.playlistInfo.value
       const indices = Array.from(videoFlow.selectedPlaylistItems.value).sort((a, b) => a - b)
@@ -484,12 +486,18 @@ async function submitVideoBranch(
             options: videoOptions,
             cookiesFromBrowser: form.value.cookiesFromBrowser,
           })
+          successCount += 1
         } catch (err) {
           logger.error('AddTask.playlistItemDownload', { title: entry.title, err })
         }
       }
     }
     await taskStore.fetchList()
+    if (successCount > 0) {
+      const msg =
+        successCount === 1 ? '任务已添加成功，请稍后查看下载进度' : `已添加 ${successCount} 个任务，请稍后查看下载进度`
+      message.success(msg, { closable: true })
+    }
     handleClose()
     if (preferenceStore.config.newTaskShowDownloading !== false) {
       router.push({ path: '/task/all' }).catch(() => {})

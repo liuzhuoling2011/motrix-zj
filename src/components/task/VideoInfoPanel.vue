@@ -40,6 +40,20 @@ function selectTableRow(row: VideoFormat) {
   emit('update:selectedFormatId', row.formatId)
 }
 
+/** Normalizes thumbnail URLs so they load inside the AddTask dialog:
+ *  • Scheme-less (`//i.hdslb.com/...`) → `https://...` — Bilibili/YouTube
+ *    use protocol-relative URLs; the dialog runs on `tauri://localhost`
+ *    (or `http://localhost:1420` in dev), where the naive `http:` upgrade
+ *    would hit CDN redirects.
+ *  • Bare `http://` untouched — the caller is responsible for https-only
+ *    sites (yt-dlp rarely returns those). */
+const normalizedThumbnail = computed(() => {
+  const raw = props.video.thumbnail
+  if (!raw) return ''
+  if (raw.startsWith('//')) return `https:${raw}`
+  return raw
+})
+
 // The first column is an explicit radio indicator so row selection has
 // unambiguous visual feedback regardless of which CSS classes Naive UI's
 // scoped table shadow DOM actually propagates.  Clicking anywhere in the
@@ -74,8 +88,9 @@ const formatTableColumns = computed<DataTableColumns<VideoFormat>>(() => [
     <!-- Summary -->
     <div class="video-summary">
       <NImage
-        v-if="video.thumbnail"
-        :src="video.thumbnail"
+        v-if="normalizedThumbnail"
+        :src="normalizedThumbnail"
+        :img-props="{ referrerpolicy: 'no-referrer' }"
         :width="160"
         object-fit="cover"
         preview-disabled

@@ -449,8 +449,20 @@ pub async fn web_browser_navigate(
             .eval("location.reload()")
             .map_err(|e| e.to_string())?,
         NavAction::Home => {
-            let u = Url::parse("tauri://localhost/web-content.html")
-                .map_err(|e| e.to_string())?;
+            // Derive the home URL from the toolbar's URL so the scheme + host
+            // match the runtime environment (dev = http://localhost:PORT,
+            // prod on macOS = tauri://localhost, prod on Windows/Linux =
+            // http://tauri.localhost).  Hardcoding `tauri://localhost/...`
+            // broke Home in Vite dev mode — the file lived at
+            // http://localhost:1420/web-content.html there.
+            let toolbar = app
+                .get_webview(TOOLBAR_LABEL)
+                .ok_or_else(|| "toolbar webview not available".to_string())?;
+            let toolbar_url = toolbar.url().map_err(|e| e.to_string())?;
+            let home_str = toolbar_url
+                .as_str()
+                .replace("web-toolbar.html", "web-content.html");
+            let u = Url::parse(&home_str).map_err(|e| e.to_string())?;
             content.navigate(u).map_err(|e| e.to_string())?
         }
         NavAction::Load => {
