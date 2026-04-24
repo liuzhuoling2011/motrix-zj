@@ -29,6 +29,9 @@ function nav(action: string, url?: string) {
 function download(url: string) {
   invoke('save_cookies_and_trigger_download', { url })
 }
+function close() {
+  invoke('toggle_web_panel', { open: false, width: null })
+}
 </script>
 
 <template>
@@ -42,5 +45,6 @@ function download(url: string) {
     @home="nav('home')"
     @navigate="(u) => nav('load', u)"
     @download="download"
+    @close="close"
   />
 </template>
