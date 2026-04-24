@@ -87,6 +87,10 @@ export const useAppStore = defineStore('app', () => {
   }
   const engineReady = ref(false)
   const pendingMagnetGids = ref<string[]>([])
+  /** Whether the embedded web browser panel is visible on the right of the main window.
+   *  Driven by the Rust `web-panel-state-changed` event to stay in sync with the
+   *  native child webviews' visibility. Not persisted — panel always starts closed. */
+  const webPanelOpen = ref(false)
   /** Protocols detected as hijacked at startup (set by syncProtocolHandlers). */
   const pendingProtocolHijack = ref<string[]>([])
 
@@ -365,6 +369,7 @@ export const useAppStore = defineStore('app', () => {
     setEngineRestarting,
     engineReady,
     pendingMagnetGids,
+    webPanelOpen,
     updateInterval,
     increaseInterval,
     decreaseInterval,
