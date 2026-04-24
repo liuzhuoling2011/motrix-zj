@@ -72,6 +72,17 @@ const isMaximized = ref(false)
 const { platform: currentPlatform, isMac } = usePlatform()
 const showEngineOverlay = ref(false)
 
+/** Width applied to the right-side placeholder, clamped to keep the main
+ *  content area at least 320px wide.  Kept in sync with Rust's
+ *  `compute_panel_rects` formula so the native webview and DOM placeholder
+ *  overlap pixel-perfect. */
+const effectivePanelWidth = computed(() => {
+  if (!appStore.webPanelOpen) return 0
+  const configured = preferenceStore.config.webPanelWidth
+  const containerWidth = window.innerWidth
+  return Math.max(0, Math.min(configured, containerWidth - 320))
+})
+
 // ── Auto-shutdown countdown state ──────────────────────────────────
 const showShutdownCountdown = ref(false)
 const shutdownCountdown = ref(60)
@@ -93,6 +104,7 @@ let lifecycleService: ReturnType<typeof createTaskLifecycleService> | null = nul
 let magnetPollTimer: ReturnType<typeof setTimeout> | null = null
 let unlistenFocusRecheck: (() => void) | null = null
 let unlistenAddFromWeb: (() => void) | null = null
+let unlistenWebPanelState: (() => void) | null = null
 
 // ── Notification action helpers (reuse existing IPC commands) ────────
 
@@ -812,6 +824,26 @@ onMounted(async () => {
     appStore.handleDeepLinkUrls([payload.url])
   })
 
+  unlistenWebPanelState = await listen<{ open: boolean }>('web-panel-state-changed', ({ payload }) => {
+    appStore.webPanelOpen = payload.open
+  })
+
+  // Re-invoke Rust whenever the user changes the panel width preference while the
+  // panel is open, so the native child webviews resize immediately.  Debounced
+  // implicitly by Vue's reactivity (1 flush per tick).
+  watch(
+    () => preferenceStore.config.webPanelWidth,
+    async (width) => {
+      if (!appStore.webPanelOpen) return
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('toggle_web_panel', { open: true, width })
+      } catch (e) {
+        logger.debug('MainLayout.webPanelWidth', String(e))
+      }
+    },
+  )
+
   // ── Magnet metadata monitoring (app-level) ────────────────────────
   // Watches pendingMagnetGids in app store and starts polling when
   // magnet tasks are added. Runs at MainLayout level so it works
@@ -944,6 +976,7 @@ onUnmounted(() => {
   if (unlistenExitDialog) unlistenExitDialog()
   if (unlistenPowerCountdown) unlistenPowerCountdown()
   if (unlistenAddFromWeb) unlistenAddFromWeb()
+  if (unlistenWebPanelState) unlistenWebPanelState()
   dismissCountdown()
   cancelPendingResize()
 })
@@ -971,6 +1004,12 @@ onUnmounted(() => {
         </Transition>
       </router-view>
     </main>
+    <div
+      v-if="appStore.webPanelOpen"
+      class="web-panel-placeholder"
+      :style="{ width: `${effectivePanelWidth}px` }"
+      aria-hidden="true"
+    />
     <WindowControls
       class="window-controls"
       :is-maximized="isMaximized"
@@ -1072,6 +1111,12 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   background-color: var(--main-bg);
+}
+.web-panel-placeholder {
+  flex-shrink: 0;
+  height: 100%;
+  background-color: transparent;
+  pointer-events: none;
 }
 .window-controls {
   z-index: 100;
