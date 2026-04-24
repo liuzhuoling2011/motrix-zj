@@ -43,6 +43,15 @@ export async function restartTask(task: Aria2Task, api: RestartTaskApi, historyA
   const { ERROR, COMPLETE, REMOVED } = TASK_STATUS
   if (status !== ERROR && status !== COMPLETE && status !== REMOVED) return
 
+  // yt-dlp direct downloads can't be restarted via aria2 — the source URL
+  // is a video page (html), not a direct download link. Handing it to
+  // aria2.addUri would download the page's HTML instead of the video.
+  // Require the user to re-trigger from the web panel where yt-dlp has
+  // access to the format list + cookies flow.
+  if (gid.startsWith('ytdlp-')) {
+    throw new Error('yt-dlp 视频任务不支持重试，请在浏览器面板重新添加下载')
+  }
+
   const descriptors = getRestartDescriptors(task, true) // include trackers for BT
   if (descriptors.length === 0) {
     throw new Error('Cannot restart: no download URIs found for this task')
