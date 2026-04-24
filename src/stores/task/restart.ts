@@ -9,6 +9,8 @@ import { TASK_STATUS } from '@shared/constants'
 import { checkTaskIsBT, getRestartDescriptors } from '@shared/utils'
 import { shouldShowFileSelection } from '@/composables/useMagnetFlow'
 import { logger } from '@shared/logger'
+import * as ytdlpApi from '@/api/ytdlp'
+import { useHistoryStore } from '@/stores/history'
 import type { Aria2Task } from '@shared/types'
 
 /** Minimal API surface needed by restartTask. */
@@ -29,6 +31,65 @@ export interface RestartHistoryApi {
 /** Keys that aria2 rejects on addUri — read-only or non-portable. */
 const NON_PORTABLE_KEYS = new Set(['followTorrent', 'followMetalink', 'pauseMetadata', 'gid'])
 
+/** Re-invoke `ytdlp_download_direct` for a previously-submitted yt-dlp task.
+ *
+ *  The persisted meta JSON carries the original `format_id` + `ext` +
+ *  optional `cookies_from_browser`, so we can replay the download without
+ *  asking the user to re-parse the video. yt-dlp's default `--continue`
+ *  will pick up from any leftover `<name>.part` in the same dir.
+ *
+ *  Throws when the record is missing the URL or format_id (shouldn't happen
+ *  for records created after the meta-format_id migration, but older rows
+ *  exist — the caller surfaces the message as a toast).
+ */
+async function restartYtdlpTask(task: Aria2Task, historyApi: RestartHistoryApi): Promise<void> {
+  const historyStore = useHistoryStore()
+  const record = await historyStore.getRecordByGid(task.gid)
+  if (!record) {
+    throw new Error('找不到 yt-dlp 历史记录，无法重试')
+  }
+  const url = record.uri ?? ''
+  if (!url) {
+    throw new Error('yt-dlp 任务缺少来源链接，无法重试')
+  }
+  let meta: Record<string, unknown> = {}
+  if (record.meta) {
+    try {
+      meta = JSON.parse(record.meta) as Record<string, unknown>
+    } catch (e) {
+      logger.debug('restartTask.ytdlp.parseMeta', e)
+    }
+  }
+  const formatId = typeof meta.format_id === 'string' ? meta.format_id : ''
+  if (!formatId) {
+    throw new Error('yt-dlp 任务缺少 format_id（旧记录），请在浏览器面板重新添加下载')
+  }
+  const ext = typeof meta.ext === 'string' ? meta.ext : 'mp4'
+  const cookiesFromBrowser = typeof meta.cookies_from_browser === 'string' ? meta.cookies_from_browser : undefined
+  const dir = record.dir ?? ''
+  if (!dir) {
+    throw new Error('yt-dlp 任务缺少下载目录，无法重试')
+  }
+  const title = record.name ? record.name.replace(/\.[^./\\]+$/, '') : 'video'
+
+  await ytdlpApi.downloadDirect({
+    url,
+    formatId,
+    title,
+    ext,
+    meta,
+    options: { dir },
+    cookiesFromBrowser,
+  })
+  // Drop the old error record — the new download has a fresh gid
+  // (ytdlp-{bootTs}-{N}) and appears in the list on its own.
+  try {
+    await historyApi.removeRecord(task.gid)
+  } catch (e) {
+    logger.debug('restartTask.ytdlp.removeOldRecord', e)
+  }
+}
+
 /**
  * Restarts a stopped/errored/completed task by re-submitting its URI(s).
  *
@@ -46,10 +107,13 @@ export async function restartTask(task: Aria2Task, api: RestartTaskApi, historyA
   // yt-dlp direct downloads can't be restarted via aria2 — the source URL
   // is a video page (html), not a direct download link. Handing it to
   // aria2.addUri would download the page's HTML instead of the video.
-  // Require the user to re-trigger from the web panel where yt-dlp has
-  // access to the format list + cookies flow.
+  // Instead re-invoke ytdlp_download_direct with the persisted format_id
+  // (yt-dlp's --continue flag will resume from any leftover .part file
+  // in the same dir).
   if (gid.startsWith('ytdlp-')) {
-    throw new Error('yt-dlp 视频任务不支持重试，请在浏览器面板重新添加下载')
+    await restartYtdlpTask(task, historyApi)
+    await api.fetchList()
+    return
   }
 
   const descriptors = getRestartDescriptors(task, true) // include trackers for BT

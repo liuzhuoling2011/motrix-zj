@@ -208,6 +208,11 @@ pub async fn ytdlp_download_direct(
         headers.cookies_from_browser,
     );
 
+    // Clone so format_id / cookies_from_browser can be persisted in meta
+    // after start_download consumes `headers`.
+    let format_id_for_meta = format_id.clone();
+    let cookies_from_browser_for_meta = headers.cookies_from_browser.clone();
+
     let task_id = ytdlp::downloader::start_download(
         app,
         &state,
@@ -231,10 +236,31 @@ pub async fn ytdlp_download_direct(
         format!("{title}.{ext}")
     };
     let now = chrono::Utc::now().to_rfc3339();
-    let meta_json = if meta.is_object() {
-        meta.to_string()
-    } else {
-        serde_json::json!({ "download_mode": "ytdlp_direct" }).to_string()
+    // Persist format_id + ext + cookies_from_browser in meta so a later
+    // restart can re-run the sidecar with the same choice without needing
+    // the user to re-parse the video from the web panel.
+    let meta_json = {
+        let mut m = if let Some(obj) = meta.as_object() {
+            obj.clone()
+        } else {
+            serde_json::Map::new()
+        };
+        m.entry("download_mode".to_string())
+            .or_insert_with(|| serde_json::json!("ytdlp_direct"));
+        m.insert(
+            "format_id".to_string(),
+            serde_json::json!(format_id_for_meta),
+        );
+        if !ext.is_empty() {
+            m.insert("ext".to_string(), serde_json::json!(ext));
+        }
+        if let Some(browser) = cookies_from_browser_for_meta.as_deref() {
+            m.insert(
+                "cookies_from_browser".to_string(),
+                serde_json::json!(browser),
+            );
+        }
+        serde_json::Value::Object(m).to_string()
     };
     let total_length = meta
         .get("filesize")
