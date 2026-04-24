@@ -219,6 +219,10 @@ async function toggleWebPanel() {
   background-color: var(--aside-icon-hover-bg);
   color: var(--m3-on-surface);
 }
+.menu-button.active:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
 .top-menu {
   flex: 1;
 }
