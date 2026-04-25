@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** @fileoverview Add task dialog: dual-tab layout (URI / Torrent) with AutoAnimate list transitions. */
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -270,6 +270,23 @@ watch(
       }
       if (appStore.pendingCookie) {
         form.value.cookie = appStore.pendingCookie
+      }
+
+      // Auto-trigger yt-dlp parsing when the extension's video download
+      // flow forwarded a parse=video flag. The deep-link queues the video
+      // URL as a URI batch item; we pull from there directly so the parse
+      // does not race the (separate) async watch that flushes URIs into
+      // the textarea.
+      const videoUrl = appStore.pendingBatch.find((i) => i.kind === 'uri')?.payload ?? ''
+      if (appStore.pendingParseVideo && videoUrl && /^https?:\/\//i.test(videoUrl)) {
+        const cookie = form.value.cookie
+        const userAgent = form.value.userAgent
+        // Reset the flag immediately so re-opening the dialog manually
+        // does not re-trigger parsing.
+        appStore.pendingParseVideo = false
+        void nextTick().then(() => {
+          void videoFlow.tryParseUrl(videoUrl, cookie, userAgent, undefined)
+        })
       }
     }
   },
