@@ -10,7 +10,7 @@
 //!    DASH streams that aria2 cannot handle.
 //! 4. [`ytdlp_cancel_download`] — terminate an in-flight direct download.
 
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::aria2::client::Aria2State;
 use crate::error::AppError;
@@ -18,6 +18,39 @@ use crate::history::{HistoryDbState, HistoryRecord};
 use crate::ytdlp;
 use crate::ytdlp::client::YtdlpHeaders;
 use crate::ytdlp::{ParseResult, YtdlpState};
+
+const MAIN_WINDOW_LABEL: &str = "main";
+
+/// Best-effort bridge from the in-app WebView cookie jar to the on-disk
+/// yt-dlp cookie store. This keeps parse/download commands robust even when
+/// they are triggered before the AddTask form has an explicit Cookie header.
+fn refresh_webview_cookie_store(app: &tauri::AppHandle) {
+    let Some(store) = app.try_state::<crate::cookies::CookieStore>() else {
+        return;
+    };
+    let Some(webview) = app.get_webview(MAIN_WINDOW_LABEL) else {
+        return;
+    };
+
+    let cookies = match webview.cookies() {
+        Ok(cookies) => cookies,
+        Err(e) => {
+            log::debug!("ytdlp: webview cookie refresh skipped, read failed: {e}");
+            return;
+        }
+    };
+    match store.save_from_webview(cookies) {
+        Ok(written) => {
+            log::debug!(
+                "ytdlp: refreshed webview cookies for {} domain(s)",
+                written.len()
+            );
+        }
+        Err(e) => {
+            log::debug!("ytdlp: webview cookie refresh skipped, write failed: {e}");
+        }
+    }
+}
 
 /// Extracts `Cookie` and `User-Agent` from an aria2-shaped options JSON into
 /// a [`YtdlpHeaders`] for bot-detection bypass. Both fields are optional.
@@ -28,6 +61,12 @@ use crate::ytdlp::{ParseResult, YtdlpState};
 fn headers_from_options(options: &serde_json::Value) -> YtdlpHeaders {
     let user_agent = options
         .get("user-agent")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .map(String::from);
+
+    let referer = options
+        .get("referer")
         .and_then(|v| v.as_str())
         .filter(|s| !s.trim().is_empty())
         .map(String::from);
@@ -78,6 +117,7 @@ fn headers_from_options(options: &serde_json::Value) -> YtdlpHeaders {
     YtdlpHeaders {
         cookie,
         user_agent,
+        referer,
         cookies_from_browser: None,
     }
 }
@@ -95,10 +135,13 @@ pub async fn ytdlp_parse_url(
     cookie: Option<String>,
     user_agent: Option<String>,
     cookies_from_browser: Option<String>,
+    referer: Option<String>,
 ) -> Result<ParseResult, AppError> {
+    refresh_webview_cookie_store(&app);
     let headers = YtdlpHeaders {
         cookie,
         user_agent,
+        referer,
         cookies_from_browser,
     };
     ytdlp::client::parse_url(&app, &url, &headers).await
@@ -125,6 +168,7 @@ pub async fn ytdlp_download_via_aria2(
     options: serde_json::Value,
     cookies_from_browser: Option<String>,
 ) -> Result<String, AppError> {
+    refresh_webview_cookie_store(&app);
     // Resolve the format to get direct URL. Pass the caller's cookie/UA so
     // the re-parse can also bypass bot detection; browser cookies take
     // precedence for sites that invalidate exported cookies (YouTube).
@@ -136,16 +180,12 @@ pub async fn ytdlp_download_via_aria2(
         .formats
         .iter()
         .find(|f| f.format_id == format_id)
-        .ok_or_else(|| {
-            AppError::YtdlpParse(format!("format '{format_id}' not found in video"))
-        })?;
+        .ok_or_else(|| AppError::YtdlpParse(format!("format '{format_id}' not found in video")))?;
 
     let direct_url = format
         .url
         .as_ref()
-        .ok_or_else(|| {
-            AppError::YtdlpParse("selected format has no direct download URL".into())
-        })?
+        .ok_or_else(|| AppError::YtdlpParse("selected format has no direct download URL".into()))?
         .clone();
 
     // Start from the caller's options (dir, proxy, split, headers, etc.)
@@ -188,16 +228,18 @@ pub async fn ytdlp_download_direct(
     options: serde_json::Value,
     cookies_from_browser: Option<String>,
 ) -> Result<String, AppError> {
+    refresh_webview_cookie_store(&app);
     let dir = options
         .get("dir")
         .and_then(|v| v.as_str())
         .ok_or_else(|| AppError::YtdlpDownload("missing 'dir' in options".into()))?
         .to_string();
 
-    // yt-dlp handles title sanitization and extension selection via its output
-    // template, so we don't need to re-parse the video metadata here — the
-    // frontend already has it from the initial ytdlp_parse_url call.
-    let output_template = format!("{}/%(title)s.%(ext)s", dir.trim_end_matches(['/', '\\']));
+    // Use the title from the initial parse instead of yt-dlp's runtime
+    // `%(title)s` expansion. On Windows, sidecar log output can be decoded
+    // with the wrong code page after completion; a deterministic filename
+    // keeps history/UI state aligned with the actual output path.
+    let (output_template, display_name) = build_ytdlp_output_template(&dir, &title, &ext);
     let mut headers = headers_from_options(&options);
     headers.cookies_from_browser = cookies_from_browser;
     log::info!(
@@ -219,6 +261,7 @@ pub async fn ytdlp_download_direct(
         url.clone(),
         format_id,
         output_template,
+        Some(display_name.clone()),
         headers,
     )
     .await?;
@@ -230,11 +273,6 @@ pub async fn ytdlp_download_direct(
     // The stored `name` includes the extension so the UI's file-exists check
     // and "open folder" actions resolve to the actual on-disk file, which
     // yt-dlp writes as "<title>.<ext>".
-    let display_name = if ext.is_empty() {
-        title.clone()
-    } else {
-        format!("{title}.{ext}")
-    };
     let now = chrono::Utc::now().to_rfc3339();
     // Persist format_id + ext + cookies_from_browser in meta so a later
     // restart can re-run the sidecar with the same choice without needing
@@ -311,11 +349,30 @@ fn sanitize_filename(title: &str, ext: &str) -> String {
         })
         .collect();
     let trimmed = safe.trim().trim_end_matches('.');
+    let ext = ext.trim().trim_start_matches('.');
     if trimmed.is_empty() {
-        format!("video.{ext}")
+        if ext.is_empty() {
+            "video".to_string()
+        } else {
+            format!("video.{ext}")
+        }
+    } else if ext.is_empty() {
+        trimmed.to_string()
     } else {
         format!("{trimmed}.{ext}")
     }
+}
+
+fn build_ytdlp_output_template(dir: &str, title: &str, ext: &str) -> (String, String) {
+    let filename = sanitize_filename(title, ext);
+    let escaped_filename = filename.replace('%', "%%");
+    let base_dir = dir.trim_end_matches(['/', '\\']);
+    let output_template = if base_dir.is_empty() {
+        escaped_filename
+    } else {
+        format!("{base_dir}/{escaped_filename}")
+    };
+    (output_template, filename)
 }
 
 #[cfg(test)]
@@ -344,10 +401,24 @@ mod tests {
     }
 
     #[test]
+    fn sanitize_empty_ext_does_not_leave_trailing_dot() {
+        assert_eq!(sanitize_filename("My Video", ""), "My Video");
+    }
+
+    #[test]
     fn sanitize_path_separators() {
         assert_eq!(
             sanitize_filename("folder/sub\\file", "webm"),
             "folder_sub_file.webm"
         );
+    }
+
+    #[test]
+    fn output_template_uses_known_title_and_escapes_percent() {
+        let (template, filename) =
+            build_ytdlp_output_template("C:\\Downloads\\", "周杰伦: 100% 现场", "mp4");
+
+        assert_eq!(filename, "周杰伦_ 100% 现场.mp4");
+        assert_eq!(template, "C:\\Downloads/周杰伦_ 100%% 现场.mp4");
     }
 }

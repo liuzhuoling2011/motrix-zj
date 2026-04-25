@@ -43,10 +43,7 @@ impl SidecarVersionState {
     }
 
     fn snapshot(&self) -> HashMap<String, Option<String>> {
-        self.versions
-            .read()
-            .map(|r| r.clone())
-            .unwrap_or_default()
+        self.versions.read().map(|r| r.clone()).unwrap_or_default()
     }
 }
 

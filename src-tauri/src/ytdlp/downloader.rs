@@ -27,10 +27,10 @@ use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use tokio::sync::Mutex;
 
-use super::client::YtdlpHeaders;
+use super::client::{YtdlpHeaders, BILIBILI_TRANSIENT_MAX_ATTEMPTS};
 use super::types::{YtdlpLog, YtdlpProgress, YtdlpTaskStatus};
-use crate::history::HistoryDbState;
 use crate::error::AppError;
+use crate::history::HistoryDbState;
 
 /// Progress template passed to yt-dlp via `--progress-template`.
 ///
@@ -41,6 +41,7 @@ use crate::error::AppError;
 /// they can be parsed directly into `u64` without stripping unit suffixes like
 /// `MiB`.
 const PROGRESS_TEMPLATE: &str = "%(progress._percent_str)s %(progress.downloaded_bytes)d %(progress.total_bytes)d %(progress._speed_str)s %(progress._eta_str)s";
+const BILIBILI_DOWNLOAD_MAX_ATTEMPTS: u8 = BILIBILI_TRANSIENT_MAX_ATTEMPTS;
 
 /// Managed Tauri state tracking active yt-dlp download processes.
 ///
@@ -97,6 +98,7 @@ pub async fn start_download(
     url: String,
     format_id: String,
     output_path: String,
+    expected_filename: Option<String>,
     headers: YtdlpHeaders,
 ) -> Result<String, AppError> {
     let task_id = state.generate_task_id();
@@ -105,6 +107,10 @@ pub async fn start_download(
     args.extend([
         "-f".to_string(),
         format_id,
+        "--fragment-retries".to_string(),
+        "8".to_string(),
+        "--retry-sleep".to_string(),
+        "fragment:exp=1:10".to_string(),
         "--newline".to_string(),
         "--progress".to_string(),
         "--progress-template".to_string(),
@@ -141,120 +147,178 @@ pub async fn start_download(
     let processes = Arc::clone(&state.processes);
     let task_id_for_monitor = task_id.clone();
     let app_handle = app.clone();
+    let args_for_monitor = args.clone();
+    let url_for_monitor = args_for_monitor.last().cloned().unwrap_or_default();
+    let expected_filename_for_monitor = expected_filename.clone();
 
     tauri::async_runtime::spawn(async move {
         // Tracks the most recent filename yt-dlp announced via "[Merger]
         // Merging formats into ..." or "[download] Destination: ...".
         // Used on Terminated to align history.name with what's on disk.
         let mut last_filename: Option<String> = None;
+        let mut stderr_buffer = String::new();
+        let mut attempt: u8 = 1;
 
-        while let Some(event) = rx.recv().await {
-            match event {
-                CommandEvent::Stdout(line) => {
-                    let text = String::from_utf8_lossy(&line);
-                    let trimmed = text.trim();
-                    if trimmed.is_empty() {
-                        continue;
-                    }
-
-                    if let Some(name) = extract_destination(trimmed) {
-                        last_filename = Some(name);
-                    }
-
-                    if let Some(progress) = parse_progress_line(trimmed, &task_id_for_monitor) {
-                        if let Err(e) = app_handle.emit("ytdlp-progress", &progress) {
-                            log::warn!("failed to emit ytdlp-progress: {e}");
+        'attempts: loop {
+            while let Some(event) = rx.recv().await {
+                match event {
+                    CommandEvent::Stdout(line) => {
+                        let text = String::from_utf8_lossy(&line);
+                        let trimmed = text.trim();
+                        if trimmed.is_empty() {
+                            continue;
                         }
-                    } else {
-                        // Non-progress lines (status messages, warnings) — surface
-                        // them to the UI so the user knows what's happening when
-                        // the progress bar is still at 0%.
+
+                        if let Some(name) = extract_destination(trimmed) {
+                            last_filename = Some(name);
+                        }
+
+                        if let Some(progress) = parse_progress_line(trimmed, &task_id_for_monitor) {
+                            if let Err(e) = app_handle.emit("ytdlp-progress", &progress) {
+                                log::warn!("failed to emit ytdlp-progress: {e}");
+                            }
+                        } else {
+                            // Non-progress lines (status messages, warnings) — surface
+                            // them to the UI so the user knows what's happening when
+                            // the progress bar is still at 0%.
+                            let log_event = YtdlpLog {
+                                task_id: task_id_for_monitor.clone(),
+                                stream: "stdout".to_string(),
+                                line: trimmed.to_string(),
+                            };
+                            let _ = app_handle.emit("ytdlp-log", &log_event);
+                        }
+                    }
+                    CommandEvent::Stderr(line) => {
+                        let text = String::from_utf8_lossy(&line);
+                        let trimmed = text.trim();
+                        if trimmed.is_empty() {
+                            continue;
+                        }
+                        stderr_buffer.push_str(trimmed);
+                        stderr_buffer.push('\n');
+                        log::warn!("yt-dlp stderr [{task_id_for_monitor}]: {trimmed}");
                         let log_event = YtdlpLog {
                             task_id: task_id_for_monitor.clone(),
-                            stream: "stdout".to_string(),
+                            stream: "stderr".to_string(),
                             line: trimmed.to_string(),
                         };
                         let _ = app_handle.emit("ytdlp-log", &log_event);
                     }
-                }
-                CommandEvent::Stderr(line) => {
-                    let text = String::from_utf8_lossy(&line);
-                    let trimmed = text.trim();
-                    if trimmed.is_empty() {
-                        continue;
-                    }
-                    log::warn!("yt-dlp stderr [{task_id_for_monitor}]: {trimmed}");
-                    let log_event = YtdlpLog {
-                        task_id: task_id_for_monitor.clone(),
-                        stream: "stderr".to_string(),
-                        line: trimmed.to_string(),
-                    };
-                    let _ = app_handle.emit("ytdlp-log", &log_event);
-                }
-                CommandEvent::Terminated(payload) => {
-                    let exit_code = payload.code.unwrap_or(-1);
-                    log::info!(
+                    CommandEvent::Terminated(payload) => {
+                        let exit_code = payload.code.unwrap_or(-1);
+                        log::info!(
                         "yt-dlp download terminated: task_id={task_id_for_monitor} exit={exit_code}"
                     );
 
-                    let status = if exit_code == 0 {
-                        YtdlpTaskStatus::Complete
-                    } else {
-                        YtdlpTaskStatus::Error
-                    };
-
-                    let final_progress = YtdlpProgress {
-                        task_id: task_id_for_monitor.clone(),
-                        status,
-                        percent: if exit_code == 0 { 100.0 } else { 0.0 },
-                        downloaded_bytes: None,
-                        total_bytes: None,
-                        speed: None,
-                        eta: None,
-                    };
-
-                    if let Err(e) = app_handle.emit("ytdlp-progress", &final_progress) {
-                        log::warn!("failed to emit final ytdlp-progress: {e}");
-                    }
-
-                    // Update the corresponding history record (no-op if
-                    // ytdlp_download_direct didn't create one yet).
-                    if let Some(history_state) = app_handle.try_state::<HistoryDbState>() {
-                        let status_str = if exit_code == 0 { "complete" } else { "error" };
-                        let completed_at = chrono::Utc::now().to_rfc3339();
-                        if let Err(e) = history_state
-                            .0
-                            .update_status(&task_id_for_monitor, status_str, Some(&completed_at))
-                            .await
+                        if exit_code != 0
+                            && attempt < BILIBILI_DOWNLOAD_MAX_ATTEMPTS
+                            && is_retryable_bilibili_error(&url_for_monitor, &stderr_buffer)
                         {
-                            log::warn!("failed to update ytdlp history status: {e}");
+                            log::warn!(
+                            "yt-dlp Bilibili download hit a transient error on attempt {attempt}/{BILIBILI_DOWNLOAD_MAX_ATTEMPTS}; retrying"
+                        );
+                            {
+                                let mut map = processes.lock().await;
+                                map.remove(&task_id_for_monitor);
+                            }
+                            tokio::time::sleep(std::time::Duration::from_millis(1_500)).await;
+
+                            let retry_sidecar = match app_handle.shell().sidecar("motrixnext-ytdlp")
+                            {
+                                Ok(command) => command
+                                    .env("PYTHONIOENCODING", "utf-8")
+                                    .env("PYTHONUTF8", "1")
+                                    .args(&args_for_monitor),
+                                Err(e) => {
+                                    log::warn!("failed to create yt-dlp retry sidecar: {e}");
+                                    break;
+                                }
+                            };
+                            match retry_sidecar.spawn() {
+                                Ok((retry_rx, retry_child)) => {
+                                    attempt += 1;
+                                    stderr_buffer.clear();
+                                    last_filename = None;
+                                    rx = retry_rx;
+                                    let retry_pid = retry_child.pid();
+                                    log::info!(
+                                    "yt-dlp download retry started: task_id={task_id_for_monitor} attempt={attempt} pid={retry_pid}"
+                                );
+                                    let mut map = processes.lock().await;
+                                    map.insert(task_id_for_monitor.clone(), retry_pid);
+                                    continue 'attempts;
+                                }
+                                Err(e) => {
+                                    log::warn!("failed to spawn yt-dlp retry: {e}");
+                                    break;
+                                }
+                            }
                         }
 
-                        // Sync stored filename with what yt-dlp wrote so the UI's
-                        // file-exists check resolves correctly. yt-dlp's own
-                        // sanitization may differ from our pre-computed name.
-                        if let Some(path) = last_filename.as_ref() {
-                            if let Some(basename) = std::path::Path::new(path)
-                                .file_name()
-                                .and_then(|s| s.to_str())
+                        let status = if exit_code == 0 {
+                            YtdlpTaskStatus::Complete
+                        } else {
+                            YtdlpTaskStatus::Error
+                        };
+
+                        let final_progress = YtdlpProgress {
+                            task_id: task_id_for_monitor.clone(),
+                            status,
+                            percent: if exit_code == 0 { 100.0 } else { 0.0 },
+                            downloaded_bytes: None,
+                            total_bytes: None,
+                            speed: None,
+                            eta: None,
+                        };
+
+                        if let Err(e) = app_handle.emit("ytdlp-progress", &final_progress) {
+                            log::warn!("failed to emit final ytdlp-progress: {e}");
+                        }
+
+                        // Update the corresponding history record (no-op if
+                        // ytdlp_download_direct didn't create one yet).
+                        if let Some(history_state) = app_handle.try_state::<HistoryDbState>() {
+                            let status_str = if exit_code == 0 { "complete" } else { "error" };
+                            let completed_at = chrono::Utc::now().to_rfc3339();
+                            if let Err(e) = history_state
+                                .0
+                                .update_status(
+                                    &task_id_for_monitor,
+                                    status_str,
+                                    Some(&completed_at),
+                                )
+                                .await
                             {
+                                log::warn!("failed to update ytdlp history status: {e}");
+                            }
+
+                            // Sync stored filename with what yt-dlp wrote so the UI's
+                            // file-exists check resolves correctly. If the sidecar
+                            // log line was decoded with the wrong Windows code page,
+                            // keep the deterministic filename passed by the caller.
+                            if let Some(name) = completion_history_name(
+                                last_filename.as_deref(),
+                                expected_filename_for_monitor.as_deref(),
+                            ) {
                                 if let Err(e) = history_state
                                     .0
-                                    .update_name(&task_id_for_monitor, basename)
+                                    .update_name(&task_id_for_monitor, &name)
                                     .await
                                 {
                                     log::warn!("failed to sync ytdlp filename: {e}");
                                 }
                             }
                         }
-                    }
 
-                    let mut map = processes.lock().await;
-                    map.remove(&task_id_for_monitor);
-                    break;
+                        let mut map = processes.lock().await;
+                        map.remove(&task_id_for_monitor);
+                        break 'attempts;
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
+            break;
         }
 
         // Fallback cleanup: if the event channel was dropped (e.g. sidecar
@@ -273,6 +337,17 @@ pub async fn start_download(
     });
 
     Ok(task_id)
+}
+
+fn is_retryable_bilibili_error(target_url: &str, stderr: &str) -> bool {
+    let url = target_url.to_ascii_lowercase();
+    let is_bilibili = url.contains("bilibili.com") || url.contains("b23.tv");
+    is_bilibili
+        && (stderr.contains("HTTP Error 412")
+            || stderr.contains("Precondition Failed")
+            || stderr.contains("ConnectionResetError")
+            || stderr.contains("Connection aborted")
+            || stderr.contains("TransportError"))
 }
 
 /// Cancels an active yt-dlp download identified by `task_id`.
@@ -376,6 +451,25 @@ fn extract_destination(line: &str) -> Option<String> {
     None
 }
 
+fn is_suspicious_decoded_filename(name: &str) -> bool {
+    name.contains('\u{FFFD}')
+}
+
+fn completion_history_name(
+    destination: Option<&str>,
+    fallback_name: Option<&str>,
+) -> Option<String> {
+    let basename = destination
+        .and_then(|path| std::path::Path::new(path).file_name())
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.trim().is_empty())
+        .filter(|name| !is_suspicious_decoded_filename(name));
+
+    basename
+        .or_else(|| fallback_name.filter(|name| !name.trim().is_empty()))
+        .map(str::to_string)
+}
+
 /// Parses a yt-dlp progress line emitted by `--progress-template`. Splits on
 /// whitespace and reads percent / downloaded / total / speed / eta from fixed
 /// fields.
@@ -442,8 +536,8 @@ mod tests {
     fn parse_percentage_line() {
         // Format: percent, downloaded_bytes (int), total_bytes (int), speed, eta
         let line = "45.2% 129394278 288164250 2.5MiB/s 00:32";
-        let progress = parse_progress_line(line, "ytdlp-1")
-            .expect("percentage progress line must parse");
+        let progress =
+            parse_progress_line(line, "ytdlp-1").expect("percentage progress line must parse");
         assert_eq!(progress.task_id, "ytdlp-1");
         assert_eq!(progress.status, YtdlpTaskStatus::Downloading);
         assert!(
@@ -468,6 +562,29 @@ mod tests {
             "merger should report 100%, got {}",
             progress.percent
         );
+    }
+
+    #[test]
+    fn completion_history_name_falls_back_when_destination_is_mojibake() {
+        let name = completion_history_name(
+            Some("C:\\Downloads\\���غ���.mp4"),
+            Some("探秘全球最能吃辣城市，江西萍乡！到底有多辣？.mp4"),
+        );
+
+        assert_eq!(
+            name.as_deref(),
+            Some("探秘全球最能吃辣城市，江西萍乡！到底有多辣？.mp4")
+        );
+    }
+
+    #[test]
+    fn completion_history_name_prefers_valid_destination_basename() {
+        let name = completion_history_name(
+            Some("C:\\Downloads\\yt-dlp sanitized name.mp4"),
+            Some("Original Name.mp4"),
+        );
+
+        assert_eq!(name.as_deref(), Some("yt-dlp sanitized name.mp4"));
     }
 
     #[test]
@@ -502,6 +619,26 @@ mod tests {
         assert_eq!(progress.total_bytes, Some(524_288_000));
         assert_eq!(progress.speed.as_deref(), Some("10.0MiB/s"));
         assert_eq!(progress.eta.as_deref(), Some("00:00"));
+    }
+
+    #[test]
+    fn bilibili_412_download_error_is_retryable() {
+        assert!(is_retryable_bilibili_error(
+            "https://www.bilibili.com/video/BV1LRwyz3EcN/",
+            "ERROR: Unable to download JSON metadata: HTTP Error 412: Precondition Failed"
+        ));
+        assert!(is_retryable_bilibili_error(
+            "https://www.bilibili.com/video/BV1LRwyz3EcN/",
+            "ERROR: Unable to download webpage: ('Connection aborted.', ConnectionResetError(10054))"
+        ));
+        assert!(!is_retryable_bilibili_error(
+            "https://example.com/video",
+            "ERROR: HTTP Error 412: Precondition Failed"
+        ));
+        assert!(!is_retryable_bilibili_error(
+            "https://www.bilibili.com/video/BV1LRwyz3EcN/",
+            "ERROR: HTTP Error 403: Forbidden"
+        ));
     }
 
     #[test]

@@ -12,12 +12,14 @@ export async function parseUrl(
   cookie?: string,
   userAgent?: string,
   cookiesFromBrowser?: string,
+  referer?: string,
 ): Promise<ParseResult> {
   return invoke<ParseResult>('ytdlp_parse_url', {
     url,
     cookie: cookie?.trim() ? cookie : null,
     userAgent: userAgent?.trim() ? userAgent : null,
     cookiesFromBrowser: cookiesFromBrowser?.trim() ? cookiesFromBrowser : null,
+    referer: referer?.trim() ? referer : null,
   })
 }
 
