@@ -68,6 +68,8 @@ pub struct AddRequest {
     pub url: String,
     pub referer: Option<String>,
     pub cookie: Option<String>,
+    #[serde(default, rename = "parseVideo")]
+    pub parse_video: Option<bool>,
 }
 
 /// POST /add response.
@@ -630,6 +632,24 @@ mod tests {
         assert_eq!(req.url, "https://example.com/file.zip");
         assert!(req.referer.is_none());
         assert!(req.cookie.is_none());
+    }
+
+    #[test]
+    fn deserialize_add_request_with_parse_video() {
+        let json = serde_json::json!({
+            "url": "https://example.com/video",
+            "parseVideo": true
+        });
+        let req: AddRequest = serde_json::from_value(json).expect("deserialize");
+        assert_eq!(req.url, "https://example.com/video");
+        assert_eq!(req.parse_video, Some(true));
+    }
+
+    #[test]
+    fn deserialize_add_request_without_parse_video_defaults_to_none() {
+        let json = serde_json::json!({ "url": "https://example.com/file.zip" });
+        let req: AddRequest = serde_json::from_value(json).expect("deserialize");
+        assert!(req.parse_video.is_none());
     }
 
     #[test]
