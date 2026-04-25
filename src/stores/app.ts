@@ -66,6 +66,9 @@ export const useAppStore = defineStore('app', () => {
   const pendingReferer = ref('')
   /** Cookie from the most recent deep-link, forwarded to aria2 as a Cookie header. */
   const pendingCookie = ref('')
+  /** Set to true when the most recent deep-link includes `parse=video`, signaling
+   *  the AddTask dialog to auto-trigger yt-dlp parsing on next mount. */
+  const pendingParseVideo = ref(false)
   const progress = ref(0)
   const pendingUpdate = ref<TauriUpdate | null>(null)
   const engineRestarting = ref(true)
@@ -154,6 +157,7 @@ export const useAppStore = defineStore('app', () => {
     pendingBatch.value = []
     pendingReferer.value = ''
     pendingCookie.value = ''
+    pendingParseVideo.value = false
   }
 
   function updateAddTaskOptions(options: Aria2EngineOptions = {}) {
@@ -269,6 +273,10 @@ export const useAppStore = defineStore('app', () => {
               if (cookie) {
                 pendingCookie.value = cookie
               }
+              const parseFlag = parsed.searchParams.get('parse')
+              if (parseFlag === 'video') {
+                pendingParseVideo.value = true
+              }
 
               // Auto-submit: bypass AddTask dialog for URI types when enabled.
               // Torrent/metalink are excluded — they require a fetch→parse→
@@ -369,6 +377,7 @@ export const useAppStore = defineStore('app', () => {
     addTaskOptions,
     pendingReferer,
     pendingCookie,
+    pendingParseVideo,
     progress,
     pendingUpdate,
     engineRestarting,
