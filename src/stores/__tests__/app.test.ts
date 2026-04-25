@@ -520,6 +520,24 @@ describe('useAppStore', () => {
       expect(store.pendingReferer).toBe('https://pan.quark.cn')
       expect(store.pendingCookie).toBe('__puus=abc; __pus=def')
     })
+
+    it('sets pendingParseVideo=true when motrixnext://new has parse=video', () => {
+      const store = useAppStore()
+      store.handleDeepLinkUrls(['motrixnext://new?url=https%3A%2F%2Fexample.com%2Fv&parse=video'])
+      expect(store.pendingParseVideo).toBe(true)
+    })
+
+    it('leaves pendingParseVideo=false when parse query is absent', () => {
+      const store = useAppStore()
+      store.handleDeepLinkUrls(['motrixnext://new?url=https%3A%2F%2Fexample.com%2Fv'])
+      expect(store.pendingParseVideo).toBe(false)
+    })
+
+    it('leaves pendingParseVideo=false when parse value is not "video"', () => {
+      const store = useAppStore()
+      store.handleDeepLinkUrls(['motrixnext://new?url=https%3A%2F%2Fexample.com%2Fv&parse=audio'])
+      expect(store.pendingParseVideo).toBe(false)
+    })
   })
 
   // ── autoSubmitFromExtension ───────────────────────────────────────
