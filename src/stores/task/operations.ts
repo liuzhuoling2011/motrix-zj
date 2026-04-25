@@ -12,11 +12,19 @@ import { TASK_STATUS } from '@shared/constants'
 import { checkTaskIsBT, checkTaskIsSeeder } from '@shared/utils'
 import { logger } from '@shared/logger'
 import { buildBtCompletionRecord } from '@/composables/useTaskLifecycle'
-import { cleanupAria2ControlFile } from '@/composables/useFileDelete'
+import { cleanupAria2ControlFile, deleteTaskFiles } from '@/composables/useFileDelete'
 import { cleanupAria2MetadataFiles } from '@/composables/useDownloadCleanup'
 import { useHistoryStore } from '@/stores/history'
 import type { Aria2Task, TaskApi } from '@shared/types'
 import type { Ref } from 'vue'
+
+const REMOVE_RESULT_RETRY_ATTEMPTS = 5
+const REMOVE_RESULT_RETRY_DELAY_MS = 120
+
+export interface MagnetSelectionCleanupTarget {
+  metadataGid: string
+  downloadGid: string
+}
 
 interface TaskOperationsDeps {
   api: TaskApi
@@ -24,10 +32,33 @@ interface TaskOperationsDeps {
   currentTaskGid: Ref<string>
   hideTaskDetail: () => void
   fetchList: () => Promise<void>
+  removeResultRetryDelayMs?: number
 }
 
 export function createTaskOperations(deps: TaskOperationsDeps) {
   const { api, taskList, currentTaskGid, hideTaskDetail, fetchList } = deps
+  const removeResultRetryDelayMs = deps.removeResultRetryDelayMs ?? REMOVE_RESULT_RETRY_DELAY_MS
+
+  function sleep(ms: number): Promise<void> {
+    if (ms <= 0) return Promise.resolve()
+    return new Promise((resolve) => setTimeout(resolve, ms))
+  }
+
+  async function removeTaskRecordWithRetry(gid: string, scope: string): Promise<boolean> {
+    for (let attempt = 1; attempt <= REMOVE_RESULT_RETRY_ATTEMPTS; attempt += 1) {
+      try {
+        await api.removeTaskRecord({ gid })
+        return true
+      } catch (e) {
+        if (attempt === REMOVE_RESULT_RETRY_ATTEMPTS) {
+          logger.debug(scope, `removeTaskRecord gid=${gid} skipped after ${attempt} attempts: ${e}`)
+          return false
+        }
+        await sleep(removeResultRetryDelayMs)
+      }
+    }
+    return false
+  }
 
   async function removeTask(task: Aria2Task) {
     if (task.gid === currentTaskGid.value) hideTaskDetail()
@@ -41,6 +72,84 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
         logger.debug('TaskOps.removeTask', `removeTaskRecord gid=${task.gid} skipped: ${e}`)
       }
       logger.info('TaskOps.removeTask', `gid=${task.gid}`)
+    } finally {
+      await fetchList()
+      await api.saveSession()
+    }
+  }
+
+  async function fetchTaskForCleanup(gid: string): Promise<Aria2Task | null> {
+    try {
+      return await api.fetchTaskItem({ gid })
+    } catch (e) {
+      logger.debug('TaskOps.cancelMagnetSelection', `fetchTaskItem gid=${gid} skipped: ${e}`)
+      return null
+    }
+  }
+
+  async function cleanupMagnetSelectionFiles(task: Aria2Task): Promise<void> {
+    try {
+      await cleanupAria2ControlFile(task)
+    } catch (e) {
+      logger.debug('TaskOps.cancelMagnetSelection', `cleanupControlFile gid=${task.gid} skipped: ${e}`)
+    }
+
+    try {
+      await deleteTaskFiles(task)
+    } catch (e) {
+      logger.debug('TaskOps.cancelMagnetSelection', `deleteTaskFiles gid=${task.gid} skipped: ${e}`)
+    }
+
+    if (task.dir && task.infoHash) {
+      try {
+        await cleanupAria2MetadataFiles(task.dir, task.infoHash)
+      } catch (e) {
+        logger.debug('TaskOps.cancelMagnetSelection', `cleanupMetadata gid=${task.gid} skipped: ${e}`)
+      }
+    }
+  }
+
+  async function cancelMagnetSelectionDownload(target: MagnetSelectionCleanupTarget) {
+    const { downloadGid, metadataGid } = target
+    if (downloadGid === currentTaskGid.value) hideTaskDetail()
+
+    try {
+      const task = await fetchTaskForCleanup(downloadGid)
+
+      try {
+        await api.removeTask({ gid: downloadGid })
+      } catch (e) {
+        logger.debug('TaskOps.cancelMagnetSelection', `removeTask gid=${downloadGid} skipped: ${e}`)
+      }
+
+      const resultGids = new Set<string>([downloadGid])
+      if (metadataGid) resultGids.add(metadataGid)
+      if (task?.following) resultGids.add(task.following)
+
+      for (const gid of resultGids) {
+        await removeTaskRecordWithRetry(gid, 'TaskOps.cancelMagnetSelection')
+      }
+
+      const historyStore = useHistoryStore()
+      for (const gid of resultGids) {
+        try {
+          await historyStore.removeRecord(gid)
+        } catch (e) {
+          logger.debug('TaskOps.cancelMagnetSelection', `removeHistory gid=${gid} skipped: ${e}`)
+        }
+      }
+      try {
+        await historyStore.removeBirthRecords([...resultGids])
+      } catch (e) {
+        logger.debug('TaskOps.cancelMagnetSelection', `removeBirthRecords skipped: ${e}`)
+      }
+
+      if (task) await cleanupMagnetSelectionFiles(task)
+
+      logger.info(
+        'TaskOps.cancelMagnetSelection',
+        `downloadGid=${downloadGid} metadataGid=${metadataGid || task?.following || 'n/a'}`,
+      )
     } finally {
       await fetchList()
       await api.saveSession()
@@ -243,6 +352,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
 
   return {
     removeTask,
+    cancelMagnetSelectionDownload,
     pauseTask,
     resumeTask,
     pauseAllTask,

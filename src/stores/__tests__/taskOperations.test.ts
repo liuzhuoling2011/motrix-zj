@@ -19,6 +19,7 @@ const mockAddRecord = vi.fn().mockResolvedValue(undefined)
 const mockRemoveRecord = vi.fn().mockResolvedValue(undefined)
 const mockClearRecords = vi.fn().mockResolvedValue(undefined)
 const mockRemoveByInfoHash = vi.fn().mockResolvedValue(undefined)
+const mockRemoveBirthRecords = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('@/stores/history', () => ({
   useHistoryStore: () => ({
@@ -26,15 +27,18 @@ vi.mock('@/stores/history', () => ({
     removeRecord: mockRemoveRecord,
     clearRecords: mockClearRecords,
     removeByInfoHash: mockRemoveByInfoHash,
+    removeBirthRecords: mockRemoveBirthRecords,
   }),
 }))
 
 // ── Mock cleanupAria2ControlFile + cleanupAria2MetadataFiles ────────
 const mockCleanupAria2ControlFile = vi.fn().mockResolvedValue(undefined)
+const mockDeleteTaskFiles = vi.fn().mockResolvedValue(undefined)
 const mockCleanupAria2MetadataFiles = vi.fn().mockResolvedValue(false)
 
 vi.mock('@/composables/useFileDelete', () => ({
   cleanupAria2ControlFile: (...args: unknown[]) => mockCleanupAria2ControlFile(...args),
+  deleteTaskFiles: (...args: unknown[]) => mockDeleteTaskFiles(...args),
 }))
 
 vi.mock('@/composables/useDownloadCleanup', () => ({
@@ -155,6 +159,75 @@ describe('removeTask', () => {
   it('still refreshes list even when api.removeTask fails', async () => {
     ;(api.removeTask as Mock).mockRejectedValueOnce(new Error('network'))
     await expect(ops.removeTask(makeTask())).rejects.toThrow('network')
+    expect(deps.fetchList).toHaveBeenCalledOnce()
+    expect(api.saveSession).toHaveBeenCalledOnce()
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════
+// cancelMagnetSelectionDownload
+// ═══════════════════════════════════════════════════════════════════
+
+describe('cancelMagnetSelectionDownload', () => {
+  let api: TaskApi
+  let deps: ReturnType<typeof createDeps> & { removeResultRetryDelayMs: number }
+  let ops: ReturnType<typeof createTaskOperations>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    api = createMockApi()
+    deps = { ...createDeps(api), removeResultRetryDelayMs: 0 }
+    ops = createTaskOperations(deps)
+  })
+
+  it('removes the generated BT task, retries result purge, purges metadata parent, and cleans artifacts', async () => {
+    const childTask = makeTask({
+      gid: 'child-gid',
+      status: TASK_STATUS.PAUSED,
+      following: 'metadata-gid',
+      dir: '/downloads',
+      infoHash: 'abcdef1234567890abcdef1234567890abcdef12',
+      bittorrent: { info: { name: 'Movie' } },
+      files: [
+        { index: '1', path: '/downloads/Movie/video.mkv', length: '1024', completedLength: '0', selected: 'true' },
+      ],
+    })
+    ;(api.fetchTaskItem as Mock).mockResolvedValueOnce(childTask)
+    ;(api.removeTaskRecord as Mock)
+      .mockRejectedValueOnce(new Error('download result not ready'))
+      .mockResolvedValueOnce('OK')
+      .mockResolvedValueOnce('OK')
+
+    await ops.cancelMagnetSelectionDownload({ metadataGid: 'metadata-gid', downloadGid: 'child-gid' })
+
+    expect(api.fetchTaskItem).toHaveBeenCalledWith({ gid: 'child-gid' })
+    expect(api.removeTask).toHaveBeenCalledWith({ gid: 'child-gid' })
+    expect(api.removeTaskRecord).toHaveBeenNthCalledWith(1, { gid: 'child-gid' })
+    expect(api.removeTaskRecord).toHaveBeenNthCalledWith(2, { gid: 'child-gid' })
+    expect(api.removeTaskRecord).toHaveBeenNthCalledWith(3, { gid: 'metadata-gid' })
+    expect(mockCleanupAria2ControlFile).toHaveBeenCalledWith(childTask)
+    expect(mockDeleteTaskFiles).toHaveBeenCalledWith(childTask)
+    expect(mockCleanupAria2MetadataFiles).toHaveBeenCalledWith('/downloads', 'abcdef1234567890abcdef1234567890abcdef12')
+    expect(mockRemoveRecord).toHaveBeenCalledWith('child-gid')
+    expect(mockRemoveRecord).toHaveBeenCalledWith('metadata-gid')
+    expect(mockRemoveBirthRecords).toHaveBeenCalledWith(['child-gid', 'metadata-gid'])
+    expect(deps.fetchList).toHaveBeenCalledOnce()
+    expect(api.saveSession).toHaveBeenCalledOnce()
+  })
+
+  it('still purges known gids and saves the session when the child task can no longer be fetched', async () => {
+    ;(api.fetchTaskItem as Mock).mockRejectedValueOnce(new Error('GID not found'))
+
+    await ops.cancelMagnetSelectionDownload({ metadataGid: 'metadata-gid', downloadGid: 'child-gid' })
+
+    expect(api.removeTask).toHaveBeenCalledWith({ gid: 'child-gid' })
+    expect(api.removeTaskRecord).toHaveBeenCalledWith({ gid: 'child-gid' })
+    expect(api.removeTaskRecord).toHaveBeenCalledWith({ gid: 'metadata-gid' })
+    expect(mockRemoveRecord).toHaveBeenCalledWith('child-gid')
+    expect(mockRemoveRecord).toHaveBeenCalledWith('metadata-gid')
+    expect(mockRemoveBirthRecords).toHaveBeenCalledWith(['child-gid', 'metadata-gid'])
+    expect(mockCleanupAria2ControlFile).not.toHaveBeenCalled()
+    expect(mockDeleteTaskFiles).not.toHaveBeenCalled()
     expect(deps.fetchList).toHaveBeenCalledOnce()
     expect(api.saveSession).toHaveBeenCalledOnce()
   })

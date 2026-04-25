@@ -339,6 +339,8 @@ export const useTaskStore = defineStore('task', () => {
     getTaskOption,
     changeTaskOption,
     removeTask: (task: Aria2Task) => taskOps.removeTask(task),
+    cancelMagnetSelectionDownload: (target: { metadataGid: string; downloadGid: string }) =>
+      taskOps.cancelMagnetSelectionDownload(target),
     pauseTask: (task: Aria2Task) => taskOps.pauseTask(task),
     resumeTask: (task: Aria2Task) => taskOps.resumeTask(task),
     pauseAllTask: () => taskOps.pauseAllTask(),

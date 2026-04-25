@@ -52,6 +52,11 @@ import { useAppEvents } from '@/composables/useAppEvents'
 import { loadAddedAtFromRecords } from '@/composables/useTaskOrder'
 import { resolveArchiveAction } from '@shared/utils/autoArchive'
 
+interface MagnetSelectionSession {
+  metadataGid: string
+  downloadGid: string
+}
+
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -167,7 +172,7 @@ async function showInFolderFromNotification(task: Aria2Task) {
 // ── Magnet file selection state (app-level) ─────────────────────────
 const magnetSelectVisible = ref(false)
 const magnetSelectFiles = ref<MagnetFileItem[]>([])
-const magnetSelectGid = ref('')
+const magnetSelectionSession = ref<MagnetSelectionSession | null>(null)
 const magnetSelectName = ref('')
 
 const { setupListeners } = useAppEvents({
@@ -318,7 +323,7 @@ function startMagnetPoll() {
         appStore.pendingMagnetGids = appStore.pendingMagnetGids.filter((g) => g !== gid)
         const parsed = parseFilesForSelection(realFiles)
         magnetSelectFiles.value = parsed
-        magnetSelectGid.value = targetGid
+        magnetSelectionSession.value = { metadataGid: gid, downloadGid: targetGid }
         magnetSelectName.value = task.bittorrent?.info?.name || parsed[0]?.name || 'Magnet Download'
         magnetSelectVisible.value = true
         return // Process one magnet at a time
@@ -335,7 +340,7 @@ function startMagnetPoll() {
 
 async function handleMagnetConfirm(selectedIndices: number[]) {
   magnetSelectVisible.value = false
-  const gid = magnetSelectGid.value
+  const gid = magnetSelectionSession.value?.downloadGid
   if (!gid) return
 
   try {
@@ -357,6 +362,10 @@ async function handleMagnetConfirm(selectedIndices: number[]) {
   } catch (e) {
     logger.error('MainLayout.magnetConfirm', e)
     message.error(t('task.magnet-select-fail') || 'Failed to configure download')
+  } finally {
+    magnetSelectionSession.value = null
+    magnetSelectFiles.value = []
+    magnetSelectName.value = ''
   }
 
   // Resume polling for any remaining pending magnet GIDs.
@@ -368,12 +377,14 @@ async function handleMagnetConfirm(selectedIndices: number[]) {
 
 async function handleMagnetCancel() {
   magnetSelectVisible.value = false
-  const gid = magnetSelectGid.value
-  if (!gid) return
+  const session = magnetSelectionSession.value
+  magnetSelectionSession.value = null
+  magnetSelectFiles.value = []
+  magnetSelectName.value = ''
+  if (!session) return
 
   try {
-    const task = await taskStore.fetchTaskStatus(gid)
-    await taskStore.removeTask(task)
+    await taskStore.cancelMagnetSelectionDownload(session)
   } catch (e) {
     // Task may already be removed — log at debug level for diagnostics
     logger.debug('MainLayout.magnetCancel', e)

@@ -10,6 +10,7 @@ import type { HistoryRecord } from '@shared/types'
 
 // ── Mock: in-memory SQLite substitute ────────────────────────────────
 let rows: HistoryRecord[] = []
+let birthRows: Array<{ gid: string; added_at: string }> = []
 let nextId = 1
 let executedQueries: string[] = []
 
@@ -17,6 +18,14 @@ let executedQueries: string[] = []
 function mockExecute(query: string, params: unknown[]): { rowsAffected: number } {
   executedQueries.push(query.trim())
   const q = query.trim().toUpperCase()
+
+  if (q.startsWith('INSERT') && q.includes('TASK_BIRTH')) {
+    const [gid, addedAt] = params as [string, string]
+    if (!birthRows.some((r) => r.gid === gid)) {
+      birthRows.push({ gid, added_at: addedAt })
+    }
+    return { rowsAffected: 1 }
+  }
 
   if (q.startsWith('INSERT') || q.startsWith('REPLACE')) {
     const [gid, name, uri, dir, totalLength, status, taskType, addedAt, completedAt, meta] = params as [
@@ -56,8 +65,20 @@ function mockExecute(query: string, params: unknown[]): { rowsAffected: number }
   }
 
   if (q.startsWith('DELETE')) {
+    if (q.includes('TASK_BIRTH')) {
+      const beforeBirths = birthRows.length
+      const gids = q.includes('SELECT GID FROM DOWNLOAD_HISTORY WHERE NAME LIKE')
+        ? rows.filter((r) => r.name.startsWith('[METADATA]')).map((r) => r.gid)
+        : (params as string[])
+      const gidSet = new Set(gids)
+      birthRows = birthRows.filter((r) => !gidSet.has(r.gid))
+      return { rowsAffected: beforeBirths - birthRows.length }
+    }
+
     const before = rows.length
-    if (q.includes('GID IN')) {
+    if (q.includes('WHERE NAME LIKE')) {
+      rows = rows.filter((r) => !r.name.startsWith('[METADATA]'))
+    } else if (q.includes('GID IN')) {
       const gids = params as string[]
       const gidSet = new Set(gids)
       rows = rows.filter((r) => !gidSet.has(r.gid))
@@ -88,6 +109,10 @@ function mockSelect(query: string, params: unknown[]): unknown[] {
   // PRAGMA integrity_check returns [{integrity_check: 'ok'}]
   if (q.includes('INTEGRITY_CHECK')) {
     return [{ integrity_check: 'ok' }]
+  }
+
+  if (q.includes('TASK_BIRTH')) {
+    return [...birthRows]
   }
 
   let result: HistoryRecord[]
@@ -173,6 +198,7 @@ describe('HistoryStore', () => {
 
   beforeEach(async () => {
     rows = []
+    birthRows = []
     nextId = 1
     executedQueries = []
     setActivePinia(createPinia())
@@ -346,6 +372,62 @@ describe('HistoryStore', () => {
 
     it('does not throw when removing non-existent GID', async () => {
       await expect(store.removeRecord('nonexistent')).resolves.not.toThrow()
+    })
+  })
+
+  // ── removeBirthRecords ────────────────────────────────────────────
+
+  describe('removeBirthRecords', () => {
+    it('removes only the requested task birth records', async () => {
+      await store.recordTaskBirth('metadata-gid', '2026-04-25T00:00:00Z')
+      await store.recordTaskBirth('child-gid', '2026-04-25T00:00:01Z')
+      await store.recordTaskBirth('unrelated-gid', '2026-04-25T00:00:02Z')
+
+      await store.removeBirthRecords(['metadata-gid', 'child-gid'])
+
+      const births = await store.loadBirthRecords()
+      expect(births).toEqual([{ gid: 'unrelated-gid', added_at: '2026-04-25T00:00:02Z' }])
+    })
+
+    it('does nothing for an empty gid list', async () => {
+      await store.recordTaskBirth('kept-gid', '2026-04-25T00:00:00Z')
+
+      await store.removeBirthRecords([])
+
+      expect(await store.loadBirthRecords()).toEqual([{ gid: 'kept-gid', added_at: '2026-04-25T00:00:00Z' }])
+    })
+  })
+
+  // ── removeMetadataRecords ─────────────────────────────────────────
+
+  describe('removeMetadataRecords', () => {
+    it('removes legacy metadata history rows and their task birth records only', async () => {
+      await store.addRecord(makeRecord({ gid: 'metadata-gid', name: '[METADATA]KNOPPIX_V9.1CD', task_type: 'bt' }))
+      await store.addRecord(makeRecord({ gid: 'real-gid', name: 'KNOPPIX_V9.1CD.iso', task_type: 'bt' }))
+      await store.recordTaskBirth('metadata-gid', '2026-04-25T00:00:00Z')
+      await store.recordTaskBirth('real-gid', '2026-04-25T00:00:01Z')
+
+      await store.removeMetadataRecords()
+
+      expect(await store.getRecords()).toEqual([
+        expect.objectContaining({ gid: 'real-gid', name: 'KNOPPIX_V9.1CD.iso' }),
+      ])
+      expect(await store.loadBirthRecords()).toEqual([{ gid: 'real-gid', added_at: '2026-04-25T00:00:01Z' }])
+    })
+
+    it('runs during database initialization to sanitize existing dirty rows', async () => {
+      await store.addRecord(makeRecord({ gid: 'metadata-gid', name: '[METADATA]KNOPPIX_V9.1CD', task_type: 'bt' }))
+      await store.addRecord(makeRecord({ gid: 'real-gid', name: 'KNOPPIX_V9.1CD.iso', task_type: 'bt' }))
+      await store.recordTaskBirth('metadata-gid', '2026-04-25T00:00:00Z')
+      await store.recordTaskBirth('real-gid', '2026-04-25T00:00:01Z')
+
+      await store.closeConnection()
+      await store.init()
+
+      expect(await store.getRecords()).toEqual([
+        expect.objectContaining({ gid: 'real-gid', name: 'KNOPPIX_V9.1CD.iso' }),
+      ])
+      expect(await store.loadBirthRecords()).toEqual([{ gid: 'real-gid', added_at: '2026-04-25T00:00:01Z' }])
     })
   })
 

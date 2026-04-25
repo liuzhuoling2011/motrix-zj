@@ -16,6 +16,7 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 const {
   buildHistoryRecord,
   buildBtCompletionRecord,
+  isMetadataTask,
   shouldRunStaleCleanup,
   historyRecordToTask,
   mergeHistoryIntoTasks,
@@ -297,6 +298,39 @@ describe('buildBtCompletionRecord', () => {
     const task = makeTask({ status: 'active' })
     const record = buildBtCompletionRecord(task)
     expect(record.status).toBe('complete')
+  })
+})
+
+// ── isMetadataTask ───────────────────────────────────────────────────
+
+describe('isMetadataTask', () => {
+  it('recognizes metadata tasks by the basename of the first file path', () => {
+    const task = makeTask({
+      files: [
+        {
+          index: '1',
+          path: '/downloads/[METADATA]KNOPPIX_V9.1CD-2021-01-25-EN',
+          length: '27373',
+          completedLength: '27373',
+          selected: 'true',
+          uris: [],
+        },
+      ],
+    })
+
+    expect(isMetadataTask(task)).toBe(true)
+  })
+
+  it('recognizes DB-rehydrated metadata records by bittorrent info name', () => {
+    const task = historyRecordToTask(
+      makeRecord({
+        name: '[METADATA]KNOPPIX_V9.1CD-2021-01-25-EN',
+        task_type: 'bt',
+        meta: JSON.stringify({ infoHash: 'abcdef1234567890abcdef1234567890abcdef12' }),
+      }),
+    )
+
+    expect(isMetadataTask(task)).toBe(true)
   })
 })
 

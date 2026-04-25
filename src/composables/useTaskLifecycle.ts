@@ -17,7 +17,9 @@ import { logger } from '@shared/logger'
 export function isMetadataTask(task: Aria2Task): boolean {
   if (task.followedBy && task.followedBy.length > 0) return true
   const firstPath = task.files?.[0]?.path ?? ''
-  return firstPath.startsWith('[METADATA]')
+  const firstName = firstPath.split(/[/\\]/).pop() ?? firstPath
+  const btName = task.bittorrent?.info?.name ?? ''
+  return firstPath.startsWith('[METADATA]') || firstName.startsWith('[METADATA]') || btName.startsWith('[METADATA]')
 }
 
 // ── Centralized history snapshot helpers ────────────────────────────
