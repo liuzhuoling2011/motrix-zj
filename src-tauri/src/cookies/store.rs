@@ -31,7 +31,9 @@ pub struct CookieStore {
 
 impl CookieStore {
     pub fn new(base_dir: impl Into<PathBuf>) -> Self {
-        Self { base_dir: base_dir.into() }
+        Self {
+            base_dir: base_dir.into(),
+        }
     }
 
     pub fn base_dir(&self) -> &Path {
@@ -50,7 +52,9 @@ impl CookieStore {
         let mut groups: HashMap<String, Vec<Cookie>> = HashMap::new();
         for c in cookies {
             let Some(d) = c.domain() else { continue };
-            let Some(reg) = domain::registrable_domain(d) else { continue };
+            let Some(reg) = domain::registrable_domain(d) else {
+                continue;
+            };
             groups.entry(reg).or_default().push(c);
         }
 
@@ -64,7 +68,9 @@ impl CookieStore {
                 if path.extension().and_then(|e| e.to_str()) != Some("txt") {
                     continue;
                 }
-                let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else { continue };
+                let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
+                    continue;
+                };
                 let file_reg = domain::registrable_domain(stem).unwrap_or_default();
                 if affected.contains(file_reg.as_str()) {
                     let _ = fs::remove_file(&path);
@@ -134,7 +140,10 @@ mod tests {
         assert!(content.contains("X-TOKEN\tx"));
         assert!(content.contains("API-JAR\tj"));
         // Every row should be domain-wide (TRUE include_subdomains)
-        for line in content.lines().filter(|l| !l.starts_with('#') && !l.is_empty()) {
+        for line in content
+            .lines()
+            .filter(|l| !l.starts_with('#') && !l.is_empty())
+        {
             let cols: Vec<&str> = line.split('\t').collect();
             assert_eq!(cols.len(), 7);
             assert_eq!(cols[0], ".bilibili.com");
@@ -195,8 +204,7 @@ mod tests {
         store
             .save_from_webview(vec![cookie("a", "1", "youtube.com")])
             .expect("save");
-        let content =
-            fs::read_to_string(store.base_dir().join(".youtube.com.txt")).expect("read");
+        let content = fs::read_to_string(store.base_dir().join(".youtube.com.txt")).expect("read");
         assert!(content.starts_with("# Netscape HTTP Cookie File"));
     }
 }

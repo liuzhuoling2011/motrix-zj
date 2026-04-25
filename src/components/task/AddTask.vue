@@ -73,6 +73,7 @@ const submitting = ref(false)
 const selectedBatchIndex = ref(0)
 
 const videoFlow = useVideoFlow()
+const activeMediaParseKeys = new Set<string>()
 
 /** True when the dialog was triggered from the embedded web panel's
  *  download button — drives a simplified UI that hides URL/rename/split/dir
@@ -125,6 +126,8 @@ const form = ref({
   customProxy: '',
 })
 
+const lastWebPanelAutoParseKey = ref('')
+
 /**
  * Whether a usable global proxy is configured in Settings → Advanced.
  * Must read through preferenceStore.config (not a cached local) because
@@ -149,7 +152,28 @@ watch(globalProxyAvailable, (available) => {
 // a previous URL doesn't linger under the Parse Media button.
 watch(
   () => form.value.uris,
-  () => videoFlow.reset(),
+  () => {
+    lastWebPanelAutoParseKey.value = ''
+    videoFlow.reset()
+  },
+)
+
+watch(
+  () => appStore.pendingReferer,
+  (referer) => {
+    if (referer) {
+      form.value.referer = referer
+    }
+  },
+)
+
+watch(
+  () => appStore.pendingCookie,
+  (cookie) => {
+    if (cookie) {
+      form.value.cookie = cookie
+    }
+  },
 )
 
 // Auto-parse when the dialog opens from the embedded web panel: the URL is
@@ -157,14 +181,25 @@ watch(
 // user expects to be looking at format choices immediately.  The full
 // format table is pre-expanded so any non-preset option is one click away.
 watch(
-  () => [props.show, isFromWebPanel.value, form.value.uris] as const,
-  ([visible, fromPanel, uris]) => {
+  () =>
+    [
+      props.show,
+      isFromWebPanel.value,
+      form.value.uris,
+      form.value.cookie,
+      form.value.referer,
+      videoFlow.isParsing.value,
+    ] as const,
+  ([visible, fromPanel, uris, cookie, referer, parsing]) => {
     if (!visible || !fromPanel) return
     const trimmed = uris.trim()
     if (!trimmed) return
-    if (videoFlow.isParsing.value || videoFlow.isVideo.value || videoFlow.isPlaylist.value) return
+    if (parsing || videoFlow.isVideo.value || videoFlow.isPlaylist.value) return
+    const parseKey = `${trimmed}\n${cookie}\n${referer}`
+    if (parseKey === lastWebPanelAutoParseKey.value) return
+    lastWebPanelAutoParseKey.value = parseKey
     videoFlow.showAllFormats.value = true
-    handleParseMedia()
+    void handleParseMedia()
   },
   { immediate: false },
 )
@@ -183,7 +218,24 @@ async function handleParseMedia() {
   }
   // Reset cookie-expired state on each new parse attempt
   cookieExpired.value = false
-  await videoFlow.tryParseUrl(trimmed, form.value.cookie, form.value.userAgent, form.value.cookiesFromBrowser)
+  const cookie = form.value.cookie || appStore.pendingCookie
+  if (cookie && !form.value.cookie) {
+    form.value.cookie = cookie
+  }
+  const parseKey = [trimmed, cookie, form.value.userAgent, form.value.cookiesFromBrowser, form.value.referer].join('\n')
+  if (activeMediaParseKeys.has(parseKey)) return
+  activeMediaParseKeys.add(parseKey)
+  try {
+    await videoFlow.tryParseUrl(
+      trimmed,
+      cookie,
+      form.value.userAgent,
+      form.value.cookiesFromBrowser,
+      form.value.referer,
+    )
+  } finally {
+    activeMediaParseKeys.delete(parseKey)
+  }
 }
 
 const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
@@ -336,10 +388,8 @@ watch(
       // Flush URI batch items into the editable textarea via normalized merge
       const uriItems = batch.value.filter((i) => i.kind === 'uri')
       if (uriItems.length > 0) {
-        form.value.uris = mergeUriLines(
-          form.value.uris,
-          uriItems.map((i) => i.payload),
-        )
+        const incomingUris = uriItems.map((i) => i.payload)
+        form.value.uris = isFromWebPanel.value ? incomingUris.join('\n') : mergeUriLines(form.value.uris, incomingUris)
         appStore.pendingBatch = batch.value.filter((i) => i.kind !== 'uri')
       }
       // Auto-switch to Torrent tab when file items are present
@@ -350,6 +400,7 @@ watch(
       }
     } else {
       activeTab.value = ADD_TASK_TYPE.URI
+      if (isFromWebPanel.value) return
       // No batch — check clipboard for URIs
       try {
         const { readText } = await import('@tauri-apps/plugin-clipboard-manager')
@@ -372,10 +423,8 @@ watch(
     // Flush any newly added URI items via normalized merge (dedup against existing)
     const uriItems = batch.value.filter((i) => i.kind === 'uri')
     if (uriItems.length > 0) {
-      form.value.uris = mergeUriLines(
-        form.value.uris,
-        uriItems.map((i) => i.payload),
-      )
+      const incomingUris = uriItems.map((i) => i.payload)
+      form.value.uris = isFromWebPanel.value ? incomingUris.join('\n') : mergeUriLines(form.value.uris, incomingUris)
       appStore.pendingBatch = batch.value.filter((i) => i.kind !== 'uri')
     }
     await localResolveUnresolvedItems()
@@ -585,6 +634,17 @@ async function handleSubmit() {
     const handled = await submitVideoBranch(effectiveForm, options)
     if (handled) return
 
+    if (isFromWebPanel.value) {
+      if (!videoFlow.isParsing.value) {
+        await handleParseMedia()
+      }
+      const handledAfterParse = await submitVideoBranch(effectiveForm, options)
+      if (handledAfterParse) return
+      message.error(videoFlow.parseError.value || '视频解析失败，未创建普通下载任务', { closable: true })
+      submitting.value = false
+      return
+    }
+
     await submitNormalBranch(effectiveForm, options)
   } catch (e: unknown) {
     const category = classifySubmitError(e)
@@ -734,11 +794,22 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
 
         <!-- ── Download settings: hidden when triggered from web panel
              (URL is injected, defaults are fine, user just wants formats) -->
-        <div v-if="!isFromWebPanel" class="download-settings">
-          <NFormItem :label="t('task.task-out') + ':'">
+        <div v-if="isFromWebPanel" class="web-panel-url-section">
+          <NFormItem :label="t('task.uri-task') + ':'">
+            <NInput
+              v-model:value="form.uris"
+              type="textarea"
+              :rows="3"
+              :placeholder="t('task.uri-task-tips') || 'One URL per line'"
+            />
+          </NFormItem>
+        </div>
+
+        <div class="download-settings">
+          <NFormItem v-if="!isFromWebPanel" :label="t('task.task-out') + ':'">
             <NInput v-model:value="form.out" :placeholder="t('task.task-out-tips')" :autofocus="false" />
           </NFormItem>
-          <NFormItem :label="t('preferences.split-count') + ':'">
+          <NFormItem v-if="!isFromWebPanel" :label="t('preferences.split-count') + ':'">
             <div class="split-field-wrapper" @input="onSplitRawInput">
               <NInputNumber v-model:value="form.split" :min="1" :max="maxSplit" style="width: 120px" />
               <!-- Limit hint — CSS Grid 0fr→1fr slide-in, mirrors ua-warn pattern -->
@@ -774,6 +845,7 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
             </div>
           </NFormItem>
           <AdvancedOptions
+            v-if="!isFromWebPanel"
             v-model:show="showAdvanced"
             v-model:user-agent="form.userAgent"
             v-model:authorization="form.authorization"

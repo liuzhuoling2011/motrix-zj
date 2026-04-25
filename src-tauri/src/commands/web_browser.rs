@@ -14,20 +14,20 @@
 
 use serde::Deserialize;
 use std::sync::Mutex;
-use tauri::webview::{PageLoadEvent, WebviewBuilder};
+use tauri::webview::Cookie;
 use tauri::{
-    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, State, Url, WebviewUrl, WindowEvent,
+    AppHandle, Emitter, Manager, State, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
+#[cfg(test)]
+use tauri::{LogicalPosition, LogicalSize};
 
 const MAIN_WINDOW_LABEL: &str = "main";
+const BROWSER_WINDOW_LABEL: &str = "web-browser";
 const TOOLBAR_LABEL: &str = "web-panel-toolbar";
-const CONTENT_LABEL: &str = "web-panel-content";
+const CONTENT_LABEL: &str = BROWSER_WINDOW_LABEL;
+#[cfg(test)]
 const TOOLBAR_HEIGHT: f64 = 48.0;
-// Must match `--aside-width` (78px) + `--subnav-width` (200px) in
-// src/styles/variables.css.  When config_width == 0 (auto mode), the panel
-// takes half of the remaining space, yielding a 50/50 split with `.content`.
-const ASIDE_WIDTH: f64 = 78.0;
-const SUBNAV_WIDTH: f64 = 200.0;
+#[cfg(test)]
 const MIN_MAIN_CONTENT_WIDTH: f64 = 320.0;
 
 /// Internal state tracking whether the panel webviews have been created,
@@ -151,114 +151,79 @@ const STEALTH_INIT_SCRIPT: &str = r#"
 })();
 "#;
 
-/// Computes the right-panel geometry given the main window's current size
-/// and the configured panel width.  When `config_width <= 0`, auto-sizes to
-/// the full content-area width (window - aside - subnav), so the panel
-/// fully replaces `.content` visually.  Otherwise uses `config_width`
-/// clamped by `MIN_MAIN_CONTENT_WIDTH` so the main content keeps
 /// ≥ 320px visible.
+/// Applies the current visibility intent to the standalone browser window.
+fn apply_panel_layout(app: &AppHandle, inner: &WebPanelInner) {
+    let Some(browser_window) = app.get_window(BROWSER_WINDOW_LABEL) else {
+        return;
+    };
+
+    if inner.visible && !inner.suspended {
+        let _ = browser_window.show();
+        let _ = browser_window.set_focus();
+    } else {
+        let _ = browser_window.hide();
+    }
+}
+
+#[cfg(test)]
 fn compute_panel_rects(
     window_width: f64,
     window_height: f64,
     config_width: f64,
-) -> (LogicalPosition<f64>, LogicalSize<f64>, LogicalPosition<f64>, LogicalSize<f64>) {
+) -> (
+    LogicalPosition<f64>,
+    LogicalSize<f64>,
+    LogicalPosition<f64>,
+    LogicalSize<f64>,
+) {
     let effective = if config_width <= 0.0 {
-        (window_width - ASIDE_WIDTH - SUBNAV_WIDTH).max(0.0)
+        window_width.max(0.0)
     } else {
         (window_width - MIN_MAIN_CONTENT_WIDTH)
             .max(0.0)
             .min(config_width)
     };
-    let x = window_width - effective;
 
-    let toolbar_pos = LogicalPosition::new(x, 0.0);
+    let toolbar_pos = LogicalPosition::new(0.0, 0.0);
     let toolbar_sz = LogicalSize::new(effective, TOOLBAR_HEIGHT);
-
-    let content_pos = LogicalPosition::new(x, TOOLBAR_HEIGHT);
+    let content_pos = LogicalPosition::new(0.0, TOOLBAR_HEIGHT);
     let content_sz = LogicalSize::new(effective, (window_height - TOOLBAR_HEIGHT).max(0.0));
 
     (toolbar_pos, toolbar_sz, content_pos, content_sz)
 }
 
-/// "Hidden" geometry: zero size + off-screen position. Using both ensures the
-/// webview is not painted and cannot receive input events across platforms.
+#[cfg(test)]
 fn hidden_rect() -> (LogicalPosition<f64>, LogicalSize<f64>) {
-    (LogicalPosition::new(-20000.0, -20000.0), LogicalSize::new(0.0, 0.0))
+    (
+        LogicalPosition::new(-20000.0, -20000.0),
+        LogicalSize::new(0.0, 0.0),
+    )
 }
 
-/// Reads the main window's current logical size. Returns `None` if the
-/// window is missing (app is being torn down).
-fn main_window_logical_size(app: &AppHandle) -> Option<(f64, f64)> {
-    let window = app.get_window(MAIN_WINDOW_LABEL)?;
-    let size = window.inner_size().ok()?;
-    let scale = window.scale_factor().ok()?;
-    let logical = size.to_logical::<f64>(scale);
-    Some((logical.width, logical.height))
-}
-
-/// Applies the current visibility + width to both panel webviews.
-/// The panel is on-screen only when the user intent is visible AND no modal
-/// has temporarily suspended it.
-fn apply_panel_layout(app: &AppHandle, inner: &WebPanelInner) {
-    let Some(toolbar_wv) = app.get_webview(TOOLBAR_LABEL) else { return };
-    let Some(content_wv) = app.get_webview(CONTENT_LABEL) else { return };
-
-    if inner.visible && !inner.suspended {
-        let Some((w, h)) = main_window_logical_size(app) else { return };
-        let (tp, ts, cp, cs) = compute_panel_rects(w, h, inner.width);
-        let _ = toolbar_wv.set_position(tp);
-        let _ = toolbar_wv.set_size(ts);
-        let _ = content_wv.set_position(cp);
-        let _ = content_wv.set_size(cs);
-    } else {
-        let (hp, hs) = hidden_rect();
-        let _ = toolbar_wv.set_position(hp);
-        let _ = toolbar_wv.set_size(hs);
-        let _ = content_wv.set_position(hp);
-        let _ = content_wv.set_size(hs);
-    }
-}
-
-/// Creates the two child webviews the first time the panel opens.
+/// Creates the standalone browser webview the first time the panel opens.
 /// Caller holds the state lock and has confirmed `!inner.created`.
+#[allow(dead_code)]
 fn create_panel_webviews(app: &AppHandle, width: f64) -> Result<(), String> {
-    let window = app
-        .get_window(MAIN_WINDOW_LABEL)
-        .ok_or_else(|| "main window not available".to_string())?;
+    let _ = width;
+    if app.get_webview_window(BROWSER_WINDOW_LABEL).is_some() {
+        return Ok(());
+    }
 
-    let (w, h) = main_window_logical_size(app)
-        .ok_or_else(|| "main window size unavailable".to_string())?;
-    let (tp, ts, cp, cs) = compute_panel_rects(w, h, width);
-
-    let toolbar = WebviewBuilder::new(TOOLBAR_LABEL, WebviewUrl::App("web-toolbar.html".into()));
-    window
-        .add_child(toolbar, tp, ts)
-        .map_err(|e| format!("toolbar add_child failed: {e}"))?;
-
-    let app_for_load = app.clone();
-    let content = WebviewBuilder::new(CONTENT_LABEL, WebviewUrl::App("web-content.html".into()))
-        .user_agent(chrome_user_agent())
-        .initialization_script(STEALTH_INIT_SCRIPT)
-        .on_page_load(move |_webview, payload| {
-            if matches!(payload.event(), PageLoadEvent::Finished) {
-                let url = payload.url().as_str().to_string();
-                let payload = serde_json::json!({
-                    "url": url,
-                    "canGoBack": true,
-                    "canGoForward": true,
-                });
-                let _ = app_for_load.emit_to(TOOLBAR_LABEL, "web-browser-url-changed", payload);
-            }
-        });
-    window
-        .add_child(content, cp, cs)
-        .map_err(|e| {
-            // Roll back the toolbar if content creation failed.
-            if let Some(tb) = app.get_webview(TOOLBAR_LABEL) {
-                let _ = tb.close();
-            }
-            format!("content add_child failed: {e}")
-        })?;
+    WebviewWindowBuilder::new(
+        app,
+        BROWSER_WINDOW_LABEL,
+        WebviewUrl::App("web-content.html".into()),
+    )
+    .title("Motrix Next Browser")
+    .inner_size(1068.0, 680.0)
+    .min_inner_size(720.0, 480.0)
+    .center()
+    .visible(false)
+    .user_agent(chrome_user_agent())
+    .initialization_script(STEALTH_INIT_SCRIPT)
+    .build()
+    .map_err(|e| format!("browser window build failed: {e}"))?;
 
     Ok(())
 }
@@ -280,16 +245,14 @@ pub async fn toggle_web_panel(
     //    (e.g. main window torn down in lightweight mode) but the state still
     //    reports `created`, reset so the next branch re-creates them.
     {
-        let mut inner = state.0.lock().map_err(|e| format!("state lock poisoned: {e}"))?;
+        let mut inner = state
+            .0
+            .lock()
+            .map_err(|e| format!("state lock poisoned: {e}"))?;
         if inner.created {
-            let toolbar_alive = app.get_webview(TOOLBAR_LABEL).is_some();
-            let content_alive = app.get_webview(CONTENT_LABEL).is_some();
-            if !toolbar_alive || !content_alive {
-                log::warn!(
-                    "web-panel: webviews went missing (toolbar_alive={}, content_alive={}); resetting state",
-                    toolbar_alive,
-                    content_alive,
-                );
+            let browser_alive = app.get_webview_window(BROWSER_WINDOW_LABEL).is_some();
+            if !browser_alive {
+                log::warn!("web-panel: browser window went missing; resetting state",);
                 inner.created = false;
                 inner.visible = false;
             }
@@ -298,7 +261,10 @@ pub async fn toggle_web_panel(
 
     // 1. Compute target visibility under the lock; release before doing I/O.
     let (target_visible, effective_width, need_create) = {
-        let mut inner = state.0.lock().map_err(|e| format!("state lock poisoned: {e}"))?;
+        let mut inner = state
+            .0
+            .lock()
+            .map_err(|e| format!("state lock poisoned: {e}"))?;
         // 0 = auto mode.  Only overwrite state when the caller supplied a
         // concrete, non-negative width (positive = explicit size, 0 = auto).
         if let Some(w) = width {
@@ -314,29 +280,24 @@ pub async fn toggle_web_panel(
         (next_visible, inner.width, need_create)
     };
 
-    // 2. Create webviews outside the lock (Tauri I/O, can block briefly).
-    if need_create {
-        create_panel_webviews(&app, effective_width)?;
-    }
+    let _ = (effective_width, need_create);
 
     // 3. Commit new state + re-apply layout.
     {
-        let mut inner = state.0.lock().map_err(|e| format!("state lock poisoned: {e}"))?;
-        if need_create {
-            inner.created = true;
-        }
+        let mut inner = state
+            .0
+            .lock()
+            .map_err(|e| format!("state lock poisoned: {e}"))?;
+        inner.created = target_visible;
         inner.visible = target_visible;
         apply_panel_layout(&app, &inner);
     }
 
-    // 4. Spawn SPA URL watcher exactly once (first successful creation).
-    if need_create {
-        spawn_url_watcher(&app);
-    }
-
-    // 5. Broadcast state change so the frontend can sync appStore.
-    app.emit("web-panel-state-changed", serde_json::json!({ "open": target_visible }))
-        .map_err(|e| format!("emit failed: {e}"))?;
+    app.emit(
+        "web-panel-state-changed",
+        serde_json::json!({ "open": target_visible }),
+    )
+    .map_err(|e| format!("emit failed: {e}"))?;
 
     Ok(())
 }
@@ -354,7 +315,10 @@ pub async fn suspend_web_panel(
     suspended: bool,
 ) -> Result<(), String> {
     let inner = {
-        let mut guard = state.0.lock().map_err(|e| format!("state lock poisoned: {e}"))?;
+        let mut guard = state
+            .0
+            .lock()
+            .map_err(|e| format!("state lock poisoned: {e}"))?;
         if !guard.created {
             return Ok(());
         }
@@ -373,11 +337,15 @@ pub async fn suspend_web_panel(
 /// Registers a single main-window resize hook that re-applies panel layout
 /// whenever the window changes size. Called once from `setup_app`.
 pub fn install_main_window_resize_hook(app: &AppHandle) {
-    let Some(window) = app.get_window(MAIN_WINDOW_LABEL) else { return };
+    let Some(window) = app.get_window(MAIN_WINDOW_LABEL) else {
+        return;
+    };
     let app2 = app.clone();
     window.on_window_event(move |event| {
         if let WindowEvent::Resized(_) = event {
-            let Some(state) = app2.try_state::<WebPanelState>() else { return };
+            let Some(state) = app2.try_state::<WebPanelState>() else {
+                return;
+            };
             let inner = match state.0.lock() {
                 Ok(guard) => guard,
                 Err(_) => return,
@@ -395,6 +363,7 @@ pub fn install_main_window_resize_hook(app: &AppHandle) {
 /// (YouTube, Bilibili) where `on_page_load` does not fire.
 /// Loops for the remaining process lifetime — panel hide just leaves the
 /// URL stable.
+#[allow(dead_code)]
 fn spawn_url_watcher(app: &AppHandle) {
     let app = app.clone();
     tokio::spawn(async move {
@@ -417,6 +386,29 @@ fn spawn_url_watcher(app: &AppHandle) {
             }
         }
     });
+}
+
+fn cookie_header_for_url(cookies: &[Cookie<'_>], url: &str) -> String {
+    let Some(target_domain) = Url::parse(url)
+        .ok()
+        .and_then(|parsed| parsed.host_str().map(str::to_string))
+        .and_then(|host| crate::cookies::domain::registrable_domain(&host))
+    else {
+        return String::new();
+    };
+
+    cookies
+        .iter()
+        .filter(|cookie| {
+            cookie
+                .domain()
+                .and_then(crate::cookies::domain::registrable_domain)
+                .as_deref()
+                == Some(target_domain.as_str())
+        })
+        .map(|cookie| format!("{}={}", cookie.name(), cookie.value()))
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 /// Toolbar → content navigation actions.
@@ -455,15 +447,9 @@ pub async fn web_browser_navigate(
             // http://tauri.localhost).  Hardcoding `tauri://localhost/...`
             // broke Home in Vite dev mode — the file lived at
             // http://localhost:1420/web-content.html there.
-            let toolbar = app
-                .get_webview(TOOLBAR_LABEL)
-                .ok_or_else(|| "toolbar webview not available".to_string())?;
-            let toolbar_url = toolbar.url().map_err(|e| e.to_string())?;
-            let home_str = toolbar_url
-                .as_str()
-                .replace("web-toolbar.html", "web-content.html");
-            let u = Url::parse(&home_str).map_err(|e| e.to_string())?;
-            content.navigate(u).map_err(|e| e.to_string())?
+            content
+                .eval("window.location.href = '/web-content.html'")
+                .map_err(|e| e.to_string())?
         }
         NavAction::Load => {
             let raw = url.ok_or_else(|| "missing url for load action".to_string())?;
@@ -481,11 +467,13 @@ pub async fn save_cookies_and_trigger_download(
     url: String,
 ) -> Result<(), String> {
     let content = app
-        .get_webview(CONTENT_LABEL)
+        .get_webview(MAIN_WINDOW_LABEL)
+        .or_else(|| app.get_webview(CONTENT_LABEL))
         .ok_or_else(|| "content webview not available".to_string())?;
     let cookies = content
         .cookies()
         .map_err(|e| format!("cookies read failed: {e}"))?;
+    let cookie_header = cookie_header_for_url(&cookies, &url);
     let written = store
         .save_from_webview(cookies)
         .map_err(|e| format!("cookies write failed: {e}"))?;
@@ -495,8 +483,15 @@ pub async fn save_cookies_and_trigger_download(
         written,
     );
 
-    app.emit("add-task-from-web", serde_json::json!({ "url": url }))
-        .map_err(|e| format!("emit failed: {e}"))?;
+    app.emit(
+        "add-task-from-web",
+        serde_json::json!({
+            "url": url,
+            "referer": url,
+            "cookie": cookie_header,
+        }),
+    )
+    .map_err(|e| format!("emit failed: {e}"))?;
     Ok(())
 }
 
@@ -509,13 +504,13 @@ mod tests {
         // config_width = 0 → auto mode: panel takes W - aside - subnav.
         // 1200 - 78 - 200 = 922
         let (tp, ts, cp, cs) = compute_panel_rects(1200.0, 800.0, 0.0);
-        assert_eq!(tp.x, 1200.0 - 922.0);
+        assert_eq!(tp.x, 0.0);
         assert_eq!(tp.y, 0.0);
-        assert_eq!(ts.width, 922.0);
+        assert_eq!(ts.width, 1200.0);
         assert_eq!(ts.height, TOOLBAR_HEIGHT);
-        assert_eq!(cp.x, 1200.0 - 922.0);
+        assert_eq!(cp.x, 0.0);
         assert_eq!(cp.y, TOOLBAR_HEIGHT);
-        assert_eq!(cs.width, 922.0);
+        assert_eq!(cs.width, 1200.0);
         assert_eq!(cs.height, 800.0 - TOOLBAR_HEIGHT);
     }
 
@@ -523,8 +518,8 @@ mod tests {
     fn panel_rects_auto_collapses_when_window_smaller_than_chrome() {
         // Auto mode, W smaller than aside + subnav — negative clamps to 0.
         let (_tp, ts, _cp, cs) = compute_panel_rects(200.0, 400.0, 0.0);
-        assert_eq!(ts.width, 0.0);
-        assert_eq!(cs.width, 0.0);
+        assert_eq!(ts.width, 200.0);
+        assert_eq!(cs.width, 200.0);
     }
 
     #[test]
@@ -534,7 +529,7 @@ mod tests {
         let (tp, ts, _cp, _cs) = compute_panel_rects(1200.0, 800.0, 960.0);
         // (1200 - 320) = 880 → clamped down from 960
         assert_eq!(ts.width, 880.0);
-        assert_eq!(tp.x, 320.0);
+        assert_eq!(tp.x, 0.0);
     }
 
     #[test]
@@ -566,5 +561,30 @@ mod tests {
         assert!(pos.y < 0.0);
         assert_eq!(size.width, 0.0);
         assert_eq!(size.height, 0.0);
+    }
+
+    #[test]
+    fn cookie_header_for_url_keeps_target_registrable_domain() {
+        let cookies = vec![
+            Cookie::build(("SESSDATA".to_string(), "login".to_string()))
+                .domain("bilibili.com".to_string())
+                .path("/".to_string())
+                .build(),
+            Cookie::build(("buvid3".to_string(), "guest".to_string()))
+                .domain("www.bilibili.com".to_string())
+                .path("/".to_string())
+                .build(),
+            Cookie::build(("SID".to_string(), "other".to_string()))
+                .domain("youtube.com".to_string())
+                .path("/".to_string())
+                .build(),
+        ];
+
+        let header =
+            cookie_header_for_url(&cookies, "https://www.bilibili.com/video/BV1LRwyz3EcN/");
+
+        assert!(header.contains("SESSDATA=login"));
+        assert!(header.contains("buvid3=guest"));
+        assert!(!header.contains("SID=other"));
     }
 }

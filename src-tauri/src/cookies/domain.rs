@@ -13,7 +13,9 @@ use url::Url;
 /// Example: `https://www.youtube.com/watch?v=X` →
 ///   [".www.youtube.com", "www.youtube.com", ".youtube.com", "youtube.com"]
 pub fn candidates_for_url(url: &str) -> Vec<String> {
-    let Ok(parsed) = Url::parse(url) else { return Vec::new() };
+    let Ok(parsed) = Url::parse(url) else {
+        return Vec::new();
+    };
     // Only real DNS names produce useful cookie scopes. Reject IP literals
     // (including IPv6 which also contains filesystem-invalid chars on Windows).
     match parsed.host() {
@@ -70,7 +72,12 @@ mod tests {
         let v = candidates_for_url("https://www.youtube.com/watch?v=xxx");
         assert_eq!(
             v,
-            vec![".www.youtube.com", "www.youtube.com", ".youtube.com", "youtube.com"]
+            vec![
+                ".www.youtube.com",
+                "www.youtube.com",
+                ".youtube.com",
+                "youtube.com"
+            ]
         );
     }
 
@@ -125,14 +132,26 @@ mod tests {
 
     #[test]
     fn registrable_domain_strips_subdomain() {
-        assert_eq!(registrable_domain("www.bilibili.com"), Some("bilibili.com".into()));
-        assert_eq!(registrable_domain("api.accounts.google.com"), Some("google.com".into()));
-        assert_eq!(registrable_domain(".bilibili.com"), Some("bilibili.com".into()));
+        assert_eq!(
+            registrable_domain("www.bilibili.com"),
+            Some("bilibili.com".into())
+        );
+        assert_eq!(
+            registrable_domain("api.accounts.google.com"),
+            Some("google.com".into())
+        );
+        assert_eq!(
+            registrable_domain(".bilibili.com"),
+            Some("bilibili.com".into())
+        );
     }
 
     #[test]
     fn registrable_domain_keeps_two_label_host() {
-        assert_eq!(registrable_domain("bilibili.com"), Some("bilibili.com".into()));
+        assert_eq!(
+            registrable_domain("bilibili.com"),
+            Some("bilibili.com".into())
+        );
     }
 
     #[test]

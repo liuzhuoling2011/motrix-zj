@@ -2,8 +2,11 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "web-browser",
   "description": "Capability for the in-app browser window and its child webviews",
+  "remote": {
+    "urls": ["http://localhost:1420/**"]
+  },
   "windows": ["web-browser"],
-  "webviews": ["web-browser-toolbar", "web-browser-content"],
+  "webviews": ["web-browser"],
   "permissions": [
     "core:default",
     "core:webview:allow-webview-close",
