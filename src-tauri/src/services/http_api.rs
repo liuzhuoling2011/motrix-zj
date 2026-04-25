@@ -419,6 +419,9 @@ fn build_deep_link_url(req: &AddRequest) -> String {
                 q.append_pair("cookie", cookie);
             }
         }
+        if matches!(req.parse_video, Some(true)) {
+            q.append_pair("parse", "video");
+        }
     }
     deep_link.to_string()
 }
@@ -844,5 +847,35 @@ mod tests {
         let result = deep_link.to_string();
         assert!(result.contains("referer="));
         assert!(result.contains("cookie="));
+    }
+
+    #[test]
+    fn deep_link_url_includes_parse_video_when_true() {
+        let req = AddRequest {
+            url: "https://example.com/v".to_string(),
+            referer: None,
+            cookie: None,
+            parse_video: Some(true),
+        };
+        let result = build_deep_link_url(&req);
+        assert!(result.contains("parse=video"), "expected parse=video in {result}");
+    }
+
+    #[test]
+    fn deep_link_url_omits_parse_video_when_false_or_none() {
+        let req_none = AddRequest {
+            url: "https://example.com/v".to_string(),
+            referer: None,
+            cookie: None,
+            parse_video: None,
+        };
+        let req_false = AddRequest {
+            url: "https://example.com/v".to_string(),
+            referer: None,
+            cookie: None,
+            parse_video: Some(false),
+        };
+        assert!(!build_deep_link_url(&req_none).contains("parse="));
+        assert!(!build_deep_link_url(&req_false).contains("parse="));
     }
 }
