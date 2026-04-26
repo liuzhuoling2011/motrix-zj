@@ -13,10 +13,28 @@ use tauri_plugin_shell::ShellExt;
 
 const SIDECAR_NAMES: [&str; 3] = ["ytdlp", "ffmpeg", "ffprobe"];
 
-/// Per-sidecar probe budget. PyInstaller-frozen yt-dlp's first launch on
-/// macOS (Gatekeeper verify + unpack) can easily take 3-5 seconds; 8s
-/// leaves headroom while still capping the wait on truly stuck binaries.
-const PROBE_TIMEOUT: Duration = Duration::from_secs(8);
+/// Probe budget for ffmpeg / ffprobe — they're plain native binaries and
+/// always respond within a second.
+const FAST_PROBE_TIMEOUT: Duration = Duration::from_secs(8);
+
+/// Probe budget for the PyInstaller-frozen yt-dlp.  First launch on
+/// macOS triggers Gatekeeper verify + bootloader unpack which can run
+/// 15-25 seconds on cold caches; 45s gives headroom without leaving the
+/// startup probe hanging forever on a truly broken binary.
+const SLOW_PROBE_TIMEOUT: Duration = Duration::from_secs(45);
+
+/// Delay before retrying a sidecar that failed its first probe.  The
+/// retry covers two failure modes: yt-dlp losing the race against the
+/// initial macOS Gatekeeper hold, and a transient sidecar resolve error
+/// while the app is still wiring its tauri-plugin-shell handles.
+const PROBE_RETRY_DELAY: Duration = Duration::from_secs(10);
+
+fn probe_timeout_for(name: &str) -> Duration {
+    match name {
+        "ytdlp" => SLOW_PROBE_TIMEOUT,
+        _ => FAST_PROBE_TIMEOUT,
+    }
+}
 
 /// In-memory cache of first-line `--version` / `-version` output per sidecar.
 /// `None` means "fetch attempted and failed" (or not yet attempted at init).
@@ -83,8 +101,9 @@ async fn probe_version(app: &tauri::AppHandle, name: &str) -> Result<String, Str
 }
 
 async fn probe_with_timeout(app: &tauri::AppHandle, name: &str) -> Option<String> {
-    log::info!("sidecar {name}: probing version");
-    match tokio::time::timeout(PROBE_TIMEOUT, probe_version(app, name)).await {
+    let budget = probe_timeout_for(name);
+    log::info!("sidecar {name}: probing version (timeout {}s)", budget.as_secs());
+    match tokio::time::timeout(budget, probe_version(app, name)).await {
         Ok(Ok(v)) => {
             log::info!("sidecar {name}: version = {v}");
             Some(v)
@@ -94,45 +113,91 @@ async fn probe_with_timeout(app: &tauri::AppHandle, name: &str) -> Option<String
             None
         }
         Err(_) => {
-            log::warn!(
-                "sidecar {name}: probe timed out after {}s",
-                PROBE_TIMEOUT.as_secs()
-            );
+            log::warn!("sidecar {name}: probe timed out after {}s", budget.as_secs());
             None
         }
     }
 }
 
+/// Updates the cached version for a single sidecar and broadcasts the
+/// full snapshot to the frontend. Used by both the initial parallel
+/// probe and the delayed retry path so the UI never has to reconcile
+/// partial state — every emit carries the complete picture.
+fn publish_sidecar_versions(app: &tauri::AppHandle) {
+    use tauri::{Emitter, Manager};
+    let snapshot = match app.try_state::<SidecarVersionState>() {
+        Some(state) => state.snapshot(),
+        None => return,
+    };
+    let _ = app.emit(
+        "sidecar-versions-ready",
+        serde_json::json!({
+            "ytdlp": snapshot.get("ytdlp").cloned().unwrap_or(None),
+            "ffmpeg": snapshot.get("ffmpeg").cloned().unwrap_or(None),
+            "ffprobe": snapshot.get("ffprobe").cloned().unwrap_or(None),
+        }),
+    );
+}
+
 /// Fire-and-forget background probe of all bundled sidecars at startup.
 /// Runs all three in parallel so a slow one doesn't delay the others.
-/// Emits `sidecar-versions-ready` once every probe has settled so the
-/// frontend can refresh its cache — yt-dlp's PyInstaller unpack on first
-/// launch can take 3-5 seconds, well after `main.ts` does its initial
-/// `get_sidecar_versions` snapshot fetch.
+/// Emits `sidecar-versions-ready` once the parallel pass settles so the
+/// frontend can refresh its cache — yt-dlp's PyInstaller first-launch
+/// unpack can take longer than `main.ts`'s initial snapshot fetch.
+///
+/// Any sidecar that came back `None` is retried once after
+/// `PROBE_RETRY_DELAY`, then republished. The frontend listener uses
+/// merge semantics so a late success can't blow away a value that
+/// already arrived.
 pub fn prefetch_sidecar_versions(app: tauri::AppHandle) {
     // `tauri::async_runtime::spawn` uses Tauri's own runtime handle, which
     // is available inside `setup_app` (plain `tokio::spawn` panics there
     // because the tokio reactor hasn't started yet).
     tauri::async_runtime::spawn(async move {
-        use tauri::{Emitter, Manager};
+        use tauri::Manager;
         let (ytdlp, ffmpeg, ffprobe) = tokio::join!(
             probe_with_timeout(&app, "ytdlp"),
             probe_with_timeout(&app, "ffmpeg"),
             probe_with_timeout(&app, "ffprobe"),
         );
+        let mut failed: Vec<&'static str> = Vec::new();
         if let Some(state) = app.try_state::<SidecarVersionState>() {
             state.set("ytdlp", ytdlp.clone());
             state.set("ffmpeg", ffmpeg.clone());
             state.set("ffprobe", ffprobe.clone());
         }
-        let _ = app.emit(
-            "sidecar-versions-ready",
-            serde_json::json!({
-                "ytdlp": ytdlp,
-                "ffmpeg": ffmpeg,
-                "ffprobe": ffprobe,
-            }),
+        if ytdlp.is_none() {
+            failed.push("ytdlp");
+        }
+        if ffmpeg.is_none() {
+            failed.push("ffmpeg");
+        }
+        if ffprobe.is_none() {
+            failed.push("ffprobe");
+        }
+        publish_sidecar_versions(&app);
+
+        if failed.is_empty() {
+            return;
+        }
+        log::info!(
+            "sidecar: scheduling retry in {}s for: {:?}",
+            PROBE_RETRY_DELAY.as_secs(),
+            failed
         );
+        tokio::time::sleep(PROBE_RETRY_DELAY).await;
+        let mut anything_recovered = false;
+        for name in failed {
+            if let Some(v) = probe_with_timeout(&app, name).await {
+                if let Some(state) = app.try_state::<SidecarVersionState>() {
+                    state.set(name, Some(v));
+                }
+                anything_recovered = true;
+            }
+        }
+        if anything_recovered {
+            publish_sidecar_versions(&app);
+        }
     });
 }
 
