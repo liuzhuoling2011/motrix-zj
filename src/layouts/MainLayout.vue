@@ -114,17 +114,16 @@ async function closeInternalBrowserPanel() {
   }
 }
 
-// Hide the embedded browser panel whenever the user navigates via the
-// sidebar / subnav. Opening the panel does not change the route, so this
-// watcher won't fire on open. Mount-time path is captured by `immediate:
-// false` (default), so navigating to the same starting page also won't
-// close the panel.
+// Hide the embedded browser panel whenever the user navigates to a different
+// page (task list tabs, preferences, etc.). The panel is only opened by an
+// explicit click on the globe icon, which does not change the route — so a
+// route change always means the user picked a different destination.
 watch(
   () => route.path,
-  () => {
-    if (appStore.webPanelOpen) {
-      void closeInternalBrowserPanel()
-    }
+  (newPath, oldPath) => {
+    if (oldPath === undefined || newPath === oldPath) return
+    if (!appStore.webPanelOpen) return
+    void closeInternalBrowserPanel()
   },
 )
 
@@ -1128,7 +1127,7 @@ onUnmounted(() => {
         </Transition>
       </router-view>
     </main>
-    <div v-if="appStore.webPanelOpen" class="web-panel-placeholder" :style="{ width: `${effectivePanelWidth}px` }">
+    <div v-show="appStore.webPanelOpen" class="web-panel-placeholder" :style="{ width: `${effectivePanelWidth}px` }">
       <InternalBrowserPanel :platform="currentPlatform" @close="closeInternalBrowserPanel" />
     </div>
     <WindowControls
@@ -1243,7 +1242,6 @@ onUnmounted(() => {
   flex-shrink: 0;
   height: 100%;
   min-width: 0;
-  overflow: hidden;
   background-color: var(--main-bg);
 }
 .window-controls {

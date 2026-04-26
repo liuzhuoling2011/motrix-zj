@@ -28,10 +28,39 @@ use tauri_plugin_shell::ShellExt;
 use tokio::sync::Mutex;
 
 use super::client::{YtdlpHeaders, BILIBILI_TRANSIENT_MAX_ATTEMPTS};
-use super::encoding::decode_subprocess_line;
 use super::types::{YtdlpLog, YtdlpProgress, YtdlpTaskStatus};
 use crate::error::AppError;
 use crate::history::HistoryDbState;
+
+/// Decodes a single line of yt-dlp stdout/stderr.
+///
+/// The bundled yt-dlp.exe is a PyInstaller build of yt-dlp. We pass
+/// `PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1` to coax CPython into emitting
+/// UTF-8 on its own streams, but the bootloader, third-party extractors, and
+/// some of yt-dlp's `os.fsdecode` paths still leak the host code page on
+/// Windows — so a `[download] Destination: C:\Users\...\探秘.mp4` line can
+/// arrive as a CP936/GBK byte sequence even when the rest of the output is
+/// fine.
+///
+/// The fallback strategy:
+///   1. If the bytes are valid UTF-8 (no replacement characters), return as-is
+///      — this is the fast path and covers the overwhelming majority of lines.
+///   2. Otherwise try `GBK` (the simplified-Chinese Windows code page). It is
+///      a strict superset of ASCII and decodes Bilibili / Chinese filenames
+///      cleanly when yt-dlp emitted them in the system code page.
+///   3. If GBK also produces errors, fall back to UTF-8 lossy so the user at
+///      least sees `���` instead of an empty line.
+fn decode_subprocess_line(bytes: &[u8]) -> String {
+    let utf8 = String::from_utf8_lossy(bytes);
+    if !utf8.contains('\u{FFFD}') {
+        return utf8.into_owned();
+    }
+    let (decoded, _, had_errors) = encoding_rs::GBK.decode(bytes);
+    if !had_errors {
+        return decoded.into_owned();
+    }
+    utf8.into_owned()
+}
 
 /// Progress template passed to yt-dlp via `--progress-template`.
 ///
@@ -164,11 +193,6 @@ pub async fn start_download(
             while let Some(event) = rx.recv().await {
                 match event {
                     CommandEvent::Stdout(line) => {
-                        // PYTHONIOENCODING / PYTHONUTF8 cover most yt-dlp output,
-                        // but PyInstaller and ffmpeg sub-processes still leak
-                        // CP936/GBK bytes for paths like
-                        // `[download] Destination: 中文.mp4`. The helper tries
-                        // UTF-8 first and only falls back to GBK on failure.
                         let text = decode_subprocess_line(&line);
                         let trimmed = text.trim();
                         if trimmed.is_empty() {
@@ -666,6 +690,39 @@ mod tests {
         let prefix1 = id1.rsplit_once('-').unwrap().0;
         let prefix2 = id2.rsplit_once('-').unwrap().0;
         assert_eq!(prefix1, prefix2);
+    }
+
+    #[test]
+    fn decode_subprocess_line_passes_through_ascii_unchanged() {
+        let bytes = b"[download] Destination: C:\\Downloads\\video.mp4";
+        assert_eq!(decode_subprocess_line(bytes), String::from_utf8_lossy(bytes));
+    }
+
+    #[test]
+    fn decode_subprocess_line_passes_through_valid_utf8_chinese() {
+        let original = "[download] Destination: C:\\Downloads\\探秘全球最能吃辣城市.mp4";
+        let bytes = original.as_bytes();
+        assert_eq!(decode_subprocess_line(bytes), original);
+    }
+
+    #[test]
+    fn decode_subprocess_line_recovers_gbk_chinese_filename() {
+        // Bytes that yt-dlp.exe emits for "[download] Destination: 探秘.mp4"
+        // when CPython falls back to the system code page on Windows-zh.
+        let (gbk_bytes, _, had_errors) = encoding_rs::GBK.encode("[download] Destination: 探秘.mp4");
+        assert!(!had_errors, "GBK should encode the test fixture");
+        let recovered = decode_subprocess_line(&gbk_bytes);
+        assert_eq!(recovered, "[download] Destination: 探秘.mp4");
+    }
+
+    #[test]
+    fn decode_subprocess_line_falls_back_for_undecodable_bytes() {
+        // 0xFF is invalid in both UTF-8 and GBK (lead-byte range stops at 0xFE).
+        let bytes = b"prefix \xFF\xFF tail";
+        let result = decode_subprocess_line(bytes);
+        // Lossy fallback keeps the readable parts so the user sees something.
+        assert!(result.starts_with("prefix "));
+        assert!(result.ends_with(" tail"));
     }
 
     #[test]
