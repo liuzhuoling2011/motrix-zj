@@ -105,22 +105,34 @@ async fn probe_with_timeout(app: &tauri::AppHandle, name: &str) -> Option<String
 
 /// Fire-and-forget background probe of all bundled sidecars at startup.
 /// Runs all three in parallel so a slow one doesn't delay the others.
+/// Emits `sidecar-versions-ready` once every probe has settled so the
+/// frontend can refresh its cache — yt-dlp's PyInstaller unpack on first
+/// launch can take 3-5 seconds, well after `main.ts` does its initial
+/// `get_sidecar_versions` snapshot fetch.
 pub fn prefetch_sidecar_versions(app: tauri::AppHandle) {
     // `tauri::async_runtime::spawn` uses Tauri's own runtime handle, which
     // is available inside `setup_app` (plain `tokio::spawn` panics there
     // because the tokio reactor hasn't started yet).
     tauri::async_runtime::spawn(async move {
-        use tauri::Manager;
+        use tauri::{Emitter, Manager};
         let (ytdlp, ffmpeg, ffprobe) = tokio::join!(
             probe_with_timeout(&app, "ytdlp"),
             probe_with_timeout(&app, "ffmpeg"),
             probe_with_timeout(&app, "ffprobe"),
         );
         if let Some(state) = app.try_state::<SidecarVersionState>() {
-            state.set("ytdlp", ytdlp);
-            state.set("ffmpeg", ffmpeg);
-            state.set("ffprobe", ffprobe);
+            state.set("ytdlp", ytdlp.clone());
+            state.set("ffmpeg", ffmpeg.clone());
+            state.set("ffprobe", ffprobe.clone());
         }
+        let _ = app.emit(
+            "sidecar-versions-ready",
+            serde_json::json!({
+                "ytdlp": ytdlp,
+                "ffmpeg": ffmpeg,
+                "ffprobe": ffprobe,
+            }),
+        );
     });
 }
 
