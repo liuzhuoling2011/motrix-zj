@@ -147,55 +147,37 @@ export function useVideoFlow() {
     }
   }
 
-  /** Determines whether the selected format needs yt-dlp direct download. */
-  function needsDirectDownload(formatId: string): boolean {
-    const info = videoInfo.value
-    if (!info) return false
-
-    // Composite format IDs like "bestvideo+bestaudio/best" always need yt-dlp
-    if (formatId.includes('+') || formatId.includes('/')) return true
-
-    const format = info.formats.find((f: VideoFormat) => f.formatId === formatId)
-    if (!format) return true
-
-    return format.protocol !== 'https' && format.protocol !== 'http'
-  }
-
-  /** Submits a single video download using the provided aria2 options.
-   *  `cookiesFromBrowser` is yt-dlp-only and bypasses pasted cookies. */
+  /** Submits a single video download. All parsed-video downloads now go
+   *  through yt-dlp's direct downloader — aria2 can't merge separate
+   *  video+audio tracks or solve YouTube signature challenges, and the
+   *  earlier "single-format http(s) → aria2" shortcut led to inconsistent
+   *  behavior across sites. `cookiesFromBrowser` is yt-dlp-only and
+   *  bypasses pasted cookies. */
   async function submitVideoDownload(options: Record<string, string>, cookiesFromBrowser?: string): Promise<string> {
     const fmtId = selectedFormatId.value
     const info = videoInfo.value
     if (!info) throw new Error('no video info')
 
-    if (needsDirectDownload(fmtId)) {
-      const format = info.formats.find((f: VideoFormat) => f.formatId === fmtId)
-      // Composite selectors (e.g. "bestvideo+bestaudio/best") merge into mp4
-      // by default. For a single-format selection, use that format's ext.
-      const ext = format?.ext ?? 'mp4'
-      const meta = {
-        video_title: info.title,
-        extractor: info.extractor,
-        thumbnail: info.thumbnail,
-        duration: info.duration,
-        resolution: format?.resolution,
-        filesize: format?.filesize,
-        filesizeApprox: format?.filesizeApprox,
-        download_mode: 'ytdlp_direct',
-      }
-      return ytdlpApi.downloadDirect({
-        url: info.url,
-        formatId: fmtId,
-        title: info.title,
-        ext,
-        meta,
-        options,
-        cookiesFromBrowser,
-      })
+    const format = info.formats.find((f: VideoFormat) => f.formatId === fmtId)
+    // Composite selectors (e.g. "bestvideo+bestaudio/best") merge into mp4
+    // by default. For a single-format selection, use that format's ext.
+    const ext = format?.ext ?? 'mp4'
+    const meta = {
+      video_title: info.title,
+      extractor: info.extractor,
+      thumbnail: info.thumbnail,
+      duration: info.duration,
+      resolution: format?.resolution,
+      filesize: format?.filesize,
+      filesizeApprox: format?.filesizeApprox,
+      download_mode: 'ytdlp_direct',
     }
-    return ytdlpApi.downloadViaAria2({
+    return ytdlpApi.downloadDirect({
       url: info.url,
       formatId: fmtId,
+      title: info.title,
+      ext,
+      meta,
       options,
       cookiesFromBrowser,
     })
@@ -247,7 +229,6 @@ export function useVideoFlow() {
     playlistInfo,
     formatPresets,
     tryParseUrl,
-    needsDirectDownload,
     submitVideoDownload,
     reset,
     togglePlaylistItem,
