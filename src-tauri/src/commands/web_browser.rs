@@ -243,6 +243,8 @@ fn apply_panel_layout(_app: &AppHandle, _inner: &WebPanelInner) {
 /// other platforms use the iframe path and never enter this branch.
 #[cfg(target_os = "macos")]
 fn ensure_panel_child_webview(app: &AppHandle) -> Result<(), String> {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
     use tauri::webview::{PageLoadEvent, WebviewBuilder};
 
     if app.get_webview(CONTENT_LABEL).is_some() {
@@ -256,16 +258,21 @@ fn ensure_panel_child_webview(app: &AppHandle) -> Result<(), String> {
         .parse()
         .map_err(|e| format!("about:blank parse: {e}"))?;
     let app_for_callback = app.clone();
+    // Polling can't safely start until the webview has committed *some*
+    // URL — wry 0.54.4 panics on `URL().unwrap()` for an uninitialized
+    // WKWebView. We arm the watcher from the first `on_page_load` event,
+    // which fires after `about:blank` settles.
+    let polling_armed = Arc::new(AtomicBool::new(false));
+    let polling_armed_cb = polling_armed.clone();
     let builder = WebviewBuilder::new(CONTENT_LABEL, WebviewUrl::External(blank))
         .user_agent(chrome_user_agent())
         .initialization_script(STEALTH_INIT_SCRIPT)
-        // wry 0.54.4 panics on `webview.url()` before any URL has been
-        // committed (`URL().unwrap()` on a `None`), so we cannot poll the
-        // URL ourselves. Drive toolbar URL sync from the navigation
-        // callback instead — it fires once per real page load. SPA
-        // pushState transitions still won't update the address bar, which
-        // is acceptable; staying alive matters more than perfect sync.
         .on_page_load(move |_webview, payload| {
+            // First load (any event) → arm the URL watcher. Cheap to
+            // call swap repeatedly; the watcher only spawns once.
+            if !polling_armed_cb.swap(true, Ordering::SeqCst) {
+                spawn_url_watcher(app_for_callback.clone());
+            }
             if payload.event() != PageLoadEvent::Finished {
                 return;
             }
@@ -284,6 +291,42 @@ fn ensure_panel_child_webview(app: &AppHandle) -> Result<(), String> {
         .map_err(|e| format!("add_child failed: {e}"))?;
 
     Ok(())
+}
+
+/// Polls the child webview's URL on a 400ms tick to catch SPA navigation
+/// (YouTube/Bilibili switch videos via history.pushState, which doesn't
+/// fire `on_page_load`). Caller MUST gate this on at least one
+/// `on_page_load` having fired — wry 0.54.4 panics on `webview.url()`
+/// before any URL has been committed. We still wrap the call in
+/// `catch_unwind` as defense-in-depth so a runtime panic on a bad tick
+/// can't crash the app.
+#[cfg(target_os = "macos")]
+fn spawn_url_watcher(app: AppHandle) {
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+
+    tauri::async_runtime::spawn(async move {
+        let mut last = String::new();
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+            let Some(content) = app.get_webview(CONTENT_LABEL) else {
+                return; // child webview destroyed → exit poller
+            };
+            let url_result = catch_unwind(AssertUnwindSafe(|| content.url()));
+            let Ok(Ok(url)) = url_result else {
+                continue;
+            };
+            let s = url.as_str().to_string();
+            if s == last || s == "about:blank" {
+                continue;
+            }
+            last = s.clone();
+            let _ = app.emit_to(
+                MAIN_WINDOW_LABEL,
+                "web-browser-url-changed",
+                serde_json::json!({ "url": s }),
+            );
+        }
+    });
 }
 
 #[cfg(not(target_os = "macos"))]
