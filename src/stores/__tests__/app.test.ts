@@ -613,6 +613,19 @@ describe('useAppStore', () => {
       expect(store.addTaskVisible).toBe(true)
     })
 
+    it('always shows dialog when parse=video flag is set (yt-dlp parsing must happen in AddTask)', async () => {
+      const store = useAppStore()
+      const { usePreferenceStore } = await import('@/stores/preference')
+      const prefStore = usePreferenceStore()
+      prefStore.config.autoSubmitFromExtension = true
+
+      store.handleDeepLinkUrls(['motrixnext://new?url=https%3A%2F%2Fwww.bilibili.com%2Fvideo%2FBV1xx&parse=video'])
+
+      expect(store.pendingBatch).toHaveLength(1)
+      expect(store.addTaskVisible).toBe(true)
+      expect(store.pendingParseVideo).toBe(true)
+    })
+
     it('handles mixed batch: auto-submits URIs, dialogs torrent', async () => {
       const store = useAppStore()
       const { usePreferenceStore } = await import('@/stores/preference')
