@@ -44,7 +44,11 @@ function transformBilibili(parsed: URL): string | null {
   const embed = new URL('https://player.bilibili.com/player.html')
   embed.searchParams.set('bvid', bvid)
   embed.searchParams.set('high_quality', '1')
-  embed.searchParams.set('autoplay', '0')
+  // The user reached this URL via an explicit click/paste in the address
+  // bar (a user gesture), so the WebView2 autoplay policy will let the
+  // player start without an extra click. Showing a black "click to play"
+  // surface for an empty reason is what users complain about.
+  embed.searchParams.set('autoplay', '1')
 
   // Carry through `?p=` (multi-part videos) so the right episode plays.
   const page = parsed.searchParams.get('p')
