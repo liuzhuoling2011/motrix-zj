@@ -112,7 +112,7 @@ pub fn update_progress_bar(app: AppHandle, progress: f64) -> Result<(), AppError
     }
 
     #[cfg(not(target_os = "macos"))]
-    if let Some(window) = app.get_webview_window("main") {
+    if let Some(window) = app.get_window("main") {
         if progress < 0.0 {
             let _ = window.set_progress_bar(ProgressBarState {
                 status: Some(tauri::window::ProgressBarStatus::None),
@@ -195,7 +195,7 @@ pub fn set_window_alpha(app: AppHandle, alpha: f64) -> Result<(), AppError> {
         use tauri::Manager;
 
         let alpha = alpha.clamp(0.0, 1.0);
-        if let Some(window) = app.get_webview_window("main") {
+        if let Some(window) = app.get_window("main") {
             if let Ok(ns_window) = window.ns_window() {
                 // SAFETY: ns_window() returns a valid NSWindow pointer.
                 // setAlphaValue: is a standard NSWindow method (not private API).
@@ -229,7 +229,7 @@ pub fn set_window_alpha(app: AppHandle, alpha: f64) -> Result<(), AppError> {
 /// by `handle_minimize_to_tray` — no platform-specific logic needed here.
 #[tauri::command]
 pub fn minimize_to_tray(app: AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
+    if let Some(window) = app.get_window("main") {
         crate::handle_minimize_to_tray(&app, &window);
     }
 }

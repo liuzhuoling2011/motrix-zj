@@ -252,7 +252,7 @@ impl AppLifecycleState {
 ///
 /// Shared by `on_window_event(CloseRequested)` and `on_menu_event("close-window")`
 /// to keep the two close paths consistent.
-pub(crate) fn handle_minimize_to_tray(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
+pub(crate) fn handle_minimize_to_tray(app: &tauri::AppHandle, window: &tauri::Window) {
     // End the cold-start phase on the first window dismissal.
     // After this point, is_autostart_launch() returns false so that
     // window recreations in lightweight mode show the window instead
@@ -379,12 +379,12 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         // frameless (decorations: false) windows.  Custom items route
         // through Tauri's window API, which works correctly.
         "minimize-window" => {
-            if let Some(window) = app.get_webview_window("main") {
+            if let Some(window) = app.get_window("main") {
                 let _ = window.minimize();
             }
         }
         "zoom-window" => {
-            if let Some(window) = app.get_webview_window("main") {
+            if let Some(window) = app.get_window("main") {
                 let is_max = window.is_maximized().unwrap_or(false);
                 if is_max {
                     let _ = window.unmaximize();
@@ -406,7 +406,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                 .unwrap_or(false);
 
             if should_hide {
-                if let Some(window) = app.get_webview_window("main") {
+                if let Some(window) = app.get_window("main") {
                     handle_minimize_to_tray(app, &window);
                 }
             } else {
@@ -502,7 +502,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or(false);
 
         if keep_state {
-            if let Some(w) = app.get_webview_window("main") {
+            if let Some(w) = app.get_window("main") {
                 // Exclude VISIBLE — window visibility is managed entirely by
                 // the autostart-silent-mode logic below and the frontend's
                 // MainLayout.vue.  Allowing the window-state plugin to restore
@@ -561,7 +561,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         use windows_sys::Win32::Graphics::Dwm::{
             DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE,
         };
-        if let Some(w) = app.get_webview_window("main") {
+        if let Some(w) = app.get_window("main") {
             if let Ok(hwnd_handle) = w.hwnd() {
                 let hwnd = hwnd_handle.0 as *mut std::ffi::c_void;
                 // DWMWCP_ROUND = 2: force DWM native rounded corners
@@ -653,7 +653,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         );
 
         if should_hide {
-            if let Some(w) = app.get_webview_window("main") {
+            if let Some(w) = app.get_window("main") {
                 let _ = w.hide();
                 log::info!("setup: window force-hidden for autostart silent mode");
             }
@@ -1089,6 +1089,7 @@ pub fn run() {
             commands::get_sidecar_versions,
             commands::toggle_web_panel,
             commands::suspend_web_panel,
+            commands::set_web_panel_content_visible,
             commands::web_browser_navigate,
             commands::save_cookies_and_trigger_download,
         ])
@@ -1142,9 +1143,7 @@ pub fn run() {
                     // standard mode hides it for instant show on tray click.
                     // Window is fully recreated on tray-click via get_or_create_main_window.
                     // Downloads, monitoring, and tray continue — they run in Rust.
-                    if let Some(wv) = app.get_webview_window(window.label()) {
-                        handle_minimize_to_tray(app, &wv);
-                    }
+                    handle_minimize_to_tray(app, window);
                 } else {
                     log::info!("window:show-exit-dialog label=main");
                     // Emit event for the frontend to show the exit dialog.

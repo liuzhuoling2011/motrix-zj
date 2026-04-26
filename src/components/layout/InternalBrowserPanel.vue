@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { emit as emitTauri } from '@tauri-apps/api/event'
+import { emit as emitTauri, listen } from '@tauri-apps/api/event'
 import { NIcon } from 'naive-ui'
 import {
   ArrowBackOutline,
@@ -13,6 +13,9 @@ import {
 } from '@vicons/ionicons5'
 import SiteGrid from '@/web/content/SiteGrid.vue'
 import { logger } from '@shared/logger'
+import { useAppStore } from '@/stores/app'
+
+const appStore = useAppStore()
 
 const emit = defineEmits<{ close: [] }>()
 const props = defineProps<{
@@ -28,6 +31,11 @@ const historyStack = ref<string[]>([])
 const historyIndex = ref(-1)
 const frameUrl = computed(() => frameSrc.value || '')
 const isWindows = computed(() => props.platform === 'windows')
+// macOS swaps the iframe for a native Tauri child webview so we can pin a
+// Chrome UA + stealth init script onto it (Bilibili otherwise rejects the
+// embedded WKWebView's default UA as "browser too old"). Toolbar buttons
+// proxy navigation through the web_browser_navigate Tauri command.
+const isMac = computed(() => props.platform === 'macos')
 const canGoBack = computed(() => historyIndex.value > 0)
 const canGoForward = computed(() => historyIndex.value >= 0 && historyIndex.value < historyStack.value.length - 1)
 const canDownload = computed(() => /^https?:\/\//i.test(currentUrl.value))
@@ -37,6 +45,37 @@ const WEB_PANEL_FRAME_URL_MESSAGE_TYPE = 'url-changed'
 watch(currentUrl, (url) => {
   addressInput.value = url
 })
+
+// Re-show the macOS child webview whenever the panel re-opens with a
+// non-empty URL — the Rust side resets content_visible on close, so the
+// next open lands on the SiteGrid by default. If the user already had a
+// page loaded, restore it instead of forcing them back to the grid.
+watch(
+  () => appStore.webPanelOpen,
+  (open) => {
+    if (open && isMac.value && frameSrc.value) {
+      void setNativeContentVisible(true)
+    }
+  },
+)
+
+async function setNativeContentVisible(visible: boolean) {
+  if (!isMac.value) return
+  try {
+    await invoke('set_web_panel_content_visible', { visible })
+  } catch (e) {
+    logger.debug('InternalBrowserPanel.setNativeContentVisible', String(e))
+  }
+}
+
+async function nativeNavigate(action: 'back' | 'forward' | 'reload' | 'home' | 'load', url?: string) {
+  if (!isMac.value) return
+  try {
+    await invoke('web_browser_navigate', { action, url: url ?? null })
+  } catch (e) {
+    logger.warn('InternalBrowserPanel.nativeNavigate', e instanceof Error ? e.message : String(e))
+  }
+}
 
 function normalizeUrl(raw: string): string {
   const trimmed = raw.trim()
@@ -57,12 +96,18 @@ function navigate(url: string, replace = false) {
 
   if (replace && historyIndex.value >= 0) {
     historyStack.value[historyIndex.value] = normalizedUrl
-    return
+  } else {
+    const retainedHistory = historyStack.value.slice(0, historyIndex.value + 1)
+    historyStack.value = [...retainedHistory, normalizedUrl]
+    historyIndex.value = historyStack.value.length - 1
   }
 
-  const retainedHistory = historyStack.value.slice(0, historyIndex.value + 1)
-  historyStack.value = [...retainedHistory, normalizedUrl]
-  historyIndex.value = historyStack.value.length - 1
+  if (isMac.value) {
+    void (async () => {
+      await setNativeContentVisible(true)
+      await nativeNavigate('load', normalizedUrl)
+    })()
+  }
 }
 
 function syncFrameUrl(url: string) {
@@ -83,27 +128,42 @@ function goHome() {
   addressInput.value = ''
   historyStack.value = []
   historyIndex.value = -1
+  if (isMac.value) {
+    void setNativeContentVisible(false)
+  }
 }
 
 function goBack() {
   if (!canGoBack.value) return
   historyIndex.value -= 1
-  currentUrl.value = historyStack.value[historyIndex.value] ?? ''
-  frameSrc.value = currentUrl.value
+  const target = historyStack.value[historyIndex.value] ?? ''
+  currentUrl.value = target
+  frameSrc.value = target
   frameKey.value += 1
+  if (isMac.value && target) {
+    void nativeNavigate('load', target)
+  }
 }
 
 function goForward() {
   if (!canGoForward.value) return
   historyIndex.value += 1
-  currentUrl.value = historyStack.value[historyIndex.value] ?? ''
-  frameSrc.value = currentUrl.value
+  const target = historyStack.value[historyIndex.value] ?? ''
+  currentUrl.value = target
+  frameSrc.value = target
   frameKey.value += 1
+  if (isMac.value && target) {
+    void nativeNavigate('load', target)
+  }
 }
 
 function refresh() {
   if (!currentUrl.value) return
-  frameKey.value += 1
+  if (isMac.value) {
+    void nativeNavigate('reload')
+  } else {
+    frameKey.value += 1
+  }
 }
 
 function submitAddress() {
@@ -173,8 +233,26 @@ function handleFrameUrlMessage(event: MessageEvent<unknown>) {
   syncFrameUrl(event.data.url)
 }
 
-onMounted(() => window.addEventListener('message', handleFrameUrlMessage))
-onUnmounted(() => window.removeEventListener('message', handleFrameUrlMessage))
+let unlistenNativeUrl: (() => void) | null = null
+
+onMounted(async () => {
+  if (isMac.value) {
+    // The Rust url-watcher polls the child webview every 400ms and emits
+    // this whenever the page navigates (handles SPA pushState too).
+    unlistenNativeUrl = await listen<{ url: string }>('web-browser-url-changed', ({ payload }) => {
+      if (payload?.url) syncFrameUrl(payload.url)
+    })
+  } else {
+    window.addEventListener('message', handleFrameUrlMessage)
+  }
+})
+onUnmounted(() => {
+  if (unlistenNativeUrl) {
+    unlistenNativeUrl()
+    unlistenNativeUrl = null
+  }
+  window.removeEventListener('message', handleFrameUrlMessage)
+})
 </script>
 
 <template>
@@ -237,6 +315,9 @@ onUnmounted(() => window.removeEventListener('message', handleFrameUrlMessage))
 
     <div class="browser-content">
       <SiteGrid v-if="!frameUrl" @navigate="navigate" />
+      <!-- macOS: leave the area empty; the native child webview is laid
+           out on top of this region by the Rust panel layout. -->
+      <div v-else-if="isMac" class="browser-frame native-placeholder" aria-hidden="true" />
       <iframe
         v-else
         :key="frameKey"
@@ -346,5 +427,9 @@ onUnmounted(() => window.removeEventListener('message', handleFrameUrlMessage))
   height: 100%;
   border: 0;
   background: #fff;
+}
+
+.native-placeholder {
+  background: transparent;
 }
 </style>

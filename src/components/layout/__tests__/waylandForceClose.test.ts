@@ -120,9 +120,14 @@ describe('tray.rs — get_or_create_main_window', () => {
     expect(source).toContain('pub fn get_or_create_main_window')
   })
 
-  it('attempts get_webview_window first (fast path)', () => {
+  it('attempts get_window first (fast path)', () => {
+    // We probe with `get_window` instead of `get_webview_window` because
+    // the embedded browser panel attaches a child webview to the main
+    // window — Tauri's `is_webview_window()` then returns false, and
+    // `get_webview_window("main")` returns None even though the window
+    // is alive. `get_window` checks the window itself, sidestepping that.
     const fnBody = extractBody(source, 'pub fn get_or_create_main_window')
-    expect(fnBody).toContain('get_webview_window("main")')
+    expect(fnBody).toContain('get_window("main")')
   })
 
   it('uses WebviewWindowBuilder to recreate the window', () => {
