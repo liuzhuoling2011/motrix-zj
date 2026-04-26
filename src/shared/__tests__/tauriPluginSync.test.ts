@@ -34,11 +34,14 @@ const PNPM_LOCK = resolve(PROJECT_ROOT, 'pnpm-lock.yaml')
  */
 function parseCargoLockPlugins(content: string): Map<string, string> {
   const plugins = new Map<string, string>()
-  const pattern = /name = "tauri-plugin-([^"]+)"\nversion = "([^"]+)"/g
-  let match: RegExpExecArray | null
+  const packageBlocks = content.split(/\r?\n\[\[package\]\]\r?\n/g)
 
-  while ((match = pattern.exec(content)) !== null) {
-    plugins.set(match[1], match[2])
+  for (const block of packageBlocks) {
+    const name = block.match(/^name = "tauri-plugin-([^"]+)"/m)?.[1]
+    const version = block.match(/^version = "([^"]+)"/m)?.[1]
+    if (name && version) {
+      plugins.set(name, version)
+    }
   }
 
   return plugins

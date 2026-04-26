@@ -29,6 +29,153 @@ use tauri_plugin_store::StoreExt;
 use upnp::UpnpState;
 use ytdlp::YtdlpState;
 
+const WEB_PANEL_FRAME_INIT_SCRIPT: &str = r#"
+(() => {
+  const MESSAGE_SOURCE = 'motrix-next-web-panel';
+  const MESSAGE_TYPE = 'url-changed';
+  const isAppFrame =
+    window.location.protocol === 'tauri:' ||
+    window.location.hostname === 'tauri.localhost' ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1';
+  if (isAppFrame && window.top === window) return;
+
+  try { Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => undefined, configurable: true }); } catch (_) {}
+  try { Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh', 'en-US', 'en'], configurable: true }); } catch (_) {}
+  try {
+    const fakePlugins = [
+      { name: 'PDF Viewer', filename: 'internal-pdf-viewer' },
+      { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer' },
+      { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer' },
+    ];
+    Object.defineProperty(navigator, 'plugins', { get: () => fakePlugins, configurable: true });
+  } catch (_) {}
+  try {
+    if (!window.chrome) {
+      window.chrome = {
+        runtime: { id: undefined, onConnect: undefined, onMessage: undefined },
+        loadTimes: () => ({}),
+        csi: () => ({}),
+        app: { isInstalled: false },
+      };
+    }
+  } catch (_) {}
+  try {
+    if (!navigator.userAgentData) {
+      Object.defineProperty(navigator, 'userAgentData', {
+        configurable: true,
+        get: () => ({
+          brands: [
+            { brand: 'Chromium', version: '131' },
+            { brand: 'Google Chrome', version: '131' },
+            { brand: 'Not_A Brand', version: '24' },
+          ],
+          mobile: false,
+          platform: 'Windows',
+          getHighEntropyValues: () => Promise.resolve({
+            architecture: 'arm',
+            bitness: '64',
+            model: '',
+            platformVersion: '15.0.0',
+            uaFullVersion: '131.0.6778.86',
+          }),
+        }),
+      });
+    }
+  } catch (_) {}
+  try {
+    const originalQuery = navigator.permissions && navigator.permissions.query;
+    if (originalQuery) {
+      navigator.permissions.query = (permission) =>
+        permission && permission.name === 'notifications'
+          ? Promise.resolve({ state: Notification.permission })
+          : originalQuery.call(navigator.permissions, permission);
+    }
+  } catch (_) {}
+
+  const postUrl = (value = window.location.href) => {
+    const nextUrl = toAbsoluteUrl(value);
+    if (!nextUrl || !/^https?:\/\//i.test(nextUrl)) return;
+    try {
+      if (window.top && window.top !== window) {
+        window.top.postMessage({ source: MESSAGE_SOURCE, type: MESSAGE_TYPE, url: nextUrl }, '*');
+      }
+    } catch (_) {}
+  };
+
+  const toAbsoluteUrl = (value) => {
+    try {
+      return new URL(String(value), window.location.href).href;
+    } catch (_) {
+      return '';
+    }
+  };
+
+  const navigateCurrentFrame = (value) => {
+    const nextUrl = toAbsoluteUrl(value);
+    if (nextUrl) {
+      postUrl(nextUrl);
+      window.location.href = nextUrl;
+    }
+  };
+
+  try {
+    window.open = (url) => {
+      if (url) navigateCurrentFrame(url);
+      return window;
+    };
+  } catch (_) {}
+
+  document.addEventListener(
+    'click',
+    (event) => {
+      const target = event.target;
+      const anchor = target && target.closest ? target.closest('a[href]') : null;
+      if (!anchor) return;
+      if (anchor.target === '_blank' || anchor.target === '_new') {
+        event.preventDefault();
+        event.stopPropagation();
+        postUrl(anchor.href);
+        window.location.href = anchor.href;
+      }
+    },
+    true,
+  );
+
+  document.addEventListener(
+    'submit',
+    (event) => {
+      const form = event.target;
+      if (form && (form.target === '_blank' || form.target === '_new')) {
+        form.target = '_self';
+      }
+    },
+    true,
+  );
+
+  try {
+    const originalPushState = history.pushState;
+    history.pushState = function (...args) {
+      const result = originalPushState.apply(this, args);
+      setTimeout(() => postUrl(), 0);
+      return result;
+    };
+    const originalReplaceState = history.replaceState;
+    history.replaceState = function (...args) {
+      const result = originalReplaceState.apply(this, args);
+      setTimeout(() => postUrl(), 0);
+      return result;
+    };
+  } catch (_) {}
+
+  window.addEventListener('popstate', () => postUrl(), true);
+  window.addEventListener('hashchange', () => postUrl(), true);
+  window.addEventListener('pageshow', () => postUrl(), true);
+  window.addEventListener('load', () => postUrl(), true);
+  postUrl();
+})();
+"#;
+
 /// Pre-reads the user's log-level preference from the raw config.json file.
 ///
 /// `tauri-plugin-store` isn't available until after `Builder.build()`, so we
@@ -745,6 +892,11 @@ pub fn run() {
                     !metadata.target().starts_with("tao")
                         && !metadata.target().starts_with("tracing")
                 })
+                .build(),
+        )
+        .plugin(
+            tauri::plugin::Builder::<tauri::Wry, ()>::new("web-panel-frame-navigation")
+                .js_init_script_on_all_frames(WEB_PANEL_FRAME_INIT_SCRIPT)
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())
