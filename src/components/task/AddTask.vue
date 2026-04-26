@@ -303,31 +303,63 @@ const selectedItem = computed(() => fileItems.value[selectedBatchIndex.value] ||
 // Sync download dir and split with latest preference every time the dialog
 // opens. AddTask is kept mounted (`:show` not `v-if`), so form values would
 // otherwise be stale if the user changes defaults in preferences.
+//
+// This watcher is the SYNCHRONOUS entry point on dialog open — it fires
+// before the next render and before the async file-resolution watcher
+// below. For the from-web-panel flow, kick off the URI flush + auto-parse
+// here so `videoFlow.isParsing` flips to true before the first paint.
+// Otherwise the dialog renders one frame with parse-media + submit
+// buttons in their idle state, which users perceive as "no loading".
 watch(
   () => props.show,
   (visible) => {
-    if (visible) {
-      // When classification is enabled, clear the dir so user sees it's optional;
-      // otherwise sync from preferences as usual.
-      if (preferenceStore.config.fileCategoryEnabled) {
-        form.value.dir = ''
-      } else {
-        form.value.dir = preferenceStore.config.dir || form.value.dir
-      }
-      // Sync split from the user's Basic preference value
-      form.value.split = preferenceStore.config.split ?? form.value.split
-      // Reset the manual-override flag each time the dialog opens
-      dirUserModified.value = false
+    if (!visible) return
 
-      // Pre-fill referer and cookie from browser extension deep-link.
-      // These are extracted by handleDeepLinkUrls() and stored as pending
-      // values. Without this, the manual-submit path silently discards
-      // them — causing cookie-gated CDNs (Quark, Baidu) to return 412.
-      if (appStore.pendingReferer) {
-        form.value.referer = appStore.pendingReferer
-      }
-      if (appStore.pendingCookie) {
-        form.value.cookie = appStore.pendingCookie
+    // When classification is enabled, clear the dir so user sees it's optional;
+    // otherwise sync from preferences as usual.
+    if (preferenceStore.config.fileCategoryEnabled) {
+      form.value.dir = ''
+    } else {
+      form.value.dir = preferenceStore.config.dir || form.value.dir
+    }
+    // Sync split from the user's Basic preference value
+    form.value.split = preferenceStore.config.split ?? form.value.split
+    // Reset the manual-override flag each time the dialog opens
+    dirUserModified.value = false
+
+    // Pre-fill referer and cookie from browser extension deep-link.
+    // These are extracted by handleDeepLinkUrls() and stored as pending
+    // values. Without this, the manual-submit path silently discards
+    // them — causing cookie-gated CDNs (Quark, Baidu) to return 412.
+    if (appStore.pendingReferer) {
+      form.value.referer = appStore.pendingReferer
+    }
+    if (appStore.pendingCookie) {
+      form.value.cookie = appStore.pendingCookie
+    }
+
+    // Synchronous URI flush + parse for from-web-panel: copy the single
+    // URI out of the pending batch and start handleParseMedia in the
+    // same tick. tryParseUrl's sync prefix sets `isParsing = true` before
+    // Vue runs its render flush, so the first paint already shows the
+    // loading state.
+    if (isFromWebPanel.value && hasBatch.value) {
+      const uriItems = batch.value.filter((i) => i.kind === 'uri')
+      if (uriItems.length > 0) {
+        const incomingUris = uriItems.map((i) => i.payload)
+        form.value.uris = incomingUris.join('\n')
+        appStore.pendingBatch = batch.value.filter((i) => i.kind !== 'uri')
+        activeTab.value = ADD_TASK_TYPE.URI
+
+        const trimmed = form.value.uris.trim()
+        if (trimmed && !trimmed.includes('\n')) {
+          videoFlow.showAllFormats.value = true
+          const parseKey = `${trimmed}\n${form.value.cookie}\n${form.value.referer}`
+          if (lastWebPanelAutoParseKey.value !== parseKey) {
+            lastWebPanelAutoParseKey.value = parseKey
+            void handleParseMedia()
+          }
+        }
       }
     }
   },
@@ -405,7 +437,12 @@ onMounted(async () => {
   }
 })
 
-// When dialog opens: resolve file items, flush URIs into textarea, auto-select tab
+// When dialog opens: resolve file items, flush URIs into textarea, auto-select tab.
+//
+// The from-web-panel URI flush + auto-parse is handled by the synchronous
+// visible-watcher above so the loading state is visible from the first
+// render. This async watcher only handles the slow paths: torrent/metalink
+// byte loading and the no-batch clipboard probe.
 watch(
   () => props.show,
   async (visible) => {
@@ -413,35 +450,28 @@ watch(
     selectedBatchIndex.value = 0
 
     if (hasBatch.value) {
-      // Resolve file-based items
+      // Resolve file-based items (torrent/metalink bytes → base64).
       await localResolveUnresolvedItems()
-      // Flush URI batch items into the editable textarea via normalized merge
-      const uriItems = batch.value.filter((i) => i.kind === 'uri')
-      if (uriItems.length > 0) {
-        const incomingUris = uriItems.map((i) => i.payload)
-        form.value.uris = isFromWebPanel.value ? incomingUris.join('\n') : mergeUriLines(form.value.uris, incomingUris)
-        appStore.pendingBatch = batch.value.filter((i) => i.kind !== 'uri')
+
+      // Flush URI batch items into the editable textarea. For the
+      // from-web-panel flow this was already done synchronously above —
+      // skip to avoid clobbering the in-flight parse via merge.
+      if (!isFromWebPanel.value) {
+        const uriItems = batch.value.filter((i) => i.kind === 'uri')
+        if (uriItems.length > 0) {
+          const incomingUris = uriItems.map((i) => i.payload)
+          form.value.uris = mergeUriLines(form.value.uris, incomingUris)
+          appStore.pendingBatch = batch.value.filter((i) => i.kind !== 'uri')
+        }
       }
+
       // Auto-switch to Torrent tab when file items are present
       if (fileItems.value.length > 0) {
         activeTab.value = ADD_TASK_TYPE.TORRENT
-      } else {
+      } else if (!isFromWebPanel.value) {
+        // The sync path already pinned the URI tab for from-web-panel;
+        // don't reassign here as that would steal focus mid-render.
         activeTab.value = ADD_TASK_TYPE.URI
-      }
-
-      // Explicit auto-parse for the web-panel flow. Relying on the
-      // multi-source watcher is racy: by the time `form.value.uris`
-      // settles, the watcher may already have read the empty value
-      // earlier and recorded a `lastWebPanelAutoParseKey` that prevents
-      // a re-fire. Calling handleParseMedia here is deterministic — the
-      // user sees the parse button enter loading state immediately.
-      if (isFromWebPanel.value && form.value.uris.trim() && !form.value.uris.includes('\n')) {
-        videoFlow.showAllFormats.value = true
-        const parseKey = `${form.value.uris.trim()}\n${form.value.cookie}\n${form.value.referer}`
-        if (lastWebPanelAutoParseKey.value !== parseKey) {
-          lastWebPanelAutoParseKey.value = parseKey
-          void handleParseMedia()
-        }
       }
     } else {
       activeTab.value = ADD_TASK_TYPE.URI
@@ -659,6 +689,17 @@ async function handleSubmit() {
   if (submitting.value) return
   submitting.value = true
   cookieExpired.value = false
+
+  // From-web-panel retry path: when the auto-parse failed and the user
+  // clicks submit, clear `parseError` synchronously here so the error
+  // banner hides in the same render where the submit button enters
+  // loading. Without this clear, there's a one-frame gap between
+  // "submitting flips true" and "tryParseUrl resets parseError" where
+  // the user sees the stale failure banner alongside the loading
+  // spinner — exactly the "loading → fail → success" bounce.
+  if (isFromWebPanel.value && !videoFlow.isParsing.value && !videoFlow.isVideo.value && !videoFlow.isPlaylist.value) {
+    videoFlow.parseError.value = null
+  }
 
   try {
     if (form.value.proxyMode === 'custom' && form.value.customProxy) {
