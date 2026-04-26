@@ -28,6 +28,7 @@ use tauri_plugin_shell::ShellExt;
 use tokio::sync::Mutex;
 
 use super::client::{YtdlpHeaders, BILIBILI_TRANSIENT_MAX_ATTEMPTS};
+use super::encoding::decode_subprocess_line;
 use super::types::{YtdlpLog, YtdlpProgress, YtdlpTaskStatus};
 use crate::error::AppError;
 use crate::history::HistoryDbState;
@@ -163,7 +164,12 @@ pub async fn start_download(
             while let Some(event) = rx.recv().await {
                 match event {
                     CommandEvent::Stdout(line) => {
-                        let text = String::from_utf8_lossy(&line);
+                        // PYTHONIOENCODING / PYTHONUTF8 cover most yt-dlp output,
+                        // but PyInstaller and ffmpeg sub-processes still leak
+                        // CP936/GBK bytes for paths like
+                        // `[download] Destination: 中文.mp4`. The helper tries
+                        // UTF-8 first and only falls back to GBK on failure.
+                        let text = decode_subprocess_line(&line);
                         let trimmed = text.trim();
                         if trimmed.is_empty() {
                             continue;
@@ -190,7 +196,7 @@ pub async fn start_download(
                         }
                     }
                     CommandEvent::Stderr(line) => {
-                        let text = String::from_utf8_lossy(&line);
+                        let text = decode_subprocess_line(&line);
                         let trimmed = text.trim();
                         if trimmed.is_empty() {
                             continue;
