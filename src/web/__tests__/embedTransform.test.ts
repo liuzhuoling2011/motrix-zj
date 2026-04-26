@@ -7,7 +7,9 @@ describe('transformEmbedUrl', () => {
     expect(result).toMatch(/^https:\/\/player\.bilibili\.com\/player\.html\?/)
     expect(result).toContain('bvid=BV1zhPNz3EZJ')
     expect(result).toContain('high_quality=1')
-    expect(result).toContain('autoplay=0')
+    // Default autoplay so the player doesn't sit on a black "click me"
+    // surface — the navigation itself was a user gesture.
+    expect(result).toContain('autoplay=1')
   })
 
   it('strips trailing slash and preserves the BV id', () => {

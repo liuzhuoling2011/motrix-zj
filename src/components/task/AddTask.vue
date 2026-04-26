@@ -149,10 +149,16 @@ watch(globalProxyAvailable, (available) => {
 })
 
 // Reset video parse state whenever the URL changes so a stale result from
-// a previous URL doesn't linger under the Parse Media button.
+// a previous URL doesn't linger under the Parse Media button. Skip the
+// reset while a parse is in flight — otherwise the explicit auto-parse
+// kicked off in the visible-watcher gets its `isParsing` flipped back to
+// false here, the parse-media + submit buttons drop their loading state
+// mid-flight, and a transient parseError leaks into the UI before the
+// first parse finishes.
 watch(
   () => form.value.uris,
   () => {
+    if (videoFlow.isParsing.value) return
     lastWebPanelAutoParseKey.value = ''
     videoFlow.reset()
   },
@@ -421,6 +427,21 @@ watch(
         activeTab.value = ADD_TASK_TYPE.TORRENT
       } else {
         activeTab.value = ADD_TASK_TYPE.URI
+      }
+
+      // Explicit auto-parse for the web-panel flow. Relying on the
+      // multi-source watcher is racy: by the time `form.value.uris`
+      // settles, the watcher may already have read the empty value
+      // earlier and recorded a `lastWebPanelAutoParseKey` that prevents
+      // a re-fire. Calling handleParseMedia here is deterministic — the
+      // user sees the parse button enter loading state immediately.
+      if (isFromWebPanel.value && form.value.uris.trim() && !form.value.uris.includes('\n')) {
+        videoFlow.showAllFormats.value = true
+        const parseKey = `${form.value.uris.trim()}\n${form.value.cookie}\n${form.value.referer}`
+        if (lastWebPanelAutoParseKey.value !== parseKey) {
+          lastWebPanelAutoParseKey.value = parseKey
+          void handleParseMedia()
+        }
       }
     } else {
       activeTab.value = ADD_TASK_TYPE.URI
@@ -945,7 +966,13 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
       <template #footer>
         <NSpace justify="end">
           <NButton @click="handleClose">{{ t('app.cancel') }}</NButton>
-          <NButton data-testid="submit-button" type="primary" :loading="submitting" @click="handleSubmit">
+          <NButton
+            data-testid="submit-button"
+            type="primary"
+            :loading="submitting || (isFromWebPanel && videoFlow.isParsing.value)"
+            :disabled="isFromWebPanel && videoFlow.isParsing.value"
+            @click="handleSubmit"
+          >
             {{ submitLabel }}
           </NButton>
         </NSpace>
