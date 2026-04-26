@@ -12,7 +12,6 @@ import {
   RefreshOutline,
 } from '@vicons/ionicons5'
 import SiteGrid from '@/web/content/SiteGrid.vue'
-import { transformEmbedUrl } from '@/web/embedTransform'
 import { logger } from '@shared/logger'
 
 const emit = defineEmits<{ close: [] }>()
@@ -32,29 +31,6 @@ const isWindows = computed(() => props.platform === 'windows')
 const canGoBack = computed(() => historyIndex.value > 0)
 const canGoForward = computed(() => historyIndex.value >= 0 && historyIndex.value < historyStack.value.length - 1)
 const canDownload = computed(() => /^https?:\/\//i.test(currentUrl.value))
-/**
- * Bilibili sets `X-Frame-Options: DENY` on every page except the
- * `player.bilibili.com` embed endpoint, so loading bilibili.com or any
- * non-video page in the iframe just shows a blank/jumping surface. When
- * we detect that case, surface a hint instructing the user how to reach
- * a video — via the address bar, which goes through `transformEmbedUrl`.
- */
-const showBilibiliHint = computed(() => {
-  const url = currentUrl.value
-  if (!url) return false
-  try {
-    const u = new URL(url)
-    const isBilibili =
-      u.hostname === 'www.bilibili.com' || u.hostname === 'bilibili.com' || u.hostname === 'm.bilibili.com'
-    if (!isBilibili) return false
-    const segments = u.pathname.split('/').filter(Boolean)
-    // Only video pages get rewritten to player.bilibili.com — show the
-    // hint for any other Bilibili URL.
-    return segments[0] !== 'video' || !segments[1]?.startsWith('BV')
-  } catch {
-    return false
-  }
-})
 const WEB_PANEL_FRAME_MESSAGE_SOURCE = 'motrix-next-web-panel'
 const WEB_PANEL_FRAME_URL_MESSAGE_TYPE = 'url-changed'
 
@@ -73,11 +49,8 @@ function navigate(url: string, replace = false) {
   const normalizedUrl = normalizeUrl(url)
   if (!normalizedUrl) return
 
-  // The address bar / download button see the public URL the user typed;
-  // the iframe loads an embed-friendly variant for sites that block
-  // X-Frame-Options (e.g. bilibili.com video pages → player.bilibili.com).
   currentUrl.value = normalizedUrl
-  frameSrc.value = transformEmbedUrl(normalizedUrl)
+  frameSrc.value = normalizedUrl
   if (!replace) {
     frameKey.value += 1
   }
@@ -116,7 +89,7 @@ function goBack() {
   if (!canGoBack.value) return
   historyIndex.value -= 1
   currentUrl.value = historyStack.value[historyIndex.value] ?? ''
-  frameSrc.value = transformEmbedUrl(currentUrl.value)
+  frameSrc.value = currentUrl.value
   frameKey.value += 1
 }
 
@@ -124,7 +97,7 @@ function goForward() {
   if (!canGoForward.value) return
   historyIndex.value += 1
   currentUrl.value = historyStack.value[historyIndex.value] ?? ''
-  frameSrc.value = transformEmbedUrl(currentUrl.value)
+  frameSrc.value = currentUrl.value
   frameKey.value += 1
 }
 
@@ -206,12 +179,7 @@ onUnmounted(() => window.removeEventListener('message', handleFrameUrlMessage))
 
 <template>
   <section class="internal-browser" :class="{ windows: isWindows }" aria-label="Internal browser">
-    <!-- Windows: explicit drag strip in the 36px area reserved above the
-         toolbar so users can drag the main window from the panel area.
-         The native window controls live at z-index 9999 and are
-         hit-tested above this strip, so the close/min/max buttons keep
-         working. -->
-    <div v-if="isWindows" class="drag-strip" data-tauri-drag-region />
+    <div v-if="isWindows" class="title-drag-strip" data-tauri-drag-region />
     <div class="browser-toolbar">
       <button
         type="button"
@@ -269,12 +237,6 @@ onUnmounted(() => window.removeEventListener('message', handleFrameUrlMessage))
 
     <div class="browser-content">
       <SiteGrid v-if="!frameUrl" @navigate="navigate" />
-      <div v-if="frameUrl && showBilibiliHint" class="iframe-hint">
-        <p>
-          B站非视频页面无法在内置浏览器中加载。请把视频链接（例如
-          <code>https://www.bilibili.com/video/BV1zhPNz3EZJ</code>）粘贴到上方地址栏，会自动转到嵌入播放器。
-        </p>
-      </div>
       <iframe
         v-else
         :key="frameKey"
@@ -284,7 +246,6 @@ onUnmounted(() => window.removeEventListener('message', handleFrameUrlMessage))
         allowfullscreen
         class="browser-frame"
         referrerpolicy="strict-origin-when-cross-origin"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-pointer-lock allow-modals allow-orientation-lock"
         title="Internal browser content"
         @load="forceCurrentFrameNavigation"
       />
@@ -303,13 +264,10 @@ onUnmounted(() => window.removeEventListener('message', handleFrameUrlMessage))
   border-left: 1px solid var(--m3-outline-variant);
 }
 
-.drag-strip {
+.title-drag-strip {
   height: 36px;
   flex-shrink: 0;
   background: var(--main-bg);
-  /* Reserve space so the close/min/max caption buttons (which live in a
-   * fixed-position WindowControls bar at z-index 9999) hover above this
-   * strip without overlap with the toolbar. */
 }
 
 .browser-toolbar {
@@ -388,24 +346,5 @@ onUnmounted(() => window.removeEventListener('message', handleFrameUrlMessage))
   height: 100%;
   border: 0;
   background: #fff;
-}
-
-.iframe-hint {
-  margin: 0;
-  padding: 12px 16px;
-  background: var(--m3-warning-container-bg, #fff7e6);
-  color: var(--m3-warning-text, #92400e);
-  border-bottom: 1px solid var(--m3-outline-variant);
-  font-size: 13px;
-  line-height: 1.5;
-}
-.iframe-hint p {
-  margin: 0;
-}
-.iframe-hint code {
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.08);
-  font-family: ui-monospace, SFMono-Regular, monospace;
 }
 </style>

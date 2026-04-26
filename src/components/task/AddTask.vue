@@ -149,12 +149,14 @@ watch(globalProxyAvailable, (available) => {
 })
 
 // Reset video parse state whenever the URL changes so a stale result from
-// a previous URL doesn't linger under the Parse Media button. Skip the
-// reset while a parse is in flight — otherwise the explicit auto-parse
-// kicked off in the visible-watcher gets its `isParsing` flipped back to
-// false here, the parse-media + submit buttons drop their loading state
-// mid-flight, and a transient parseError leaks into the UI before the
-// first parse finishes.
+// a previous URL doesn't linger under the Parse Media button.
+//
+// Skip while a parse is in flight: the synchronous web-panel kickoff sets
+// `form.value.uris` and calls `handleParseMedia` in the same tick, and Vue
+// flushes this watcher *after* `tryParseUrl` has already flipped
+// `isParsing=true`. Without this guard, `videoFlow.reset()` clears
+// `isParsing` back to false and the first render of the dialog still
+// shows the parse-media + submit buttons in their idle state.
 watch(
   () => form.value.uris,
   () => {
@@ -244,6 +246,25 @@ async function handleParseMedia() {
   }
 }
 
+/** Resolves once the in-flight yt-dlp parse finishes (either success or
+ *  error). Used by handleSubmit so the user can click "提交" while the
+ *  auto-parse is still running and have the request queued instead of
+ *  failing immediately with "解析失败". */
+function waitForParseComplete(): Promise<void> {
+  if (!videoFlow.isParsing.value) return Promise.resolve()
+  return new Promise<void>((resolve) => {
+    const stop = watch(
+      () => videoFlow.isParsing.value,
+      (parsing) => {
+        if (!parsing) {
+          stop()
+          resolve()
+        }
+      },
+    )
+  })
+}
+
 const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
 
 // Real-time tracking: NInputNumber only commits v-model on blur,
@@ -304,33 +325,25 @@ const selectedItem = computed(() => fileItems.value[selectedBatchIndex.value] ||
 // opens. AddTask is kept mounted (`:show` not `v-if`), so form values would
 // otherwise be stale if the user changes defaults in preferences.
 //
-// This watcher is the SYNCHRONOUS entry point on dialog open — it fires
-// before the next render and before the async file-resolution watcher
-// below. For the from-web-panel flow, kick off the URI flush + auto-parse
-// here so `videoFlow.isParsing` flips to true before the first paint.
-// Otherwise the dialog renders one frame with parse-media + submit
-// buttons in their idle state, which users perceive as "no loading".
+// This is the SYNCHRONOUS entry point on dialog open. For the from-web-panel
+// flow it ALSO flushes the URI from the pending batch and fires the auto
+// parse here — `tryParseUrl` sets `isParsing=true` synchronously, so Vue's
+// first paint of the dialog already shows the parse-media + submit buttons
+// in their loading state. Doing it from the async watcher below leaves a
+// frame where everything looks idle and users perceive "no loading".
 watch(
   () => props.show,
   (visible) => {
     if (!visible) return
 
-    // When classification is enabled, clear the dir so user sees it's optional;
-    // otherwise sync from preferences as usual.
     if (preferenceStore.config.fileCategoryEnabled) {
       form.value.dir = ''
     } else {
       form.value.dir = preferenceStore.config.dir || form.value.dir
     }
-    // Sync split from the user's Basic preference value
     form.value.split = preferenceStore.config.split ?? form.value.split
-    // Reset the manual-override flag each time the dialog opens
     dirUserModified.value = false
 
-    // Pre-fill referer and cookie from browser extension deep-link.
-    // These are extracted by handleDeepLinkUrls() and stored as pending
-    // values. Without this, the manual-submit path silently discards
-    // them — causing cookie-gated CDNs (Quark, Baidu) to return 412.
     if (appStore.pendingReferer) {
       form.value.referer = appStore.pendingReferer
     }
@@ -338,11 +351,6 @@ watch(
       form.value.cookie = appStore.pendingCookie
     }
 
-    // Synchronous URI flush + parse for from-web-panel: copy the single
-    // URI out of the pending batch and start handleParseMedia in the
-    // same tick. tryParseUrl's sync prefix sets `isParsing = true` before
-    // Vue runs its render flush, so the first paint already shows the
-    // loading state.
     if (isFromWebPanel.value && hasBatch.value) {
       const uriItems = batch.value.filter((i) => i.kind === 'uri')
       if (uriItems.length > 0) {
@@ -352,13 +360,14 @@ watch(
         activeTab.value = ADD_TASK_TYPE.URI
 
         const trimmed = form.value.uris.trim()
-        if (trimmed && !trimmed.includes('\n')) {
+        if (trimmed && !trimmed.includes('\n') && /^https?:\/\//i.test(trimmed)) {
           videoFlow.showAllFormats.value = true
+          // Pre-stamp the dedup key so the multi-source auto-parse-watch
+          // (which fires later for the same URL+cookie+referer combo) does
+          // not start a duplicate parse on top of this synchronous one.
           const parseKey = `${trimmed}\n${form.value.cookie}\n${form.value.referer}`
-          if (lastWebPanelAutoParseKey.value !== parseKey) {
-            lastWebPanelAutoParseKey.value = parseKey
-            void handleParseMedia()
-          }
+          lastWebPanelAutoParseKey.value = parseKey
+          void handleParseMedia()
         }
       }
     }
@@ -374,36 +383,16 @@ const checkedRowKeys = computed({
 })
 
 const submitLabel = computed(() => {
-  // While the web-panel auto-parse is still running, surface that state on
-  // the primary action so users understand why submit has stalled — the
-  // small parse-media button by itself is easy to miss.
-  if (isFromWebPanel.value && videoFlow.isParsing.value) {
-    return '正在解析...'
-  }
+  // Surface the in-flight web-panel parse on the primary action so users
+  // see why the submit button is stuck in loading. The dedicated parse
+  // button is small and easy to miss.
+  if (isFromWebPanel.value && videoFlow.isParsing.value) return '正在解析...'
   const pending = batch.value.filter((i) => i.status === 'pending').length
   const failed = batch.value.filter((i) => i.status === 'failed').length
   const count = pending + failed
   if (count > 1) return `${t('app.submit')} (${count})`
   return t('app.submit')
 })
-
-/** Resolves when `videoFlow.isParsing` next transitions to `false`. Used by
- *  the web-panel submit branch to wait for the in-flight auto-parse instead
- *  of starting a duplicate one or treating the URL as not-a-video. */
-function waitForParseDone(): Promise<void> {
-  if (!videoFlow.isParsing.value) return Promise.resolve()
-  return new Promise((resolve) => {
-    const stop = watch(
-      () => videoFlow.isParsing.value,
-      (parsing) => {
-        if (!parsing) {
-          stop()
-          resolve()
-        }
-      },
-    )
-  })
-}
 
 /** Whether file classification is currently enabled in preferences. */
 const categoryEnabled = computed(() => preferenceStore.config.fileCategoryEnabled)
@@ -439,10 +428,10 @@ onMounted(async () => {
 
 // When dialog opens: resolve file items, flush URIs into textarea, auto-select tab.
 //
-// The from-web-panel URI flush + auto-parse is handled by the synchronous
-// visible-watcher above so the loading state is visible from the first
-// render. This async watcher only handles the slow paths: torrent/metalink
-// byte loading and the no-batch clipboard probe.
+// The from-web-panel branch is handled by the synchronous visible-watcher
+// above so the loading state is visible from the first render. This async
+// watcher only deals with the slow paths: torrent/metalink byte loading
+// and the no-batch clipboard probe.
 watch(
   () => props.show,
   async (visible) => {
@@ -452,10 +441,10 @@ watch(
     if (hasBatch.value) {
       // Resolve file-based items (torrent/metalink bytes → base64).
       await localResolveUnresolvedItems()
-
-      // Flush URI batch items into the editable textarea. For the
-      // from-web-panel flow this was already done synchronously above —
-      // skip to avoid clobbering the in-flight parse via merge.
+      // Flush URI batch items via normalized merge — but skip for the
+      // web-panel path since the sync watcher above already wrote
+      // form.value.uris and started the parse. Re-running merge here
+      // would trigger the uris-reset watcher and clobber isParsing.
       if (!isFromWebPanel.value) {
         const uriItems = batch.value.filter((i) => i.kind === 'uri')
         if (uriItems.length > 0) {
@@ -464,13 +453,11 @@ watch(
           appStore.pendingBatch = batch.value.filter((i) => i.kind !== 'uri')
         }
       }
-
       // Auto-switch to Torrent tab when file items are present
       if (fileItems.value.length > 0) {
         activeTab.value = ADD_TASK_TYPE.TORRENT
       } else if (!isFromWebPanel.value) {
-        // The sync path already pinned the URI tab for from-web-panel;
-        // don't reassign here as that would steal focus mid-render.
+        // The sync path already pinned the URI tab for from-web-panel.
         activeTab.value = ADD_TASK_TYPE.URI
       }
     } else {
@@ -690,13 +677,13 @@ async function handleSubmit() {
   submitting.value = true
   cookieExpired.value = false
 
-  // From-web-panel retry path: when the auto-parse failed and the user
-  // clicks submit, clear `parseError` synchronously here so the error
-  // banner hides in the same render where the submit button enters
-  // loading. Without this clear, there's a one-frame gap between
-  // "submitting flips true" and "tryParseUrl resets parseError" where
-  // the user sees the stale failure banner alongside the loading
-  // spinner — exactly the "loading → fail → success" bounce.
+  // Web-panel retry path: when the auto-parse failed and the user clicks
+  // submit to retry, drop the stale `parseError` synchronously here so the
+  // error banner hides in the same render where the submit button enters
+  // loading. Without this, there's a one-frame gap between
+  // `submitting=true` and `tryParseUrl` clearing parseError where the user
+  // sees the failure banner alongside the loading spinner — the
+  // "loading → 解析失败 → 成功" flicker.
   if (isFromWebPanel.value && !videoFlow.isParsing.value && !videoFlow.isVideo.value && !videoFlow.isPlaylist.value) {
     videoFlow.parseError.value = null
   }
@@ -721,12 +708,13 @@ async function handleSubmit() {
     if (handled) return
 
     if (isFromWebPanel.value) {
-      // Wait for the auto-parse to finish (or kick one off if it never
-      // started) before deciding whether this is a video URL. Without
-      // the wait, an in-flight parse leaves isVideo/isPlaylist false and
-      // submit would prematurely report "video parse failed".
+      // Web-panel flow always goes through yt-dlp. If a parse is already in
+      // flight (auto-parse-on-open) we must wait for it instead of skipping
+      // straight to submitVideoBranch — otherwise isVideo/isPlaylist are
+      // still false and the user sees "解析失败" even though parsing was
+      // about to succeed.
       if (videoFlow.isParsing.value) {
-        await waitForParseDone()
+        await waitForParseComplete()
       } else if (!videoFlow.isVideo.value && !videoFlow.isPlaylist.value) {
         await handleParseMedia()
       }
@@ -1011,7 +999,7 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
             data-testid="submit-button"
             type="primary"
             :loading="submitting || (isFromWebPanel && videoFlow.isParsing.value)"
-            :disabled="isFromWebPanel && videoFlow.isParsing.value"
+            :disabled="isFromWebPanel && videoFlow.isParsing.value && !submitting"
             @click="handleSubmit"
           >
             {{ submitLabel }}
