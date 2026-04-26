@@ -40,7 +40,16 @@ export function useVideoFlow() {
     if (!info) return []
 
     const videoFormats = info.formats.filter((f: VideoFormat) => f.vcodec && f.vcodec !== 'none')
+    const audioOnly = info.formats.find(
+      (f: VideoFormat) => (f.vcodec === 'none' || !f.vcodec) && f.acodec && f.acodec !== 'none',
+    )
     const presets: FormatPreset[] = []
+    const estimateWithAudio = (format: VideoFormat): number | undefined => {
+      const videoSize = format.filesize ?? format.filesizeApprox
+      const audioSize = audioOnly?.filesize ?? audioOnly?.filesizeApprox
+      if (!videoSize) return audioSize
+      return audioSize ? videoSize + audioSize : videoSize
+    }
 
     // Best quality
     const best = videoFormats[videoFormats.length - 1]
@@ -57,8 +66,8 @@ export function useVideoFlow() {
     if (f1080) {
       presets.push({
         label: '1080p',
-        formatId: f1080.formatId,
-        estimatedSize: f1080.filesize ?? f1080.filesizeApprox,
+        formatId: `${f1080.formatId}+bestaudio/best`,
+        estimatedSize: estimateWithAudio(f1080),
       })
     }
 
@@ -67,15 +76,12 @@ export function useVideoFlow() {
     if (f720) {
       presets.push({
         label: '720p',
-        formatId: f720.formatId,
-        estimatedSize: f720.filesize ?? f720.filesizeApprox,
+        formatId: `${f720.formatId}+bestaudio/best`,
+        estimatedSize: estimateWithAudio(f720),
       })
     }
 
     // Audio only
-    const audioOnly = info.formats.find(
-      (f: VideoFormat) => (f.vcodec === 'none' || !f.vcodec) && f.acodec && f.acodec !== 'none',
-    )
     if (audioOnly) {
       presets.push({
         label: '仅音频',
@@ -95,6 +101,7 @@ export function useVideoFlow() {
     cookie?: string,
     userAgent?: string,
     cookiesFromBrowser?: string,
+    referer?: string,
   ): Promise<boolean> {
     if (!url.trim()) return false
 
@@ -106,7 +113,7 @@ export function useVideoFlow() {
     showAllFormats.value = false
 
     try {
-      const result = await ytdlpApi.parseUrl(url, cookie, userAgent, cookiesFromBrowser)
+      const result = await ytdlpApi.parseUrl(url, cookie, userAgent, cookiesFromBrowser, referer)
       parseResult.value = result
 
       if (result.type === 'Video') {

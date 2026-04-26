@@ -27,10 +27,18 @@ fn sanitize(s: &str) -> Cow<'_, str> {
 /// Session cookies (no expiration set) get expiration `0`.
 pub fn serialise(domain: &str, cookies: &[Cookie]) -> String {
     let mut out = String::from("# Netscape HTTP Cookie File\n# Written by motrix-next\n\n");
-    let include_sub = if domain.starts_with('.') { "TRUE" } else { "FALSE" };
+    let include_sub = if domain.starts_with('.') {
+        "TRUE"
+    } else {
+        "FALSE"
+    };
     for c in cookies {
         let path = c.path().unwrap_or("/");
-        let secure = if c.secure().unwrap_or(false) { "TRUE" } else { "FALSE" };
+        let secure = if c.secure().unwrap_or(false) {
+            "TRUE"
+        } else {
+            "FALSE"
+        };
         let expires = c
             .expires_datetime()
             .map(|dt| dt.unix_timestamp())
@@ -55,7 +63,13 @@ mod tests {
     use cookie::time::OffsetDateTime;
     use tauri::webview::Cookie;
 
-    fn make_cookie(name: &str, value: &str, path: &str, secure: bool, expires: i64) -> Cookie<'static> {
+    fn make_cookie(
+        name: &str,
+        value: &str,
+        path: &str,
+        secure: bool,
+        expires: i64,
+    ) -> Cookie<'static> {
         let mut b = Cookie::build((name.to_string(), value.to_string()))
             .path(path.to_string())
             .secure(secure);

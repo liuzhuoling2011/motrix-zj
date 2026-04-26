@@ -13,8 +13,11 @@ const {
   errorMock,
   readFileMock,
   openDialogMock,
+  readTextMock,
   parseTorrentBufferMock,
   uint8ToBase64Mock,
+  parseUrlMock,
+  downloadDirectMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(() => Promise.resolve()),
   successMock: vi.fn(),
@@ -22,11 +25,14 @@ const {
   errorMock: vi.fn(),
   readFileMock: vi.fn(async () => new Uint8Array([1, 2, 3])),
   openDialogMock: vi.fn(),
+  readTextMock: vi.fn(async () => ''),
   parseTorrentBufferMock: vi.fn(async () => ({
     infoHash: 'hash',
     files: [{ idx: 1, path: 'file.bin', length: 1 }],
   })),
   uint8ToBase64Mock: vi.fn(() => 'base64'),
+  parseUrlMock: vi.fn(async () => ({ type: 'NotMedia' })),
+  downloadDirectMock: vi.fn(async () => 'gid'),
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -66,9 +72,22 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
   readFile: readFileMock,
 }))
 
+vi.mock('@tauri-apps/plugin-clipboard-manager', () => ({
+  readText: readTextMock,
+}))
+
 vi.mock('@/composables/useTorrentParser', () => ({
   parseTorrentBuffer: parseTorrentBufferMock,
   uint8ToBase64: uint8ToBase64Mock,
+}))
+
+vi.mock('@/api/ytdlp', () => ({
+  parseUrl: parseUrlMock,
+  downloadDirect: downloadDirectMock,
+  downloadViaAria2: vi.fn(async () => 'gid'),
+  cancelDownload: vi.fn(async () => undefined),
+  onLog: vi.fn(async () => () => undefined),
+  onProgress: vi.fn(async () => () => undefined),
 }))
 
 vi.mock('naive-ui', async () => {
@@ -190,8 +209,11 @@ describe('AddTask batch URI integration', () => {
     errorMock.mockClear()
     readFileMock.mockClear()
     openDialogMock.mockClear()
+    readTextMock.mockClear()
     parseTorrentBufferMock.mockClear()
     uint8ToBase64Mock.mockClear()
+    parseUrlMock.mockClear()
+    downloadDirectMock.mockClear()
   })
 
   it('flushes uri batch items into the textarea and drains uri items from pendingBatch on open', async () => {
@@ -364,6 +386,7 @@ describe('AddTask redesigned layout and animation structure', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     resetBatchIdCounter()
+    parseUrlMock.mockClear()
   })
 
   // ── Layout: dual-tab with NTabs ────────────────────────────────────
@@ -392,7 +415,131 @@ describe('AddTask redesigned layout and animation structure', () => {
     expect(getTextarea(wrapper).exists()).toBe(true)
   })
 
+  it('shows URL and download directory fields for internal browser video downloads', async () => {
+    const appStore = useAppStore()
+    appStore.addTaskFromWebPanel = true
+    appStore.pendingBatch = []
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+
+    expect(wrapper.find('.web-panel-url-section textarea').exists()).toBe(true)
+    expect(wrapper.find('.download-settings input').exists()).toBe(true)
+    expect(wrapper.find('input[type="number"]').exists()).toBe(false)
+  })
+
+  it('replaces stale dialog URL with the internal-browser URL instead of clipboard content', async () => {
+    readTextMock.mockResolvedValueOnce('https://github.com/AnInsomniacy/motrix-next-extension')
+    const appStore = useAppStore()
+    appStore.pendingBatch = []
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+
+    expect((getTextarea(wrapper).element as HTMLTextAreaElement).value).toBe(
+      'https://github.com/AnInsomniacy/motrix-next-extension',
+    )
+
+    appStore.addTaskFromWebPanel = true
+    appStore.pendingBatch = [createBatchItem('uri', 'https://www.bilibili.com/video/BV1LRwyz3EcN/')]
+    await flushPromises()
+    await nextTick()
+
+    expect((getTextarea(wrapper).element as HTMLTextAreaElement).value).toBe(
+      'https://www.bilibili.com/video/BV1LRwyz3EcN/',
+    )
+  })
+
+  it('passes pending internal-browser cookie into automatic media parsing', async () => {
+    const appStore = useAppStore()
+    appStore.addTaskFromWebPanel = true
+    appStore.pendingCookie = 'SESSDATA=login; buvid3=guest'
+    appStore.pendingReferer = 'https://www.bilibili.com/video/BV1LRwyz3EcN/'
+    appStore.pendingBatch = [createBatchItem('uri', 'https://www.bilibili.com/video/BV1LRwyz3EcN/')]
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    await nextTick()
+
+    expect(parseUrlMock).toHaveBeenCalledWith(
+      'https://www.bilibili.com/video/BV1LRwyz3EcN/',
+      'SESSDATA=login; buvid3=guest',
+      '',
+      '',
+      'https://www.bilibili.com/video/BV1LRwyz3EcN/',
+    )
+  })
+
+  it('retries internal-browser automatic media parsing when cookie arrives after the URL', async () => {
+    const appStore = useAppStore()
+    appStore.addTaskFromWebPanel = true
+    appStore.pendingBatch = [createBatchItem('uri', 'https://www.bilibili.com/video/BV1LRwyz3EcN/')]
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    await nextTick()
+
+    appStore.pendingCookie = 'SESSDATA=login; buvid3=guest'
+    await flushPromises()
+    await nextTick()
+
+    expect(parseUrlMock).toHaveBeenCalledWith(
+      'https://www.bilibili.com/video/BV1LRwyz3EcN/',
+      'SESSDATA=login; buvid3=guest',
+      '',
+      '',
+      '',
+    )
+  })
+
+  it('retries internal-browser parsing when cookie arrives during an in-flight parse', async () => {
+    let resolveFirstParse: (result: { type: 'NotMedia' }) => void = () => undefined
+    parseUrlMock.mockImplementationOnce(
+      () =>
+        new Promise<{ type: 'NotMedia' }>((resolve) => {
+          resolveFirstParse = resolve
+        }),
+    )
+
+    const appStore = useAppStore()
+    appStore.addTaskFromWebPanel = true
+    appStore.pendingBatch = [createBatchItem('uri', 'https://www.bilibili.com/video/BV1LRwyz3EcN/')]
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    await nextTick()
+
+    appStore.pendingCookie = 'SESSDATA=login; buvid3=guest'
+    await nextTick()
+    resolveFirstParse({ type: 'NotMedia' })
+    await flushPromises()
+    await nextTick()
+
+    expect(parseUrlMock).toHaveBeenCalledWith(
+      'https://www.bilibili.com/video/BV1LRwyz3EcN/',
+      'SESSDATA=login; buvid3=guest',
+      '',
+      '',
+      '',
+    )
+  })
+
   // ── Torrent panel: conditional rendering ───────────────────────────
+
+  it('does not submit an internal-browser video URL as a normal aria2 task when parsing fails', async () => {
+    const source = (await import('@/components/task/AddTask.vue?raw')).default
+    const webPanelGuardIndex = source.indexOf('if (isFromWebPanel.value)')
+    const normalSubmitIndex = source.indexOf('await submitNormalBranch(effectiveForm, options)')
+
+    expect(webPanelGuardIndex).toBeGreaterThan(0)
+    expect(normalSubmitIndex).toBeGreaterThan(webPanelGuardIndex)
+    expect(source).toContain('视频解析失败，未创建普通下载任务')
+  })
 
   it('shows the torrent panel (.torrent-panel) when fileItems exist', async () => {
     const appStore = useAppStore()

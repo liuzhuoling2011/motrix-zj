@@ -39,6 +39,7 @@ import PreferenceSubnav from '@/components/layout/PreferenceSubnav.vue'
 import Speedometer from '@/components/layout/Speedometer.vue'
 import WindowControls from '@/components/layout/WindowControls.vue'
 import EngineOverlay from '@/components/layout/EngineOverlay.vue'
+import InternalBrowserPanel from '@/components/layout/InternalBrowserPanel.vue'
 import AboutPanel from '@/components/about/AboutPanel.vue'
 import AddTask from '@/components/task/AddTask.vue'
 import UpdateDialog from '@/components/preference/UpdateDialog.vue'
@@ -102,6 +103,29 @@ const effectivePanelWidth = computed(() => {
   }
   return Math.max(0, Math.min(configured, containerWidth.value - 320))
 })
+
+async function closeInternalBrowserPanel() {
+  appStore.webPanelOpen = false
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('toggle_web_panel', { open: false, width: null })
+  } catch (e) {
+    logger.debug('MainLayout.webPanelClose', String(e))
+  }
+}
+
+// Hide the embedded browser panel whenever the user navigates to a different
+// page (task list tabs, preferences, etc.). The panel is only opened by an
+// explicit click on the globe icon, which does not change the route — so a
+// route change always means the user picked a different destination.
+watch(
+  () => route.path,
+  (newPath, oldPath) => {
+    if (oldPath === undefined || newPath === oldPath) return
+    if (!appStore.webPanelOpen) return
+    void closeInternalBrowserPanel()
+  },
+)
 
 // ── Auto-shutdown countdown state ──────────────────────────────────
 const showShutdownCountdown = ref(false)
@@ -838,18 +862,24 @@ onMounted(async () => {
   // button inside the embedded web-browser window.  The payload carries
   // the intercepted URL so we can pre-fill the AddTask dialog and bring
   // the main window to the front (it may be hidden in tray).
-  unlistenAddFromWeb = await listen<{ url: string }>('add-task-from-web', async ({ payload }) => {
-    const win = getCurrentWindow()
-    try {
-      await win.show()
-      await win.setFocus()
-    } catch (e) {
-      logger.debug('MainLayout.addFromWeb.focus', String(e))
-    }
-    // Flag the dialog so AddTask renders the simplified video-download UI.
-    appStore.addTaskFromWebPanel = true
-    appStore.handleDeepLinkUrls([payload.url])
-  })
+  unlistenAddFromWeb = await listen<{ url: string; referer?: string; cookie?: string }>(
+    'add-task-from-web',
+    async ({ payload }) => {
+      const win = getCurrentWindow()
+      try {
+        await win.show()
+        await win.setFocus()
+      } catch (e) {
+        logger.debug('MainLayout.addFromWeb.focus', String(e))
+      }
+      // Flag the dialog so AddTask renders the simplified video-download UI.
+      appStore.addTaskFromWebPanel = true
+      appStore.pendingReferer = payload.referer || payload.url
+      appStore.pendingCookie = payload.cookie || ''
+      appStore.pendingBatch = []
+      appStore.handleDeepLinkUrls([payload.url])
+    },
+  )
 
   // Keep containerWidth in sync with the DOM's viewport width so the
   // web-panel placeholder resizes together with the main window.
@@ -1097,12 +1127,9 @@ onUnmounted(() => {
         </Transition>
       </router-view>
     </main>
-    <div
-      v-if="appStore.webPanelOpen && !isPanelSuspended"
-      class="web-panel-placeholder"
-      :style="{ width: `${effectivePanelWidth}px` }"
-      aria-hidden="true"
-    />
+    <div v-show="appStore.webPanelOpen" class="web-panel-placeholder" :style="{ width: `${effectivePanelWidth}px` }">
+      <InternalBrowserPanel :platform="currentPlatform" @close="closeInternalBrowserPanel" />
+    </div>
     <WindowControls
       class="window-controls"
       :is-maximized="isMaximized"
@@ -1214,8 +1241,8 @@ onUnmounted(() => {
 .web-panel-placeholder {
   flex-shrink: 0;
   height: 100%;
-  background-color: transparent;
-  pointer-events: none;
+  min-width: 0;
+  background-color: var(--main-bg);
 }
 .window-controls {
   z-index: 100;
