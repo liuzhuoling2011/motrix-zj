@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'Clasificarea automată este activă, fișierele vor fi salvate în folderele de categorie',
   'category-hint-overridden': 'Cale personalizată specificată, regulile de clasificare vor fi omise',
   'category-dir-placeholder': 'Lăsați gol pentru clasificare automată',
+  'favorite-folders': 'Foldere favorite',
+  'recent-folders': 'Foldere recente',
 }

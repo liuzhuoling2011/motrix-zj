@@ -57,10 +57,10 @@ export async function resolveFileItem(item: BatchItem, t: (key: string) => strin
  * The Rust `fetch_remote_bytes` command uses reqwest with TLS, redirects,
  * and a 16 MiB size limit.
  */
-export async function resolveRemoteFileItem(item: BatchItem, t: (key: string) => string) {
+export async function resolveRemoteFileItem(item: BatchItem, t: (key: string) => string, downloadProxy?: string) {
   try {
     const { invoke } = await import('@tauri-apps/api/core')
-    const bytes: number[] = await invoke('fetch_remote_bytes', { url: item.source })
+    const bytes: number[] = await invoke('fetch_remote_bytes', { url: item.source, proxy: downloadProxy ?? null })
     const uint8 = new Uint8Array(bytes)
     item.payload = uint8ToBase64(uint8)
 
@@ -92,11 +92,11 @@ function isRemoteSource(source: string): boolean {
  * Routes remote URLs (from deep links) through Rust IPC fetch, and local
  * file paths through Tauri FS plugin.
  */
-export async function resolveUnresolvedItems(batch: BatchItem[], t: (key: string) => string) {
+export async function resolveUnresolvedItems(batch: BatchItem[], t: (key: string) => string, downloadProxy?: string) {
   for (const item of batch) {
     if (item.kind !== 'uri' && item.status === 'pending' && item.payload === item.source) {
       if (isRemoteSource(item.source)) {
-        await resolveRemoteFileItem(item, t)
+        await resolveRemoteFileItem(item, t, downloadProxy)
       } else {
         await resolveFileItem(item, t)
       }

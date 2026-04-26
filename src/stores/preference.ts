@@ -117,6 +117,7 @@ export const usePreferenceStore = defineStore('preference', () => {
     const historyDirectories = config.value.historyDirectories || []
     const history = pushItemToFixedLengthArray(historyDirectories, MAX_NUM_OF_DIRECTORIES, directory)
     config.value = { ...config.value, historyDirectories: history }
+    void savePreference()
   }
 
   function favoriteDirectory(directory: string) {
@@ -126,6 +127,7 @@ export const usePreferenceStore = defineStore('preference', () => {
     const favorite = pushItemToFixedLengthArray(favoriteDirectories, MAX_NUM_OF_DIRECTORIES, directory)
     const history = removeArrayItem(historyDirectories, directory)
     config.value = { ...config.value, historyDirectories: history, favoriteDirectories: favorite }
+    void savePreference()
   }
 
   function cancelFavoriteDirectory(directory: string) {
@@ -135,6 +137,7 @@ export const usePreferenceStore = defineStore('preference', () => {
     const favorite = removeArrayItem(favoriteDirectories, directory)
     const history = pushItemToFixedLengthArray(historyDirectories, MAX_NUM_OF_DIRECTORIES, directory)
     config.value = { ...config.value, historyDirectories: history, favoriteDirectories: favorite }
+    void savePreference()
   }
 
   function removeDirectory(directory: string) {
@@ -143,6 +146,7 @@ export const usePreferenceStore = defineStore('preference', () => {
     const favorite = removeArrayItem(favoriteDirectories, directory)
     const history = removeArrayItem(historyDirectories, directory)
     config.value = { ...config.value, historyDirectories: history, favoriteDirectories: favorite }
+    void savePreference()
   }
 
   function updateAppTheme(t: AppConfig['theme']) {

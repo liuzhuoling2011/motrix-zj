@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'La classificació automàtica està activa, els fitxers es desaran a les carpetes corresponents',
   'category-hint-overridden': 'S\'ha especificat una ruta personalitzada, les regles de classificació s\'ometran',
   'category-dir-placeholder': 'Deixeu buit per a la classificació automàtica',
+  'favorite-folders': 'Carpetes preferides',
+  'recent-folders': 'Carpetes recents',
 }

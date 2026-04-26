@@ -341,14 +341,6 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.continue')">
         <NSwitch v-model:value="form.continue" />
       </NFormItem>
-      <NFormItem :label="t('preferences.file-timestamp')">
-        <NSelect
-          :value="fileTimestampValue"
-          :options="fileTimestampOptions"
-          style="width: 260px"
-          @update:value="handleFileTimestampChange"
-        />
-      </NFormItem>
 
       <!-- Download Path -->
       <NDivider title-placement="left">{{ t('preferences.download-path') }}</NDivider>
@@ -361,6 +353,14 @@ onMounted(async () => {
             </template>
           </NButton>
         </NInputGroup>
+      </NFormItem>
+      <NFormItem :label="t('preferences.file-timestamp')">
+        <NSelect
+          :value="fileTimestampValue"
+          :options="fileTimestampOptions"
+          style="width: 260px"
+          @update:value="handleFileTimestampChange"
+        />
       </NFormItem>
       <NFormItem :label="t('preferences.file-category-save')">
         <NSwitch v-model:value="form.fileCategoryEnabled" />

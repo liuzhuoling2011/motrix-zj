@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'การจำแนกอัตโนมัติเปิดใช้งาน ไฟล์จะถูกบันทึกลงในโฟลเดอร์หมวดหมู่ที่เกี่ยวข้อง',
   'category-hint-overridden': 'ระบุเส้นทางที่กำหนดเอง กฎการจำแนกจะถูกข้าม',
   'category-dir-placeholder': 'เว้นว่างสำหรับการจำแนกอัตโนมัติ',
+  'favorite-folders': 'โฟลเดอร์โปรด',
+  'recent-folders': 'โฟลเดอร์ล่าสุด',
 }

@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'Automatische Klassifizierung aktiv, Dateien werden in entsprechende Ordner gespeichert',
   'category-hint-overridden': 'Benutzerdefinierter Pfad angegeben, Klassifizierungsregeln werden übersprungen',
   'category-dir-placeholder': 'Leer lassen für automatische Klassifizierung',
+  'favorite-folders': 'Favorisierte Ordner',
+  'recent-folders': 'Zuletzt verwendete Ordner',
 }

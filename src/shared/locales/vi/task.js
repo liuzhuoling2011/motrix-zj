@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'Phân loại tự động đang hoạt động, tệp sẽ được lưu vào thư mục danh mục tương ứng',
   'category-hint-overridden': 'Đã chỉ định đường dẫn tùy chỉnh, quy tắc phân loại sẽ bị bỏ qua',
   'category-dir-placeholder': 'Để trống để phân loại tự động',
+  'favorite-folders': 'Thư mục yêu thích',
+  'recent-folders': 'Thư mục gần đây',
 }

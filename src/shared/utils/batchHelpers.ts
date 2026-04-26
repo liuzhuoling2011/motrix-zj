@@ -160,3 +160,14 @@ export function extractDecodedFilename(uri: string): string {
 
   return sanitized
 }
+
+/**
+ * Returns true if a filename contains a recognizable file extension
+ * (a dot followed by 1–10 alphanumeric characters at the end).
+ *
+ * Used by `submitManualUris` to decide whether `resolve_filename` (HEAD
+ * request) is needed — URLs with extensions are handled natively by aria2.
+ */
+export function hasExtension(filename: string): boolean {
+  return /\.[a-zA-Z0-9]{1,10}$/.test(filename)
+}

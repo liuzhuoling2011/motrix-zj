@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'La classification automatique est active, les fichiers seront enregistrés dans leurs dossiers de catégorie',
   'category-hint-overridden': 'Chemin personnalisé spécifié, les règles de classification seront ignorées',
   'category-dir-placeholder': 'Laisser vide pour la classification automatique',
+  'favorite-folders': 'Dossiers favoris',
+  'recent-folders': 'Dossiers récents',
 }

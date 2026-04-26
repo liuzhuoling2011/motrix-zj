@@ -18,6 +18,7 @@ import {
   submitManualUris,
   isGlobalProxyConfigured,
   isGlobalDownloadProxyActive,
+  getDownloadProxy,
 } from '@/composables/useAddTaskSubmit'
 import { isValidAria2ProxyUrl } from '@/composables/useAdvancedPreference'
 import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
@@ -54,6 +55,7 @@ import type { BatchItem } from '@shared/types'
 import { FolderOpenOutline, CloudUploadOutline } from '@vicons/ionicons5'
 import { vAutoAnimate } from '@formkit/auto-animate'
 import AdvancedOptions from './addtask/AdvancedOptions.vue'
+import DirectoryPopover from './addtask/DirectoryPopover.vue'
 
 const props = defineProps<{ show: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -517,7 +519,7 @@ watch(
 // ── File resolution (delegated to useAddTaskFileOps) ────────────────
 
 async function localResolveUnresolvedItems() {
-  await resolveUnresolvedItems(batch.value, t)
+  await resolveUnresolvedItems(batch.value, t, getDownloadProxy(preferenceStore.config.proxy))
 }
 
 async function chooseTorrentFile() {
@@ -544,6 +546,11 @@ async function chooseDirectory() {
   } catch (e) {
     logger.debug('AddTask.chooseDirectory', e)
   }
+}
+
+function onDirectorySelect(dir: string) {
+  form.value.dir = dir
+  dirUserModified.value = categoryEnabled.value && dir.trim().length > 0
 }
 
 function removeBatchItem(item: BatchItem) {
@@ -653,10 +660,16 @@ async function submitNormalBranch(
   }
   if (form.value.uris.trim()) {
     const shouldClassify = preferenceStore.config.fileCategoryEnabled && !dirUserModified.value
-    manualResult = await submitManualUris(effectiveForm, options, taskStore, {
-      enabled: shouldClassify,
-      categories: preferenceStore.config.fileCategories,
-    })
+    manualResult = await submitManualUris(
+      effectiveForm,
+      options,
+      taskStore,
+      {
+        enabled: shouldClassify,
+        categories: preferenceStore.config.fileCategories,
+      },
+      getDownloadProxy(preferenceStore.config.proxy),
+    )
   }
 
   const failedCount = batch.value.filter((i) => i.status === 'failed').length + manualResult.magnetFailures.length
@@ -678,6 +691,13 @@ async function submitNormalBranch(
   }
 
   handleClose()
+
+  // Record directory for the recent-folders popover.
+  const effectiveDir = form.value.dir.trim() || preferenceStore.config.dir
+  if (effectiveDir) {
+    preferenceStore.recordHistoryDirectory(effectiveDir)
+  }
+
   handleTaskStart(taskNames, {
     messageInfo: message.info,
     t,
@@ -933,6 +953,7 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
                     <NIcon><FolderOpenOutline /></NIcon>
                   </template>
                 </NButton>
+                <DirectoryPopover @select="onDirectorySelect" />
               </NInputGroup>
               <Transition name="category-hint" mode="out-in">
                 <div v-if="categoryEnabled" :key="categoryHintKey" class="category-hint-text">

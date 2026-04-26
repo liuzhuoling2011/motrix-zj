@@ -247,4 +247,6 @@ export default {
   'category-hint-active': '자동 분류가 활성화되어 파일이 카테고리 폴더에 저장됩니다',
   'category-hint-overridden': '사용자 지정 경로가 지정되어 분류 규칙이 건너뛰어집니다',
   'category-dir-placeholder': '자동 분류를 위해 비워두세요',
+  'favorite-folders': '즐겨찾기 폴더',
+  'recent-folders': '최근 폴더',
 }
