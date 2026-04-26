@@ -281,8 +281,11 @@ export const useAppStore = defineStore('app', () => {
               // Auto-submit: bypass AddTask dialog for URI types when enabled.
               // Torrent/metalink are excluded — they require a fetch→parse→
               // file-select pipeline that only runs inside the AddTask dialog.
+              // parse=video also bypasses auto-submit — yt-dlp parsing must
+              // happen inside AddTask, otherwise the page URL gets fed straight
+              // to aria2 and downloaded as raw HTML.
               const autoSubmit = usePreferenceStore().config.autoSubmitFromExtension
-              if (autoSubmit && kind === 'uri') {
+              if (autoSubmit && kind === 'uri' && parseFlag !== 'video') {
                 void autoSubmitExtensionUrl(downloadUrl, referer, cookie)
               } else {
                 items.push(createBatchItem(kind, downloadUrl))
