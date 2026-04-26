@@ -17,7 +17,7 @@ describe('web panel capability labels', () => {
   const capabilitySource = readFileSync(WEB_BROWSER_CAPABILITY, 'utf-8')
 
   it('matches the browser window label created by Rust', () => {
-    const browserLabel = extractRustLabel(commandSource, 'BROWSER_WINDOW_LABEL')
+    const browserLabel = extractRustLabel(commandSource, 'CONTENT_LABEL')
 
     expect(capabilitySource).toContain(`"${browserLabel}"`)
   })

@@ -18,10 +18,14 @@ describe('web panel cookie bridge', () => {
   const panelSource = readFileSync(INTERNAL_BROWSER_PANEL, 'utf-8')
   const mainLayoutSource = readFileSync(MAIN_LAYOUT, 'utf-8')
 
-  it('reads cookies from the main webview when the legacy browser webview is absent', () => {
+  it('reads cookies from the platform-correct webview when downloading', () => {
     expect(rustSource).toContain('const MAIN_WINDOW_LABEL: &str = "main"')
+    expect(rustSource).toContain('const CONTENT_LABEL: &str = "web-browser"')
+    // macOS path embeds the page in the child webview, so its cookie store
+    // is authoritative; other platforms load via iframe inside the main webview.
+    expect(rustSource).toContain('#[cfg(target_os = "macos")]')
+    expect(rustSource).toContain('.get_webview(CONTENT_LABEL)')
     expect(rustSource).toContain('.get_webview(MAIN_WINDOW_LABEL)')
-    expect(rustSource).toContain('.or_else(|| app.get_webview(CONTENT_LABEL))')
     expect(rustSource).toContain('.save_from_webview(cookies)')
   })
 

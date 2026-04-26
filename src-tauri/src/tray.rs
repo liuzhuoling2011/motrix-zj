@@ -45,10 +45,15 @@ pub struct TrayMenuState {
 /// handle is gone.  This function detects that and rebuilds the window
 /// using the same config as `tauri.conf.json`.
 ///
-/// The newly created window is visible by default — the caller can
-/// `.show()` + `.set_focus()` as usual.
-pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
-    if let Some(window) = app.get_webview_window("main") {
+/// The returned `Window` exposes `.show()` / `.set_focus()` /
+/// `.unminimize()` — we deliberately return `Window` instead of
+/// `WebviewWindow`, because `get_webview_window("main")` returns `None`
+/// once the embedded browser panel adds a child webview to the main
+/// window (Tauri's `is_webview_window()` requires every webview on the
+/// window to share the window's label). Falling back to `Window` keeps
+/// the existence check honest.
+pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::Window> {
+    if let Some(window) = app.get_window("main") {
         return Some(window);
     }
 
@@ -58,7 +63,7 @@ pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::WebviewWindow
     // When the main window dies without normal teardown (OS compositor
     // force-close, unhandled GPU crash, etc.) its child webviews can
     // linger in Tauri's internal registry.  That includes the embedded
-    // web-panel pair and — on some platforms — the main webview itself,
+    // web-panel child and — on some platforms — the main webview itself,
     // which then blocks WebviewWindowBuilder::new("main", …) with
     // "a webview with label `main` already exists".
     //
@@ -66,7 +71,7 @@ pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::WebviewWindow
     // namespace is clear.  We also reset WebPanelState so the panel
     // re-creates itself on the next user toggle instead of pointing at
     // dead handles.
-    for label in ["web-panel-toolbar", "web-panel-content", "main"] {
+    for label in ["web-browser", "main"] {
         if let Some(wv) = app.get_webview(label) {
             log::info!("tray:closing orphan webview label={label}");
             let _ = wv.close();
@@ -77,6 +82,7 @@ pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::WebviewWindow
             inner.created = false;
             inner.visible = false;
             inner.suspended = false;
+            inner.content_visible = false;
         }
     }
 
@@ -111,7 +117,7 @@ pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::WebviewWindow
             // Re-install the resize hook so the embedded panel (if the user
             // reopens it later in this session) tracks the new window.
             crate::commands::web_browser::install_main_window_resize_hook(app);
-            Some(w)
+            Some(w.as_ref().window())
         }
         Err(e) => {
             log::error!("tray:window-recreate-failed error={}", e);

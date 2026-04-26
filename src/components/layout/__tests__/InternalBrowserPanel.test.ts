@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import { invoke } from '@tauri-apps/api/core'
 import { emit as emitTauri } from '@tauri-apps/api/event'
 import InternalBrowserPanel from '../InternalBrowserPanel.vue'
@@ -27,6 +28,7 @@ vi.mock('@/web/content/SiteGrid.vue', () => ({
 
 vi.mock('@tauri-apps/api/event', () => ({
   emit: vi.fn(() => Promise.resolve()),
+  listen: vi.fn(() => Promise.resolve(() => {})),
 }))
 
 vi.mock('@tauri-apps/api/core', () => ({
@@ -34,6 +36,12 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 
 describe('InternalBrowserPanel', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(invoke).mockClear()
+    vi.mocked(emitTauri).mockClear()
+    vi.mocked(invoke).mockResolvedValue(undefined)
+  })
   it('renders icon toolbar actions and reserves Windows titlebar clearance', () => {
     const wrapper = mount(InternalBrowserPanel, { props: { platform: 'windows' } })
 

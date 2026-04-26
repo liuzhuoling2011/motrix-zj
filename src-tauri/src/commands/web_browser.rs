@@ -1,33 +1,37 @@
 //! Embedded web-browser panel attached to the main window.
 //!
-//! The panel consists of two child webviews on the main window:
-//!   * `web-panel-toolbar`   — 48px strip at top-right, local `web-toolbar.html`
-//!   * `web-panel-content`   — fills the rest of the panel, local `web-content.html`
+//! Two implementation paths share the same state machine:
+//!   * macOS — a Tauri child webview (`web-browser`) is `add_child`ed to the
+//!     main window so we can pin a Chrome UA + stealth init script onto it,
+//!     bypassing UA-version checks (Bilibili, etc.). Toolbar buttons proxy
+//!     navigation through `web_browser_navigate`.
+//!   * Windows / Linux — embedding a child webview into the host window has
+//!     known WebView2 / WebKitGTK regressions, so the frontend renders an
+//!     `<iframe>` instead. The shared Chrome UA on the main webview
+//!     (`tauri.conf.json > userAgent`) flows down to the iframe, achieving
+//!     the same effect at the network layer.
 //!
-//! Lifecycle:
-//!   * First toggle-open call: create both child webviews, position on right.
-//!   * Subsequent close: resize to zero + move off-screen (webviews stay alive;
-//!     login sessions and in-progress video playback persist).
-//!   * Subsequent open: resize back + move to right-panel coords.
-//!   * Main window resize: re-apply right-panel coords if visible.
-//!   * App exit: children auto-destroyed with parent window.
+//! Lifecycle (macOS path):
+//!   * First toggle-open: lazily create the child webview at off-screen
+//!     coords, then position into the panel area.
+//!   * Subsequent close: hide the child webview (login sessions persist).
+//!   * Subsequent open: re-position + show.
+//!   * Frontend toggles content visibility separately so SiteGrid (Vue) can
+//!     show through when no URL is loaded.
+//!   * Main window resize: re-apply panel coords if visible.
 
 use serde::Deserialize;
 use std::sync::Mutex;
 use tauri::webview::Cookie;
 use tauri::{
-    AppHandle, Emitter, Manager, State, Url, WebviewUrl, WebviewWindowBuilder, WindowEvent,
+    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, State, Url, WebviewUrl, WindowEvent,
 };
-#[cfg(test)]
-use tauri::{LogicalPosition, LogicalSize};
 
 const MAIN_WINDOW_LABEL: &str = "main";
-const BROWSER_WINDOW_LABEL: &str = "web-browser";
-const TOOLBAR_LABEL: &str = "web-panel-toolbar";
-const CONTENT_LABEL: &str = BROWSER_WINDOW_LABEL;
-#[cfg(test)]
-const TOOLBAR_HEIGHT: f64 = 48.0;
-#[cfg(test)]
+const CONTENT_LABEL: &str = "web-browser";
+const PANEL_TOOLBAR_HEIGHT: f64 = 48.0;
+const PANEL_ASIDE_WIDTH: f64 = 78.0;
+const PANEL_SUBNAV_WIDTH: f64 = 200.0;
 const MIN_MAIN_CONTENT_WIDTH: f64 = 320.0;
 
 /// Internal state tracking whether the panel webviews have been created,
@@ -41,6 +45,11 @@ pub struct WebPanelInner {
     pub created: bool,
     pub visible: bool,
     pub suspended: bool,
+    /// macOS only: whether the child webview should be visible right now
+    /// (false = Vue SiteGrid shows through, true = the loaded URL shows).
+    /// On other platforms this flag has no native effect — the iframe
+    /// drives content visibility itself.
+    pub content_visible: bool,
     pub width: f64,
 }
 
@@ -50,7 +59,8 @@ impl Default for WebPanelInner {
             created: false,
             visible: false,
             suspended: false,
-            // 0 = auto — compute_panel_rects will 50/50 split the content area.
+            content_visible: false,
+            // 0 = auto — compute_panel_geometry derives W from main_w - aside - subnav.
             width: 0.0,
         }
     }
@@ -151,80 +161,133 @@ const STEALTH_INIT_SCRIPT: &str = r#"
 })();
 "#;
 
-/// ≥ 320px visible.
-/// Applies the current visibility intent to the standalone browser window.
-fn apply_panel_layout(app: &AppHandle, inner: &WebPanelInner) {
-    let Some(browser_window) = app.get_window(BROWSER_WINDOW_LABEL) else {
-        return;
-    };
-
-    if inner.visible && !inner.suspended {
-        let _ = browser_window.show();
-        let _ = browser_window.set_focus();
-    } else {
-        let _ = browser_window.hide();
-    }
-}
-
-#[cfg(test)]
-fn compute_panel_rects(
+/// Computes the child-webview rectangle inside the main window's client
+/// area for the embedded panel.
+///
+/// `panel_width = 0` means auto: panel fills the area normally taken by
+/// aside (78px) + subnav (200px) + content. Positive `panel_width` is
+/// treated as an explicit user-set width, clamped so the main view keeps
+/// at least `MIN_MAIN_CONTENT_WIDTH` (320px) on the left.
+///
+/// Returns `(position, size)` for the content webview (the toolbar above
+/// it lives in the Vue layer, not as a separate webview).
+fn compute_panel_geometry(
     window_width: f64,
     window_height: f64,
     config_width: f64,
-) -> (
-    LogicalPosition<f64>,
-    LogicalSize<f64>,
-    LogicalPosition<f64>,
-    LogicalSize<f64>,
-) {
-    let effective = if config_width <= 0.0 {
-        window_width.max(0.0)
+) -> (LogicalPosition<f64>, LogicalSize<f64>) {
+    let panel_width = if config_width <= 0.0 {
+        (window_width - PANEL_ASIDE_WIDTH - PANEL_SUBNAV_WIDTH).max(0.0)
     } else {
         (window_width - MIN_MAIN_CONTENT_WIDTH)
             .max(0.0)
             .min(config_width)
     };
 
-    let toolbar_pos = LogicalPosition::new(0.0, 0.0);
-    let toolbar_sz = LogicalSize::new(effective, TOOLBAR_HEIGHT);
-    let content_pos = LogicalPosition::new(0.0, TOOLBAR_HEIGHT);
-    let content_sz = LogicalSize::new(effective, (window_height - TOOLBAR_HEIGHT).max(0.0));
+    let x = (window_width - panel_width).max(0.0);
+    let y = PANEL_TOOLBAR_HEIGHT;
+    let h = (window_height - PANEL_TOOLBAR_HEIGHT).max(0.0);
 
-    (toolbar_pos, toolbar_sz, content_pos, content_sz)
+    (LogicalPosition::new(x, y), LogicalSize::new(panel_width, h))
 }
 
-#[cfg(test)]
-fn hidden_rect() -> (LogicalPosition<f64>, LogicalSize<f64>) {
-    (
-        LogicalPosition::new(-20000.0, -20000.0),
-        LogicalSize::new(0.0, 0.0),
-    )
-}
+const HIDDEN_POS: LogicalPosition<f64> = LogicalPosition::new(-20000.0, -20000.0);
+const HIDDEN_SIZE: LogicalSize<f64> = LogicalSize::new(0.0, 0.0);
 
-/// Creates the standalone browser webview the first time the panel opens.
-/// Caller holds the state lock and has confirmed `!inner.created`.
-#[allow(dead_code)]
-fn create_panel_webviews(app: &AppHandle, width: f64) -> Result<(), String> {
-    let _ = width;
-    if app.get_webview_window(BROWSER_WINDOW_LABEL).is_some() {
-        return Ok(());
+/// Re-applies the desired layout (geometry + visibility) of the macOS
+/// child webview based on `WebPanelInner`. No-op on other platforms,
+/// where the panel is rendered with an `<iframe>` in the Vue layer.
+#[cfg(target_os = "macos")]
+fn apply_panel_layout(app: &AppHandle, inner: &WebPanelInner) {
+    let Some(webview) = app.get_webview(CONTENT_LABEL) else {
+        return;
+    };
+    let Some(main) = app.get_window(MAIN_WINDOW_LABEL) else {
+        return;
+    };
+
+    let panel_open = inner.visible && !inner.suspended;
+    if !panel_open {
+        let _ = webview.hide();
+        let _ = webview.set_position(HIDDEN_POS);
+        let _ = webview.set_size(HIDDEN_SIZE);
+        return;
     }
 
-    WebviewWindowBuilder::new(
-        app,
-        BROWSER_WINDOW_LABEL,
-        WebviewUrl::App("web-content.html".into()),
-    )
-    .title("Motrix Next Browser")
-    .inner_size(1068.0, 680.0)
-    .min_inner_size(720.0, 480.0)
-    .center()
-    .visible(false)
-    .user_agent(chrome_user_agent())
-    .initialization_script(STEALTH_INIT_SCRIPT)
-    .build()
-    .map_err(|e| format!("browser window build failed: {e}"))?;
+    let scale = main.scale_factor().unwrap_or(1.0);
+    let phys = match main.inner_size() {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+    let main_w = phys.width as f64 / scale;
+    let main_h = phys.height as f64 / scale;
 
+    let (pos, size) = compute_panel_geometry(main_w, main_h, inner.width);
+    let _ = webview.set_position(pos);
+    let _ = webview.set_size(size);
+
+    if inner.content_visible {
+        let _ = webview.show();
+    } else {
+        let _ = webview.hide();
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn apply_panel_layout(_app: &AppHandle, _inner: &WebPanelInner) {
+    // Other platforms render the browser via <iframe> in InternalBrowserPanel.vue.
+    // The native side only owns visibility state for the Vue placeholder.
+}
+
+/// Lazily attaches the child webview to the main window. macOS only —
+/// other platforms use the iframe path and never enter this branch.
+#[cfg(target_os = "macos")]
+fn ensure_panel_child_webview(app: &AppHandle) -> Result<(), String> {
+    use tauri::webview::{PageLoadEvent, WebviewBuilder};
+
+    if app.get_webview(CONTENT_LABEL).is_some() {
+        return Ok(());
+    }
+    let main = app
+        .get_window(MAIN_WINDOW_LABEL)
+        .ok_or_else(|| "main window not found".to_string())?;
+
+    let blank: Url = "about:blank"
+        .parse()
+        .map_err(|e| format!("about:blank parse: {e}"))?;
+    let app_for_callback = app.clone();
+    let builder = WebviewBuilder::new(CONTENT_LABEL, WebviewUrl::External(blank))
+        .user_agent(chrome_user_agent())
+        .initialization_script(STEALTH_INIT_SCRIPT)
+        // wry 0.54.4 panics on `webview.url()` before any URL has been
+        // committed (`URL().unwrap()` on a `None`), so we cannot poll the
+        // URL ourselves. Drive toolbar URL sync from the navigation
+        // callback instead — it fires once per real page load. SPA
+        // pushState transitions still won't update the address bar, which
+        // is acceptable; staying alive matters more than perfect sync.
+        .on_page_load(move |_webview, payload| {
+            if payload.event() != PageLoadEvent::Finished {
+                return;
+            }
+            let url = payload.url().as_str();
+            if url == "about:blank" {
+                return;
+            }
+            let _ = app_for_callback.emit_to(
+                MAIN_WINDOW_LABEL,
+                "web-browser-url-changed",
+                serde_json::json!({ "url": url }),
+            );
+        });
+
+    main.add_child(builder, HIDDEN_POS, HIDDEN_SIZE)
+        .map_err(|e| format!("add_child failed: {e}"))?;
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn ensure_panel_child_webview(_app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
@@ -241,32 +304,28 @@ pub async fn toggle_web_panel(
     open: Option<bool>,
     width: Option<f64>,
 ) -> Result<(), String> {
-    // 0. Self-heal: if a previous lifecycle destroyed the child webviews
+    // 0. Self-heal: if a previous lifecycle destroyed the child webview
     //    (e.g. main window torn down in lightweight mode) but the state still
-    //    reports `created`, reset so the next branch re-creates them.
+    //    reports `created`, reset so the next branch re-creates it.
     {
         let mut inner = state
             .0
             .lock()
             .map_err(|e| format!("state lock poisoned: {e}"))?;
-        if inner.created {
-            let browser_alive = app.get_webview_window(BROWSER_WINDOW_LABEL).is_some();
-            if !browser_alive {
-                log::warn!("web-panel: browser window went missing; resetting state",);
-                inner.created = false;
-                inner.visible = false;
-            }
+        if inner.created && app.get_webview(CONTENT_LABEL).is_none() {
+            log::warn!("web-panel: child webview went missing; resetting state");
+            inner.created = false;
+            inner.visible = false;
+            inner.content_visible = false;
         }
     }
 
     // 1. Compute target visibility under the lock; release before doing I/O.
-    let (target_visible, effective_width, need_create) = {
+    let (target_visible, need_create) = {
         let mut inner = state
             .0
             .lock()
             .map_err(|e| format!("state lock poisoned: {e}"))?;
-        // 0 = auto mode.  Only overwrite state when the caller supplied a
-        // concrete, non-negative width (positive = explicit size, 0 = auto).
         if let Some(w) = width {
             if w >= 0.0 {
                 inner.width = w;
@@ -276,11 +335,14 @@ pub async fn toggle_web_panel(
             Some(v) => v,
             None => !inner.visible,
         };
-        let need_create = !inner.created && next_visible;
-        (next_visible, inner.width, need_create)
+        let need_create = !inner.created && next_visible && cfg!(target_os = "macos");
+        (next_visible, need_create)
     };
 
-    let _ = (effective_width, need_create);
+    // 2. Create the child webview lazily on macOS (no-op elsewhere).
+    if need_create {
+        ensure_panel_child_webview(&app)?;
+    }
 
     // 3. Commit new state + re-apply layout.
     {
@@ -288,8 +350,15 @@ pub async fn toggle_web_panel(
             .0
             .lock()
             .map_err(|e| format!("state lock poisoned: {e}"))?;
-        inner.created = target_visible;
+        if need_create {
+            inner.created = true;
+        }
         inner.visible = target_visible;
+        // Closing the panel resets content visibility so the next open
+        // starts on SiteGrid until the user navigates again.
+        if !target_visible {
+            inner.content_visible = false;
+        }
         apply_panel_layout(&app, &inner);
     }
 
@@ -299,6 +368,35 @@ pub async fn toggle_web_panel(
     )
     .map_err(|e| format!("emit failed: {e}"))?;
 
+    Ok(())
+}
+
+/// macOS only: toggles the child webview's visibility independently of
+/// the panel's overall open/close state. Lets the Vue toolbar swap
+/// between SiteGrid (no URL) and the loaded page without tearing down
+/// the webview. No-op on other platforms (the iframe handles its own
+/// visibility).
+#[tauri::command]
+pub async fn set_web_panel_content_visible(
+    app: AppHandle,
+    state: State<'_, WebPanelState>,
+    visible: bool,
+) -> Result<(), String> {
+    let inner = {
+        let mut guard = state
+            .0
+            .lock()
+            .map_err(|e| format!("state lock poisoned: {e}"))?;
+        guard.content_visible = visible;
+        WebPanelInner {
+            created: guard.created,
+            visible: guard.visible,
+            suspended: guard.suspended,
+            content_visible: guard.content_visible,
+            width: guard.width,
+        }
+    };
+    apply_panel_layout(&app, &inner);
     Ok(())
 }
 
@@ -327,6 +425,7 @@ pub async fn suspend_web_panel(
             created: guard.created,
             visible: guard.visible,
             suspended: guard.suspended,
+            content_visible: guard.content_visible,
             width: guard.width,
         }
     };
@@ -358,35 +457,6 @@ pub fn install_main_window_resize_hook(app: &AppHandle) {
     });
 }
 
-/// Polls the content webview's URL every 400ms and, on change, emits
-/// `web-browser-url-changed` to the toolbar. Handles SPA pushState sites
-/// (YouTube, Bilibili) where `on_page_load` does not fire.
-/// Loops for the remaining process lifetime — panel hide just leaves the
-/// URL stable.
-#[allow(dead_code)]
-fn spawn_url_watcher(app: &AppHandle) {
-    let app = app.clone();
-    tokio::spawn(async move {
-        let mut last = String::new();
-        loop {
-            tokio::time::sleep(std::time::Duration::from_millis(400)).await;
-            let Some(content) = app.get_webview(CONTENT_LABEL) else {
-                return;
-            };
-            let Ok(url) = content.url() else { continue };
-            let s = url.as_str().to_string();
-            if s != last {
-                last = s.clone();
-                let payload = serde_json::json!({
-                    "url": s,
-                    "canGoBack": true,
-                    "canGoForward": true,
-                });
-                let _ = app.emit_to(TOOLBAR_LABEL, "web-browser-url-changed", payload);
-            }
-        }
-    });
-}
 
 fn cookie_header_for_url(cookies: &[Cookie<'_>], url: &str) -> String {
     let Some(target_domain) = Url::parse(url)
@@ -466,9 +536,17 @@ pub async fn save_cookies_and_trigger_download(
     store: State<'_, crate::cookies::CookieStore>,
     url: String,
 ) -> Result<(), String> {
+    // macOS loads pages in the child `web-browser` webview, so its cookie
+    // store has the site's session. Other platforms load via iframe in
+    // the main webview, so `main` is the source of truth.
+    #[cfg(target_os = "macos")]
+    let content = app
+        .get_webview(CONTENT_LABEL)
+        .or_else(|| app.get_webview(MAIN_WINDOW_LABEL))
+        .ok_or_else(|| "content webview not available".to_string())?;
+    #[cfg(not(target_os = "macos"))]
     let content = app
         .get_webview(MAIN_WINDOW_LABEL)
-        .or_else(|| app.get_webview(CONTENT_LABEL))
         .ok_or_else(|| "content webview not available".to_string())?;
     let cookies = content
         .cookies()
@@ -500,67 +578,52 @@ mod tests {
     use super::*;
 
     #[test]
-    fn panel_rects_auto_fills_content_area() {
-        // config_width = 0 → auto mode: panel takes W - aside - subnav.
-        // 1200 - 78 - 200 = 922
-        let (tp, ts, cp, cs) = compute_panel_rects(1200.0, 800.0, 0.0);
-        assert_eq!(tp.x, 0.0);
-        assert_eq!(tp.y, 0.0);
-        assert_eq!(ts.width, 1200.0);
-        assert_eq!(ts.height, TOOLBAR_HEIGHT);
-        assert_eq!(cp.x, 0.0);
-        assert_eq!(cp.y, TOOLBAR_HEIGHT);
-        assert_eq!(cs.width, 1200.0);
-        assert_eq!(cs.height, 800.0 - TOOLBAR_HEIGHT);
+    fn panel_geometry_auto_pins_to_right_below_toolbar() {
+        // Auto mode: panel width = W - aside - subnav = 1200 - 78 - 200 = 922.
+        let (pos, size) = compute_panel_geometry(1200.0, 800.0, 0.0);
+        assert_eq!(size.width, 922.0);
+        assert_eq!(size.height, 800.0 - PANEL_TOOLBAR_HEIGHT);
+        assert_eq!(pos.x, 1200.0 - 922.0);
+        assert_eq!(pos.y, PANEL_TOOLBAR_HEIGHT);
     }
 
     #[test]
-    fn panel_rects_auto_collapses_when_window_smaller_than_chrome() {
-        // Auto mode, W smaller than aside + subnav — negative clamps to 0.
-        let (_tp, ts, _cp, cs) = compute_panel_rects(200.0, 400.0, 0.0);
-        assert_eq!(ts.width, 200.0);
-        assert_eq!(cs.width, 200.0);
-    }
-
-    #[test]
-    fn panel_rects_explicit_config_width_overrides_auto() {
-        // Non-zero config_width switches to explicit sizing, clamped by
-        // MIN_MAIN_CONTENT_WIDTH = 320.
-        let (tp, ts, _cp, _cs) = compute_panel_rects(1200.0, 800.0, 960.0);
-        // (1200 - 320) = 880 → clamped down from 960
-        assert_eq!(ts.width, 880.0);
-        assert_eq!(tp.x, 0.0);
-    }
-
-    #[test]
-    fn panel_rects_explicit_width_clamps_when_window_too_narrow() {
-        // Window is 500px wide; MIN_MAIN_CONTENT_WIDTH = 320 → panel ≤ 180.
-        let (_tp, ts, _cp, cs) = compute_panel_rects(500.0, 600.0, 960.0);
-        assert_eq!(ts.width, 180.0);
-        assert_eq!(cs.width, 180.0);
-    }
-
-    #[test]
-    fn panel_rects_explicit_width_zero_when_window_smaller_than_min_content() {
-        // Window smaller than MIN_MAIN_CONTENT_WIDTH — panel collapses to 0.
-        let (_tp, ts, _cp, cs) = compute_panel_rects(200.0, 400.0, 960.0);
-        assert_eq!(ts.width, 0.0);
-        assert_eq!(cs.width, 0.0);
-    }
-
-    #[test]
-    fn panel_rects_respects_smaller_explicit_config_width() {
-        let (_tp, ts, _cp, _cs) = compute_panel_rects(2000.0, 1000.0, 640.0);
-        assert_eq!(ts.width, 640.0);
-    }
-
-    #[test]
-    fn hidden_rect_is_off_screen_with_zero_size() {
-        let (pos, size) = hidden_rect();
-        assert!(pos.x < 0.0);
-        assert!(pos.y < 0.0);
+    fn panel_geometry_auto_collapses_when_window_smaller_than_chrome() {
+        // Auto mode, W < aside + subnav — width clamps to 0, x clamps to W.
+        let (pos, size) = compute_panel_geometry(200.0, 400.0, 0.0);
         assert_eq!(size.width, 0.0);
-        assert_eq!(size.height, 0.0);
+        assert_eq!(pos.x, 200.0);
+    }
+
+    #[test]
+    fn panel_geometry_explicit_width_clamped_by_min_main_content() {
+        // (1200 - 320) = 880 → explicit 960 clamps down to 880.
+        let (pos, size) = compute_panel_geometry(1200.0, 800.0, 960.0);
+        assert_eq!(size.width, 880.0);
+        assert_eq!(pos.x, 320.0);
+    }
+
+    #[test]
+    fn panel_geometry_explicit_width_respects_smaller_value() {
+        let (pos, size) = compute_panel_geometry(2000.0, 1000.0, 640.0);
+        assert_eq!(size.width, 640.0);
+        assert_eq!(pos.x, 1360.0);
+    }
+
+    #[test]
+    fn panel_geometry_explicit_width_zero_when_window_smaller_than_min_content() {
+        // Window narrower than MIN_MAIN_CONTENT_WIDTH — panel collapses.
+        let (pos, size) = compute_panel_geometry(200.0, 400.0, 960.0);
+        assert_eq!(size.width, 0.0);
+        assert_eq!(pos.x, 200.0);
+    }
+
+    #[test]
+    fn hidden_constants_are_off_screen_with_zero_size() {
+        assert!(HIDDEN_POS.x < 0.0);
+        assert!(HIDDEN_POS.y < 0.0);
+        assert_eq!(HIDDEN_SIZE.width, 0.0);
+        assert_eq!(HIDDEN_SIZE.height, 0.0);
     }
 
     #[test]
