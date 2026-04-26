@@ -465,7 +465,7 @@ async fn stat_loop(
             }
 
             // ── Tray title (macOS menu bar / Linux appindicator label) ──
-            if let Some(tray) = app.tray_by_id("main") {
+            if let Some(tray) = app.tray_by_id("motrix-next") {
                 if cfg.tray_speedometer && (download_speed > 0 || upload_speed > 0) {
                     let title = if download_speed > 0 {
                         format!("↓{}", compact_size(download_speed))

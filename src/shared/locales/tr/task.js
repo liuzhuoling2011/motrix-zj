@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'Otomatik sınıflandırma etkin, dosyalar ilgili kategori klasörlerine kaydedilecek',
   'category-hint-overridden': 'Özel yol belirtildi, sınıflandırma kuralları atlanacak',
   'category-dir-placeholder': 'Otomatik sınıflandırma için boş bırakın',
+  'favorite-folders': 'Favori klasörler',
+  'recent-folders': 'Son klasörler',
 }

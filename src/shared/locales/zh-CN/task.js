@@ -247,4 +247,6 @@ export default {
   'category-hint-active': '已开启自动分类，文件将按类型保存到对应目录',
   'category-hint-overridden': '已指定自定义路径，将优先使用此路径',
   'category-dir-placeholder': '留空则自动分类',
+  'favorite-folders': '收藏夹',
+  'recent-folders': '最近使用',
 }

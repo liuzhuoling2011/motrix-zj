@@ -247,4 +247,6 @@ export default {
   'category-hint-active': '已開啟自動分類，檔案將按類型儲存到對應目錄',
   'category-hint-overridden': '已指定自訂路徑，將優先使用此路徑',
   'category-dir-placeholder': '留空則自動分類',
+  'favorite-folders': '我的最愛',
+  'recent-folders': '最近使用',
 }

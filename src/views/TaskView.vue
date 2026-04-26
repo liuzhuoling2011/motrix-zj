@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
 }
 .panel-header {
   position: relative;
-  padding: 46px 0 12px;
+  padding: var(--header-top-offset) 0 12px;
   margin: 0 36px;
   border-bottom: 2px solid var(--panel-border);
   user-select: none;
@@ -176,6 +176,7 @@ onBeforeUnmount(() => {
   font-size: 16px;
   font-weight: normal;
   line-height: 24px;
+  align-self: flex-start;
 }
 /*
  * .panel-body creates the positioning context for the watermark.

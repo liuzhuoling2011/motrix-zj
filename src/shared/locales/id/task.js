@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'Klasifikasi otomatis aktif, file akan disimpan ke folder kategorinya',
   'category-hint-overridden': 'Jalur kustom ditentukan, aturan klasifikasi akan dilewati',
   'category-dir-placeholder': 'Kosongkan untuk klasifikasi otomatis',
+  'favorite-folders': 'Folder favorit',
+  'recent-folders': 'Folder terbaru',
 }

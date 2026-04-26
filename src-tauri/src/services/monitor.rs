@@ -134,6 +134,33 @@ impl TaskEvent {
     }
 }
 
+fn metadata_basename(path: &str) -> &str {
+    path.rsplit(['/', '\\']).next().unwrap_or(path)
+}
+
+fn is_metadata_task(task: &Aria2Task) -> bool {
+    if task
+        .followed_by
+        .as_ref()
+        .is_some_and(|followed_by| !followed_by.is_empty())
+    {
+        return true;
+    }
+
+    if task
+        .files
+        .first()
+        .is_some_and(|file| metadata_basename(&file.path).starts_with("[METADATA]"))
+    {
+        return true;
+    }
+
+    task.bittorrent
+        .as_ref()
+        .and_then(|bt| bt.info.as_ref())
+        .is_some_and(|info| info.name.starts_with("[METADATA]"))
+}
+
 /// Builds the JSON `meta` field for a history record.
 ///
 /// Produces a JSON object matching the frontend's `buildHistoryMeta()` format:
@@ -276,6 +303,10 @@ impl TaskNotifier {
         let mut emit = Vec::new();
 
         for task in tasks {
+            if is_metadata_task(task) {
+                continue;
+            }
+
             // Error detection
             if task.status == "error" {
                 if let Some(code) = &task.error_code {
@@ -663,6 +694,23 @@ mod tests {
         task
     }
 
+    fn make_metadata_task(gid: &str) -> Aria2Task {
+        let mut task = make_task(gid, "complete");
+        task.files[0].path = "/downloads/[METADATA]KNOPPIX_V9.1CD-2021-01-25-EN".to_string();
+        task.followed_by = Some(vec!["child-gid".to_string()]);
+        task.bittorrent = Some(Aria2BtInfo {
+            info: Some(Aria2BtName {
+                name: "[METADATA]KNOPPIX_V9.1CD-2021-01-25-EN".to_string(),
+            }),
+            announce_list: None,
+            creation_date: None,
+            comment: None,
+            mode: None,
+        });
+        task.info_hash = Some("abcdef1234567890abcdef1234567890abcdef12".to_string());
+        task
+    }
+
     // ── Initial scan suppression ────────────────────────────────────
 
     #[test]
@@ -749,6 +797,34 @@ mod tests {
         notifier.scan(&[make_task("g1", "complete")]);
         let events = notifier.scan(&[make_task("g1", "complete")]);
         assert!(events.is_empty());
+    }
+
+    #[test]
+    fn completed_metadata_task_is_ignored() {
+        let mut notifier = TaskNotifier::new();
+        notifier.scan(&[]);
+
+        let events = notifier.scan(&[make_metadata_task("metadata-gid")]);
+
+        assert!(
+            events.is_empty(),
+            "metadata completion must not be recorded as user history"
+        );
+    }
+
+    #[test]
+    fn metadata_task_does_not_mark_gid_as_completed() {
+        let mut notifier = TaskNotifier::new();
+        notifier.scan(&[]);
+
+        notifier.scan(&[make_metadata_task("metadata-gid")]);
+        let mut real_task = make_task("metadata-gid", "complete");
+        real_task.files[0].path = "/downloads/real-file.iso".to_string();
+
+        let events = notifier.scan(&[real_task]);
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].0, events::TASK_COMPLETE);
     }
 
     // ── BT seeding detection ────────────────────────────────────────

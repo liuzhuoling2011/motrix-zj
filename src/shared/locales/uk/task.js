@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'Автокласифікація активна, файли буде збережено у відповідні папки категорій',
   'category-hint-overridden': 'Вказано власний шлях, правила класифікації буде пропущено',
   'category-dir-placeholder': 'Залиште порожнім для автокласифікації',
+  'favorite-folders': 'Обрані теки',
+  'recent-folders': 'Нещодавні теки',
 }

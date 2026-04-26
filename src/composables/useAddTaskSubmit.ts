@@ -17,8 +17,9 @@ import { usePreferenceStore } from '@/stores/preference'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
 import { isEngineReady } from '@/api/aria2'
-import { normalizeUriLines, extractDecodedFilename } from '@shared/utils/batchHelpers'
+import { normalizeUriLines, extractDecodedFilename, hasExtension } from '@shared/utils/batchHelpers'
 import { buildOuts } from '@shared/utils/rename'
+import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@shared/logger'
 import type { Aria2EngineOptions, BatchItem, FileCategory, ProxyConfig } from '@shared/types'
 import { isMagnetUri } from '@/composables/useMagnetFlow'
@@ -113,6 +114,16 @@ export function isGlobalDownloadProxyActive(proxy: ProxyConfig): boolean {
 }
 
 /**
+ * Returns the proxy server URL when the download proxy is active,
+ * or `undefined` otherwise.  Used to pass the proxy to Rust commands
+ * (`resolve_filename`, `fetch_remote_bytes`) that make external HTTP
+ * requests on behalf of the download flow.
+ */
+export function getDownloadProxy(proxy: ProxyConfig): string | undefined {
+  return isGlobalDownloadProxyActive(proxy) ? proxy.server : undefined
+}
+
+/**
  * Classifies an error from task submission into a user-friendly category.
  * Pure function — fully testable.
  */
@@ -182,6 +193,7 @@ export async function submitManualUris(
   options: Aria2EngineOptions,
   taskStore: ReturnType<typeof useTaskStore>,
   fileCategory?: { enabled: boolean; categories: FileCategory[] },
+  downloadProxy?: string,
 ): Promise<ManualUriSubmitResult> {
   if (!form.uris.trim()) return { magnetGids: [], magnetFailures: [] }
   const allUris = normalizeUriLines(form.uris)
@@ -204,12 +216,23 @@ export async function submitManualUris(
       }
       await taskStore.addUri({ uris: regularUris, outs, options: regularOptions, fileCategory })
     } else {
-      // Let aria2 handle filename resolution natively:
-      // 1. Content-Disposition header (highest priority)
-      // 2. Redirected URL filename
-      // 3. URL path segment with built-in percentDecode
-      // See: aria2 HttpResponse.cc:determineFilename()
-      await taskStore.addUri({ uris: regularUris, outs: [], options, fileCategory })
+      // aria2's native filename resolution only uses Content-Disposition
+      // and URL path.  CDNs like Twitter/X serve media from extensionless
+      // paths (e.g. /media/HCo_0zsbkAEov7s?format=jpg).  For each URL
+      // whose path lacks an extension, invoke the Rust-side HEAD request
+      // to infer the correct name via Content-Type MIME mapping.
+      const outs = await Promise.all(
+        regularUris.map(async (uri) => {
+          const pathFilename = extractDecodedFilename(uri)
+          if (!pathFilename || hasExtension(pathFilename)) return ''
+          try {
+            return (await invoke<string | null>('resolve_filename', { url: uri, proxy: downloadProxy ?? null })) ?? ''
+          } catch {
+            return '' // HEAD failure → graceful degradation
+          }
+        }),
+      )
+      await taskStore.addUri({ uris: regularUris, outs, options, fileCategory })
     }
   }
 
@@ -256,10 +279,16 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
         await submitBatchItems(batch, options, taskStore)
       }
       if (form.value.uris.trim()) {
-        manualResult = await submitManualUris(form.value, options, taskStore, {
-          enabled: preferenceStore.config.fileCategoryEnabled,
-          categories: preferenceStore.config.fileCategories,
-        })
+        manualResult = await submitManualUris(
+          form.value,
+          options,
+          taskStore,
+          {
+            enabled: preferenceStore.config.fileCategoryEnabled,
+            categories: preferenceStore.config.fileCategories,
+          },
+          getDownloadProxy(preferenceStore.config.proxy),
+        )
         // pendingMagnetGids is set directly inside addMagnetUri (task store)
       }
 

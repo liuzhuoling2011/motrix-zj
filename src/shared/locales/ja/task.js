@@ -247,4 +247,6 @@ export default {
   'category-hint-active': '自動分類が有効です。ファイルはカテゴリフォルダに保存されます',
   'category-hint-overridden': 'カスタムパスが指定されました。分類ルールはスキップされます',
   'category-dir-placeholder': '空欄のままで自動分類',
+  'favorite-folders': 'お気に入りフォルダ',
+  'recent-folders': '最近のフォルダ',
 }

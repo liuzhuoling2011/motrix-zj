@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'Automatyczna klasyfikacja jest aktywna, pliki zostaną zapisane w odpowiednich folderach kategorii',
   'category-hint-overridden': 'Określono ścieżkę niestandardową, reguły klasyfikacji zostaną pominięte',
   'category-dir-placeholder': 'Pozostaw puste dla automatycznej klasyfikacji',
+  'favorite-folders': 'Ulubione foldery',
+  'recent-folders': 'Ostatnie foldery',
 }

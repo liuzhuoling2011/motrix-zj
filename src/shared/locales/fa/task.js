@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'طبقه‌بندی خودکار فعال است، فایل‌ها در پوشه‌های مربوطه ذخیره می‌شوند',
   'category-hint-overridden': 'مسیر سفارشی مشخص شده، قوانین طبقه‌بندی نادیده گرفته می‌شوند',
   'category-dir-placeholder': 'برای طبقه‌بندی خودکار خالی بگذارید',
+  'favorite-folders': 'پوشه‌های مورد علاقه',
+  'recent-folders': 'پوشه‌های اخیر',
 }

@@ -247,4 +247,6 @@ export default {
   'category-hint-active': 'Automatisk klassifisering er aktiv, filer lagres i sine kategorimapper',
   'category-hint-overridden': 'Egendefinert sti angitt, klassifiseringsregler vil bli hoppet over',
   'category-dir-placeholder': 'La stå tomt for automatisk klassifisering',
+  'favorite-folders': 'Favorittmapper',
+  'recent-folders': 'Nylige mapper',
 }
