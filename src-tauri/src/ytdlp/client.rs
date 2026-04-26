@@ -101,6 +101,35 @@ impl YtdlpHeaders {
     }
 }
 
+/// Computes the Netscape `Domain` field for a host.
+///
+/// We want yt-dlp to send the cookie to every subdomain of the site
+/// (api.bilibili.com, passport.bilibili.com, etc.), not just the exact
+/// host the browser sent the request to — many extractors hit auxiliary
+/// subdomains during parsing and would otherwise lose the login state.
+///
+/// Heuristic: drop the leftmost label when the host has 3+ labels and
+/// isn't an IP address. Covers the common www / m / mobile / api prefix
+/// cases (`.bilibili.com`, `.youtube.com`).
+///
+/// Edge cases not handled:
+/// - Multi-label public suffixes (`.co.uk`, `.com.cn`) — would yield
+///   `.co.uk` which is too broad. Rare for video sites; swap in the
+///   `publicsuffix` crate if it ever bites.
+/// - IP addresses get returned unprefixed (Netscape spec forbids the
+///   leading dot for IP literals).
+fn compute_cookie_domain(host: &str) -> String {
+    if host.parse::<std::net::IpAddr>().is_ok() {
+        return host.to_string();
+    }
+    let labels: Vec<&str> = host.split('.').collect();
+    if labels.len() >= 3 {
+        format!(".{}", labels[1..].join("."))
+    } else {
+        format!(".{host}")
+    }
+}
+
 /// Writes a Netscape-format cookies file containing every `name=value` pair
 /// from `cookie_str`, scoped to the URL's domain.
 ///
@@ -115,7 +144,7 @@ async fn write_cookies_file(
         .ok()
         .and_then(|u| u.host_str().map(String::from))
         .ok_or_else(|| AppError::YtdlpParse(format!("invalid URL for cookie scoping: {target_url}")))?;
-    let domain = format!(".{host}");
+    let domain = compute_cookie_domain(&host);
 
     let mut contents = String::from("# Netscape HTTP Cookie File\n");
     for pair in cookie_str.split(';') {
@@ -346,5 +375,44 @@ mod cookies_fallback_tests {
             .resolve_for_url("https://www.youtube.com/watch?v=x")
             .expect("hit");
         assert!(p.ends_with("youtube.com.txt"));
+    }
+}
+
+#[cfg(test)]
+mod cookie_domain_tests {
+    use super::compute_cookie_domain;
+
+    #[test]
+    fn strips_leftmost_label_for_three_part_host() {
+        assert_eq!(compute_cookie_domain("www.bilibili.com"), ".bilibili.com");
+        assert_eq!(compute_cookie_domain("m.youtube.com"), ".youtube.com");
+        assert_eq!(compute_cookie_domain("api.bilibili.com"), ".bilibili.com");
+    }
+
+    #[test]
+    fn keeps_two_part_host_as_is() {
+        assert_eq!(compute_cookie_domain("bilibili.com"), ".bilibili.com");
+        assert_eq!(compute_cookie_domain("youtube.com"), ".youtube.com");
+    }
+
+    #[test]
+    fn keeps_localhost_as_is() {
+        assert_eq!(compute_cookie_domain("localhost"), ".localhost");
+    }
+
+    #[test]
+    fn ipv4_address_has_no_leading_dot() {
+        assert_eq!(compute_cookie_domain("192.168.1.1"), "192.168.1.1");
+        assert_eq!(compute_cookie_domain("127.0.0.1"), "127.0.0.1");
+    }
+
+    #[test]
+    fn ipv6_address_has_no_leading_dot() {
+        assert_eq!(compute_cookie_domain("::1"), "::1");
+    }
+
+    #[test]
+    fn deeper_subdomain_strips_only_leftmost() {
+        assert_eq!(compute_cookie_domain("v1.api.bilibili.com"), ".api.bilibili.com");
     }
 }
