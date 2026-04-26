@@ -336,12 +336,36 @@ const checkedRowKeys = computed({
 })
 
 const submitLabel = computed(() => {
+  // While the web-panel auto-parse is still running, surface that state on
+  // the primary action so users understand why submit has stalled — the
+  // small parse-media button by itself is easy to miss.
+  if (isFromWebPanel.value && videoFlow.isParsing.value) {
+    return '正在解析...'
+  }
   const pending = batch.value.filter((i) => i.status === 'pending').length
   const failed = batch.value.filter((i) => i.status === 'failed').length
   const count = pending + failed
   if (count > 1) return `${t('app.submit')} (${count})`
   return t('app.submit')
 })
+
+/** Resolves when `videoFlow.isParsing` next transitions to `false`. Used by
+ *  the web-panel submit branch to wait for the in-flight auto-parse instead
+ *  of starting a duplicate one or treating the URL as not-a-video. */
+function waitForParseDone(): Promise<void> {
+  if (!videoFlow.isParsing.value) return Promise.resolve()
+  return new Promise((resolve) => {
+    const stop = watch(
+      () => videoFlow.isParsing.value,
+      (parsing) => {
+        if (!parsing) {
+          stop()
+          resolve()
+        }
+      },
+    )
+  })
+}
 
 /** Whether file classification is currently enabled in preferences. */
 const categoryEnabled = computed(() => preferenceStore.config.fileCategoryEnabled)
@@ -635,7 +659,13 @@ async function handleSubmit() {
     if (handled) return
 
     if (isFromWebPanel.value) {
-      if (!videoFlow.isParsing.value) {
+      // Wait for the auto-parse to finish (or kick one off if it never
+      // started) before deciding whether this is a video URL. Without
+      // the wait, an in-flight parse leaves isVideo/isPlaylist false and
+      // submit would prematurely report "video parse failed".
+      if (videoFlow.isParsing.value) {
+        await waitForParseDone()
+      } else if (!videoFlow.isVideo.value && !videoFlow.isPlaylist.value) {
         await handleParseMedia()
       }
       const handledAfterParse = await submitVideoBranch(effectiveForm, options)

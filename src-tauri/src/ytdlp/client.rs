@@ -3,6 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 
+use super::encoding::decode_subprocess_line;
 use super::types::{ParseResult, PlaylistInfo, PlaylistItem, VideoInfo};
 use crate::error::AppError;
 
@@ -327,12 +328,20 @@ async fn run_ytdlp(app: &tauri::AppHandle, args: &[&str]) -> Result<String, AppE
         .map_err(|e| AppError::YtdlpParse(format!("failed to run yt-dlp: {e}")))?;
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        // stderr can carry Chinese filenames / URLs that arrive as GBK on
+        // Windows even with PYTHONIOENCODING set. Use the tolerant decoder
+        // so error toasts stay readable instead of showing replacement
+        // characters.
+        let stderr = decode_subprocess_line(&output.stderr);
         log::warn!("yt-dlp failed: {}", stderr.trim());
         return Err(AppError::YtdlpParse(stderr.trim().to_string()));
     }
 
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    // stdout is `--dump-json` output. Python's json.dumps escapes non-ASCII
+    // characters by default (ensure_ascii=True), so the bytes here are
+    // ASCII-only and either decoder yields the same result. Use the
+    // tolerant decoder to be safe against future yt-dlp config changes.
+    Ok(decode_subprocess_line(&output.stdout))
 }
 
 /// Parses a URL with yt-dlp using `--dump-json --no-download --flat-playlist`.

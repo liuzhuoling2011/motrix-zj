@@ -12,6 +12,7 @@ import {
   RefreshOutline,
 } from '@vicons/ionicons5'
 import SiteGrid from '@/web/content/SiteGrid.vue'
+import { transformEmbedUrl } from '@/web/embedTransform'
 import { logger } from '@shared/logger'
 
 const emit = defineEmits<{ close: [] }>()
@@ -49,8 +50,11 @@ function navigate(url: string, replace = false) {
   const normalizedUrl = normalizeUrl(url)
   if (!normalizedUrl) return
 
+  // The address bar / download button see the public URL the user typed;
+  // the iframe loads an embed-friendly variant for sites that block
+  // X-Frame-Options (e.g. bilibili.com video pages → player.bilibili.com).
   currentUrl.value = normalizedUrl
-  frameSrc.value = normalizedUrl
+  frameSrc.value = transformEmbedUrl(normalizedUrl)
   if (!replace) {
     frameKey.value += 1
   }
@@ -89,7 +93,7 @@ function goBack() {
   if (!canGoBack.value) return
   historyIndex.value -= 1
   currentUrl.value = historyStack.value[historyIndex.value] ?? ''
-  frameSrc.value = currentUrl.value
+  frameSrc.value = transformEmbedUrl(currentUrl.value)
   frameKey.value += 1
 }
 
@@ -97,7 +101,7 @@ function goForward() {
   if (!canGoForward.value) return
   historyIndex.value += 1
   currentUrl.value = historyStack.value[historyIndex.value] ?? ''
-  frameSrc.value = currentUrl.value
+  frameSrc.value = transformEmbedUrl(currentUrl.value)
   frameKey.value += 1
 }
 
@@ -179,6 +183,12 @@ onUnmounted(() => window.removeEventListener('message', handleFrameUrlMessage))
 
 <template>
   <section class="internal-browser" :class="{ windows: isWindows }" aria-label="Internal browser">
+    <!-- Windows: explicit drag strip in the 36px area reserved above the
+         toolbar so users can drag the main window from the panel area.
+         The native window controls live at z-index 9999 and are
+         hit-tested above this strip, so the close/min/max buttons keep
+         working. -->
+    <div v-if="isWindows" class="drag-strip" data-tauri-drag-region />
     <div class="browser-toolbar">
       <button
         type="button"
@@ -263,8 +273,13 @@ onUnmounted(() => window.removeEventListener('message', handleFrameUrlMessage))
   border-left: 1px solid var(--m3-outline-variant);
 }
 
-.internal-browser.windows {
-  padding-top: 36px;
+.drag-strip {
+  height: 36px;
+  flex-shrink: 0;
+  background: var(--main-bg);
+  /* Reserve space so the close/min/max caption buttons (which live in a
+   * fixed-position WindowControls bar at z-index 9999) hover above this
+   * strip without overlap with the toolbar. */
 }
 
 .browser-toolbar {
