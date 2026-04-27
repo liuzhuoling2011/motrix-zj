@@ -66,17 +66,24 @@ What changed is everything underneath. Every transition and micro-interaction ha
 ## Features
 
 - **Multi-protocol downloads** — HTTP, FTP, BitTorrent, Magnet links
-- **BitTorrent** — Selective file download, DHT, peer exchange, encryption
-- **Tracker management** — Auto-sync from community tracker lists
-- **Concurrent downloads** — Up to 10 tasks with configurable thread count
-- **Speed control** — Global and per-task upload/download limits
-- **System tray** — Real-time speed display in the menu bar (macOS)
-- **Dark mode** — Native dark theme with system preference detection
-- **i18n** — Auto-detects system language on first launch
+- **BitTorrent** — Selective file download, DHT, peer exchange, encryption, GeoIP peer flags
+- **Tracker management** — Auto-sync from community tracker lists with protocol probing
+- **Concurrent downloads** — Configurable parallel tasks and per-task thread count
+- **Speed control** — Global and per-task upload/download limits with time-of-day scheduling
+- **System tray** — Real-time speed display in the menu bar (macOS), background operation
+- **Color schemes** — Multiple built-in color themes with light/dark mode and system preference detection
+- **Lightweight mode** — Destroys the frontend window on close/minimize, keeping only the tray and engine alive
+- **File categorization** — Auto-sort completed downloads into subdirectories by file type
+- **UPnP port mapping** — Automatic NAT traversal for better BitTorrent connectivity
+- **Keep awake** — Prevent system sleep while downloads are active
+- **Clipboard detection** — Monitor clipboard for downloadable URLs with per-protocol filters
+- **Auto-archive** — Automatically archive completed tasks to keep the task list clean
+- **Shutdown when complete** — Optionally shut down the system after all downloads finish
+- **i18n** — 26 languages, auto-detects system language on first launch
 - **Task management** — Pause, resume, delete with file cleanup, batch operations
 - **Download protocols** — Register as default handler for magnet and thunder links
 - **Notifications** — System notifications on task completion
-- **Lightweight** — Tauri-powered, minimal resource footprint
+- **Lightweight** — Tauri-powered, ~20 MB bundle, minimal resource footprint
 - **[Browser extension](https://github.com/AnInsomniacy/motrix-next-extension)** — Intercept downloads from Chrome / Edge with smart filtering, cookie forwarding, and real-time control ([Chrome Web Store](https://chromewebstore.google.com/detail/ofeajdebdjajhkmcmamagokecnbephhl) · [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/loojjolhejmakcdlbidigoniobfanjlb))
 
 ## Installation
@@ -119,6 +126,12 @@ Download from [Releases](https://github.com/AnInsomniacy/motrix-next/releases):
 sudo dpkg -i MotrixNext_x.x.x_amd64.deb
 ```
 
+**Fedora / RHEL:**
+
+```bash
+sudo rpm -i MotrixNext-x.x.x-1.x86_64.rpm
+```
+
 **Other distributions** — use the `.AppImage`:
 
 ```bash
@@ -126,7 +139,7 @@ chmod +x MotrixNext_x.x.x_amd64.AppImage
 ./MotrixNext_x.x.x_amd64.AppImage
 ```
 
-Both x64 and ARM64 builds are available.
+All formats are available for both x64 and ARM64.
 
 ## FAQ
 
@@ -212,24 +225,27 @@ motrix-next/
 │   ├── shared/                 # Shared utilities & config
 │   │   ├── locales/            #   26 language packs
 │   │   ├── utils/              #   Pure utility functions (with tests)
-│   │   ├── aria2/              #   Aria2 RPC library
 │   │   ├── types.ts            #   TypeScript interfaces
-│   │   ├── constants.ts        #   App constants
+│   │   ├── constants.ts        #   App constants & defaults
 │   │   └── configKeys.ts       #   Persisted config key registry
 │   ├── stores/                 # Pinia state management (with tests)
 │   ├── styles/                 # Global CSS custom properties
 │   └── views/                  # Page-level route views
 ├── src-tauri/                  # Backend (Rust + Tauri 2)
 │   ├── src/
-│   │   ├── commands/           #   config, engine, ui, tracker, fs, updater, upnp
+│   │   ├── aria2/              #   Native Rust aria2 JSON-RPC client
+│   │   ├── commands/           #   Tauri invoke handlers (config, engine, fs, etc.)
 │   │   ├── engine/             #   Aria2 sidecar lifecycle (args, state, cleanup)
+│   │   ├── services/           #   Runtime services (stat, speed, monitor, HTTP API)
 │   │   ├── error.rs            #   AppError enum
+│   │   ├── history.rs          #   SQLite history persistence
 │   │   ├── menu.rs             #   Native menu builder
 │   │   ├── tray.rs             #   System tray setup
 │   │   ├── upnp.rs             #   UPnP/IGD port mapping
 │   │   └── lib.rs              #   Tauri builder & plugin registration
-│   └── binaries/               # Aria2 sidecar binaries (6 platforms)
-├── scripts/                    # bump-version.sh
+│   ├── binaries/               #   Aria2 sidecar binaries (6 platforms)
+│   └── migrations/             #   SQLite schema migrations
+├── scripts/                    # bump-version.sh, release.sh
 ├── .github/workflows/          # CI (ci.yml) + Release (release.yml)
 └── website/                    # Landing page (static HTML)
 ```
@@ -242,7 +258,7 @@ PRs and issues are welcome! Please read the [Contributing Guide](docs/CONTRIBUTI
 
 - [Motrix](https://github.com/agalwood/Motrix) by [agalwood](https://github.com/agalwood) and all its contributors
 - [Aria2](https://aria2.github.io/) — the powerful download engine at the core
-- Community translators who contributed 25+ locale files for worldwide accessibility
+- Community translators who contributed 26 locale packs for worldwide accessibility
 
 ## Sponsor
 
