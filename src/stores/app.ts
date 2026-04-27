@@ -117,9 +117,6 @@ export const useAppStore = defineStore('app', () => {
    * @returns Number of duplicate items skipped.
    */
   function enqueueBatch(items: BatchItem[]): number {
-    console.error(
-      `[DBG:enqueueBatch] items=${items.length} existing=${pendingBatch.value.length} sources=${items.map((i) => i.source.slice(0, 40)).join(', ')}`,
-    )
     if (items.length === 0) return 0
     // Deduplicate against existing batch AND within incoming items
     const seen = new Set(pendingBatch.value.map((i) => i.source))
@@ -140,7 +137,6 @@ export const useAppStore = defineStore('app', () => {
 
   /** Opens an empty add-task dialog for manual URI entry. */
   function showAddTaskDialog() {
-    console.error(`[DBG:showAddTaskDialog] called, addTaskVisible was ${addTaskVisible.value}`)
     addTaskVisible.value = true
   }
 

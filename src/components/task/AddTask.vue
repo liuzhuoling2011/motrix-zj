@@ -259,9 +259,6 @@ watch(
       return
     }
     selectedBatchIndex.value = 0
-    console.error(
-      `[DBG:showWatcher] visible=${visible} hasBatch=${hasBatch.value} batchLen=${batch.value.length} batchDidWrite=${batchDidWrite}`,
-    )
 
     if (hasBatch.value) {
       // Resolve file-based items
@@ -291,15 +288,8 @@ watch(
         // processed (and drained) during the async readText() gap.
         // `hasBatch` is unreliable here because batchWatcher drains
         // pendingBatch after writing — use the flag instead.
-        console.error(
-          `[DBG:showWatcher] after readText: batchDidWrite=${batchDidWrite} hasBatch=${hasBatch.value} text=${(text || '').slice(0, 60)}`,
-        )
-        if (batchDidWrite) {
-          console.error(`[DBG:showWatcher] BAIL: batchWatcher already wrote, skipping clipboard`)
-          return
-        }
+        if (batchDidWrite) return
         if (text && detectResource(text, preferenceStore.config.clipboard)) {
-          console.error(`[DBG:showWatcher] writing clipboard to form.uris`)
           form.value.uris = text.trim()
         }
       } catch (e) {
@@ -315,13 +305,9 @@ watch(
 watch(
   () => batch.value.length,
   async (newLen, oldLen) => {
-    console.error(`[DBG:batchWatcher] newLen=${newLen} oldLen=${oldLen} show=${props.show}`)
     if (!props.show || newLen <= oldLen) return
     const uriItems = batch.value.filter((i) => i.kind === 'uri')
     if (uriItems.length > 0) {
-      console.error(
-        `[DBG:batchWatcher] replacing form.uris with ${uriItems.length} batch items: ${uriItems.map((i) => i.payload.slice(0, 40)).join(', ')}`,
-      )
       batchDidWrite = true
       form.value.uris = mergeUriLines(
         '',
