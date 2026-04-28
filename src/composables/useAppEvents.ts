@@ -381,6 +381,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
             paths?.filter((p: string) => p.endsWith('.torrent') || p.endsWith('.metalink') || p.endsWith('.meta4')) ||
             []
           if (validPaths.length > 0) {
+            logger.info('DragDrop', `dropped ${validPaths.length} file(s): [${validPaths.join(', ')}]`)
             const items = validPaths.map((p: string) => createBatchItem(detectKind(p), p))
             const skipped = appStore.enqueueBatch(items)
             if (skipped > 0) message.warning(t('task.duplicate-task'))
@@ -401,6 +402,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
    * consumption path (lightweight mode window recreation).
    */
   async function processIncomingDeepLinks(urls: string[]) {
+    logger.info('DeepLink.process', `count=${urls.length} urls=[${urls.join(', ')}]`)
     const mainWindow = getCurrentWindow()
     await mainWindow.unminimize()
     await mainWindow.show()
@@ -432,7 +434,10 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
             !a.startsWith('-') &&
             (a.includes('://') || a.endsWith('.torrent') || a.endsWith('.metalink') || a.endsWith('.meta4')),
         )
-        if (urls.length > 0) appStore.handleDeepLinkUrls(urls)
+        if (urls.length > 0) {
+          logger.info('SingleInstance', `forwarding ${urls.length} URL(s) from second instance`)
+          appStore.handleDeepLinkUrls(urls)
+        }
       }),
     )
 

@@ -269,6 +269,11 @@ export function mergeHistoryIntoTasks(aria2Tasks: Aria2Task[], historyRecords: H
     return true
   })
 
+  logger.debug(
+    'TaskLifecycle.merge',
+    `aria2=${aria2Tasks.length} history=${historyRecords.length} dedupedHistory=${historyOnly.length} result=${aria2Tasks.length + historyOnly.length}`,
+  )
+
   return [...aria2Tasks, ...historyOnly.map(historyRecordToTask)]
 }
 

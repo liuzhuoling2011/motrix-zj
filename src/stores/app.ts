@@ -274,6 +274,10 @@ export const useAppStore = defineStore('app', () => {
               // Torrent/metalink are excluded — they require a fetch→parse→
               // file-select pipeline that only runs inside the AddTask dialog.
               const autoSubmit = usePreferenceStore().config.autoSubmitFromExtension
+              logger.info(
+                'DeepLink.new',
+                `url=${downloadUrl} kind=${kind} referer=${referer ? 'present' : 'none'} cookie=${cookie ? 'present' : 'none'} filename=${filename || 'none'} autoSubmit=${autoSubmit}`,
+              )
               if (autoSubmit && kind === 'uri') {
                 void autoSubmitExtensionUrl(downloadUrl, referer, cookie, filename)
               } else {

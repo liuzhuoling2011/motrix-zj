@@ -126,6 +126,7 @@ pub async fn aria2_add_uri(
     uris: Vec<String>,
     options: serde_json::Value,
 ) -> Result<String, AppError> {
+    log::info!("aria2:add-uri count={}", uris.len());
     state.0.add_uri(uris, options).await
 }
 
@@ -136,6 +137,7 @@ pub async fn aria2_add_torrent(
     torrent: String,
     options: serde_json::Value,
 ) -> Result<String, AppError> {
+    log::info!("aria2:add-torrent");
     state.0.add_torrent(&torrent, options).await
 }
 
@@ -146,6 +148,7 @@ pub async fn aria2_add_metalink(
     metalink: String,
     options: serde_json::Value,
 ) -> Result<Vec<String>, AppError> {
+    log::info!("aria2:add-metalink");
     state.0.add_metalink(&metalink, options).await
 }
 
@@ -155,6 +158,7 @@ pub async fn aria2_force_remove(
     state: State<'_, Aria2State>,
     gid: String,
 ) -> Result<String, AppError> {
+    log::info!("aria2:remove gid={gid}");
     state.0.force_remove(&gid).await
 }
 
@@ -164,18 +168,21 @@ pub async fn aria2_force_pause(
     state: State<'_, Aria2State>,
     gid: String,
 ) -> Result<String, AppError> {
+    log::debug!("aria2:force-pause gid={gid}");
     state.0.force_pause(&gid).await
 }
 
 /// Gracefully pause a task.
 #[tauri::command]
 pub async fn aria2_pause(state: State<'_, Aria2State>, gid: String) -> Result<String, AppError> {
+    log::debug!("aria2:pause gid={gid}");
     state.0.pause(&gid).await
 }
 
 /// Resume a paused task.
 #[tauri::command]
 pub async fn aria2_unpause(state: State<'_, Aria2State>, gid: String) -> Result<String, AppError> {
+    log::debug!("aria2:resume gid={gid}");
     state.0.unpause(&gid).await
 }
 
@@ -215,6 +222,7 @@ pub async fn aria2_remove_download_result(
 /// Purge all completed/errored download results.
 #[tauri::command]
 pub async fn aria2_purge_download_result(state: State<'_, Aria2State>) -> Result<String, AppError> {
+    log::info!("aria2:purge-results");
     state.0.purge_download_result().await
 }
 
@@ -224,6 +232,7 @@ pub async fn aria2_batch_unpause(
     state: State<'_, Aria2State>,
     gids: Vec<String>,
 ) -> Result<Vec<serde_json::Value>, AppError> {
+    log::info!("aria2:batch-resume count={}", gids.len());
     let calls = gids
         .into_iter()
         .map(|gid| ("unpause".to_string(), vec![serde_json::Value::String(gid)]))
@@ -237,6 +246,7 @@ pub async fn aria2_batch_force_pause(
     state: State<'_, Aria2State>,
     gids: Vec<String>,
 ) -> Result<Vec<serde_json::Value>, AppError> {
+    log::info!("aria2:batch-pause count={}", gids.len());
     let calls = gids
         .into_iter()
         .map(|gid| {
@@ -255,6 +265,7 @@ pub async fn aria2_batch_force_remove(
     state: State<'_, Aria2State>,
     gids: Vec<String>,
 ) -> Result<Vec<serde_json::Value>, AppError> {
+    log::info!("aria2:batch-remove count={}", gids.len());
     let calls = gids
         .into_iter()
         .map(|gid| {

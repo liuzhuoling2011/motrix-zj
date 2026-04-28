@@ -139,6 +139,7 @@ pub fn validate_bearer_token(headers: &HeaderMap, expected_secret: &str) -> Resu
     if header_value == expected {
         Ok(())
     } else {
+        log::warn!("http_api: 401 Unauthorized (invalid or missing Bearer token)");
         Err(StatusCode::UNAUTHORIZED)
     }
 }
@@ -190,6 +191,7 @@ pub fn build_router(ctx: Arc<ApiContext>) -> Router {
 
 async fn handle_ping(State(ctx): State<Arc<ApiContext>>) -> impl IntoResponse {
     let version = ctx.app.package_info().version.to_string();
+    log::debug!("http_api: GET /ping v{version}");
     Json(PingResponse {
         status: "ok".to_string(),
         version,
@@ -203,6 +205,14 @@ async fn handle_add(
 ) -> Result<Json<AddResponse>, StatusCode> {
     let secret = read_api_secret(&ctx.app);
     validate_bearer_token(&headers, &secret)?;
+
+    log::info!(
+        "http_api: POST /add url={} referer={} cookie={} filename={}",
+        body.url,
+        body.referer.as_deref().unwrap_or("none"),
+        if body.cookie.is_some() { "present" } else { "none" },
+        body.filename.as_deref().unwrap_or("none"),
+    );
 
     // Route ALL downloads through the frontend — single code path.
     //
@@ -276,6 +286,8 @@ async fn handle_pause_all(
     let secret = read_api_secret(&ctx.app);
     validate_bearer_token(&headers, &secret)?;
 
+    log::info!("http_api: POST /pause-all");
+
     let aria2 = match ctx.app.try_state::<Aria2State>() {
         Some(s) => s,
         None => {
@@ -305,6 +317,8 @@ async fn handle_resume_all(
 ) -> Result<Json<ActionResponse>, StatusCode> {
     let secret = read_api_secret(&ctx.app);
     validate_bearer_token(&headers, &secret)?;
+
+    log::info!("http_api: POST /resume-all");
 
     let aria2 = match ctx.app.try_state::<Aria2State>() {
         Some(s) => s,
@@ -368,6 +382,11 @@ fn route_to_frontend(app: &AppHandle, req: &AddRequest) {
 
     // Snapshot: does the window (and its frontend listener) already exist?
     let window_was_alive = app.get_webview_window("main").is_some();
+
+    log::debug!(
+        "http_api: route_to_frontend window_alive={window_was_alive} url={}",
+        req.url
+    );
 
     // Ensure the window exists — recreates if destroyed in lightweight mode.
     #[cfg(target_os = "macos")]

@@ -176,6 +176,7 @@ export async function submitBatchItems(
         await taskStore.addMetalink({ metalink: item.payload, options: opts })
       }
       item.status = 'submitted'
+      logger.info('submitBatchItems', `${item.kind} submitted: ${item.displayName}`)
     } catch (e) {
       item.status = 'failed'
       item.error = e instanceof Error ? e.message : String(e)
@@ -202,6 +203,10 @@ export async function submitManualUris(
 ): Promise<ManualUriSubmitResult> {
   if (!form.uris.trim()) return { magnetGids: [], magnetFailures: [] }
   const allUris = normalizeUriLines(form.uris)
+  logger.info(
+    'submitManualUris',
+    `regular=${allUris.filter((u) => !isMagnetUri(u)).length} magnet=${allUris.filter(isMagnetUri).length}`,
+  )
 
   // Partition into magnet and regular URIs
   const magnetUris = allUris.filter(isMagnetUri)
@@ -303,6 +308,10 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
       }
 
       const failedCount = batch.filter((i) => i.status === 'failed').length + manualResult.magnetFailures.length
+      logger.info(
+        'AddTask.submit',
+        `batch=${batch.length} manual=${normalizeUriLines(form.value.uris).length} failed=${failedCount}`,
+      )
       if (failedCount > 0) {
         message.warning(`${failedCount} ${t('task.failed') || 'failed'}`, { closable: true })
       } else {

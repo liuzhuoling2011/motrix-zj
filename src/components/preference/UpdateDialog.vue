@@ -110,6 +110,7 @@ async function open(channel?: string) {
   activeChannel.value = ch
   show.value = true
   phase.value = 'checking'
+  logger.info('Updater', `checking channel=${ch}`)
   version.value = ''
   releaseNotes.value = ''
   errorMsg.value = ''
@@ -128,7 +129,9 @@ async function open(channel?: string) {
       version.value = update.version
       releaseNotes.value = update.body || ''
       phase.value = 'available'
+      logger.info('Updater', `update available: v${currentVersion.value} → v${update.version}`)
     } else {
+      logger.info('Updater', `up-to-date v${currentVersion.value}`)
       phase.value = 'up-to-date'
     }
     preferenceStore.updateAndSave({ lastCheckUpdateTime: Date.now() })
@@ -145,6 +148,7 @@ async function startDownload() {
   downloadTotal.value = 0
   downloadCancelled.value = false
   const ch = activeChannel.value
+  logger.info('Updater', `downloading v${version.value} channel=${ch}`)
 
   // Listen for progress events from Rust
   progressUnlisten = await listen<UpdateProgressEvent>('update-progress', (event) => {
@@ -163,6 +167,7 @@ async function startDownload() {
     const result = await invoke<DownloadUpdateResult>('download_update', { channel: ch, proxy: getUpdateProxy() })
     if (!downloadCancelled.value) {
       phase.value = resolvePhaseAfterDownload(result.status)
+      logger.info('Updater', `download complete: status=${result.status}`)
     }
   } catch (e) {
     if (!downloadCancelled.value) {
@@ -179,6 +184,7 @@ async function startDownload() {
 function cancelDownload() {
   downloadCancelled.value = true
   phase.value = 'available'
+  logger.info('Updater', 'download cancelled by user')
   invoke('cancel_update').catch(() => {
     /* best-effort: Rust side may have already finished */
   })
@@ -187,6 +193,7 @@ function cancelDownload() {
 async function handleInstallAndRelaunch() {
   phase.value = 'installing'
   const ch = activeChannel.value
+  logger.info('Updater', `applying update v${version.value} channel=${ch}`)
   try {
     await invoke('apply_update', { channel: ch, proxy: getUpdateProxy() })
     relaunch()
