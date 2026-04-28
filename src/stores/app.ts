@@ -16,6 +16,7 @@ import { decodeThunderLink } from '@shared/utils'
 import { logger } from '@shared/logger'
 import { STAT_BASE_INTERVAL, STAT_PER_TASK_INTERVAL, STAT_MIN_INTERVAL, STAT_MAX_INTERVAL } from '@shared/timing'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
+import { getFileName } from '@shared/utils/file'
 import { buildEngineOptions, submitManualUris } from '@/composables/useAddTaskSubmit'
 import { isGlobalDownloadProxyActive, getDownloadProxy } from '@/composables/useAddTaskSubmit'
 import { usePreferenceStore } from '@/stores/preference'
@@ -260,14 +261,16 @@ export const useAppStore = defineStore('app', () => {
               // Extract filename from extension's Content-Disposition
               // query parameter extraction (RFC 6266).
               const filename = parsed.searchParams.get('filename') || ''
+              // Strip path components from external filename input (#261 defense-in-depth)
+              const safeFilename = getFileName(filename)
               if (referer) {
                 pendingReferer.value = referer
               }
               if (cookie) {
                 pendingCookie.value = cookie
               }
-              if (filename) {
-                pendingFilename.value = filename
+              if (safeFilename) {
+                pendingFilename.value = safeFilename
               }
 
               // Auto-submit: bypass AddTask dialog for URI types when enabled.
@@ -339,7 +342,7 @@ export const useAppStore = defineStore('app', () => {
 
     const form: AddTaskForm = {
       uris: url,
-      out: filename,
+      out: getFileName(filename),
       dir: preferenceStore.config.dir,
       split: preferenceStore.config.split ?? 16,
       userAgent: '',

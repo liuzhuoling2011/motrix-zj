@@ -9,6 +9,7 @@ import { changeKeysToCamelCase, formatOptionsForEngine } from '@shared/utils'
 import type { Aria2Task, Aria2RawGlobalStat, Aria2Peer, Aria2EngineOptions, Aria2File, AppConfig } from '@shared/types'
 import { logger } from '@shared/logger'
 import { resolveDownloadDir } from '@shared/utils/fileCategory'
+import { getFileName } from '@shared/utils/file'
 
 /**
  * Engine readiness state.
@@ -106,6 +107,11 @@ export async function addUri(params: {
   const tasks = uris.map(async (uri, index) => {
     const opts: Record<string, string> = { ...engineOptions }
     if (outs[index]) opts.out = outs[index]
+
+    // Defense-in-depth: strip path components from out (#261).
+    // Rust aria2_add_uri is the authoritative boundary; this is belt-and-suspenders.
+    if (opts.out) opts.out = getFileName(opts.out)
+    if (!opts.out) delete opts.out
 
     // Smart file classification: resolve per-URI download directory
     if (fileCategory?.enabled && fileCategory.categories.length > 0) {

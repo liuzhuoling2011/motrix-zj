@@ -118,14 +118,66 @@ pub async fn aria2_get_files(
     state.0.get_files(&gid).await
 }
 
+// ── `out` option sanitization ────────────────────────────────────────
+
+/// Extracts the bare filename from an `out` option value.
+///
+/// aria2's `out` option must be a plain filename relative to `dir`.
+/// This is a **basename extraction** helper — it strips path components
+/// (including Windows drive letters, UNC prefixes, and Unix absolute
+/// paths) but does NOT perform full Windows filename sanitization
+/// (reserved names, illegal characters).  Those are left to aria2's
+/// own validation.
+///
+/// Returns `None` for values that reduce to empty, `.`, `..`, or
+/// contain NUL bytes (which would truncate C strings inside aria2).
+fn sanitize_out_option(raw: &str) -> Option<&str> {
+    if raw.is_empty() {
+        return None;
+    }
+    // Split on both separators to handle cross-platform paths.
+    // rsplit + next always returns Some for non-empty input.
+    let basename = raw.rsplit(|c| c == '/' || c == '\\').next().unwrap_or(raw);
+    if basename.is_empty() || basename == "." || basename == ".." {
+        return None;
+    }
+    if basename.contains('\0') {
+        return None;
+    }
+    Some(basename)
+}
+
 /// Add URI download(s). Each URI gets its own aria2 task with optional
 /// per-URI `out` filename override and file-category directory resolution.
 #[tauri::command]
 pub async fn aria2_add_uri(
     state: State<'_, Aria2State>,
     uris: Vec<String>,
-    options: serde_json::Value,
+    mut options: serde_json::Value,
 ) -> Result<String, AppError> {
+    // Enforce out = filename-only invariant before forwarding to aria2.
+    // Prevents doubled paths when `out` accidentally contains an absolute
+    // path (e.g., from session restore or unvalidated external input). (#261)
+    if let Some(opts) = options.as_object_mut() {
+        if let Some(out_val) = opts.get("out").and_then(|v| v.as_str()).map(String::from) {
+            match sanitize_out_option(&out_val) {
+                Some(clean) if clean != out_val => {
+                    log::warn!(
+                        "aria2:add-uri sanitized out: original_had_path=true clean={clean:?}"
+                    );
+                    opts.insert(
+                        "out".to_string(),
+                        serde_json::Value::String(clean.to_string()),
+                    );
+                }
+                None => {
+                    log::warn!("aria2:add-uri removed invalid out option");
+                    opts.remove("out");
+                }
+                _ => {} // already a clean filename — no action needed
+            }
+        }
+    }
     log::info!("aria2:add-uri count={}", uris.len());
     state.0.add_uri(uris, options).await
 }
@@ -276,4 +328,86 @@ pub async fn aria2_batch_force_remove(
         })
         .collect();
     state.0.multicall(calls).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_out_option;
+
+    #[test]
+    fn bare_filename_passes_through() {
+        assert_eq!(sanitize_out_option("file.zip"), Some("file.zip"));
+    }
+
+    #[test]
+    fn windows_backslash_absolute_extracts_basename() {
+        assert_eq!(
+            sanitize_out_option("C:\\Users\\u\\Downloads\\file.zip"),
+            Some("file.zip")
+        );
+    }
+
+    #[test]
+    fn forward_slash_absolute_extracts_basename() {
+        assert_eq!(
+            sanitize_out_option("C:/Users/u/Downloads/file.zip"),
+            Some("file.zip")
+        );
+    }
+
+    #[test]
+    fn unc_path_extracts_basename() {
+        assert_eq!(
+            sanitize_out_option("\\\\server\\share\\file.zip"),
+            Some("file.zip")
+        );
+    }
+
+    // basename extraction: "../evil.exe" → "evil.exe".
+    // This strips the traversal prefix; it is NOT a security path-join
+    // guard — aria2 resolves the final path via applyDir(dir, out).
+    #[test]
+    fn parent_traversal_extracts_basename() {
+        assert_eq!(sanitize_out_option("../evil.exe"), Some("evil.exe"));
+    }
+
+    #[test]
+    fn dotdot_only_rejected() {
+        assert_eq!(sanitize_out_option(".."), None);
+    }
+
+    #[test]
+    fn dot_only_rejected() {
+        assert_eq!(sanitize_out_option("."), None);
+    }
+
+    #[test]
+    fn empty_rejected() {
+        assert_eq!(sanitize_out_option(""), None);
+    }
+
+    #[test]
+    fn nul_byte_rejected() {
+        assert_eq!(sanitize_out_option("file\0.zip"), None);
+    }
+
+    #[test]
+    fn cjk_filename_preserved() {
+        assert_eq!(sanitize_out_option("C:/下载/文件.zip"), Some("文件.zip"));
+    }
+
+    #[test]
+    fn trailing_separator_rejected() {
+        assert_eq!(sanitize_out_option("path/to/"), None);
+    }
+
+    // Exact regression test for issue #261: category dir = Downloads/Programs,
+    // out contained full base dir path → applyDir doubled it.
+    #[test]
+    fn issue_261_regression() {
+        assert_eq!(
+            sanitize_out_option("C:/Users/37472/Downloads/sysdiag-all-x64.exe"),
+            Some("sysdiag-all-x64.exe")
+        );
+    }
 }
