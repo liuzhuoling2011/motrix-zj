@@ -1091,6 +1091,7 @@ pub fn run() {
             commands::ytdlp_download_direct,
             commands::ytdlp_cancel_download,
             commands::get_sidecar_versions,
+            commands::reveal_sidecar_binary,
             commands::toggle_web_panel,
             commands::suspend_web_panel,
             commands::set_web_panel_content_visible,

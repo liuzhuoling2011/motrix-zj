@@ -38,14 +38,56 @@ import {
 } from 'naive-ui'
 import PreferenceActionBar from './PreferenceActionBar.vue'
 import MTooltip from '@/components/common/MTooltip.vue'
-import { CloudDownloadOutline } from '@vicons/ionicons5'
+import { CloudDownloadOutline, FolderOpenOutline, OpenOutline } from '@vicons/ionicons5'
 import UpdateDialog from '@/components/preference/UpdateDialog.vue'
+
+/** Per-platform download landing pages and matching artifact names. Stays
+ *  aligned with `scripts/fetch-sidecars.mjs` so users grab the same build
+ *  flavor we ship. ffmpeg/ffprobe on macOS use upstream third-party builds
+ *  (BtbN doesn't publish macOS); other platforms use BtbN. */
+function resolveSidecarDownload(
+  name: SidecarName,
+  os: 'macos' | 'windows' | 'linux' | '',
+  arch: string,
+): { url: string; fileHint: string } {
+  if (name === 'ytdlp') {
+    if (os === 'macos') return { url: 'https://github.com/yt-dlp/yt-dlp/releases/latest', fileHint: 'yt-dlp_macos' }
+    if (os === 'windows') return { url: 'https://github.com/yt-dlp/yt-dlp/releases/latest', fileHint: 'yt-dlp.exe' }
+    if (os === 'linux') {
+      const file = arch === 'aarch64' ? 'yt-dlp_linux_aarch64' : 'yt-dlp_linux'
+      return { url: 'https://github.com/yt-dlp/yt-dlp/releases/latest', fileHint: file }
+    }
+    return { url: 'https://github.com/yt-dlp/yt-dlp/releases/latest', fileHint: 'yt-dlp_macos' }
+  }
+
+  // ffmpeg / ffprobe — same artifact source per platform.
+  if (os === 'macos') {
+    if (arch === 'aarch64') {
+      const file = name === 'ffmpeg' ? 'ffmpeg arm64 (latest)' : 'ffprobe arm64 (latest)'
+      return { url: 'https://www.osxexperts.net/', fileHint: file }
+    }
+    const file = name === 'ffmpeg' ? 'ffmpeg.zip (latest)' : 'ffprobe.zip (latest)'
+    return { url: 'https://evermeet.cx/ffmpeg/', fileHint: file }
+  }
+  if (os === 'windows') {
+    return {
+      url: 'https://github.com/BtbN/FFmpeg-Builds/releases/latest',
+      fileHint: 'ffmpeg-n*-win64-gpl-*.zip',
+    }
+  }
+  // linux
+  const archSuffix = arch === 'aarch64' ? 'linuxarm64' : 'linux64'
+  return {
+    url: 'https://github.com/BtbN/FFmpeg-Builds/releases/latest',
+    fileHint: `ffmpeg-n*-${archSuffix}-gpl-*.tar.xz`,
+  }
+}
 
 const { t, locale } = useI18n()
 const preferenceStore = usePreferenceStore()
 const dialog = useDialog()
 const message = useAppMessage()
-const { isMac, isLinux, platformLabel, archLabel: getArchLabel } = usePlatform()
+const { isMac, isLinux, platform: platformRef, platformLabel, archLabel: getArchLabel } = usePlatform()
 
 // ─── System info card ────────────────────────────────────────────────
 const sysArch = ref('')
@@ -67,6 +109,32 @@ async function copyVersionToClipboard(text: string, label: string) {
     message.success(t('about.version-copied', { label }))
   } catch (e) {
     logger.debug('General.clipboard', `writeText failed: ${e}`)
+  }
+}
+
+async function revealSidecarBinary(name: SidecarName) {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('reveal_sidecar_binary', { name })
+  } catch (e) {
+    logger.warn('General.revealSidecar', e instanceof Error ? e.message : String(e))
+    message.error(t('preferences.sidecar-reveal-failed'))
+  }
+}
+
+function sidecarDownloadInfo(name: SidecarName) {
+  const os = (platformRef.value || '') as 'macos' | 'windows' | 'linux' | ''
+  return resolveSidecarDownload(name, os, sysArch.value)
+}
+
+async function openSidecarDownloadPage(name: SidecarName) {
+  const { url } = sidecarDownloadInfo(name)
+  try {
+    const { openUrl } = await import('@tauri-apps/plugin-opener')
+    await openUrl(url)
+  } catch (e) {
+    logger.warn('General.openSidecarDownload', e instanceof Error ? e.message : String(e))
+    message.error(t('preferences.sidecar-open-page-failed'))
   }
 }
 const updateDialogRef = ref<InstanceType<typeof UpdateDialog> | null>(null)
@@ -392,24 +460,57 @@ onMounted(async () => {
         </div>
       </NFormItem>
       <NFormItem v-for="row in sidecarRows" :key="row.name" :label="row.label">
-        <MTooltip v-if="sidecarVersions[row.name]">
-          <template #trigger>
-            <button
-              class="sysinfo-ver-badge"
-              @click="copyVersionToClipboard(`${row.label} v${sidecarVersions[row.name]}`, row.label)"
-            >
-              <span class="sysinfo-ver-value">v{{ sidecarVersions[row.name] }}</span>
-              <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
-                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
-              </svg>
-            </button>
-          </template>
-          {{ t('about.click-to-copy') }}
-        </MTooltip>
-        <div v-else class="sysinfo-ver-badge sysinfo-ver-badge--muted">
-          <span class="sysinfo-ver-muted">{{ t('about.unavailable') }}</span>
-        </div>
+        <NSpace :size="6" align="center">
+          <MTooltip v-if="sidecarVersions[row.name]">
+            <template #trigger>
+              <button
+                class="sysinfo-ver-badge"
+                @click="copyVersionToClipboard(`${row.label} v${sidecarVersions[row.name]}`, row.label)"
+              >
+                <span class="sysinfo-ver-value">v{{ sidecarVersions[row.name] }}</span>
+                <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
+                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
+                </svg>
+              </button>
+            </template>
+            {{ t('about.click-to-copy') }}
+          </MTooltip>
+          <div v-else class="sysinfo-ver-badge sysinfo-ver-badge--muted">
+            <span class="sysinfo-ver-muted">{{ t('about.unavailable') }}</span>
+          </div>
+          <MTooltip>
+            <template #trigger>
+              <button class="sidecar-action-btn" type="button" @click="revealSidecarBinary(row.name)">
+                <NIcon :size="16"><FolderOpenOutline /></NIcon>
+              </button>
+            </template>
+            {{ t('preferences.sidecar-reveal-tooltip') }}
+          </MTooltip>
+          <MTooltip>
+            <template #trigger>
+              <button class="sidecar-action-btn" type="button" @click="openSidecarDownloadPage(row.name)">
+                <NIcon :size="16"><OpenOutline /></NIcon>
+              </button>
+            </template>
+            <div style="max-width: 320px; line-height: 1.5">
+              <div>{{ t('preferences.sidecar-download-tooltip') }}</div>
+              <div style="margin-top: 4px">
+                <span style="opacity: 0.75">{{ t('preferences.sidecar-download-pick') }}</span>
+                <code
+                  style="
+                    margin-left: 4px;
+                    padding: 1px 6px;
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 4px;
+                    font-family: Menlo, monospace;
+                  "
+                  >{{ sidecarDownloadInfo(row.name).fileHint }}</code
+                >
+              </div>
+            </div>
+          </MTooltip>
+        </NSpace>
       </NFormItem>
 
       <!-- ② Language -->
@@ -581,6 +682,29 @@ onMounted(async () => {
 }
 .form-preference :deep(.n-form-item) {
   padding-left: 50px;
+}
+
+/* ── Sidecar action buttons ────────────────────────────────────────── */
+.sidecar-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--m3-outline-variant, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  background: var(--about-card-bg, rgba(255, 255, 255, 0.03));
+  color: var(--m3-on-surface-variant, rgba(255, 255, 255, 0.7));
+  cursor: pointer;
+  transition: var(--transition-all, 0.2s ease);
+}
+.sidecar-action-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--about-card-hover-bg, rgba(255, 255, 255, 0.06));
+}
+.sidecar-action-btn:active {
+  transform: scale(0.95);
 }
 
 /* ── System info version badge ─────────────────────────────────────── */
