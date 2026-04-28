@@ -96,7 +96,6 @@ async function openWebBrowser() {
   try {
     await invoke('toggle_web_panel', {
       open: true,
-      width: preferenceStore.config.webPanelWidth,
     })
   } catch {
     /* ignore */

@@ -301,11 +301,6 @@ export const DEFAULT_APP_CONFIG = {
   autoDeleteStaleRecords: false,
   clearCompletedOnExit: false,
 
-  // ── Embedded Web Panel ──────────────────────────────────────────
-  /** 0 = auto (panel fills the entire content area, i.e. W - aside -
-   *  subnav).  Any positive value is used as-is. */
-  webPanelWidth: 0,
-
   // ── Power Management ────────────────────────────────────────────
   shutdownWhenComplete: false,
   keepAwake: false,
