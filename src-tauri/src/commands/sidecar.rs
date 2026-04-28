@@ -210,3 +210,25 @@ pub fn get_sidecar_versions(
 ) -> HashMap<String, Option<String>> {
     state.snapshot()
 }
+
+/// Reveal the bundled sidecar binary in the system file explorer so the
+/// user can replace it with a freshly downloaded build. The frontend
+/// preferences page wires three buttons (yt-dlp / ffmpeg / ffprobe) to
+/// this command via the canonical names used by [`probe_version`].
+#[tauri::command]
+pub fn reveal_sidecar_binary(name: String) -> Result<(), crate::error::AppError> {
+    let binary_stem = match name.as_str() {
+        "ytdlp" => "motrixnext-ytdlp",
+        "ffmpeg" => "motrixnext-ffmpeg",
+        "ffprobe" => "ffprobe",
+        other => {
+            return Err(crate::error::AppError::Io(format!(
+                "unknown sidecar: {other}"
+            )))
+        }
+    };
+    let path = crate::ytdlp::client::resolve_sidecar_path(binary_stem).ok_or_else(|| {
+        crate::error::AppError::Io(format!("sidecar binary missing: {binary_stem}"))
+    })?;
+    crate::commands::fs::show_item_in_dir(path.to_string_lossy().into_owned())
+}
