@@ -41,45 +41,68 @@ import MTooltip from '@/components/common/MTooltip.vue'
 import { CloudDownloadOutline, FolderOpenOutline, OpenOutline } from '@vicons/ionicons5'
 import UpdateDialog from '@/components/preference/UpdateDialog.vue'
 
-/** Per-platform download landing pages and matching artifact names. Stays
- *  aligned with `scripts/fetch-sidecars.mjs` so users grab the same build
- *  flavor we ship. ffmpeg/ffprobe on macOS use upstream third-party builds
- *  (BtbN doesn't publish macOS); other platforms use BtbN. */
+/** Per-platform direct-download URLs and matching artifact names. Aligned
+ *  with `scripts/fetch-sidecars.mjs` so the link button hands the user the
+ *  exact file we ship — no asset list to navigate.
+ *  - GitHub `releases/latest/download/<asset>` redirects are stable.
+ *  - BtbN's `tag/latest` is a rolling tag — keep the n7.1 filename in
+ *    sync with fetch-sidecars when ffmpeg majors bump.
+ *  - macOS Apple Silicon ffmpeg/ffprobe come from osxexperts.net which
+ *    only publishes a static index page, so we open the page and tell
+ *    the user which filename pattern to grab. */
 function resolveSidecarDownload(
   name: SidecarName,
   os: 'macos' | 'windows' | 'linux' | '',
   arch: string,
-): { url: string; fileHint: string } {
+): { url: string; fileHint: string; direct: boolean } {
   if (name === 'ytdlp') {
-    if (os === 'macos') return { url: 'https://github.com/yt-dlp/yt-dlp/releases/latest', fileHint: 'yt-dlp_macos' }
-    if (os === 'windows') return { url: 'https://github.com/yt-dlp/yt-dlp/releases/latest', fileHint: 'yt-dlp.exe' }
-    if (os === 'linux') {
-      const file = arch === 'aarch64' ? 'yt-dlp_linux_aarch64' : 'yt-dlp_linux'
-      return { url: 'https://github.com/yt-dlp/yt-dlp/releases/latest', fileHint: file }
+    const asset =
+      os === 'macos'
+        ? 'yt-dlp_macos'
+        : os === 'windows'
+          ? 'yt-dlp.exe'
+          : os === 'linux' && arch === 'aarch64'
+            ? 'yt-dlp_linux_aarch64'
+            : 'yt-dlp_linux'
+    return {
+      url: `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${asset}`,
+      fileHint: asset,
+      direct: true,
     }
-    return { url: 'https://github.com/yt-dlp/yt-dlp/releases/latest', fileHint: 'yt-dlp_macos' }
   }
 
-  // ffmpeg / ffprobe — same artifact source per platform.
+  // ffmpeg / ffprobe
   if (os === 'macos') {
     if (arch === 'aarch64') {
-      const file = name === 'ffmpeg' ? 'ffmpeg arm64 (latest)' : 'ffprobe arm64 (latest)'
-      return { url: 'https://www.osxexperts.net/', fileHint: file }
+      // osxexperts.net only publishes a static index page; tell users
+      // which filename to grab. <NN> is the ffmpeg major (e.g. 81 = 8.1).
+      const hint = name === 'ffmpeg' ? 'ffmpeg<NN>arm.zip' : 'ffprobe<NN>arm.zip'
+      return { url: 'https://www.osxexperts.net/', fileHint: hint, direct: false }
     }
-    const file = name === 'ffmpeg' ? 'ffmpeg.zip (latest)' : 'ffprobe.zip (latest)'
-    return { url: 'https://evermeet.cx/ffmpeg/', fileHint: file }
+    // evermeet.cx exposes stable getrelease endpoints that always serve
+    // the latest build — same as fetch-sidecars.mjs.
+    const path = name === 'ffmpeg' ? 'ffmpeg/getrelease/zip' : 'ffmpeg/getrelease/ffprobe/zip'
+    return {
+      url: `https://evermeet.cx/${path}`,
+      fileHint: `${name}.zip`,
+      direct: true,
+    }
   }
   if (os === 'windows') {
+    const file = 'ffmpeg-n7.1-latest-win64-gpl-7.1.zip'
     return {
-      url: 'https://github.com/BtbN/FFmpeg-Builds/releases/latest',
-      fileHint: 'ffmpeg-n*-win64-gpl-*.zip',
+      url: `https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/${file}`,
+      fileHint: file,
+      direct: true,
     }
   }
   // linux
   const archSuffix = arch === 'aarch64' ? 'linuxarm64' : 'linux64'
+  const file = `ffmpeg-n7.1-latest-${archSuffix}-gpl-7.1.tar.xz`
   return {
-    url: 'https://github.com/BtbN/FFmpeg-Builds/releases/latest',
-    fileHint: `ffmpeg-n*-${archSuffix}-gpl-*.tar.xz`,
+    url: `https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/${file}`,
+    fileHint: file,
+    direct: true,
   }
 }
 
@@ -493,10 +516,22 @@ onMounted(async () => {
                 <NIcon :size="16"><OpenOutline /></NIcon>
               </button>
             </template>
-            <div style="max-width: 320px; line-height: 1.5">
-              <div>{{ t('preferences.sidecar-download-tooltip') }}</div>
+            <div style="max-width: 340px; line-height: 1.5">
+              <div>
+                {{
+                  sidecarDownloadInfo(row.name).direct
+                    ? t('preferences.sidecar-download-tooltip-direct')
+                    : t('preferences.sidecar-download-tooltip-page')
+                }}
+              </div>
               <div style="margin-top: 4px">
-                <span style="opacity: 0.75">{{ t('preferences.sidecar-download-pick') }}</span>
+                <span style="opacity: 0.75">
+                  {{
+                    sidecarDownloadInfo(row.name).direct
+                      ? t('preferences.sidecar-download-file')
+                      : t('preferences.sidecar-download-pick')
+                  }}
+                </span>
                 <code
                   style="
                     margin-left: 4px;
@@ -507,6 +542,9 @@ onMounted(async () => {
                   "
                   >{{ sidecarDownloadInfo(row.name).fileHint }}</code
                 >
+              </div>
+              <div style="margin-top: 4px; opacity: 0.7; font-size: 12px">
+                {{ t('preferences.sidecar-download-replace-hint') }}
               </div>
             </div>
           </MTooltip>
