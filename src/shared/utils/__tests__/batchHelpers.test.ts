@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   createBatchItem,
+  detectKind,
+  extractMagnetDisplayName,
   mergeUriLines,
   normalizeUriLines,
   resetBatchIdCounter,
@@ -118,6 +120,119 @@ describe('mergeUriLines', () => {
     expect(merged).toBe(
       [`magnet:?xt=urn:btih:${hash}`, 'magnet:?xt=urn:btih:TCIY4A2MWXPHTUYZEQUOMNS7GCDXOQTG'].join('\n'),
     )
+  })
+})
+
+// ── detectKind ────────────────────────────────────────────────────────
+// Follows aria2's ProtocolDetector classification order:
+// scheme-first → URL pathname → local path suffix → fallback.
+
+describe('detectKind', () => {
+  // ── 1. Scheme-first: magnet / thunder ──────────────────────────────
+
+  it('classifies plain magnet URIs as uri', () => {
+    expect(detectKind('magnet:?xt=urn:btih:abc123')).toBe('uri')
+  })
+
+  it('classifies magnet URIs with tracker.torrent.eu.org as uri (regression)', () => {
+    const magnet =
+      'magnet:?xt=urn:btih:a09e89b13c5347a2e3414aaa6556c950bf9a6277' +
+      '&dn=test&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce'
+    expect(detectKind(magnet)).toBe('uri')
+  })
+
+  it('classifies thunder:// links as uri', () => {
+    expect(detectKind('thunder://QUFodHRwOi8vZXhhbXBsZS5jb20vZmlsZS56aXBaWg==')).toBe('uri')
+  })
+
+  // ── 2. Remote URLs: pathname-only extension match ──────────────────
+
+  it('classifies remote .torrent URLs as torrent', () => {
+    expect(detectKind('https://example.com/files/download.torrent')).toBe('torrent')
+  })
+
+  it('classifies remote .torrent URLs with query params as torrent', () => {
+    expect(detectKind('https://example.com/file.torrent?token=abc&v=2')).toBe('torrent')
+  })
+
+  it('classifies remote .metalink URLs as metalink', () => {
+    expect(detectKind('https://example.com/file.metalink')).toBe('metalink')
+  })
+
+  it('classifies remote .meta4 URLs as metalink', () => {
+    expect(detectKind('https://example.com/file.meta4')).toBe('metalink')
+  })
+
+  it('classifies remote URLs with .torrent in hostname but not pathname as uri', () => {
+    expect(detectKind('https://tracker.torrent.eu.org/announce')).toBe('uri')
+  })
+
+  it('classifies remote URLs with .torrent in query but not pathname as uri', () => {
+    expect(detectKind('https://example.com/download?file=a.torrent')).toBe('uri')
+  })
+
+  it('classifies plain HTTP URLs as uri', () => {
+    expect(detectKind('https://example.com/file.zip')).toBe('uri')
+  })
+
+  it('classifies FTP URLs with .torrent as torrent', () => {
+    expect(detectKind('ftp://mirror.example.com/pub/file.torrent')).toBe('torrent')
+  })
+
+  // ── 3. Local file paths ───────────────────────────────────────────
+
+  it('classifies local .torrent paths as torrent', () => {
+    expect(detectKind('/Users/me/Downloads/ubuntu.torrent')).toBe('torrent')
+  })
+
+  it('classifies local .metalink paths as metalink', () => {
+    expect(detectKind('/Users/me/Downloads/file.metalink')).toBe('metalink')
+  })
+
+  it('classifies local .meta4 paths as metalink', () => {
+    expect(detectKind('C:\\Users\\me\\Downloads\\file.meta4')).toBe('metalink')
+  })
+
+  // ── 4. Fallback ───────────────────────────────────────────────────
+
+  it('classifies unknown URIs as uri', () => {
+    expect(detectKind('ed2k://|file|example|123|abc|/')).toBe('uri')
+  })
+})
+
+// ── extractMagnetDisplayName ────────────────────────────────────────
+
+describe('extractMagnetDisplayName', () => {
+  it('extracts dn from a standard magnet URI', () => {
+    const uri = 'magnet:?xt=urn:btih:abc123&dn=Ubuntu+24.04+LTS'
+    expect(extractMagnetDisplayName(uri)).toBe('Ubuntu 24.04 LTS')
+  })
+
+  it('decodes percent-encoded CJK dn values', () => {
+    const uri = 'magnet:?xt=urn:btih:abc&dn=%E6%94%BE%E8%AA%B2%E5%BE%8C'
+    expect(extractMagnetDisplayName(uri)).toBe('放課後')
+  })
+
+  it('returns empty string when dn is absent', () => {
+    expect(extractMagnetDisplayName('magnet:?xt=urn:btih:abc123')).toBe('')
+  })
+
+  it('returns empty string for non-magnet URIs', () => {
+    expect(extractMagnetDisplayName('https://example.com?dn=test')).toBe('')
+  })
+
+  it('returns empty string for bare magnet: without query', () => {
+    expect(extractMagnetDisplayName('magnet:')).toBe('')
+  })
+
+  it('handles dn with special characters', () => {
+    const uri = 'magnet:?xt=urn:btih:abc&dn=File%20%26%20Folder%20(2024)'
+    expect(extractMagnetDisplayName(uri)).toBe('File & Folder (2024)')
+  })
+
+  it('handles dn with tracker params after it', () => {
+    const uri = 'magnet:?xt=urn:btih:abc&dn=Test+Name&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451'
+    expect(extractMagnetDisplayName(uri)).toBe('Test Name')
   })
 })
 

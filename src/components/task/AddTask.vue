@@ -9,7 +9,12 @@ import { usePreferenceStore } from '@/stores/preference'
 import { ADD_TASK_TYPE, ENGINE_MAX_CONNECTION_PER_SERVER } from '@shared/constants'
 import { detectResource, bytesToSize } from '@shared/utils'
 import { calcColumnWidth } from '@shared/utils/calcColumnWidth'
-import { mergeUriLines, normalizeUriLines, extractDecodedFilename } from '@shared/utils/batchHelpers'
+import {
+  mergeUriLines,
+  normalizeUriLines,
+  extractDecodedFilename,
+  extractMagnetDisplayName,
+} from '@shared/utils/batchHelpers'
 import {
   buildEngineOptions,
   classifySubmitError,
@@ -471,8 +476,10 @@ async function handleSubmit() {
           taskNames.push(extractDecodedFilename(uri) || uri)
         }
       }
+      const magnetUris = allUris.filter(isMagnetUri)
       for (let i = 0; i < manualResult.magnetGids.length; i++) {
-        taskNames.push('Magnet Download')
+        const dn = magnetUris[i] ? extractMagnetDisplayName(magnetUris[i]) : ''
+        taskNames.push(dn || t('task.magnet-task'))
       }
 
       handleClose()

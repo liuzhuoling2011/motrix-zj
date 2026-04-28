@@ -324,7 +324,7 @@ function startMagnetPoll() {
         const parsed = parseFilesForSelection(realFiles)
         magnetSelectFiles.value = parsed
         magnetSelectionSession.value = { metadataGid: gid, downloadGid: targetGid }
-        magnetSelectName.value = task.bittorrent?.info?.name || parsed[0]?.name || 'Magnet Download'
+        magnetSelectName.value = task.bittorrent?.info?.name || parsed[0]?.name || t('task.magnet-task')
         magnetSelectVisible.value = true
         return // Process one magnet at a time
       } catch (e) {

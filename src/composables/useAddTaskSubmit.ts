@@ -17,7 +17,12 @@ import { usePreferenceStore } from '@/stores/preference'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
 import { isEngineReady } from '@/api/aria2'
-import { normalizeUriLines, extractDecodedFilename, hasExtension } from '@shared/utils/batchHelpers'
+import {
+  normalizeUriLines,
+  extractDecodedFilename,
+  extractMagnetDisplayName,
+  hasExtension,
+} from '@shared/utils/batchHelpers'
 import { buildOuts } from '@shared/utils/rename'
 import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@shared/logger'
@@ -223,6 +228,11 @@ export async function submitManualUris(
       // to infer the correct name via Content-Type MIME mapping.
       const outs = await Promise.all(
         regularUris.map(async (uri) => {
+          // Extension already provided a filename via options.out — skip HEAD.
+          // Without this guard, resolve_filename returns a name derived from
+          // the CDN's Content-Type (e.g. .xml), and aria2.ts addUri() L108
+          // overwrites options.out with the outs[] entry.
+          if (options.out) return ''
           const pathFilename = extractDecodedFilename(uri)
           if (!pathFilename || hasExtension(pathFilename)) return ''
           try {
@@ -311,8 +321,10 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
             taskNames.push(extractDecodedFilename(uri) || uri)
           }
         }
+        const magnetUris = allUris.filter(isMagnetUri)
         for (let i = 0; i < manualResult.magnetGids.length; i++) {
-          taskNames.push('Magnet Download')
+          const dn = magnetUris[i] ? extractMagnetDisplayName(magnetUris[i]) : ''
+          taskNames.push(dn || t('task.magnet-task'))
         }
         handleTaskStart(taskNames, {
           messageInfo: message.info,

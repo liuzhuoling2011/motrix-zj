@@ -13,18 +13,75 @@ function genId(): string {
   return `batch-${++nextId}`
 }
 
-/** Detect the kind of a source path or URI. */
+/**
+ * Classify a source string as a download kind for the batch add-task model.
+ *
+ * Follows the same priority chain as aria2's `ProtocolDetector`
+ * (`download_helper.cc` AccRequestGroup::operator()):
+ *
+ *   1. **Scheme-first** — magnet/thunder URIs are always 'uri' tasks
+ *      (aria2: `guessTorrentMagnet` checks `magnet:?` prefix).
+ *   2. **Remote URLs** — extract `pathname` via the WHATWG `URL` API and
+ *      match the extension on the path only, isolating query-string
+ *      tracker hostnames like `tracker.torrent.eu.org` that would
+ *      otherwise false-positive on `.includes('.torrent')`.
+ *   3. **Local paths** — match with `endsWith()` on the full string
+ *      (file-chooser dialogs already filter by extension).
+ *   4. **Fallback** — everything else is a plain 'uri'.
+ */
 export function detectKind(source: string): BatchItemKind {
   const lower = source.toLowerCase()
-  if (lower.endsWith('.torrent') || lower.includes('.torrent')) return 'torrent'
-  if (
-    lower.endsWith('.metalink') ||
-    lower.endsWith('.meta4') ||
-    lower.includes('.metalink') ||
-    lower.includes('.meta4')
-  )
-    return 'metalink'
+
+  // ── 1. Scheme-first: non-file protocols are always URI tasks ──────
+  if (lower.startsWith('magnet:') || lower.startsWith('thunder://')) {
+    return 'uri'
+  }
+
+  // ── 2. Remote URLs: isolate pathname from query params ────────────
+  // Prevents false positives from tracker hostnames in magnet URI
+  // query strings (e.g. `tracker.torrent.eu.org`).
+  if (/^(?:https?|ftp):\/\//i.test(lower)) {
+    try {
+      const pathname = new URL(source).pathname.toLowerCase()
+      if (pathname.endsWith('.torrent')) return 'torrent'
+      if (pathname.endsWith('.metalink') || pathname.endsWith('.meta4')) return 'metalink'
+    } catch {
+      // Malformed URL — fall through to 'uri'
+    }
+    return 'uri'
+  }
+
+  // ── 3. Local file paths: extension suffix match ───────────────────
+  if (lower.endsWith('.torrent')) return 'torrent'
+  if (lower.endsWith('.metalink') || lower.endsWith('.meta4')) return 'metalink'
+
+  // ── 4. Fallback ───────────────────────────────────────────────────
   return 'uri'
+}
+
+/**
+ * Extract the display name (`dn`) from a magnet URI.
+ *
+ * The `dn` parameter is the standard way to convey a human-readable name
+ * in a magnet link (BEP 9 § magnet URI format).  Most tracker sites
+ * (nyaa.si, 1337x, etc.) include it, but it is optional — bare info-hash
+ * magnets omit it entirely.
+ *
+ * Returns the percent-decoded `dn` value, or an empty string if:
+ * - the URI is not a `magnet:` scheme
+ * - the `dn` parameter is absent or empty
+ * - the URI is malformed
+ */
+export function extractMagnetDisplayName(uri: string): string {
+  if (!uri.toLowerCase().startsWith('magnet:')) return ''
+  try {
+    const queryStart = uri.indexOf('?')
+    if (queryStart < 0) return ''
+    const params = new URLSearchParams(uri.substring(queryStart + 1))
+    return params.get('dn') || ''
+  } catch {
+    return ''
+  }
 }
 
 /** Extract a short display name from a source path or URI. */
