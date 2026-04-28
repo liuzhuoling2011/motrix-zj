@@ -210,7 +210,11 @@ async fn handle_add(
         "http_api: POST /add url={} referer={} cookie={} filename={}",
         body.url,
         body.referer.as_deref().unwrap_or("none"),
-        if body.cookie.is_some() { "present" } else { "none" },
+        if body.cookie.is_some() {
+            "present"
+        } else {
+            "none"
+        },
         body.filename.as_deref().unwrap_or("none"),
     );
 
