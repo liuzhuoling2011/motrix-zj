@@ -150,9 +150,17 @@ function extract(archivePath, workDir) {
 /**
  * Download a file via curl. Using curl (vs fetch()) because it's universally
  * available in CI and handles large downloads / redirects reliably.
+ *
+ * Retry flags: GitHub release CDNs occasionally return transient 5xx
+ * (we've seen 502 from objects.githubusercontent.com on the Windows
+ * aarch64 runner). `--retry-all-errors` is needed because curl's default
+ * retry list excludes HTTP 5xx — without it a single 502 aborts the
+ * whole release build.
  */
 function download(url, dest) {
-  run(`curl -fsSL "${url}" -o "${dest}"`)
+  run(
+    `curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors --retry-max-time 180 "${url}" -o "${dest}"`,
+  )
 }
 
 /**
