@@ -137,7 +137,7 @@ fn sanitize_out_option(raw: &str) -> Option<&str> {
     }
     // Split on both separators to handle cross-platform paths.
     // rsplit + next always returns Some for non-empty input.
-    let basename = raw.rsplit(|c| c == '/' || c == '\\').next().unwrap_or(raw);
+    let basename = raw.rsplit(['/', '\\']).next().unwrap_or(raw);
     if basename.is_empty() || basename == "." || basename == ".." {
         return None;
     }
