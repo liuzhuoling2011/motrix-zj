@@ -253,6 +253,71 @@ function handleManualRestart() {
   })
 }
 
+// ── Browser extension installer ────────────────────────────────────
+const installingExtension = ref(false)
+
+async function installBrowserExtension() {
+  if (installingExtension.value) return
+  installingExtension.value = true
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const dest = await invoke<string>('install_browser_extension')
+
+    // Pre-copy the path: Chrome's "Load unpacked" file dialog opens fresh
+    // and ignores any Finder window we revealed, so the only reliable way
+    // to land on the right folder is for the user to paste the path via
+    // Cmd+Shift+G (macOS) / Ctrl+L (Windows/Linux) inside that dialog.
+    let copied = true
+    try {
+      await navigator.clipboard.writeText(dest)
+    } catch (e) {
+      copied = false
+      logger.warn('General.copyExtensionPath', e instanceof Error ? e.message : String(e))
+    }
+    await invoke('show_item_in_dir', { path: dest })
+
+    const pasteTipKey = isMac.value
+      ? 'preferences.browser-extension-paste-tip-mac'
+      : 'preferences.browser-extension-paste-tip-other'
+
+    dialog.success({
+      title: t('preferences.browser-extension-installed-title'),
+      content: () =>
+        h('div', { style: 'display:flex;flex-direction:column;gap:8px;' }, [
+          h(
+            'div',
+            { style: copied ? 'color:var(--m3-success);' : '' },
+            copied
+              ? t('preferences.browser-extension-path-auto-copied')
+              : t('preferences.browser-extension-installed-intro'),
+          ),
+          h('ol', { style: 'padding-left:20px;margin:0;line-height:1.7;' }, [
+            h('li', t('preferences.browser-extension-step-1')),
+            h('li', t('preferences.browser-extension-step-2')),
+            h('li', t('preferences.browser-extension-step-3')),
+            h('li', t(pasteTipKey)),
+          ]),
+          h('div', { style: 'font-family:Menlo,monospace;font-size:12px;opacity:0.85;word-break:break-all;' }, dest),
+        ]),
+      positiveText: t('preferences.browser-extension-copy-path'),
+      negativeText: t('app.dismiss'),
+      onPositiveClick: async () => {
+        try {
+          await navigator.clipboard.writeText(dest)
+          message.success(t('preferences.browser-extension-path-copied'))
+        } catch (e) {
+          logger.warn('General.copyExtensionPath', e instanceof Error ? e.message : String(e))
+        }
+      },
+    })
+  } catch (e) {
+    logger.error('General.installBrowserExtension', e)
+    message.error(t('preferences.browser-extension-install-failed'))
+  } finally {
+    installingExtension.value = false
+  }
+}
+
 onMounted(async () => {
   try {
     sysArch.value = osArch()
@@ -482,6 +547,20 @@ onMounted(async () => {
       >
         ⓘ {{ t('preferences.lightweight-mode') }}:
         {{ t('preferences.lightweight-mode-hint') }}
+      </NText>
+
+      <!-- ⑬ Browser Extension -->
+      <NDivider title-placement="left">{{ t('preferences.browser-extension-section') }}</NDivider>
+      <NFormItem :label="t('preferences.browser-extension-action')">
+        <NButton type="primary" :loading="installingExtension" @click="installBrowserExtension">
+          {{ t('preferences.browser-extension-install') }}
+        </NButton>
+      </NFormItem>
+      <NText
+        depth="3"
+        style="font-size: 12px; display: block; margin-top: -8px; margin-bottom: 8px; padding-left: 50px"
+      >
+        ⓘ {{ t('preferences.browser-extension-hint') }}
       </NText>
     </NForm>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />

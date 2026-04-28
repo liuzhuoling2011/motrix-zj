@@ -1,6 +1,7 @@
 pub mod aria2;
 pub mod config;
 pub mod engine;
+pub mod extension;
 pub mod fs;
 pub mod geoip;
 pub mod history;
@@ -21,6 +22,7 @@ pub mod ytdlp;
 pub use aria2::*;
 pub use config::*;
 pub use engine::*;
+pub use extension::*;
 pub use fs::*;
 pub use geoip::*;
 pub use history::*;
