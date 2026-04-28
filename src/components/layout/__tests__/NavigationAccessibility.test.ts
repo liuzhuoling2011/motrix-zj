@@ -34,9 +34,7 @@ vi.mock('@/stores/app', () => ({
 
 vi.mock('@/stores/preference', () => ({
   usePreferenceStore: () => ({
-    config: {
-      webPanelWidth: 960,
-    },
+    config: {},
   }),
 }))
 

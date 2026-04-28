@@ -3,7 +3,6 @@
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import { usePreferenceStore } from '@/stores/preference'
 
 import { NIcon } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
@@ -14,7 +13,6 @@ import { logger } from '@shared/logger'
 const { t } = useI18n()
 const router = useRouter()
 const appStore = useAppStore()
-const preferenceStore = usePreferenceStore()
 const emit = defineEmits<{ 'show-about': [] }>()
 
 function nav(path: string) {
@@ -31,7 +29,6 @@ async function toggleWebPanel() {
   try {
     await invoke('toggle_web_panel', {
       open: !appStore.webPanelOpen,
-      width: preferenceStore.config.webPanelWidth,
     })
   } catch (e) {
     logger.warn('AsideBar', `toggle_web_panel failed: ${e}`)

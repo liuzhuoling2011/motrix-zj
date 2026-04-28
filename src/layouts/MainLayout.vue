@@ -90,23 +90,15 @@ const containerWidth = ref(window.innerWidth)
 const isPanelSuspended = ref(false)
 
 /** Width applied to the right-side placeholder.  Mirrors Rust's
- *  `compute_panel_rects` so the DOM placeholder and native webview overlap
- *  pixel-perfect.
- *
- *  • `configured <= 0` → auto mode: W - aside - subnav, so the panel fully
- *    replaces the content area.
- *  • `configured > 0` → explicit width, clamped by a 320px minimum content
- *    area so the main view can't fully collapse.
+ *  `compute_panel_geometry` auto branch so the DOM placeholder and native
+ *  webview overlap pixel-perfect: panel always fills the area normally
+ *  taken by the content (W - aside - subnav).
  *
  *  The aside/subnav constants (78 / 200) must stay in sync with
  *  `src/styles/variables.css` and the Rust constants in `web_browser.rs`. */
 const effectivePanelWidth = computed(() => {
   if (!appStore.webPanelOpen || isPanelSuspended.value) return 0
-  const configured = preferenceStore.config.webPanelWidth
-  if (configured <= 0) {
-    return Math.max(0, containerWidth.value - 78 - 200)
-  }
-  return Math.max(0, Math.min(configured, containerWidth.value - 320))
+  return Math.max(0, containerWidth.value - 78 - 200)
 })
 
 async function closeInternalBrowserPanel() {
@@ -928,27 +920,6 @@ onMounted(async () => {
     const truncated = errLine.length > 220 ? errLine.slice(0, 220) + '…' : errLine
     message.error(`${taskName}: ${truncated}`, { closable: true, duration: 8000 })
   })
-
-  // Re-invoke Rust whenever the user changes the panel width preference while the
-  // panel is open, so the native child webviews resize immediately.  Debounced
-  // implicitly by Vue's reactivity (1 flush per tick).
-  watch(
-    () => preferenceStore.config.webPanelWidth,
-    async (width) => {
-      // Early-return also protects against config hydration at startup:
-      // preferenceStore.loadPreference() replaces config.value wholesale,
-      // which fires this watch — but webPanelOpen starts false (not
-      // persisted), so the guard short-circuits. Revisit if panel state
-      // ever becomes persisted.
-      if (!appStore.webPanelOpen) return
-      try {
-        const { invoke } = await import('@tauri-apps/api/core')
-        await invoke('toggle_web_panel', { open: true, width })
-      } catch (e) {
-        logger.debug('MainLayout.webPanelWidth', String(e))
-      }
-    },
-  )
 
   // Suspend the embedded panel while any modal overlay is open — native
   // child webviews sit above Naive UI modals in the compositor and would
