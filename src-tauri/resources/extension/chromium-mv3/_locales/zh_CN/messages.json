@@ -1,0 +1,435 @@
+{
+  "ext_name": {
+    "message": "Motrix Next Extension",
+    "description": "扩展显示名称"
+  },
+  "ext_description": {
+    "message": "将浏览器下载发送到 Motrix Next — 基于 aria2 的现代下载管理器",
+    "description": "在浏览器和应用商店中显示的扩展描述"
+  },
+  "popup_status_connected": {
+    "message": "已连接",
+    "description": "Connection status badge when API is reachable"
+  },
+  "popup_status_disconnected": {
+    "message": "未连接",
+    "description": "Connection status badge when API is unreachable"
+  },
+  "popup_status_not_configured": {
+    "message": "未配置",
+    "description": "Connection status badge when API secret is empty"
+  },
+  "popup_speed_download": {
+    "message": "↓ $speed$",
+    "description": "下载速度指示器",
+    "placeholders": {
+      "speed": {
+        "content": "$1"
+      }
+    }
+  },
+  "popup_speed_upload": {
+    "message": "↑ $speed$",
+    "description": "上传速度指示器",
+    "placeholders": {
+      "speed": {
+        "content": "$1"
+      }
+    }
+  },
+  "popup_no_active_tasks": {
+    "message": "没有活跃的下载任务",
+    "description": "Message when there are no active download tasks"
+  },
+  "popup_action_pause_all": {
+    "message": "全部暂停",
+    "description": "暂停所有活跃下载的按钮"
+  },
+  "popup_action_resume_all": {
+    "message": "全部继续",
+    "description": "恢复所有暂停下载的按钮"
+  },
+  "popup_action_settings": {
+    "message": "设置",
+    "description": "打开设置页的按钮"
+  },
+  "popup_action_launch": {
+    "message": "启动 Motrix Next",
+    "description": "断连时启动桌面应用的按钮"
+  },
+  "popup_action_open": {
+    "message": "打开 Motrix Next",
+    "description": "已连接时聚焦桌面应用的按钮"
+  },
+  "popup_error_unreachable": {
+    "message": "无法连接到 Motrix Next",
+    "description": "Error message when API is unreachable"
+  },
+  "popup_error_check_settings": {
+    "message": "检查设置",
+    "description": "连接失败时跳转设置的按钮"
+  },
+  "options_title": {
+    "message": "Motrix Next Extension · 设置",
+    "description": "设置页标题"
+  },
+  "options_section_connection": {
+    "message": "连接",
+    "description": "Settings section for API connection"
+  },
+  "options_test_connection": {
+    "message": "测试连接",
+    "description": "Button to test the API connection"
+  },
+  "options_section_behavior": {
+    "message": "下载行为",
+    "description": "下载拦截行为设置区域"
+  },
+  "options_enabled_label": {
+    "message": "启用下载拦截",
+    "description": "启用/禁用下载拦截的开关"
+  },
+  "options_enabled_desc": {
+    "message": "自动拦截浏览器下载任务",
+    "description": "拦截开关的说明文本"
+  },
+  "options_min_size_label": {
+    "message": "最小文件大小 (MB)",
+    "description": "最小文件大小过滤器标签"
+  },
+  "options_min_size_desc": {
+    "message": "跳过小于此阈值的文件",
+    "description": "最小文件大小输入的说明文本"
+  },
+  "options_notify_label": {
+    "message": "通知",
+    "description": "启用通知的开关"
+  },
+  "options_section_rules": {
+    "message": "站点规则",
+    "description": "按站点下载规则设置区域"
+  },
+  "options_add_rule": {
+    "message": "添加规则",
+    "description": "添加新站点规则的按钮"
+  },
+  "options_section_appearance": {
+    "message": "外观",
+    "description": "主题设置区域"
+  },
+  "options_theme_system": {
+    "message": "跟随系统",
+    "description": "主题选项：跟随系统偏好"
+  },
+  "options_theme_light": {
+    "message": "浅色",
+    "description": "主题选项：浅色模式"
+  },
+  "options_theme_dark": {
+    "message": "深色",
+    "description": "主题选项：深色模式"
+  },
+  "options_section_diagnostics": {
+    "message": "诊断",
+    "description": "诊断事件日志区域"
+  },
+  "notification_sent_title": {
+    "message": "已发送到 Motrix Next",
+    "description": "下载发送成功的通知标题"
+  },
+  "notification_sent_body": {
+    "message": "$filename$ 正在下载",
+    "description": "下载发送成功的通知内容",
+    "placeholders": {
+      "filename": {
+        "content": "$1"
+      }
+    }
+  },
+  "notification_failed_title": {
+    "message": "下载失败",
+    "description": "下载发送失败的通知标题"
+  },
+  "notification_fallback_title": {
+    "message": "已回退到浏览器下载",
+    "description": "回退到浏览器下载的通知标题"
+  },
+  "context_menu_download": {
+    "message": "使用 Motrix Next 下载",
+    "description": "使用 Motrix Next 下载链接的右键菜单项"
+  },
+  "popup_title": {
+    "message": "Motrix Next",
+    "description": "弹窗标题"
+  },
+  "popup_speed_active_count": {
+    "message": "$count$ 个活跃",
+    "description": "速度栏中活跃下载数量",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "popup_error_hint": {
+    "message": "请确保 Motrix Next 正在运行且 API 已启用。",
+    "description": "Hint shown when connection fails"
+  },
+  "options_header_title": {
+    "message": "Motrix Next",
+    "description": "设置页标题"
+  },
+  "options_header_subtitle": {
+    "message": "扩展设置",
+    "description": "设置页副标题"
+  },
+  "options_testing_connection": {
+    "message": "测试中...",
+    "description": "测试连接时的按钮文字"
+  },
+  "options_connection_success_prefix": {
+    "message": "已连接 · Motrix",
+    "description": "Prefix for successful connection status"
+  },
+  "options_rules_empty": {
+    "message": "未配置规则。",
+    "description": "无站点规则时的占位提示"
+  },
+  "options_diagnostics_export": {
+    "message": "导出诊断报告",
+    "description": "Button to export full diagnostic report as JSON file"
+  },
+  "options_diagnostics_clear": {
+    "message": "清除日志",
+    "description": "清除诊断日志的按钮"
+  },
+  "options_diagnostics_empty": {
+    "message": "暂无诊断事件。",
+    "description": "诊断日志为空时的占位提示"
+  },
+  "options_footer": {
+    "message": "Motrix Next Extension v$version$",
+    "description": "页脚版本文字",
+    "placeholders": {
+      "version": {
+        "content": "$1"
+      }
+    }
+  },
+  "notification_complete_title": {
+    "message": "下载完成",
+    "description": "下载完成通知标题"
+  },
+  "options_save": {
+    "message": "保存",
+    "description": "操作栏保存按钮"
+  },
+  "options_discard": {
+    "message": "放弃",
+    "description": "操作栏放弃按钮"
+  },
+  "options_save_success": {
+    "message": "设置已保存",
+    "description": "保存成功的提示"
+  },
+  "options_save_error": {
+    "message": "保存设置失败",
+    "description": "保存失败的提示"
+  },
+  "options_unsaved_title": {
+    "message": "未保存的更改",
+    "description": "离开带有未保存更改时的对话框标题"
+  },
+  "options_unsaved_message": {
+    "message": "你有未保存的更改。要在离开前保存吗？",
+    "description": "离开带有未保存更改时的对话框内容"
+  },
+  "options_changes_indicator": {
+    "message": "有未保存的更改",
+    "description": "显示有未保存修改的指示文字"
+  },
+  "options_color_scheme": {
+    "message": "配色方案",
+    "description": "配色方案选择器标签"
+  },
+  "options_color_scheme_amber": {
+    "message": "琥珀金",
+    "description": "琥珀金配色方案"
+  },
+  "options_color_scheme_space": {
+    "message": "太空蓝",
+    "description": "太空蓝配色方案"
+  },
+  "options_color_scheme_mint": {
+    "message": "薄荷绿",
+    "description": "薄荷绿配色方案"
+  },
+  "options_color_scheme_rose": {
+    "message": "玫瑰红",
+    "description": "玫瑰红配色方案"
+  },
+  "options_color_scheme_aurora": {
+    "message": "极光紫",
+    "description": "极光紫配色方案"
+  },
+  "options_color_scheme_coral": {
+    "message": "珊瑚橙",
+    "description": "珊瑚橙配色方案"
+  },
+  "options_color_scheme_glacier": {
+    "message": "冰川蓝",
+    "description": "冰川蓝配色方案"
+  },
+  "options_color_scheme_evergreen": {
+    "message": "常青绿",
+    "description": "常青绿配色方案"
+  },
+  "options_color_scheme_graphite": {
+    "message": "石墨灰",
+    "description": "石墨灰配色方案"
+  },
+  "options_color_scheme_sakura": {
+    "message": "樱花粉",
+    "description": "樱花粉配色方案"
+  },
+  "error_unknown": {
+    "message": "发生未知错误",
+    "description": "兜底错误信息"
+  },
+  "options_rule_always_intercept": {
+    "message": "始终拦截",
+    "description": "站点规则操作：始终拦截下载"
+  },
+  "options_rule_always_skip": {
+    "message": "始终跳过",
+    "description": "站点规则操作：始终不拦截下载"
+  },
+  "options_rule_use_global": {
+    "message": "使用全局设置",
+    "description": "站点规则操作：遵循全局设置"
+  },
+  "task_name_unknown": {
+    "message": "未知",
+    "description": "无法解析任务文件名时的兜底名称"
+  },
+  "popup_error_auth": {
+    "message": "API 密钥不匹配",
+    "description": "Popup banner title when API secret is incorrect"
+  },
+  "popup_error_auth_hint": {
+    "message": "请检查设置中的 API 密钥是否与 Motrix Next 配置一致。",
+    "description": "Popup banner hint for API auth error"
+  },
+  "popup_error_timeout": {
+    "message": "连接超时",
+    "description": "Popup banner title when API connection times out"
+  },
+  "popup_error_timeout_hint": {
+    "message": "请检查网络或防火墙设置。API 端口：$1",
+    "description": "Popup banner hint for timeout error, $1 = port number",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": "16801"
+      }
+    }
+  },
+  "popup_error_unreachable_hint": {
+    "message": "请确保 Motrix Next 正在运行。API 端口：$1",
+    "description": "Popup banner hint for unreachable error, $1 = port number",
+    "placeholders": {
+      "1": {
+        "content": "$1",
+        "example": "16801"
+      }
+    }
+  },
+  "options_section_language": {
+    "message": "语言",
+    "description": "界面语言设置区域"
+  },
+  "options_locale_auto": {
+    "message": "跟随系统",
+    "description": "语言选项：跟随浏览器语言"
+  },
+  "options_locale_auto_desc": {
+    "message": "跟随浏览器语言",
+    "description": "自动语言选项的说明"
+  },
+  "options_auto_launch_label": {
+    "message": "自动启动 Motrix Next",
+    "description": "Toggle label for auto-launching app on download interception"
+  },
+  "options_auto_launch_desc": {
+    "message": "拦截下载时如果 Motrix Next 未运行，自动尝试启动",
+    "description": "Description for auto-launch toggle"
+  },
+  "popup_stat_active": {
+    "message": "活跃",
+    "description": "Task count label: currently downloading"
+  },
+  "popup_stat_waiting": {
+    "message": "等待",
+    "description": "Task count label: queued for download"
+  },
+  "popup_stat_stopped": {
+    "message": "完成",
+    "description": "Task count label: completed or stopped"
+  },
+  "popup_toggle_enabled": {
+    "message": "接管中",
+    "description": "Label next to the interception toggle when active"
+  },
+  "popup_toggle_disabled": {
+    "message": "已暂停",
+    "description": "Label next to the interception toggle when inactive"
+  },
+  "options_api_port_label": {
+    "message": "API 端口",
+    "description": "Label for the API port input"
+  },
+  "options_api_secret_label": {
+    "message": "API 密钥",
+    "description": "Label for the API secret input"
+  },
+  "options_api_secret_placeholder": {
+    "message": "从桌面应用粘贴",
+    "description": "Placeholder text for API secret input"
+  },
+  "error_api_unreachable": {
+    "message": "无法连接到 Motrix Next",
+    "description": "Error when the API endpoint is unreachable"
+  },
+  "error_api_auth": {
+    "message": "API 密钥不正确",
+    "description": "Error when the API secret does not match"
+  },
+  "error_api_timeout": {
+    "message": "连接超时",
+    "description": "Error when the API connection times out"
+  },
+  "popup_action_download_video": {
+    "message": "视频下载",
+    "description": "Popup button to send the active tab to the desktop app for video parsing"
+  },
+  "popup_video_triggered": {
+    "message": "已发送到 Motrix Next",
+    "description": "Toast message after a successful video download trigger"
+  },
+  "popup_video_unsupported": {
+    "message": "当前页面不支持",
+    "description": "Warning when the active tab URL is not http/https"
+  },
+  "popup_video_no_tab": {
+    "message": "没有活动的标签页",
+    "description": "Warning when no active tab URL is available"
+  },
+  "popup_video_failed": {
+    "message": "视频下载失败",
+    "description": "Toast warning when video download trigger fails"
+  },
+  "context_menu_download_video": {
+    "message": "用 Motrix Next 下载视频",
+    "description": "Page-level context menu item for video download"
+  }
+}

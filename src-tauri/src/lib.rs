@@ -1096,6 +1096,7 @@ pub fn run() {
             commands::set_web_panel_content_visible,
             commands::web_browser_navigate,
             commands::save_cookies_and_trigger_download,
+            commands::install_browser_extension,
         ])
         // ── Window event interception ─────────────────────────────────
         //
