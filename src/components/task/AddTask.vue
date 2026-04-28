@@ -919,6 +919,17 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
               :placeholder="t('task.uri-task-tips') || 'One URL per line'"
             />
           </NFormItem>
+          <!-- Cookie box exposed inline (advanced options panel is hidden in
+               this mode). Lets the user paste fresh cookies and re-parse
+               without leaving the dialog. -->
+          <NFormItem :label="t('task.task-cookie') + ':'">
+            <NInput
+              v-model:value="form.cookie"
+              type="textarea"
+              :rows="2"
+              :placeholder="t('task.task-cookie-placeholder')"
+            />
+          </NFormItem>
         </div>
 
         <div class="download-settings">

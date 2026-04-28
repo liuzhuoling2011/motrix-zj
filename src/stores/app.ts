@@ -276,6 +276,12 @@ export const useAppStore = defineStore('app', () => {
               const parseFlag = parsed.searchParams.get('parse')
               if (parseFlag === 'video') {
                 pendingParseVideo.value = true
+                // Mirror the in-app web-panel flow: simplified AddTask
+                // UI + auto-parse + format table pre-expanded. The
+                // extension's "Download video" button effectively
+                // delegates the same UX, so route both through the
+                // same dialog mode.
+                addTaskFromWebPanel.value = true
               }
 
               // Auto-submit: bypass AddTask dialog for URI types when enabled.
