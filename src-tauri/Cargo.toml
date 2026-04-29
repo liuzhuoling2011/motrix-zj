@@ -54,6 +54,7 @@ tower-http = { version = "0.6", features = ["cors"] }
 keepawake = "0.6"
 mime2ext = "0.1"
 urlencoding = "2"
+sanitize-filename = "0.6"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [

@@ -163,6 +163,9 @@ export function mergeUriLines(existingText: string, incoming: string[]): string 
 /** Characters forbidden in filenames across Windows / macOS / Linux. */
 const FS_UNSAFE_RE = /[/\\:*?"<>|]/g
 
+/** ASCII control characters (0x00–0x1F, 0x7F) and C1 controls (0x80–0x9F). */
+const CONTROL_CHAR_RE = /[\x00-\x1f\x7f\x80-\x9f]/g
+
 /**
  * Safely percent-decodes a single path segment.
  * Returns the original string if decoding fails (malformed % sequence).
@@ -227,4 +230,92 @@ export function extractDecodedFilename(uri: string): string {
  */
 export function hasExtension(filename: string): boolean {
   return /\.[a-zA-Z0-9]{1,10}$/.test(filename)
+}
+
+// ── External filename hint resolution ───────────────────────────────
+
+/**
+ * Sanitizes a raw string into a filesystem-safe filename.
+ *
+ * Applies the same character set as Chrome's `filename_util.cc` and the
+ * `sanitize-filename` npm/crate ecosystem:
+ *   1. Strip path separators (basename extraction)
+ *   2. Remove `?`/`#` suffixes (URL fragment pollution from extensions)
+ *   3. Replace filesystem-unsafe characters: `/ \ : * ? " < > |`
+ *   4. Remove ASCII/C1 control characters
+ *   5. Trim trailing dots and spaces (Windows rejects these)
+ *   6. Reject empty results or pure-dot sequences
+ *
+ * This is a pure sanitization function — no business logic (e.g. extension
+ * checks). Safe for both external hints AND user-typed `out` values.
+ */
+export function sanitizeAria2OutHint(raw: string): string {
+  if (!raw) return ''
+
+  // 1. Basename — strip path prefixes
+  let name = raw.replace(/^.*[/\\]/, '')
+
+  // 2. Strip URL query/fragment pollution (extensions often forward these)
+  const qIdx = name.indexOf('?')
+  if (qIdx >= 0) name = name.substring(0, qIdx)
+  const hIdx = name.indexOf('#')
+  if (hIdx >= 0) name = name.substring(0, hIdx)
+
+  // 3. Replace filesystem-unsafe characters
+  name = name.replace(FS_UNSAFE_RE, '_')
+
+  // 4. Remove control characters
+  name = name.replace(CONTROL_CHAR_RE, '')
+
+  // 5. Trim trailing dots and spaces (Windows rejects)
+  name = name.replace(/[. ]+$/, '')
+
+  // 6. Reject empty or pure-dot results
+  if (!name || /^\.+$/.test(name)) return ''
+
+  return name
+}
+
+/**
+ * Determines whether an external filename hint (from extensions, deep links,
+ * or the HTTP API) should be trusted as the aria2 `out` option.
+ *
+ * External filename hints are advisory (RFC 6266 §4.3) — this function
+ * decides whether the hint adds value over what `resolve_filename` (HEAD
+ * request → Content-Disposition / MIME) would infer on its own.
+ *
+ * Strategy:
+ *   1. Sanitize the raw hint into a filesystem-safe name.
+ *   2. If the cleaned hint has a file extension → accept (e.g. "报告.pdf").
+ *   3. If extensionless, compare with the URL's own basename:
+ *      - Same name → reject (hint is redundant; `resolve_filename` can
+ *        append the correct extension via Content-Type MIME mapping).
+ *      - Different name → accept (hint carries information the URL lacks,
+ *        e.g. cloud drive filenames like "README" from CDN hash URLs).
+ *
+ * Returns the sanitized filename to use as `out`, or '' to indicate the
+ * hint should be discarded and `resolve_filename` should take over.
+ *
+ * @param url  The download URL (used to extract the URL basename).
+ * @param rawHint  The raw filename from the browser extension / deep link.
+ */
+export function resolveExternalFilenameHint(url: string, rawHint: string): string {
+  const cleaned = sanitizeAria2OutHint(rawHint)
+  if (!cleaned) return ''
+
+  // Hint has a file extension → trust it unconditionally.
+  // Cloud drives (Baidu, Quark) provide correct filenames like "报告.pdf"
+  // that the URL path (a CDN hash) cannot reproduce.
+  if (hasExtension(cleaned)) return cleaned
+
+  // Hint is extensionless — compare with the URL's own basename.
+  // If they match, the hint adds no value; let resolve_filename run
+  // a HEAD request to infer the extension via Content-Type MIME mapping
+  // (e.g. Twitter "G9v9wWdasAYNqt9" → image/jpeg → ".jpg").
+  const urlBasename = extractDecodedFilename(url)
+  if (urlBasename && cleaned === urlBasename) return ''
+
+  // Extensionless but genuinely different from URL basename →
+  // the extension provided a real name (e.g. "README" for a CDN hash URL).
+  return cleaned
 }

@@ -8,6 +8,8 @@ import {
   resetBatchIdCounter,
   decodePathSegment,
   extractDecodedFilename,
+  sanitizeAria2OutHint,
+  resolveExternalFilenameHint,
 } from '../batchHelpers'
 
 describe('normalizeUriLines', () => {
@@ -368,5 +370,137 @@ describe('extractDecodedFilename', () => {
   it('sanitizes backslash in decoded filename', () => {
     // %5C = backslash
     expect(extractDecodedFilename('http://example.com/path%5Cfile.txt')).toBe('path_file.txt')
+  })
+})
+
+// ── sanitizeAria2OutHint ─────────────────────────────────────────────
+// Pure filesystem safety — no business logic. Any out value (user-typed
+// or extension-provided) is safe to pass through this function.
+
+describe('sanitizeAria2OutHint', () => {
+  it('returns clean filename unchanged', () => {
+    expect(sanitizeAria2OutHint('file.zip')).toBe('file.zip')
+  })
+
+  it('strips path prefixes (basename extraction)', () => {
+    expect(sanitizeAria2OutHint('/home/user/Downloads/file.zip')).toBe('file.zip')
+    expect(sanitizeAria2OutHint('C:\\Users\\Downloads\\file.zip')).toBe('file.zip')
+  })
+
+  it('strips query string pollution from extension filenames', () => {
+    expect(sanitizeAria2OutHint('photo.jpg?token=abc')).toBe('photo.jpg')
+  })
+
+  it('strips fragment pollution', () => {
+    expect(sanitizeAria2OutHint('file.pdf#page=3')).toBe('file.pdf')
+  })
+
+  it('replaces filesystem-unsafe characters with underscores', () => {
+    expect(sanitizeAria2OutHint('a:b*c.jpg')).toBe('a_b_c.jpg')
+    // In the TS layer, `?` is treated as query separator (stripped first),
+    // unlike the Rust layer where it's filename semantics.
+    expect(sanitizeAria2OutHint('what?.jpg')).toBe('what')
+    expect(sanitizeAria2OutHint('file<>name.txt')).toBe('file__name.txt')
+  })
+
+  it('removes control characters', () => {
+    expect(sanitizeAria2OutHint('\x01\x02file.jpg')).toBe('file.jpg')
+  })
+
+  it('trims trailing dots and spaces', () => {
+    expect(sanitizeAria2OutHint('file.jpg...')).toBe('file.jpg')
+    expect(sanitizeAria2OutHint('file.jpg   ')).toBe('file.jpg')
+  })
+
+  it('preserves extensionless filenames', () => {
+    expect(sanitizeAria2OutHint('README')).toBe('README')
+    expect(sanitizeAria2OutHint('Makefile')).toBe('Makefile')
+  })
+
+  it('preserves CJK filenames', () => {
+    expect(sanitizeAria2OutHint('报告.pdf')).toBe('报告.pdf')
+  })
+
+  it('returns empty for empty input', () => {
+    expect(sanitizeAria2OutHint('')).toBe('')
+  })
+
+  it('returns empty for pure dots', () => {
+    expect(sanitizeAria2OutHint('...')).toBe('')
+  })
+
+  it('returns empty for query-only strings', () => {
+    expect(sanitizeAria2OutHint('?format=jpg')).toBe('')
+  })
+})
+
+// ── resolveExternalFilenameHint ──────────────────────────────────────
+// Smart external hint validation: decides whether to trust the extension
+// filename or let resolve_filename HEAD take over.
+
+describe('resolveExternalFilenameHint', () => {
+  // ── Accept: hint has extension ─────────────────────────────────────
+
+  it('accepts cloud drive filename with extension', () => {
+    expect(resolveExternalFilenameHint('https://cdn.cloud.com/abc123', '报告.pdf')).toBe('报告.pdf')
+  })
+
+  it('accepts hint with extension even when it matches URL basename', () => {
+    expect(resolveExternalFilenameHint('https://example.com/photo.jpg', 'photo.jpg')).toBe('photo.jpg')
+  })
+
+  it('accepts hint after stripping query params and the result has extension', () => {
+    expect(resolveExternalFilenameHint('https://cdn.example.com/photo.jpg?token=1', 'photo.jpg?token=1')).toBe(
+      'photo.jpg',
+    )
+  })
+
+  it('accepts hint with illegal chars after sanitization if it has extension', () => {
+    // `?` stripped first as query boundary, then `:` and `*` replaced
+    expect(resolveExternalFilenameHint('https://example.com/file', 'a:b*c.jpg')).toBe('a_b_c.jpg')
+  })
+
+  // ── Reject: extensionless and same as URL basename ────────────────
+
+  it('rejects Twitter CDN filename (extensionless, matches URL basename)', () => {
+    expect(
+      resolveExternalFilenameHint(
+        'https://pbs.twimg.com/media/G9v9wWdasAYNqt9?format=jpg&name=large',
+        'G9v9wWdasAYNqt9?format=jpg&name=large',
+      ),
+    ).toBe('')
+  })
+
+  it('rejects extensionless hint that matches URL basename exactly', () => {
+    expect(resolveExternalFilenameHint('https://cdn.example.com/abc123', 'abc123')).toBe('')
+  })
+
+  // ── Accept: extensionless but different from URL basename ─────────
+
+  it('accepts extensionless hint when different from URL basename (cloud drive real name)', () => {
+    expect(resolveExternalFilenameHint('https://cdn.cloud.com/randomhash', 'README')).toBe('README')
+  })
+
+  it('accepts extensionless hint when different from URL basename', () => {
+    expect(resolveExternalFilenameHint('https://cdn.example.com/abc123', 'Makefile')).toBe('Makefile')
+  })
+
+  // ── Edge cases ────────────────────────────────────────────────────
+
+  it('returns empty for empty hint', () => {
+    expect(resolveExternalFilenameHint('https://example.com/file', '')).toBe('')
+  })
+
+  it('returns empty for hint that sanitizes to empty', () => {
+    expect(resolveExternalFilenameHint('https://example.com/file', '?format=jpg')).toBe('')
+  })
+
+  it('returns empty for pure-dot hint', () => {
+    expect(resolveExternalFilenameHint('https://example.com/file', '...')).toBe('')
+  })
+
+  it('handles non-HTTP URLs gracefully', () => {
+    // magnet URI → extractDecodedFilename returns '' → comparison impossible → accept hint
+    expect(resolveExternalFilenameHint('magnet:?xt=urn:btih:abc', 'download.torrent')).toBe('download.torrent')
   })
 })

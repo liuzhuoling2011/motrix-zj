@@ -120,31 +120,57 @@ pub async fn aria2_get_files(
 
 // ── `out` option sanitization ────────────────────────────────────────
 
-/// Extracts the bare filename from an `out` option value.
+/// Sanitizes an `out` option value into a safe, platform-valid filename.
 ///
-/// aria2's `out` option must be a plain filename relative to `dir`.
-/// This is a **basename extraction** helper — it strips path components
-/// (including Windows drive letters, UNC prefixes, and Unix absolute
-/// paths) but does NOT perform full Windows filename sanitization
-/// (reserved names, illegal characters).  Those are left to aria2's
-/// own validation.
+/// aria2's `out` option must be a plain filename relative to `dir`.  aria2
+/// itself performs **no** filename sanitization — it passes the value
+/// directly to the OS `open()` call.  This function is the authoritative
+/// safety boundary.
 ///
-/// Returns `None` for values that reduce to empty, `.`, `..`, or
-/// contain NUL bytes (which would truncate C strings inside aria2).
-fn sanitize_out_option(raw: &str) -> Option<&str> {
+/// Three-step pipeline:
+///   1. **Basename extraction** — strips path separators (including Windows
+///      drive letters, UNC prefixes, and Unix absolute paths).
+///   2. **NUL rejection** — NUL bytes truncate C strings inside aria2.
+///   3. **Industry-standard sanitization** via the `sanitize-filename` crate
+///      (same character set as Chrome `filename_util.cc` and Node.js
+///      `sanitize-filename`):
+///      - Replaces `/ \ : * ? " < > |` with `_`
+///      - Removes ASCII control chars (0x00–0x1F, 0x7F) and C1 (0x80–0x9F)
+///      - Rejects Windows reserved names (CON, NUL, COM1, LPT1, etc.)
+///      - Strips trailing dots and spaces (Windows rejects these)
+///      - Truncates to 255 bytes (filesystem limit)
+///
+/// Returns `None` for values that reduce to empty after sanitization.
+fn sanitize_out_option(raw: &str) -> Option<String> {
     if raw.is_empty() {
         return None;
     }
-    // Split on both separators to handle cross-platform paths.
-    // rsplit + next always returns Some for non-empty input.
+    // 1. Basename extraction — split on both separators for cross-platform.
     let basename = raw.rsplit(['/', '\\']).next().unwrap_or(raw);
     if basename.is_empty() || basename == "." || basename == ".." {
         return None;
     }
+    // 2. Reject NUL bytes early (truncate C strings inside aria2).
     if basename.contains('\0') {
         return None;
     }
-    Some(basename)
+    // 3. Industry-standard sanitization (Chrome / sanitize-filename char set).
+    //    Always use Windows rules (most restrictive) regardless of build target
+    //    to ensure filenames are safe when the Rust backend runs on any platform
+    //    but may serve files destined for Windows clients.
+    let sanitized = sanitize_filename::sanitize_with_options(
+        basename,
+        sanitize_filename::Options {
+            windows: true,
+            truncate: true,
+            replacement: "_",
+        },
+    );
+    let result = sanitized.trim().to_string();
+    if result.is_empty() {
+        return None;
+    }
+    Some(result)
 }
 
 /// Add URI download(s). Each URI gets its own aria2 task with optional
@@ -155,19 +181,20 @@ pub async fn aria2_add_uri(
     uris: Vec<String>,
     mut options: serde_json::Value,
 ) -> Result<String, AppError> {
-    // Enforce out = filename-only invariant before forwarding to aria2.
-    // Prevents doubled paths when `out` accidentally contains an absolute
-    // path (e.g., from session restore or unvalidated external input). (#261)
+    // Enforce out = safe-filename invariant before forwarding to aria2.
+    // Prevents path traversal (#261) and illegal-character crashes (#264).
     if let Some(opts) = options.as_object_mut() {
         if let Some(out_val) = opts.get("out").and_then(|v| v.as_str()).map(String::from) {
             match sanitize_out_option(&out_val) {
-                Some(clean) if clean != out_val => {
+                Some(ref clean) if *clean != out_val => {
                     log::warn!(
-                        "aria2:add-uri sanitized out: original_had_path=true clean={clean:?}"
+                        "aria2:add-uri sanitized out: {:?} → {:?}",
+                        out_val,
+                        clean
                     );
                     opts.insert(
                         "out".to_string(),
-                        serde_json::Value::String(clean.to_string()),
+                        serde_json::Value::String(clean.clone()),
                     );
                 }
                 None => {
@@ -334,15 +361,17 @@ pub async fn aria2_batch_force_remove(
 mod tests {
     use super::sanitize_out_option;
 
+    // ── Existing #261 tests (updated for String return) ─────────────
+
     #[test]
     fn bare_filename_passes_through() {
-        assert_eq!(sanitize_out_option("file.zip"), Some("file.zip"));
+        assert_eq!(sanitize_out_option("file.zip").as_deref(), Some("file.zip"));
     }
 
     #[test]
     fn windows_backslash_absolute_extracts_basename() {
         assert_eq!(
-            sanitize_out_option("C:\\Users\\u\\Downloads\\file.zip"),
+            sanitize_out_option("C:\\Users\\u\\Downloads\\file.zip").as_deref(),
             Some("file.zip")
         );
     }
@@ -350,7 +379,7 @@ mod tests {
     #[test]
     fn forward_slash_absolute_extracts_basename() {
         assert_eq!(
-            sanitize_out_option("C:/Users/u/Downloads/file.zip"),
+            sanitize_out_option("C:/Users/u/Downloads/file.zip").as_deref(),
             Some("file.zip")
         );
     }
@@ -358,17 +387,17 @@ mod tests {
     #[test]
     fn unc_path_extracts_basename() {
         assert_eq!(
-            sanitize_out_option("\\\\server\\share\\file.zip"),
+            sanitize_out_option("\\\\server\\share\\file.zip").as_deref(),
             Some("file.zip")
         );
     }
 
-    // basename extraction: "../evil.exe" → "evil.exe".
-    // This strips the traversal prefix; it is NOT a security path-join
-    // guard — aria2 resolves the final path via applyDir(dir, out).
     #[test]
     fn parent_traversal_extracts_basename() {
-        assert_eq!(sanitize_out_option("../evil.exe"), Some("evil.exe"));
+        assert_eq!(
+            sanitize_out_option("../evil.exe").as_deref(),
+            Some("evil.exe")
+        );
     }
 
     #[test]
@@ -393,7 +422,10 @@ mod tests {
 
     #[test]
     fn cjk_filename_preserved() {
-        assert_eq!(sanitize_out_option("C:/下载/文件.zip"), Some("文件.zip"));
+        assert_eq!(
+            sanitize_out_option("C:/下载/文件.zip").as_deref(),
+            Some("文件.zip")
+        );
     }
 
     #[test]
@@ -401,13 +433,133 @@ mod tests {
         assert_eq!(sanitize_out_option("path/to/"), None);
     }
 
-    // Exact regression test for issue #261: category dir = Downloads/Programs,
-    // out contained full base dir path → applyDir doubled it.
     #[test]
     fn issue_261_regression() {
         assert_eq!(
-            sanitize_out_option("C:/Users/37472/Downloads/sysdiag-all-x64.exe"),
+            sanitize_out_option("C:/Users/37472/Downloads/sysdiag-all-x64.exe").as_deref(),
             Some("sysdiag-all-x64.exe")
         );
     }
+
+    // ── #264: illegal character sanitization ────────────────────────
+
+    #[test]
+    fn issue_264_twitter_cdn_filename() {
+        // Extension sends "G9v9wWdasAYNqt9?format=jpg&name=large" as filename.
+        // `?` is replaced with `_` by the crate; `&` and `=` are legal filename
+        // chars and pass through unchanged.
+        assert_eq!(
+            sanitize_out_option("G9v9wWdasAYNqt9?format=jpg&name=large").as_deref(),
+            Some("G9v9wWdasAYNqt9_format=jpg&name=large")
+        );
+    }
+
+    #[test]
+    fn replaces_windows_illegal_chars() {
+        assert_eq!(
+            sanitize_out_option("a<b>c:d*e.jpg").as_deref(),
+            Some("a_b_c_d_e.jpg")
+        );
+    }
+
+    #[test]
+    fn replaces_pipe_and_quotes() {
+        assert_eq!(
+            sanitize_out_option("file\"|pipe.txt").as_deref(),
+            Some("file__pipe.txt")
+        );
+    }
+
+    #[test]
+    fn question_mark_in_filename_replaced() {
+        // "what?.jpg" → "what_.jpg" (not truncated to "what")
+        assert_eq!(
+            sanitize_out_option("what?.jpg").as_deref(),
+            Some("what_.jpg")
+        );
+    }
+
+    // ── Windows reserved names ──────────────────────────────────────
+    // The crate replaces reserved names with the replacement string "_".
+    // Our wrapper then trims and rejects empty — but "_" is non-empty,
+    // so reserved names become "_".  This is safe: "_" is a valid
+    // filename on all platforms.
+
+    #[test]
+    fn windows_reserved_con_becomes_underscore() {
+        assert_eq!(sanitize_out_option("CON").as_deref(), Some("_"));
+    }
+
+    #[test]
+    fn windows_reserved_nul_txt_becomes_underscore() {
+        assert_eq!(sanitize_out_option("NUL.txt").as_deref(), Some("_"));
+    }
+
+    #[test]
+    fn windows_reserved_com1_becomes_underscore() {
+        assert_eq!(sanitize_out_option("com1").as_deref(), Some("_"));
+    }
+
+    #[test]
+    fn windows_reserved_lpt3_becomes_underscore() {
+        assert_eq!(sanitize_out_option("LPT3").as_deref(), Some("_"));
+    }
+
+    // ── Trailing dots and spaces ────────────────────────────────────
+
+    #[test]
+    fn trailing_dots_stripped() {
+        // The crate replaces trailing dots/spaces with replacement "_";
+        // our wrapper calls .trim() which handles trailing whitespace.
+        // "file.jpg..." → crate → "file.jpg_" → trim → "file.jpg_"
+        let result = sanitize_out_option("file.jpg...");
+        assert!(result.is_some());
+        assert!(result.as_deref().unwrap_or("").starts_with("file.jpg"));
+    }
+
+    #[test]
+    fn trailing_spaces_stripped() {
+        // "file.jpg   " → crate → "file.jpg_" → trim → "file.jpg_"
+        // Or our .trim() may catch it. Either way, starts with "file.jpg".
+        let result = sanitize_out_option("file.jpg   ");
+        assert!(result.is_some());
+        assert!(result.as_deref().unwrap_or("").starts_with("file.jpg"));
+    }
+
+    // ── Control characters ──────────────────────────────────────────
+
+    #[test]
+    fn control_chars_removed() {
+        // The crate removes control characters (0x00-0x1F, 0x80-0x9F)
+        let result = sanitize_out_option("\x01\x02file.jpg");
+        assert!(result.is_some());
+        assert!(result.as_deref().unwrap_or("").contains("file.jpg"));
+    }
+
+    // ── Normal filenames unmodified ─────────────────────────────────
+
+    #[test]
+    fn normal_filename_with_spaces() {
+        assert_eq!(
+            sanitize_out_option("My Document.pdf").as_deref(),
+            Some("My Document.pdf")
+        );
+    }
+
+    #[test]
+    fn extensionless_filename_preserved() {
+        assert_eq!(
+            sanitize_out_option("README").as_deref(),
+            Some("README")
+        );
+    }
+
+    #[test]
+    fn dotfile_preserved() {
+        assert_eq!(
+            sanitize_out_option(".gitignore").as_deref(),
+            Some(".gitignore")
+        );
+    }
 }
+

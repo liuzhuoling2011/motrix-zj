@@ -9,7 +9,7 @@ import { changeKeysToCamelCase, formatOptionsForEngine } from '@shared/utils'
 import type { Aria2Task, Aria2RawGlobalStat, Aria2Peer, Aria2EngineOptions, Aria2File, AppConfig } from '@shared/types'
 import { logger } from '@shared/logger'
 import { resolveDownloadDir } from '@shared/utils/fileCategory'
-import { getFileName } from '@shared/utils/file'
+import { sanitizeAria2OutHint } from '@shared/utils/batchHelpers'
 
 /**
  * Engine readiness state.
@@ -108,9 +108,9 @@ export async function addUri(params: {
     const opts: Record<string, string> = { ...engineOptions }
     if (outs[index]) opts.out = outs[index]
 
-    // Defense-in-depth: strip path components from out (#261).
-    // Rust aria2_add_uri is the authoritative boundary; this is belt-and-suspenders.
-    if (opts.out) opts.out = getFileName(opts.out)
+    // Defense-in-depth: sanitize out for filesystem safety (#261, #264).
+    // Rust sanitize_out_option is the authoritative boundary; this is belt-and-suspenders.
+    if (opts.out) opts.out = sanitizeAria2OutHint(opts.out)
     if (!opts.out) delete opts.out
 
     // Smart file classification: resolve per-URI download directory
