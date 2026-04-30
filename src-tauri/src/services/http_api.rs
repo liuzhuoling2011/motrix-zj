@@ -191,7 +191,6 @@ pub fn build_router(ctx: Arc<ApiContext>) -> Router {
 
 async fn handle_ping(State(ctx): State<Arc<ApiContext>>) -> impl IntoResponse {
     let version = ctx.app.package_info().version.to_string();
-    log::debug!("http_api: GET /ping v{version}");
     Json(PingResponse {
         status: "ok".to_string(),
         version,
