@@ -82,7 +82,8 @@ pub async fn resolve_filename(
 
     // 3a. Level 1 — Content-Disposition filename
     if let Some(cd) = resp.headers().get(reqwest::header::CONTENT_DISPOSITION) {
-        if let Some(name) = parse_cd_filename(cd.to_str().unwrap_or("")) {
+        let cd_str = String::from_utf8_lossy(cd.as_bytes());
+        if let Some(name) = parse_cd_filename(&cd_str) {
             if has_extension(&name) {
                 log::debug!("resolve_filename: resolved via Content-Disposition → {name}");
                 return Ok(Some(name));
