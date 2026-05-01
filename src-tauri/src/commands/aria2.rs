@@ -5,6 +5,7 @@
 
 use crate::aria2::client::Aria2State;
 use crate::aria2::types::{Aria2File, Aria2Task};
+use crate::commands::net::decode_filename_encoding;
 use crate::error::AppError;
 use tauri::State;
 
@@ -158,8 +159,9 @@ fn sanitize_out_option(raw: &str) -> Option<String> {
     //    Always use Windows rules (most restrictive) regardless of build target
     //    to ensure filenames are safe when the Rust backend runs on any platform
     //    but may serve files destined for Windows clients.
+    let decoded = decode_filename_encoding(basename);
     let sanitized = sanitize_filename::sanitize_with_options(
-        basename,
+        decoded.as_str(),
         sanitize_filename::Options {
             windows: true,
             truncate: true,
@@ -469,6 +471,23 @@ mod tests {
         assert_eq!(
             sanitize_out_option("what?.jpg").as_deref(),
             Some("what_.jpg")
+        );
+    }
+
+    #[test]
+    fn percent_encoded_rfc2047_out_decodes_before_sanitize() {
+        assert_eq!(
+            sanitize_out_option("=%3FUTF-8%3FB%3F0JjQotCe0JPQmCDQm9CU0KMgMjAyNi54bHN4%3F=")
+                .as_deref(),
+            Some("ИТОГИ ЛДУ 2026.xlsx")
+        );
+    }
+
+    #[test]
+    fn rfc2047_out_decodes_before_sanitize() {
+        assert_eq!(
+            sanitize_out_option("=?UTF-8?B?0JjQotCe0JPQmCDQm9CU0KMgMjAyNi54bHN4?=").as_deref(),
+            Some("ИТОГИ ЛДУ 2026.xlsx")
         );
     }
 

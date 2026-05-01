@@ -269,6 +269,21 @@ describe('aria2 API (invoke transport)', () => {
       expect(firstCallArgs[1].options.out).toBe('file1.zip')
     })
 
+    it('addUri decodes RFC 2047 out hints before invoking the backend', async () => {
+      mockInvoke.mockResolvedValue('gid1')
+
+      await addUri({
+        uris: ['https://mail-attachment.googleusercontent.com/attachment/u/0/'],
+        outs: ['=?UTF-8?B?0JjQotCe0JPQmCDQm9CU0KMgMjAyNi54bHN4?='],
+        options: {},
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('aria2_add_uri', {
+        uris: ['https://mail-attachment.googleusercontent.com/attachment/u/0/'],
+        options: { out: 'ИТОГИ ЛДУ 2026.xlsx' },
+      })
+    })
+
     it('addUriAtomic creates exactly one invoke with all URIs', async () => {
       mockInvoke.mockResolvedValueOnce('gid-atomic')
 

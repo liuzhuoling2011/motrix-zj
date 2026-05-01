@@ -397,10 +397,20 @@ describe('sanitizeAria2OutHint', () => {
 
   it('replaces filesystem-unsafe characters with underscores', () => {
     expect(sanitizeAria2OutHint('a:b*c.jpg')).toBe('a_b_c.jpg')
-    // In the TS layer, `?` is treated as query separator (stripped first),
-    // unlike the Rust layer where it's filename semantics.
-    expect(sanitizeAria2OutHint('what?.jpg')).toBe('what')
+    expect(sanitizeAria2OutHint('what?.jpg')).toBe('what_.jpg')
     expect(sanitizeAria2OutHint('file<>name.txt')).toBe('file__name.txt')
+  })
+
+  it('does not drop HEAD-resolved names that start with replacement question marks', () => {
+    expect(sanitizeAria2OutHint('????? ??? 2026.xlsx')).toBe('_____ ___ 2026.xlsx')
+  })
+
+  it('decodes RFC 2047 encoded-word filenames before filesystem sanitization', () => {
+    expect(sanitizeAria2OutHint('=?UTF-8?B?0JjQotCe0JPQmCDQm9CU0KMgMjAyNi54bHN4?=')).toBe('ИТОГИ ЛДУ 2026.xlsx')
+  })
+
+  it('decodes percent-encoded RFC 2047 filenames before filesystem sanitization', () => {
+    expect(sanitizeAria2OutHint('=%3FUTF-8%3FB%3F0JjQotCe0JPQmCDQm9CU0KMgMjAyNi54bHN4%3F=')).toBe('ИТОГИ ЛДУ 2026.xlsx')
   })
 
   it('removes control characters', () => {
@@ -443,6 +453,15 @@ describe('resolveExternalFilenameHint', () => {
 
   it('accepts cloud drive filename with extension', () => {
     expect(resolveExternalFilenameHint('https://cdn.cloud.com/abc123', '报告.pdf')).toBe('报告.pdf')
+  })
+
+  it('accepts RFC 2047 encoded-word external filename hints after decoding', () => {
+    expect(
+      resolveExternalFilenameHint(
+        'https://mail-attachment.googleusercontent.com/attachment/u/0/',
+        '=?UTF-8?B?0JjQotCe0JPQmCDQm9CU0KMgMjAyNi54bHN4?=',
+      ),
+    ).toBe('ИТОГИ ЛДУ 2026.xlsx')
   })
 
   it('accepts hint with extension even when it matches URL basename', () => {

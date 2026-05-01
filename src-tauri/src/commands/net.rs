@@ -179,7 +179,65 @@ pub(crate) fn has_extension(name: &str) -> bool {
 pub(crate) fn parse_cd_filename(header: &str) -> Option<String> {
     let parsed = content_disposition::parse_content_disposition(header);
     let candidate = select_content_disposition_filename(&parsed)?;
-    Some(decode_rfc2047_filename(candidate))
+    normalize_content_disposition_filename(&candidate)
+}
+
+pub(crate) fn decode_filename_encoding(filename: &str) -> String {
+    let trimmed = filename.trim();
+    let percent_decoded = urlencoding::decode(trimmed)
+        .ok()
+        .map(|value| value.to_string());
+
+    let mut candidates = vec![trimmed.to_string()];
+    if let Some(decoded) = percent_decoded.filter(|decoded| decoded != trimmed) {
+        candidates.push(decoded);
+    }
+
+    for candidate in candidates {
+        if looks_like_rfc2047_encoded_word(&candidate) {
+            let decoded = decode_rfc2047_filename(candidate.clone());
+            if decoded != candidate && !decoded.trim().is_empty() {
+                return decoded.trim().to_string();
+            }
+        }
+    }
+
+    trimmed.to_string()
+}
+
+fn normalize_content_disposition_filename(filename: &str) -> Option<String> {
+    let decoded = decode_filename_encoding(filename);
+    validate_content_disposition_filename(&decoded)
+}
+
+fn validate_content_disposition_filename(filename: &str) -> Option<String> {
+    let name = filename.trim();
+    if name.is_empty() || name == "." || name == ".." {
+        return None;
+    }
+    if name.contains('\0')
+        || name.contains('/')
+        || name.contains('\\')
+        || name.chars().any(char::is_control)
+        || looks_like_rfc2047_encoded_word(name)
+        || looks_like_corrupt_question_mark_filename(name)
+    {
+        return None;
+    }
+    Some(name.to_string())
+}
+
+fn looks_like_rfc2047_encoded_word(value: &str) -> bool {
+    value.contains("=?") && value.contains("?=")
+}
+
+fn looks_like_corrupt_question_mark_filename(value: &str) -> bool {
+    let question_marks = value.chars().filter(|ch| *ch == '?').count();
+    if question_marks < 3 {
+        return false;
+    }
+    let visible = value.chars().filter(|ch| !ch.is_whitespace()).count();
+    question_marks * 3 >= visible
 }
 
 fn select_content_disposition_filename(
@@ -368,6 +426,34 @@ mod tests {
         assert_eq!(
             parse_cd_filename("attachment; filename=\"=?UTF-8?B?0JjRgtC+0LPQuF8yMDI2LmRvY3g=?=\""),
             Some("Итоги_2026.docx".into())
+        );
+    }
+
+    #[test]
+    fn parse_cd_filename_decodes_percent_encoded_rfc2047_filename() {
+        assert_eq!(
+            parse_cd_filename(
+                "attachment; filename=\"=%3FUTF-8%3FB%3F0JjQotCe0JPQmCDQm9CU0KMgMjAyNi54bHN4%3F=\""
+            ),
+            Some("ИТОГИ ЛДУ 2026.xlsx".into())
+        );
+    }
+
+    #[test]
+    fn parse_cd_filename_decodes_rfc2047_wrapped_in_filename_star() {
+        assert_eq!(
+            parse_cd_filename(
+                "attachment; filename=\"????? ??? 2026.xlsx\"; filename*=UTF-8''%3D%3FUTF-8%3FB%3F0JjQotCe0JPQmCDQm9CU0KMgMjAyNi54bHN4%3F%3D"
+            ),
+            Some("ИТОГИ ЛДУ 2026.xlsx".into())
+        );
+    }
+
+    #[test]
+    fn parse_cd_filename_rejects_irrecoverable_question_mark_filename() {
+        assert_eq!(
+            parse_cd_filename("attachment; filename=\"????? ??? 2026.xlsx\""),
+            None
         );
     }
 

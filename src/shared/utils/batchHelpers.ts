@@ -5,6 +5,7 @@
  */
 import type { BatchItemKind, BatchItem } from '@shared/types'
 import { BARE_INFO_HASH_RE } from '@shared/constants'
+import { decodeMimeWords } from 'lettercoder'
 
 let nextId = 0
 
@@ -236,6 +237,58 @@ export function hasExtension(filename: string): boolean {
 
 const GENERIC_EXTERNAL_FILENAME_HINTS = new Set(['download'])
 
+function stripUrlSuffixPollution(name: string): string {
+  const qIdx = name.indexOf('?')
+  if (qIdx >= 0) {
+    const before = name.substring(0, qIdx)
+    const after = name.substring(qIdx + 1)
+    if (hasExtension(before) || after.includes('=') || after.includes('&')) {
+      name = before
+    }
+  }
+
+  const hIdx = name.indexOf('#')
+  if (hIdx >= 0) {
+    const before = name.substring(0, hIdx)
+    const after = name.substring(hIdx + 1)
+    if (hasExtension(before) || after.includes('=') || after.includes('&')) {
+      name = before
+    }
+  }
+
+  return name
+}
+
+function looksLikeRfc2047EncodedWord(value: string): boolean {
+  return value.includes('=?') && value.includes('?=')
+}
+
+function decodeFilenameEncoding(raw: string): string {
+  const trimmed = raw.trim()
+  const candidates = [trimmed]
+
+  if (trimmed.includes('%')) {
+    try {
+      const decoded = decodeURIComponent(trimmed)
+      if (decoded !== trimmed) candidates.push(decoded)
+    } catch {
+      // Malformed percent sequences are treated as literal filename text.
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (!looksLikeRfc2047EncodedWord(candidate)) continue
+    try {
+      const decoded = decodeMimeWords(candidate)
+      if (decoded) return decoded.trim()
+    } catch {
+      return candidate
+    }
+  }
+
+  return trimmed
+}
+
 /**
  * Sanitizes a raw string into a filesystem-safe filename.
  *
@@ -255,13 +308,10 @@ export function sanitizeAria2OutHint(raw: string): string {
   if (!raw) return ''
 
   // 1. Basename — strip path prefixes
-  let name = raw.replace(/^.*[/\\]/, '')
+  let name = decodeFilenameEncoding(raw).replace(/^.*[/\\]/, '')
 
-  // 2. Strip URL query/fragment pollution (extensions often forward these)
-  const qIdx = name.indexOf('?')
-  if (qIdx >= 0) name = name.substring(0, qIdx)
-  const hIdx = name.indexOf('#')
-  if (hIdx >= 0) name = name.substring(0, hIdx)
+  // 2. Strip URL query/fragment pollution without treating every '?' as a URL boundary.
+  name = stripUrlSuffixPollution(name)
 
   // 3. Replace filesystem-unsafe characters
   name = name.replace(FS_UNSAFE_RE, '_')
