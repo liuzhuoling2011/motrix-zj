@@ -218,6 +218,13 @@ describe('parseHeader', () => {
   it('returns empty for whitespace-only string', () => {
     expect(parseHeader('   ')).toEqual({})
   })
+  it('ignores malformed header lines without creating an empty key', () => {
+    const result = parseHeader('Content-Type: text/html\nmalformed line\nAuthorization: Bearer abc')
+    expect(result).toEqual({
+      contentType: 'text/html',
+      authorization: 'Bearer abc',
+    })
+  })
 })
 
 describe('filterHotReloadableKeys', () => {

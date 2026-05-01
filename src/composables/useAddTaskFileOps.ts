@@ -9,7 +9,6 @@ import { readFile } from '@tauri-apps/plugin-fs'
 import { logger } from '@shared/logger'
 import { parseTorrentBuffer, uint8ToBase64 } from '@/composables/useTorrentParser'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
-import bencode from 'bencode'
 import type { BatchItem } from '@shared/types'
 
 interface FileOpsDeps {
@@ -33,7 +32,7 @@ export async function resolveFileItem(item: BatchItem, t: (key: string) => strin
 
     if (item.kind === 'torrent') {
       try {
-        const meta = await parseTorrentBuffer(uint8, bencode)
+        const meta = await parseTorrentBuffer(uint8)
         if (meta) {
           item.torrentMeta = meta
           item.selectedFileIndices = meta.files.map((f) => f.idx)
@@ -66,7 +65,7 @@ export async function resolveRemoteFileItem(item: BatchItem, t: (key: string) =>
 
     if (item.kind === 'torrent') {
       try {
-        const meta = await parseTorrentBuffer(uint8, bencode)
+        const meta = await parseTorrentBuffer(uint8)
         if (meta) {
           item.torrentMeta = meta
           item.selectedFileIndices = meta.files.map((f) => f.idx)

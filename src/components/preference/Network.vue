@@ -15,10 +15,10 @@ import {
   buildNetworkForm,
   buildNetworkSystemConfig,
   transformNetworkForStore,
-  isValidAria2ProxyUrl,
   randomBtPort,
   randomDhtPort,
 } from '@/composables/useNetworkPreference'
+import { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
 
 import userAgentMap from '@shared/ua'
 import { hasUnsafeHeaderChars, sanitizeHeaderValue } from '@shared/utils/headerSanitize'

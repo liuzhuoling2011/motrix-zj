@@ -78,6 +78,7 @@ export const parseHeader = (header = ''): Record<string, string> => {
   const headers = splitTextRows(header)
   headers.forEach((line) => {
     const index = line.indexOf(':')
+    if (index <= 0) return
     const name = line.substring(0, index)
     const value = line.substring(index + 1).trim()
     result[name] = value

@@ -24,7 +24,7 @@ import {
   isGlobalDownloadProxyActive,
   getDownloadProxy,
 } from '@/composables/useAddTaskSubmit'
-import { isValidAria2ProxyUrl } from '@/composables/useAdvancedPreference'
+import { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
 import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
 import { isMagnetUri } from '@/composables/useMagnetFlow'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'

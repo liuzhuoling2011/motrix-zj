@@ -22,23 +22,9 @@ pub(crate) fn path_to_safe_string(path: &std::path::Path) -> String {
 
 /// Strips ANSI escape sequences (color codes) from a string.
 /// aria2c emits colored output (e.g., `\x1b[1;31mERROR\x1b[0m`) which
-/// produces garbage in log files. This removes all CSI sequences.
+/// produces garbage in log files.
 pub(crate) fn strip_ansi(input: &str) -> String {
-    let mut out = String::with_capacity(input.len());
-    let mut in_escape = false;
-    for ch in input.chars() {
-        if in_escape {
-            // CSI sequences end with a letter (A-Z, a-z)
-            if ch.is_ascii_alphabetic() {
-                in_escape = false;
-            }
-        } else if ch == '\x1b' {
-            in_escape = true;
-        } else {
-            out.push(ch);
-        }
-    }
-    out
+    strip_ansi_escapes::strip_str(input)
 }
 
 /// Logs aria2c stdout with semantic log levels based on aria2's own tags.
@@ -156,6 +142,14 @@ mod tests {
         let input = "\x1b[32m[NOTICE]\x1b[0m downloading \x1b[1mfile.zip\x1b[0m (100%)";
         let clean = strip_ansi(input);
         assert_eq!(clean, "[NOTICE] downloading file.zip (100%)");
+        assert!(!clean.contains('\x1b'));
+    }
+
+    #[test]
+    fn strip_ansi_removes_osc_sequences() {
+        let input = "title\x1b]0;aria2c\x07 [NOTICE]";
+        let clean = strip_ansi(input);
+        assert_eq!(clean, "title [NOTICE]");
         assert!(!clean.contains('\x1b'));
     }
 

@@ -296,7 +296,7 @@ fn is_in_scheduled_period_at(
     days: u8,
     now: chrono::DateTime<chrono::Local>,
 ) -> bool {
-    use chrono::{Datelike, Timelike};
+    use chrono::{Datelike, NaiveTime, Timelike};
 
     // Day-of-week check: Mon=1, Tue=2, ..., Sun=64; 0 = every day
     if days != 0 {
@@ -307,26 +307,18 @@ fn is_in_scheduled_period_at(
         }
     }
 
-    let parse_hm = |s: &str| -> Option<(u32, u32)> {
-        let parts: Vec<&str> = s.split(':').collect();
-        if parts.len() != 2 {
-            return None;
-        }
-        Some((parts[0].parse().ok()?, parts[1].parse().ok()?))
+    let from_time = match NaiveTime::parse_from_str(from, "%H:%M") {
+        Ok(v) => v,
+        Err(_) => return false,
     };
-
-    let (from_h, from_m) = match parse_hm(from) {
-        Some(v) => v,
-        None => return false,
-    };
-    let (to_h, to_m) = match parse_hm(to) {
-        Some(v) => v,
-        None => return false,
+    let to_time = match NaiveTime::parse_from_str(to, "%H:%M") {
+        Ok(v) => v,
+        Err(_) => return false,
     };
 
     let now_minutes = now.hour() * 60 + now.minute();
-    let from_minutes = from_h * 60 + from_m;
-    let to_minutes = to_h * 60 + to_m;
+    let from_minutes = from_time.hour() * 60 + from_time.minute();
+    let to_minutes = to_time.hour() * 60 + to_time.minute();
 
     if from_minutes <= to_minutes {
         // Same-day span: 08:00 → 22:00
@@ -449,6 +441,13 @@ mod tests {
     fn invalid_to_returns_false() {
         let now = make_time(12, 0, 0);
         assert!(!is_in_scheduled_period_at("08:00", "bad", 0, now));
+    }
+
+    #[test]
+    fn invalid_time_components_return_false() {
+        let now = make_time(12, 0, 0);
+        assert!(!is_in_scheduled_period_at("00:99", "23:59", 0, now));
+        assert!(!is_in_scheduled_period_at("24:00", "23:59", 0, now));
     }
 
     // ── NON_HOT_RELOADABLE ─────────────────────────────────────────

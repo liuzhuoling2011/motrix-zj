@@ -31,11 +31,6 @@ vi.mock('@/composables/useTorrentParser', () => ({
   uint8ToBase64: (...args: unknown[]) => mockUint8ToBase64(...args),
 }))
 
-// ── Mock bencode ───────────────────────────────────────────────────
-vi.mock('bencode', () => ({
-  default: { decode: vi.fn(), encode: vi.fn() },
-}))
-
 // ── Mock logger ────────────────────────────────────────────────────
 vi.mock('@shared/logger', () => ({
   logger: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() },

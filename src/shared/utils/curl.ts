@@ -7,10 +7,11 @@ export const buildUrisFromCurl = (uris: string[] = []): string[] => {
       const parsedUri = curlParser(uri) as { url: string; params?: Record<string, string> }
       let url = parsedUri.url
       if (parsedUri.params && Object.keys(parsedUri.params).length > 0) {
-        const paramsStr = Object.keys(parsedUri.params)
-          .map((k) => `${k}=${parsedUri.params![k]}`)
-          .join('&')
-        url = `${url}?${paramsStr}`
+        const parsedUrl = new URL(url)
+        Object.entries(parsedUri.params).forEach(([key, value]) => {
+          parsedUrl.searchParams.append(key, value)
+        })
+        url = parsedUrl.toString()
       }
       return url
     }

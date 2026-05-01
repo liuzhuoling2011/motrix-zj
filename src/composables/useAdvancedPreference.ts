@@ -6,7 +6,10 @@
  */
 import { ENGINE_RPC_PORT, PROXY_SCOPES, PROXY_SCOPE_OPTIONS, DEFAULT_APP_CONFIG as D } from '@shared/constants'
 import { convertCommaToLine, convertLineToComma, generateRandomInt } from '@shared/utils'
+import { isValidAria2ProxyUrl, UNSUPPORTED_PROXY_SCHEME_RE } from '@shared/utils/aria2Proxy'
 import type { AppConfig } from '@shared/types'
+
+export { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
 
 // ── URL Validation ──────────────────────────────────────────────────
 
@@ -207,56 +210,6 @@ export function transformAdvancedForStore(f: AdvancedForm): Record<string, unkno
       motrixnext: protocolMotrixnext,
     },
   }
-}
-
-// ── Proxy validation ────────────────────────────────────────────────
-
-/** Regex matching URI schemes that aria2 cannot handle as proxy. */
-const UNSUPPORTED_PROXY_SCHEME_RE = /^socks[45a-z]*:\/\//i
-
-/**
- * Validates a proxy URL against aria2's `HttpProxyOptionHandler` whitelist.
- *
- * aria2 source (OptionHandlerImpl.cc L509-511) only accepts three scheme
- * prefixes: `http://`, `https://`, `ftp://`.  Any other scheme (e.g.
- * `socks5://`) is prepended with `http://` and then fails `uri::parse()`,
- * crashing the engine with errorCode=28.
- *
- * This function mirrors that whitelist:
- * - Empty string → valid (clears proxy)
- * - `http://…`, `https://…`, `ftp://…` → valid
- * - Bare `HOST:PORT` (no scheme) → valid (aria2 auto-prepends `http://`)
- * - `socks4://`, `socks5://`, etc. → **invalid**
- */
-export function isValidAria2ProxyUrl(url: string): boolean {
-  if (!url || !url.trim()) return true
-  const trimmed = url.trim()
-
-  // Explicitly reject SOCKS and other unsupported schemes
-  if (UNSUPPORTED_PROXY_SCHEME_RE.test(trimmed)) return false
-
-  // aria2-accepted schemes
-  if (/^(https?|ftp):\/\//i.test(trimmed)) {
-    try {
-      new URL(trimmed)
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  // No scheme at all → aria2 prepends http:// automatically
-  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) {
-    try {
-      new URL('http://' + trimmed)
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  // Any other scheme (e.g. ws://, custom://) → reject
-  return false
 }
 
 // ── Form validation ─────────────────────────────────────────────────

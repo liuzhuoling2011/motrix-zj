@@ -160,6 +160,11 @@ fn format_proxy_url(addr: &str, default_scheme: &str) -> String {
 fn get_system_proxy_impl() -> Result<Option<SystemProxyInfo>, AppError> {
     use std::process::Command;
 
+    if let Some(info) = get_system_proxy_from_dynamic_store() {
+        log::debug!("proxy:macos found proxy via SystemConfiguration");
+        return Ok(Some(info));
+    }
+
     // `scutil --proxy` returns the system-wide effective proxy settings from
     // the System Configuration framework — the same source browsers use,
     // regardless of which network service is active.
@@ -198,6 +203,152 @@ fn get_system_proxy_impl() -> Result<Option<SystemProxyInfo>, AppError> {
     }
 
     Ok(None)
+}
+
+#[cfg(target_os = "macos")]
+type MacProxyDictionary = system_configuration::core_foundation::dictionary::CFDictionary<
+    system_configuration::core_foundation::string::CFString,
+    system_configuration::core_foundation::base::CFType,
+>;
+
+#[cfg(target_os = "macos")]
+fn get_system_proxy_from_dynamic_store() -> Option<SystemProxyInfo> {
+    use system_configuration::dynamic_store::SCDynamicStoreBuilder;
+
+    let store = SCDynamicStoreBuilder::new("motrix-next").build()?;
+    let proxies = store.get_proxies()?;
+
+    if macos_cf_bool(&proxies, "HTTPEnable") {
+        if let Some(info) = build_proxy_from_cf_dictionary(&proxies, "HTTPProxy", "HTTPPort", false)
+        {
+            return Some(info);
+        }
+    }
+
+    if macos_cf_bool(&proxies, "HTTPSEnable") {
+        if let Some(info) =
+            build_proxy_from_cf_dictionary(&proxies, "HTTPSProxy", "HTTPSPort", false)
+        {
+            return Some(info);
+        }
+    }
+
+    if macos_cf_bool(&proxies, "SOCKSEnable") {
+        if let Some(info) =
+            build_proxy_from_cf_dictionary(&proxies, "SOCKSProxy", "SOCKSPort", true)
+        {
+            return Some(info);
+        }
+    }
+
+    None
+}
+
+#[cfg(target_os = "macos")]
+fn macos_cf_value<'a>(
+    dict: &'a MacProxyDictionary,
+    key: &str,
+) -> Option<
+    system_configuration::core_foundation::base::ItemRef<
+        'a,
+        system_configuration::core_foundation::base::CFType,
+    >,
+> {
+    let key = system_configuration::core_foundation::string::CFString::new(key);
+    dict.find(&key)
+}
+
+#[cfg(target_os = "macos")]
+fn macos_cf_bool(dict: &MacProxyDictionary, key: &str) -> bool {
+    macos_cf_i64(dict, key).is_some_and(|value| value == 1)
+}
+
+#[cfg(target_os = "macos")]
+fn macos_cf_i64(dict: &MacProxyDictionary, key: &str) -> Option<i64> {
+    macos_cf_value(dict, key)?
+        .downcast::<system_configuration::core_foundation::number::CFNumber>()?
+        .to_i64()
+}
+
+#[cfg(target_os = "macos")]
+fn macos_cf_string(dict: &MacProxyDictionary, key: &str) -> Option<String> {
+    Some(
+        macos_cf_value(dict, key)?
+            .downcast::<system_configuration::core_foundation::string::CFString>()?
+            .to_string(),
+    )
+    .filter(|value| !value.trim().is_empty())
+}
+
+#[cfg(target_os = "macos")]
+fn macos_cf_string_array(dict: &MacProxyDictionary, key: &str) -> Vec<String> {
+    use system_configuration::core_foundation::array::CFArray;
+    use system_configuration::core_foundation::base::{CFType, CFTypeRef, TCFType};
+    use system_configuration::core_foundation::string::CFString;
+
+    let Some(array) = macos_cf_value(dict, key).and_then(|value| value.downcast::<CFArray>())
+    else {
+        return Vec::new();
+    };
+
+    array
+        .get_all_values()
+        .into_iter()
+        .filter_map(|value| {
+            let cf_type = unsafe { CFType::wrap_under_get_rule(value as CFTypeRef) };
+            cf_type
+                .downcast::<CFString>()
+                .map(|string| string.to_string())
+        })
+        .collect()
+}
+
+#[cfg(target_os = "macos")]
+fn format_macos_bypass(exceptions: Vec<String>, exclude_simple_hostnames: bool) -> String {
+    let mut bypass = Vec::new();
+    for exception in exceptions {
+        let exception = exception.trim();
+        if !exception.is_empty() && !bypass.iter().any(|item| item == exception) {
+            bypass.push(exception.to_string());
+        }
+    }
+
+    if exclude_simple_hostnames && !bypass.iter().any(|item| item == "<local>") {
+        bypass.push("<local>".to_string());
+    }
+
+    bypass.join(",")
+}
+
+#[cfg(target_os = "macos")]
+fn macos_cf_bypass(dict: &MacProxyDictionary) -> String {
+    format_macos_bypass(
+        macos_cf_string_array(dict, "ExceptionsList"),
+        macos_cf_bool(dict, "ExcludeSimpleHostnames"),
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn build_proxy_from_cf_dictionary(
+    dict: &MacProxyDictionary,
+    host_key: &str,
+    port_key: &str,
+    is_socks: bool,
+) -> Option<SystemProxyInfo> {
+    let host = macos_cf_string(dict, host_key)?;
+    let port = macos_cf_i64(dict, port_key).unwrap_or_default();
+    let scheme = if is_socks { "socks5" } else { "http" };
+    let server = if port <= 0 {
+        format!("{scheme}://{host}")
+    } else {
+        format!("{scheme}://{host}:{port}")
+    };
+
+    Some(SystemProxyInfo {
+        server,
+        bypass: macos_cf_bypass(dict),
+        is_socks,
+    })
 }
 
 /// Parses `scutil --proxy` dictionary output into key-value pairs.
@@ -595,6 +746,45 @@ mod tests {
     fn build_proxy_from_scutil_returns_none_for_missing_host() {
         let props = std::collections::HashMap::new();
         assert!(build_proxy_from_scutil(&props, "HTTPProxy", "HTTPPort", false).is_none());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn format_macos_bypass_combines_exceptions_and_simple_hosts() {
+        let bypass = format_macos_bypass(vec!["localhost".into(), "*.local".into()], true);
+        assert_eq!(bypass, "localhost,*.local,<local>");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn build_proxy_from_cf_dictionary_includes_bypass_rules() {
+        use system_configuration::core_foundation::array::CFArray;
+        use system_configuration::core_foundation::base::TCFType;
+        use system_configuration::core_foundation::dictionary::CFDictionary;
+        use system_configuration::core_foundation::number::CFNumber;
+        use system_configuration::core_foundation::string::CFString;
+
+        let exceptions =
+            CFArray::from_CFTypes(&[CFString::new("localhost"), CFString::new("*.local")]);
+        let dict = CFDictionary::from_CFType_pairs(&[
+            (
+                CFString::new("HTTPProxy"),
+                CFString::new("127.0.0.1").as_CFType(),
+            ),
+            (CFString::new("HTTPPort"), CFNumber::from(7890).as_CFType()),
+            (CFString::new("ExceptionsList"), exceptions.as_CFType()),
+            (
+                CFString::new("ExcludeSimpleHostnames"),
+                CFNumber::from(1).as_CFType(),
+            ),
+        ]);
+
+        let info = build_proxy_from_cf_dictionary(&dict, "HTTPProxy", "HTTPPort", false)
+            .expect("HTTP proxy should be built");
+
+        assert_eq!(info.server, "http://127.0.0.1:7890");
+        assert_eq!(info.bypass, "localhost,*.local,<local>");
+        assert!(!info.is_socks);
     }
 
     // ── Linux helper tests ──────────────────────────────────────────

@@ -7,6 +7,7 @@ import { join } from '@tauri-apps/api/path'
 import { invoke } from '@tauri-apps/api/core'
 import { removePath } from '@/composables/useFileDelete'
 import { logger } from '@shared/logger'
+import { getTorrentInfoHash } from '@shared/utils/torrentMeta'
 
 /** Record shape needed for stale detection (not the full HistoryRecord). */
 export interface StaleCheckItem {
@@ -88,22 +89,14 @@ export function shouldDeleteTorrent(config: Partial<{ deleteTorrentAfterComplete
 const HEX40_METADATA_RE = /^[0-9a-f]{40}\.(torrent|meta4)$/
 
 /**
- * Default hash extractor: reads a .torrent file, parses it with bencode,
- * and computes the SHA-1 infoHash.  Used in production; tests inject a mock.
+ * Default hash extractor: reads a .torrent file and delegates metainfo
+ * parsing/infoHash extraction to the shared torrent adapter.
  */
 async function defaultHashExtractor(filePath: string): Promise<string | null> {
   const { readFile } = await import('@tauri-apps/plugin-fs')
-  const bencode = (await import('bencode')).default
   const bytes = await readFile(filePath)
   const uint8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
-  const decoded = bencode.decode(uint8) as Record<string, unknown>
-  const info = decoded.info as Record<string, unknown> | undefined
-  if (!info) return null
-  const infoBytes = bencode.encode(info)
-  const hashBuffer = await crypto.subtle.digest('SHA-1', new Uint8Array(infoBytes).buffer as ArrayBuffer)
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
+  return getTorrentInfoHash(uint8)
 }
 
 /** Type for the injectable hash extractor function. */

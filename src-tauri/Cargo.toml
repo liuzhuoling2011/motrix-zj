@@ -57,6 +57,7 @@ urlencoding = "2"
 sanitize-filename = "0.6"
 content_disposition = "0.4"
 rfc2047-decoder = "1.1"
+strip-ansi-escapes = "0.2.1"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [
@@ -74,6 +75,7 @@ objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["NSWorkspace", "NSDockTile", "NSApplication"] }
 objc2-foundation = { version = "0.3", features = ["NSURL", "NSString", "NSBundle"] }
 core-foundation = "0.10"
+system-configuration = "0.7.0"
 
 [dev-dependencies]
 tempfile = "3"

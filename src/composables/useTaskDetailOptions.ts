@@ -22,7 +22,7 @@
 import { ref, reactive, computed, watch, type Ref } from 'vue'
 import { isEngineReady } from '@/api/aria2'
 import { isGlobalProxyConfigured } from '@/composables/useAddTaskSubmit'
-import { isValidAria2ProxyUrl } from '@/composables/useAdvancedPreference'
+import { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
 import { TASK_STATUS } from '@shared/constants'
 import type { Aria2Task, Aria2EngineOptions, ProxyConfig } from '@shared/types'
 import { logger } from '@shared/logger'

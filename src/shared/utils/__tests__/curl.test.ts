@@ -20,6 +20,9 @@ vi.mock('@bany/curl-to-json', () => ({
     if (input.includes('example.com/search')) {
       return { url: 'https://example.com/search', params: { q: 'test', page: '1' } }
     }
+    if (input.includes('example.com/existing')) {
+      return { url: 'https://example.com/existing?lang=en', params: { q: 'hello world', redirect: 'a&b' } }
+    }
     if (input.includes('example.com/api')) {
       return {
         url: 'https://example.com/api',
@@ -44,6 +47,11 @@ describe('buildUrisFromCurl', () => {
   it('appends query params from curl command', () => {
     const result = buildUrisFromCurl(['curl https://example.com/search'])
     expect(result[0]).toBe('https://example.com/search?q=test&page=1')
+  })
+
+  it('preserves existing query params and URL-encodes appended params', () => {
+    const result = buildUrisFromCurl(['curl https://example.com/existing'])
+    expect(result[0]).toBe('https://example.com/existing?lang=en&q=hello+world&redirect=a%26b')
   })
 
   it('passes non-curl URIs through unchanged', () => {
