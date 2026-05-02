@@ -12,7 +12,7 @@ vi.mock('@tauri-apps/plugin-log', () => ({
   trace: vi.fn().mockResolvedValue(undefined),
 }))
 
-import { logger } from '@shared/logger'
+import { formatLogFields, logger } from '@shared/logger'
 import * as tauriLog from '@tauri-apps/plugin-log'
 
 // Cast to mock types for assertions
@@ -180,6 +180,20 @@ describe('logger (tauri-plugin-log bridging)', () => {
 
       expect(() => logger.debug('Ctx', payload)).not.toThrow()
       expect(mockTauriDebug).toHaveBeenCalledWith(expect.stringContaining('[Ctx]'))
+    })
+  })
+
+  // ─── structured fields ───────────────────────────────────
+
+  describe('formatLogFields', () => {
+    it('formats stable key-value fields without JSON noise', () => {
+      expect(formatLogFields({ traceId: 'external-input-1', count: 2, hasCookie: false })).toBe(
+        'traceId=external-input-1 count=2 hasCookie=false',
+      )
+    })
+
+    it('keeps nullish values explicit for diagnostics', () => {
+      expect(formatLogFields({ route: null, reason: undefined })).toBe('route=null reason=undefined')
     })
   })
 

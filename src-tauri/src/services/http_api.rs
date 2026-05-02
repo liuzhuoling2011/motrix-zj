@@ -185,8 +185,11 @@ async fn handle_add(
 
     log::info!(
         "http_api: POST /add url={} referer={} cookie={} filename={}",
-        body.url,
-        body.referer.as_deref().unwrap_or("none"),
+        summarize_url_for_log(&body.url),
+        body.referer
+            .as_deref()
+            .map(summarize_url_for_log)
+            .unwrap_or_else(|| "none".to_string()),
         if body.cookie.is_some() {
             "present"
         } else {
@@ -372,6 +375,36 @@ fn build_deep_link_url(req: &AddRequest) -> String {
         }
     }
     deep_link.to_string()
+}
+
+fn summarize_url_for_log(value: &str) -> String {
+    let lower = value.to_lowercase();
+    if lower.starts_with("magnet:") {
+        return format!("scheme=magnet length={}", value.len());
+    }
+    if lower.starts_with("thunder://") {
+        return format!("scheme=thunder length={}", value.len());
+    }
+
+    match url::Url::parse(value) {
+        Ok(parsed) => {
+            let scheme = parsed.scheme();
+            let host = parsed.host_str().unwrap_or("none");
+            let ext = parsed
+                .path_segments()
+                .and_then(|mut segments| segments.next_back())
+                .and_then(|name| name.rsplit_once('.').map(|(_, ext)| ext))
+                .filter(|ext| !ext.is_empty() && ext.len() <= 16)
+                .unwrap_or("none");
+            format!(
+                "scheme={scheme} host={host} ext={} has_query={} length={}",
+                ext.to_ascii_lowercase(),
+                parsed.query().is_some(),
+                value.len()
+            )
+        }
+        Err(_) => format!("parseable=false length={}", value.len()),
+    }
 }
 // ── Server Lifecycle ────────────────────────────────────────────────
 
@@ -827,5 +860,18 @@ mod tests {
         };
         let result = build_deep_link_url(&req);
         assert!(!result.contains("filename="));
+    }
+
+    #[test]
+    fn url_log_summary_excludes_sensitive_query_values() {
+        let summary = summarize_url_for_log(
+            "https://example.com/download/file.zip?jwt=secret-token&response-content-disposition=attachment",
+        );
+        assert_eq!(
+            summary,
+            "scheme=https host=example.com ext=zip has_query=true length=94"
+        );
+        assert!(!summary.contains("secret-token"));
+        assert!(!summary.contains("jwt"));
     }
 }

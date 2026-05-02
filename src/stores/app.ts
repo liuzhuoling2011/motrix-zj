@@ -13,9 +13,10 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { listen } from '@tauri-apps/api/event'
 import { decodeThunderLink } from '@shared/utils'
-import { logger } from '@shared/logger'
+import { formatLogFields, logger } from '@shared/logger'
 import { STAT_BASE_INTERVAL, STAT_PER_TASK_INTERVAL, STAT_MIN_INTERVAL, STAT_MAX_INTERVAL } from '@shared/timing'
 import { detectKind, createBatchItem, resolveExternalFilenameHint } from '@shared/utils/batchHelpers'
+import { summarizeExternalInput } from '@shared/utils/externalInputDiagnostics'
 import { buildEngineOptions, submitManualUris } from '@/composables/useAddTaskSubmit'
 import { isGlobalDownloadProxyActive, getDownloadProxy } from '@/composables/useAddTaskSubmit'
 import { usePreferenceStore } from '@/stores/preference'
@@ -280,7 +281,15 @@ export const useAppStore = defineStore('app', () => {
               const autoSubmit = usePreferenceStore().config.autoSubmitFromExtension
               logger.info(
                 'DeepLink.new',
-                `url=${downloadUrl} kind=${kind} referer=${referer ? 'present' : 'none'} cookie=${cookie ? 'present' : 'none'} filename=${filename || 'none'} autoSubmit=${autoSubmit}`,
+                formatLogFields({
+                  url: summarizeExternalInput(downloadUrl),
+                  kind,
+                  referer: referer ? 'present' : 'none',
+                  cookie: cookie ? 'present' : 'none',
+                  filename: filename ? 'present' : 'none',
+                  resolvedFilename: resolvedHint ? 'present' : 'none',
+                  autoSubmit,
+                }),
               )
               if (autoSubmit && kind === 'uri') {
                 void autoSubmitExtensionUrl(downloadUrl, referer, cookie, resolvedHint)

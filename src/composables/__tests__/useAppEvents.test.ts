@@ -8,9 +8,21 @@ const routerBeforeEachMock = vi.fn()
 const dragDropListenerMock = vi.fn()
 const openDialogMock = vi.fn()
 const openUrlMock = vi.fn()
+const windowApiMock = vi.hoisted(() => ({
+  unminimize: vi.fn(),
+  show: vi.fn(),
+  setFocus: vi.fn(),
+}))
+const loggerMock = vi.hoisted(() => ({
+  debug: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+}))
 
 const setEngineReadyMock = vi.fn()
 let eventUnlisteners: Array<ReturnType<typeof vi.fn>> = []
+let eventCallbacks: Record<string, (event: { payload: unknown }) => unknown> = {}
 
 vi.mock('@tauri-apps/api/event', () => ({
   listen: (...args: unknown[]) => listenMock(...args),
@@ -23,11 +35,7 @@ vi.mock('@tauri-apps/api/webview', () => ({
 }))
 
 vi.mock('@tauri-apps/api/window', () => ({
-  getCurrentWindow: () => ({
-    unminimize: vi.fn().mockResolvedValue(undefined),
-    show: vi.fn().mockResolvedValue(undefined),
-    setFocus: vi.fn().mockResolvedValue(undefined),
-  }),
+  getCurrentWindow: () => windowApiMock,
 }))
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({
@@ -54,11 +62,11 @@ vi.mock('@/api/aria2', () => ({
 }))
 
 vi.mock('@shared/logger', () => ({
-  logger: {
-    debug: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-  },
+  formatLogFields: (fields: Record<string, string | number | boolean | null | undefined>) =>
+    Object.entries(fields)
+      .map(([key, value]) => `${key}=${String(value)}`)
+      .join(' '),
+  logger: loggerMock,
 }))
 
 vi.mock('@tauri-apps/api/core', () => ({
@@ -145,10 +153,18 @@ describe('useAppEvents', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     eventUnlisteners = []
+    eventCallbacks = {}
 
-    listenMock.mockImplementation(async (eventName: string) => {
+    windowApiMock.unminimize.mockResolvedValue(undefined)
+    windowApiMock.show.mockResolvedValue(undefined)
+    windowApiMock.setFocus.mockResolvedValue(undefined)
+
+    listenMock.mockImplementation(async (eventName: string, callback?: (event: { payload: unknown }) => unknown) => {
       const unlisten = vi.fn().mockName(`unlisten:${eventName}`)
       eventUnlisteners.push(unlisten)
+      if (callback) {
+        eventCallbacks[eventName] = callback
+      }
       return unlisten
     })
     routerBeforeEachMock.mockImplementation(() => vi.fn().mockName('remove-nav-guard'))
@@ -234,5 +250,21 @@ describe('useAppEvents', () => {
 
     expect(appStore.handleDeepLinkUrls).toHaveBeenCalledTimes(1)
     expect(appStore.handleDeepLinkUrls).toHaveBeenCalledWith(['file:///Users/example/ubuntu.torrent'])
+  })
+
+  it('continues routing external input when focusing the restored window fails', async () => {
+    windowApiMock.setFocus.mockRejectedValueOnce(new Error('focus blocked by OS'))
+    const deepLink =
+      'motrixnext://new?url=https%3A%2F%2Fexample.com%2Ffile.zip&cookie=session%3Dsecret-token&filename=file.zip'
+    const { deps, appStore } = createDeps()
+    const { setupListeners } = mountComposable(deps)
+
+    await setupListeners()
+    await eventCallbacks['deep-link-open']?.({ payload: [deepLink] })
+
+    expect(appStore.handleDeepLinkUrls).toHaveBeenCalledTimes(1)
+    expect(appStore.handleDeepLinkUrls).toHaveBeenCalledWith([deepLink])
+    expect(loggerMock.warn).toHaveBeenCalledWith('ExternalInput', expect.stringContaining('stage=setFocus'))
+    expect(loggerMock.info.mock.calls.flat().join(' ')).not.toContain('secret-token')
   })
 })

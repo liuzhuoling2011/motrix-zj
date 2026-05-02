@@ -11,9 +11,10 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { useRouter, useRoute } from 'vue-router'
-import { logger } from '@shared/logger'
+import { formatLogFields, logger } from '@shared/logger'
 import { setEngineReady, isEngineReady } from '@/api/aria2'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
+import { createExternalInputTraceId, summarizeExternalInputBatch } from '@shared/utils/externalInputDiagnostics'
 import { onUnmounted, watch, type Ref, type WatchStopHandle } from 'vue'
 
 interface AppEventsDeps {
@@ -102,6 +103,20 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
   }
 
   onUnmounted(teardown)
+
+  async function runExternalInputWindowStage(
+    traceId: string,
+    stage: 'unminimize' | 'show' | 'setFocus',
+    operation: () => Promise<void>,
+  ) {
+    try {
+      await operation()
+      logger.debug('ExternalInput', formatLogFields({ traceId, stage, result: 'ok' }))
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      logger.warn('ExternalInput', formatLogFields({ traceId, stage, result: 'failed', reason }))
+    }
+  }
 
   // ─── Engine lifecycle watchers ────────────────────────────────────
   async function setupEngineWatchers() {
@@ -402,21 +417,47 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
    * consumption path (lightweight mode window recreation).
    */
   async function processIncomingDeepLinks(urls: string[]) {
-    logger.info('DeepLink.process', `count=${urls.length} urls=[${urls.join(', ')}]`)
+    const traceId = createExternalInputTraceId()
+    logger.info(
+      'ExternalInput',
+      formatLogFields({
+        traceId,
+        stage: 'received',
+        route: route.path,
+        ...summarizeExternalInputBatch(urls),
+      }),
+    )
     const mainWindow = getCurrentWindow()
-    await mainWindow.unminimize()
-    await mainWindow.show()
-    await mainWindow.setFocus()
+    await runExternalInputWindowStage(traceId, 'unminimize', () => mainWindow.unminimize())
+    await runExternalInputWindowStage(traceId, 'show', () => mainWindow.show())
+    await runExternalInputWindowStage(traceId, 'setFocus', () => mainWindow.setFocus())
 
     // Navigate to the "All" downloads tab when receiving new tasks from
     // extension.  Always land on /task/all regardless of current sub-tab
     // (active, stopped, etc.) so the user sees the full task list.
     const hasNewTask = urls.some((url) => url.toLowerCase().startsWith('motrixnext://new'))
     if (hasNewTask && route.path !== '/task/all') {
-      router.push('/task/all').catch(() => {})
+      try {
+        await router.push('/task/all')
+        logger.debug('ExternalInput', formatLogFields({ traceId, stage: 'navigate', result: 'ok', route: '/task/all' }))
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error)
+        logger.warn(
+          'ExternalInput',
+          formatLogFields({ traceId, stage: 'navigate', result: 'failed', route: '/task/all', reason }),
+        )
+      }
     }
 
-    appStore.handleDeepLinkUrls(urls)
+    logger.info('ExternalInput', formatLogFields({ traceId, stage: 'route-download', result: 'start' }))
+    try {
+      appStore.handleDeepLinkUrls(urls)
+      logger.info('ExternalInput', formatLogFields({ traceId, stage: 'route-download', result: 'ok' }))
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      logger.error('ExternalInput', formatLogFields({ traceId, stage: 'route-download', result: 'failed', reason }))
+      throw error
+    }
   }
 
   async function setupExternalInputListeners() {
