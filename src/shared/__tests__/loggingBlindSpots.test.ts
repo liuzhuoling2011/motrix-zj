@@ -598,9 +598,10 @@ describe('Silent-catch elimination: stores', () => {
     expect(source).toContain("logger.debug('HistoryDB', `schema version query")
   })
 
-  it('app.ts deep-link catch calls logger.debug', () => {
+  it('app.ts ignored deep links are logged', () => {
     const source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'stores', 'app.ts'), 'utf-8')
-    expect(source).toContain("logger.debug('DeepLink'")
+    expect(source).toContain("logger.debug('DeepLink.ignored'")
+    expect(source).toContain("logger.warn('DeepLink.ignored'")
   })
 })
 

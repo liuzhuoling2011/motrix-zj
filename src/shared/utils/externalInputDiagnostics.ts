@@ -1,5 +1,6 @@
 /** @fileoverview Sanitized diagnostics for external download inputs. */
 import type { LogFields } from '@shared/logger'
+import { isMotrixNewTaskLink, parseMotrixDeepLink } from './motrixDeepLink'
 
 let traceSequence = 0
 
@@ -39,15 +40,14 @@ export function summarizeExternalInput(value: string): string {
       return summarizeRemoteUrl(value)
     }
 
-    const downloadUrl = parsed.searchParams.get('url') || ''
-    const action = parsed.hostname || 'none'
+    const deepLink = parseMotrixDeepLink(value)
     return [
       `scheme=motrixnext`,
-      `action=${action}`,
-      `target=${downloadUrl ? summarizeRemoteUrl(downloadUrl) : 'none'}`,
-      `hasReferer=${parsed.searchParams.has('referer') ? 'true' : 'false'}`,
-      `hasCookie=${parsed.searchParams.has('cookie') ? 'true' : 'false'}`,
-      `hasFilename=${parsed.searchParams.has('filename') ? 'true' : 'false'}`,
+      `action=${deepLink.action}`,
+      `target=${deepLink.downloadUrl ? summarizeRemoteUrl(deepLink.downloadUrl) : 'none'}`,
+      `hasReferer=${deepLink.referer ? 'true' : 'false'}`,
+      `hasCookie=${deepLink.cookie ? 'true' : 'false'}`,
+      `hasFilename=${deepLink.filename ? 'true' : 'false'}`,
       `length=${value.length}`,
     ].join(' ')
   } catch {
@@ -58,7 +58,7 @@ export function summarizeExternalInput(value: string): string {
 export function summarizeExternalInputBatch(urls: string[]): LogFields {
   return {
     count: urls.length,
-    hasNewTask: urls.some((url) => url.toLowerCase().startsWith('motrixnext://new')),
+    hasNewTask: urls.some(isMotrixNewTaskLink),
     hasCookie: urls.some((url) => {
       try {
         return new URL(url).searchParams.has('cookie')

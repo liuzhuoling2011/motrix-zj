@@ -426,6 +426,16 @@ describe('useAppStore', () => {
       expect(store.pendingReferer).toBe('https://example.com/downloads')
     })
 
+    it('handles single-slash motrixnext new deep links', () => {
+      const store = useAppStore()
+      const url = encodeURIComponent('https://cdn.example.com/file.zip')
+      store.handleDeepLinkUrls([`motrixnext:/new?url=${url}`])
+
+      expect(store.pendingBatch).toHaveLength(1)
+      expect(store.pendingBatch[0].source).toBe('https://cdn.example.com/file.zip')
+      expect(store.addTaskVisible).toBe(true)
+    })
+
     it('sets pendingReferer to empty when deep link has no referer param', () => {
       const store = useAppStore()
       const url = encodeURIComponent('https://example.com/file.zip')

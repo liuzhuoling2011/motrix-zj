@@ -267,4 +267,17 @@ describe('useAppEvents', () => {
     expect(loggerMock.warn).toHaveBeenCalledWith('ExternalInput', expect.stringContaining('stage=setFocus'))
     expect(loggerMock.info.mock.calls.flat().join(' ')).not.toContain('secret-token')
   })
+
+  it('logs the external input handling result returned by the app store', async () => {
+    const deepLink = 'motrixnext:/new?url=https%3A%2F%2Fexample.com%2Ffile.zip'
+    const { deps, appStore } = createDeps()
+    appStore.handleDeepLinkUrls.mockReturnValueOnce({ received: 1, queued: 1, autoSubmitted: 0, ignored: 0 })
+    const { setupListeners } = mountComposable(deps)
+
+    await setupListeners()
+    await eventCallbacks['deep-link-open']?.({ payload: [deepLink] })
+
+    expect(appStore.handleDeepLinkUrls).toHaveBeenCalledWith([deepLink])
+    expect(loggerMock.info).toHaveBeenCalledWith('ExternalInput', expect.stringContaining('queued=1'))
+  })
 })

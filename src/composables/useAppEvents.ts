@@ -15,14 +15,22 @@ import { formatLogFields, logger } from '@shared/logger'
 import { setEngineReady, isEngineReady } from '@/api/aria2'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
 import { createExternalInputTraceId, summarizeExternalInputBatch } from '@shared/utils/externalInputDiagnostics'
+import { isMotrixNewTaskLink } from '@shared/utils/motrixDeepLink'
 import { onUnmounted, watch, type Ref, type WatchStopHandle } from 'vue'
+
+interface DeepLinkHandlingResult {
+  received: number
+  queued: number
+  autoSubmitted: number
+  ignored: number
+}
 
 interface AppEventsDeps {
   t: (key: string, params?: Record<string, unknown>) => string
   appStore: {
     showAddTaskDialog: () => void
     enqueueBatch: (items: ReturnType<typeof createBatchItem>[]) => number
-    handleDeepLinkUrls: (urls: string[]) => void
+    handleDeepLinkUrls: (urls: string[]) => DeepLinkHandlingResult | void
     engineReady: boolean
     engineRestarting: boolean
   }
@@ -435,7 +443,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
     // Navigate to the "All" downloads tab when receiving new tasks from
     // extension.  Always land on /task/all regardless of current sub-tab
     // (active, stopped, etc.) so the user sees the full task list.
-    const hasNewTask = urls.some((url) => url.toLowerCase().startsWith('motrixnext://new'))
+    const hasNewTask = urls.some(isMotrixNewTaskLink)
     if (hasNewTask && route.path !== '/task/all') {
       try {
         await router.push('/task/all')
@@ -451,8 +459,19 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
 
     logger.info('ExternalInput', formatLogFields({ traceId, stage: 'route-download', result: 'start' }))
     try {
-      appStore.handleDeepLinkUrls(urls)
-      logger.info('ExternalInput', formatLogFields({ traceId, stage: 'route-download', result: 'ok' }))
+      const handlingResult = appStore.handleDeepLinkUrls(urls)
+      logger.info(
+        'ExternalInput',
+        formatLogFields({
+          traceId,
+          stage: 'route-download',
+          result: 'ok',
+          received: handlingResult?.received ?? 'unknown',
+          queued: handlingResult?.queued ?? 'unknown',
+          autoSubmitted: handlingResult?.autoSubmitted ?? 'unknown',
+          ignored: handlingResult?.ignored ?? 'unknown',
+        }),
+      )
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
       logger.error('ExternalInput', formatLogFields({ traceId, stage: 'route-download', result: 'failed', reason }))

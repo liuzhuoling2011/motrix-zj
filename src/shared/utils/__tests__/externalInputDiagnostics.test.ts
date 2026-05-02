@@ -25,4 +25,11 @@ describe('externalInputDiagnostics', () => {
     expect(fields.hasCookie).toBe(true)
     expect(String(fields.first)).not.toContain('secret-cookie')
   })
+
+  it('uses the same new-task detection for single-slash Motrix deep links', () => {
+    const fields = summarizeExternalInputBatch(['motrixnext:/new?url=https%3A%2F%2Fexample.com%2Ffile.zip'])
+
+    expect(fields.hasNewTask).toBe(true)
+    expect(String(fields.first)).toContain('action=new')
+  })
 })

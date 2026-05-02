@@ -17,6 +17,7 @@ import { formatLogFields, logger } from '@shared/logger'
 import { STAT_BASE_INTERVAL, STAT_PER_TASK_INTERVAL, STAT_MIN_INTERVAL, STAT_MAX_INTERVAL } from '@shared/timing'
 import { detectKind, createBatchItem, resolveExternalFilenameHint } from '@shared/utils/batchHelpers'
 import { summarizeExternalInput } from '@shared/utils/externalInputDiagnostics'
+import { parseMotrixDeepLink } from '@shared/utils/motrixDeepLink'
 import { buildEngineOptions, submitManualUris } from '@/composables/useAddTaskSubmit'
 import { isGlobalDownloadProxyActive, getDownloadProxy } from '@/composables/useAddTaskSubmit'
 import { usePreferenceStore } from '@/stores/preference'
@@ -32,6 +33,13 @@ interface StatPayload {
   numWaiting: number
   numStopped: number
   numStoppedTotal: number
+}
+
+export interface DeepLinkHandlingResult {
+  received: number
+  queued: number
+  autoSubmitted: number
+  ignored: number
 }
 
 function normalizeFileUriPath(url: string): string {
@@ -227,85 +235,82 @@ export const useAppStore = defineStore('app', () => {
    * Normalizes deep-link / argv URLs into BatchItems and enqueues them.
    * All items land in the same batch for user review before submission.
    */
-  function handleDeepLinkUrls(urls: string[]) {
-    if (!urls || urls.length === 0) return
+  function handleDeepLinkUrls(urls: string[]): DeepLinkHandlingResult {
+    const result: DeepLinkHandlingResult = {
+      received: urls?.length ?? 0,
+      queued: 0,
+      autoSubmitted: 0,
+      ignored: 0,
+    }
+    if (!urls || urls.length === 0) return result
 
     const items: BatchItem[] = []
     const FILE_EXTS = ['.torrent', '.metalink', '.meta4']
 
     for (const url of urls) {
       const lower = url.toLowerCase()
+      const motrixDeepLink = parseMotrixDeepLink(url)
 
       // ── motrixnext:// — extension-to-app communication protocol ───
       // Bare `motrixnext://` is a wake-up signal (window focus handled
       // by the deep-link-open listener in useAppEvents).
       // `motrixnext://new?url=X` creates a download task from the URL.
-      if (lower.startsWith('motrixnext://')) {
-        try {
-          const parsed = new URL(url)
-          // hostname holds the action for scheme-only URLs (motrixnext://new)
-          const action = parsed.hostname || ''
-          if (action === 'new') {
-            const downloadUrl = parsed.searchParams.get('url')
-            if (downloadUrl) {
-              const kind = detectKind(downloadUrl)
-              // Extract referer for AddTask form pre-fill.
-              // The extension passes the originating tab URL here so the
-              // desktop app can set the Referer header on the download.
-              const referer = parsed.searchParams.get('referer') || ''
-              // Extract browser cookies forwarded by the extension.
-              // Cookie-gated CDNs (Quark, Baidu, etc.) require these
-              // cookies for authentication — without them, the CDN
-              // returns HTTP 412 Precondition Failed.
-              const cookie = parsed.searchParams.get('cookie') || ''
-              // Extract filename from extension's Content-Disposition
-              // query parameter extraction (RFC 6266).
-              const filename = parsed.searchParams.get('filename') || ''
-              // Validate external filename hint (#264): sanitize, then discard
-              // if it's just the URL basename without an extension (let
-              // resolve_filename HEAD infer the correct name via MIME).
-              const resolvedHint = resolveExternalFilenameHint(downloadUrl, filename)
-              if (referer) {
-                pendingReferer.value = referer
-              }
-              if (cookie) {
-                pendingCookie.value = cookie
-              }
-              if (resolvedHint) {
-                pendingFilename.value = resolvedHint
-              }
-
-              // Auto-submit: bypass AddTask dialog for URI types when enabled.
-              // Torrent/metalink are excluded — they require a fetch→parse→
-              // file-select pipeline that only runs inside the AddTask dialog.
-              const autoSubmit = usePreferenceStore().config.autoSubmitFromExtension
-              logger.info(
-                'DeepLink.new',
-                formatLogFields({
-                  url: summarizeExternalInput(downloadUrl),
-                  kind,
-                  referer: referer ? 'present' : 'none',
-                  cookie: cookie ? 'present' : 'none',
-                  filename: filename ? 'present' : 'none',
-                  resolvedFilename: resolvedHint ? 'present' : 'none',
-                  autoSubmit,
-                }),
-              )
-              if (autoSubmit && kind === 'uri') {
-                void autoSubmitExtensionUrl(downloadUrl, referer, cookie, resolvedHint)
-              } else {
-                const item = createBatchItem(kind, downloadUrl)
-                if (resolvedHint) {
-                  item.displayName = resolvedHint
-                }
-                items.push(item)
-              }
-            }
+      if (motrixDeepLink.valid) {
+        if (motrixDeepLink.isNewTask) {
+          const downloadUrl = motrixDeepLink.downloadUrl
+          const kind = detectKind(downloadUrl)
+          const resolvedHint = resolveExternalFilenameHint(downloadUrl, motrixDeepLink.filename)
+          if (motrixDeepLink.referer) {
+            pendingReferer.value = motrixDeepLink.referer
           }
-          // motrixnext:// with no action or unrecognized action → pure wake-up
-        } catch (e) {
-          logger.debug('DeepLink', `malformed motrixnext:// URL skipped: ${e}`)
+          if (motrixDeepLink.cookie) {
+            pendingCookie.value = motrixDeepLink.cookie
+          }
+          if (resolvedHint) {
+            pendingFilename.value = resolvedHint
+          }
+
+          const autoSubmit = usePreferenceStore().config.autoSubmitFromExtension
+          logger.info(
+            'DeepLink.new',
+            formatLogFields({
+              url: summarizeExternalInput(downloadUrl),
+              kind,
+              referer: motrixDeepLink.referer ? 'present' : 'none',
+              cookie: motrixDeepLink.cookie ? 'present' : 'none',
+              filename: motrixDeepLink.filename ? 'present' : 'none',
+              resolvedFilename: resolvedHint ? 'present' : 'none',
+              autoSubmit,
+            }),
+          )
+          if (autoSubmit && kind === 'uri') {
+            result.autoSubmitted += 1
+            void autoSubmitExtensionUrl(downloadUrl, motrixDeepLink.referer, motrixDeepLink.cookie, resolvedHint)
+          } else {
+            const item = createBatchItem(kind, downloadUrl)
+            if (resolvedHint) {
+              item.displayName = resolvedHint
+            }
+            items.push(item)
+          }
+        } else {
+          result.ignored += 1
+          const fields = formatLogFields({
+            action: motrixDeepLink.action,
+            hasUrl: motrixDeepLink.downloadUrl ? 'true' : 'false',
+            reason: motrixDeepLink.downloadUrl ? 'unhandled-action' : 'wake-only',
+          })
+          if (motrixDeepLink.downloadUrl) {
+            logger.warn('DeepLink.ignored', fields)
+          } else {
+            logger.debug('DeepLink.ignored', fields)
+          }
         }
+        continue
+      }
+      if (motrixDeepLink.reason === 'malformed') {
+        result.ignored += 1
+        logger.warn('DeepLink.ignored', formatLogFields({ action: 'unknown', hasUrl: 'false', reason: 'malformed' }))
         continue
       }
 
@@ -338,8 +343,11 @@ export const useAppStore = defineStore('app', () => {
     }
 
     if (items.length > 0) {
-      enqueueBatch(items)
+      const skipped = enqueueBatch(items)
+      result.queued += items.length - skipped
     }
+
+    return result
   }
 
   /**
