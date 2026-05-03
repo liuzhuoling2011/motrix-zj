@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'Descàrrega completada. Reinicieu per instal·lar.',
   'restart-and-install': 'Reinicia i instal·la',
   'check-frequency': 'Freqüència de comprovació',
+  'interval-every-startup': 'A cada inici',
   'interval-daily': 'Diari',
   'interval-weekly': 'Setmanal',
   'interval-monthly': 'Mensual',

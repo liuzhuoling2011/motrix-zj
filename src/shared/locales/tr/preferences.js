@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'İndirme tamamlandı. Kurmak için yeniden başlatın.',
   'restart-and-install': 'Yeniden başlat ve kur',
   'check-frequency': 'Kontrol sıklığı',
+  'interval-every-startup': 'Her başlangıçta',
   'interval-daily': 'Günlük',
   'interval-weekly': 'Haftalık',
   'interval-monthly': 'Aylık',

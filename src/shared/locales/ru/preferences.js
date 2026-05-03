@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'Загрузка завершена. Перезапустите для установки.',
   'restart-and-install': 'Перезапустить и установить',
   'check-frequency': 'Частота проверки',
+  'interval-every-startup': 'При каждом запуске',
   'interval-daily': 'Ежедневно',
   'interval-weekly': 'Еженедельно',
   'interval-monthly': 'Ежемесячно',

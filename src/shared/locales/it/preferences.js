@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'Download completato. Riavvia per installare.',
   'restart-and-install': 'Riavvia e installa',
   'check-frequency': 'Frequenza di controllo',
+  'interval-every-startup': 'A ogni avvio',
   'interval-daily': 'Giornaliera',
   'interval-weekly': 'Settimanale',
   'interval-monthly': 'Mensile',

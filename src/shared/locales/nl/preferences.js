@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'Download voltooid. Herstart om te installeren.',
   'restart-and-install': 'Herstarten en installeren',
   'check-frequency': 'Controlefrequentie',
+  'interval-every-startup': 'Bij elke start',
   'interval-daily': 'Dagelijks',
   'interval-weekly': 'Wekelijks',
   'interval-monthly': 'Maandelijks',

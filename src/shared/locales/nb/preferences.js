@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'Nedlasting fullført. Start på nytt for å installere.',
   'restart-and-install': 'Start på nytt og installer',
   'check-frequency': 'Sjekkfrekvens',
+  'interval-every-startup': 'Ved hver oppstart',
   'interval-daily': 'Daglig',
   'interval-weekly': 'Ukentlig',
   'interval-monthly': 'Månedlig',

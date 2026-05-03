@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'Η λήψη ολοκληρώθηκε. Κάντε επανεκκίνηση για εγκατάσταση.',
   'restart-and-install': 'Επανεκκίνηση και εγκατάσταση',
   'check-frequency': 'Συχνότητα ελέγχου',
+  'interval-every-startup': 'Σε κάθε εκκίνηση',
   'interval-daily': 'Καθημερινά',
   'interval-weekly': 'Εβδομαδιαία',
   'interval-monthly': 'Μηνιαία',

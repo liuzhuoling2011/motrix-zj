@@ -1,6 +1,7 @@
 /** @fileoverview Defined user, system, and restart-required config key lists. */
 const userKeys = [
   'auto-check-update',
+  'auto-check-update-interval',
   'auto-delete-stale-records',
   'auto-hide-window',
   'auto-submit-from-extension',

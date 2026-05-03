@@ -68,6 +68,7 @@ async function copyVersionToClipboard(text: string, label: string) {
 const updateDialogRef = ref<InstanceType<typeof UpdateDialog> | null>(null)
 
 const checkIntervalOptions = [
+  { label: t('preferences.interval-every-startup'), value: 0 },
   { label: t('preferences.interval-daily'), value: 24 },
   { label: t('preferences.interval-weekly'), value: 168 },
   { label: t('preferences.interval-monthly'), value: 720 },

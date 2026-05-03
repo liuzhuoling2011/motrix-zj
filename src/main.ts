@@ -70,9 +70,12 @@ window.addEventListener('unhandledrejection', (e) => {
     const config = preferenceStore.config
     if (config.autoCheckUpdate === false) return
 
-    const lastCheck = Number(config.lastCheckUpdateTime) || 0
-    const intervalMs = (Number(config.autoCheckUpdateInterval) || 24) * 3_600_000
-    if (Date.now() - lastCheck < intervalMs) return
+    const intervalHours = Number(config.autoCheckUpdateInterval ?? 0)
+    if (Number.isFinite(intervalHours) && intervalHours > 0) {
+      const lastCheck = Number(config.lastCheckUpdateTime) || 0
+      const intervalMs = intervalHours * 3_600_000
+      if (Date.now() - lastCheck < intervalMs) return
+    }
 
     try {
       const { invoke } = await import('@tauri-apps/api/core')

@@ -14,6 +14,7 @@ import {
 } from '../useGeneralPreference'
 import type { AppConfig } from '@shared/types'
 import { DEFAULT_APP_CONFIG } from '@shared/constants'
+import { userKeys } from '@shared/configKeys'
 
 // ── buildGeneralForm ────────────────────────────────────────────────
 
@@ -91,14 +92,23 @@ describe('buildGeneralForm', () => {
     expect(form.autoCheckUpdate).toBe(true)
   })
 
-  it('defaults autoCheckUpdateInterval to 24', () => {
+  it('defaults autoCheckUpdateInterval to every startup', () => {
     const form = buildGeneralForm(emptyConfig)
-    expect(form.autoCheckUpdateInterval).toBe(24)
+    expect(form.autoCheckUpdateInterval).toBe(0)
   })
 
   it('reads autoCheckUpdateInterval from config', () => {
     const form = buildGeneralForm({ autoCheckUpdateInterval: 168 } as unknown as AppConfig)
     expect(form.autoCheckUpdateInterval).toBe(168)
+  })
+
+  it('preserves every-startup autoCheckUpdateInterval from config', () => {
+    const form = buildGeneralForm({ autoCheckUpdateInterval: 0 } as unknown as AppConfig)
+    expect(form.autoCheckUpdateInterval).toBe(0)
+  })
+
+  it('persists autoCheckUpdateInterval as a user config key', () => {
+    expect(userKeys).toContain('auto-check-update-interval')
   })
 
   it('defaults updateChannel to stable', () => {
@@ -218,7 +228,7 @@ describe('buildGeneralSystemConfig', () => {
     theme: 'auto',
     colorScheme: 'amber',
     autoCheckUpdate: true,
-    autoCheckUpdateInterval: 24,
+    autoCheckUpdateInterval: 0,
     updateChannel: 'stable',
     showProgressBar: true,
     dockBadgeSpeed: true,
@@ -259,7 +269,7 @@ describe('transformGeneralForStore', () => {
     theme: 'auto',
     colorScheme: 'amber',
     autoCheckUpdate: true,
-    autoCheckUpdateInterval: 24,
+    autoCheckUpdateInterval: 0,
     updateChannel: 'stable',
     showProgressBar: true,
     dockBadgeSpeed: true,
@@ -279,7 +289,7 @@ describe('transformGeneralForStore', () => {
     expect(result.theme).toBe('auto')
     expect(result.colorScheme).toBe('amber')
     expect(result.autoCheckUpdate).toBe(true)
-    expect(result.autoCheckUpdateInterval).toBe(24)
+    expect(result.autoCheckUpdateInterval).toBe(0)
     expect(result.updateChannel).toBe('stable')
     expect(result.showProgressBar).toBe(true)
     expect(result.dockBadgeSpeed).toBe(true)

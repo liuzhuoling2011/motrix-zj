@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'ダウンロード完了。再起動してインストールします。',
   'restart-and-install': '再起動してインストール',
   'check-frequency': '確認頻度',
+  'interval-every-startup': '起動するたび',
   'interval-daily': '毎日',
   'interval-weekly': '毎週',
   'interval-monthly': '毎月',

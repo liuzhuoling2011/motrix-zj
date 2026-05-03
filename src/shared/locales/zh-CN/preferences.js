@@ -156,6 +156,7 @@ export default {
   'update-download-complete': '下载完成，重启以安装更新。',
   'restart-and-install': '重启并安装',
   'check-frequency': '检查频率',
+  'interval-every-startup': '每次启动',
   'interval-daily': '每天',
   'interval-weekly': '每周',
   'interval-monthly': '每月',

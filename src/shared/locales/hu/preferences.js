@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'Letöltés kész. Indítsa újra a telepítéshez.',
   'restart-and-install': 'Újraindítás és telepítés',
   'check-frequency': 'Ellenőrzési gyakoriság',
+  'interval-every-startup': 'Minden indításkor',
   'interval-daily': 'Naponta',
   'interval-weekly': 'Hetente',
   'interval-monthly': 'Havonta',

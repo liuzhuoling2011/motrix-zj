@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'Descărcare completă. Reporniți pentru a instala.',
   'restart-and-install': 'Repornire și instalare',
   'check-frequency': 'Frecvența verificării',
+  'interval-every-startup': 'La fiecare pornire',
   'interval-daily': 'Zilnic',
   'interval-weekly': 'Săptămânal',
   'interval-monthly': 'Lunar',

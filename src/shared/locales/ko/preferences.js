@@ -156,6 +156,7 @@ export default {
   'update-download-complete': '다운로드 완료. 재시작하여 설치합니다.',
   'restart-and-install': '재시작 후 설치',
   'check-frequency': '확인 주기',
+  'interval-every-startup': '시작할 때마다',
   'interval-daily': '매일',
   'interval-weekly': '매주',
   'interval-monthly': '매월',

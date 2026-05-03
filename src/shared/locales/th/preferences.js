@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'ดาวน์โหลดเสร็จสิ้น รีสตาร์ทเพื่อติดตั้ง',
   'restart-and-install': 'รีสตาร์ทและติดตั้ง',
   'check-frequency': 'ความถี่การตรวจสอบ',
+  'interval-every-startup': 'ทุกครั้งที่เริ่มต้น',
   'interval-daily': 'รายวัน',
   'interval-weekly': 'รายสัปดาห์',
   'interval-monthly': 'รายเดือน',

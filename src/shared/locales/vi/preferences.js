@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'Tải xuống hoàn tất. Khởi động lại để cài đặt.',
   'restart-and-install': 'Khởi động lại và cài đặt',
   'check-frequency': 'Tần suất kiểm tra',
+  'interval-every-startup': 'Mỗi lần khởi động',
   'interval-daily': 'Hàng ngày',
   'interval-weekly': 'Hàng tuần',
   'interval-monthly': 'Hàng tháng',

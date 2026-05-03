@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'Descarga completada. Reinicie para instalar.',
   'restart-and-install': 'Reiniciar e instalar',
   'check-frequency': 'Frecuencia de comprobación',
+  'interval-every-startup': 'En cada inicio',
   'interval-daily': 'Diario',
   'interval-weekly': 'Semanal',
   'interval-monthly': 'Mensual',

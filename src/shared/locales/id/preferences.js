@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'Unduhan selesai. Mulai ulang untuk memasang.',
   'restart-and-install': 'Mulai ulang & pasang',
   'check-frequency': 'Frekuensi pemeriksaan',
+  'interval-every-startup': 'Setiap mulai',
   'interval-daily': 'Harian',
   'interval-weekly': 'Mingguan',
   'interval-monthly': 'Bulanan',

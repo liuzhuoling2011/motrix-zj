@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'Завантаження завершено. Перезапустіть для встановлення.',
   'restart-and-install': 'Перезапустити та встановити',
   'check-frequency': 'Частота перевірки',
+  'interval-every-startup': 'Під час кожного запуску',
   'interval-daily': 'Щодня',
   'interval-weekly': 'Щотижня',
   'interval-monthly': 'Щомісяця',

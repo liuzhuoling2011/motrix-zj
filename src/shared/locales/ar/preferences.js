@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'اكتمل التحميل. أعد التشغيل للتثبيت.',
   'restart-and-install': 'إعادة التشغيل والتثبيت',
   'check-frequency': 'تكرار الفحص',
+  'interval-every-startup': 'كل بدء تشغيل',
   'interval-daily': 'يوميًا',
   'interval-weekly': 'أسبوعيًا',
   'interval-monthly': 'شهريًا',

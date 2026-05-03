@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'دانلود کامل شد. برای نصب مجدداً اجرا کنید.',
   'restart-and-install': 'راه‌اندازی مجدد و نصب',
   'check-frequency': 'تکرار بررسی',
+  'interval-every-startup': 'در هر راه‌اندازی',
   'interval-daily': 'روزانه',
   'interval-weekly': 'هفتگی',
   'interval-monthly': 'ماهانه',

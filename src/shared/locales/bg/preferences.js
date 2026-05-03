@@ -156,6 +156,7 @@ export default {
   'update-download-complete': 'Изтеглянето завърши. Рестартирайте за инсталиране.',
   'restart-and-install': 'Рестартиране и инсталиране',
   'check-frequency': 'Честота на проверка',
+  'interval-every-startup': 'При всяко стартиране',
   'interval-daily': 'Ежедневно',
   'interval-weekly': 'Ежеседмично',
   'interval-monthly': 'Ежемесечно',
