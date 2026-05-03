@@ -23,7 +23,7 @@ use crate::services::config::RuntimeConfigState;
 use crate::services::deep_link;
 use axum::{
     extract::State,
-    http::{header, HeaderMap, HeaderValue, Method, StatusCode},
+    http::{header, HeaderMap, Method, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
@@ -33,7 +33,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
-use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::cors::CorsLayer;
 
 // ── Request / Response Types ────────────────────────────────────────
 
@@ -140,19 +140,13 @@ pub struct ApiContext {
 
 // ── Router Builder ──────────────────────────────────────────────────
 
-/// Build the Axum router with all routes and strict CORS.
-///
-/// CORS policy: only `chrome-extension://` and `moz-extension://` origins
-/// are allowed.  This prevents malicious websites from probing the local
-/// API.  Combined with Bearer token auth, this provides defense-in-depth.
+/// Build the Axum router with all routes.
 pub fn build_router(ctx: Arc<ApiContext>) -> Router {
     let cors = CorsLayer::new()
-        .allow_origin(AllowOrigin::predicate(|origin: &HeaderValue, _| {
-            let o = origin.as_bytes();
-            o.starts_with(b"chrome-extension://") || o.starts_with(b"moz-extension://")
-        }))
+        .allow_origin(tower_http::cors::Any)
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION]);
+        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
+        .allow_private_network(true);
 
     Router::new()
         .route("/ping", get(handle_ping))
@@ -439,13 +433,13 @@ impl HttpApiState {
 
 /// Spawn the HTTP API server on the given port.
 ///
-/// The server binds to `127.0.0.1:{port}` and runs until the returned
+/// The server binds to all interfaces and runs until the returned
 /// handle is stopped or the application exits.
 pub async fn spawn_http_api(app: AppHandle, port: u16) -> Result<HttpApiHandle, AppError> {
     let ctx = Arc::new(ApiContext { app });
     let router = build_router(ctx);
 
-    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .map_err(|e| AppError::Io(format!("Failed to bind HTTP API on port {port}: {e}")))?;
@@ -461,7 +455,7 @@ pub async fn spawn_http_api(app: AppHandle, port: u16) -> Result<HttpApiHandle, 
         }
     });
 
-    log::info!("http_api: listening on 127.0.0.1:{port}");
+    log::info!("http_api: listening on 0.0.0.0:{port}");
 
     Ok(HttpApiHandle {
         shutdown_tx,

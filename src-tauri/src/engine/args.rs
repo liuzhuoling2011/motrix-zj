@@ -199,8 +199,8 @@ pub(crate) fn build_start_args(
     // If no conf file, ensure RPC is enabled
     if conf_path.is_none() {
         args.push("--enable-rpc=true".to_string());
-        args.push("--rpc-listen-all=false".to_string());
-        args.push("--rpc-allow-origin-all=false".to_string());
+        args.push("--rpc-listen-all=true".to_string());
+        args.push("--rpc-allow-origin-all=true".to_string());
     }
 
     args
@@ -285,15 +285,15 @@ mod tests {
     fn build_args_enables_rpc_without_conf() {
         let args = build_start_args(&json!({}), None, "/tmp/s.session", false);
         assert!(args.iter().any(|a| a == "--enable-rpc=true"));
-        assert!(args.iter().any(|a| a == "--rpc-listen-all=false"));
-        assert!(args.iter().any(|a| a == "--rpc-allow-origin-all=false"));
+        assert!(args.iter().any(|a| a == "--rpc-listen-all=true"));
+        assert!(args.iter().any(|a| a == "--rpc-allow-origin-all=true"));
     }
 
     #[test]
-    fn bundled_conf_keeps_rpc_bound_to_loopback_by_default() {
+    fn bundled_conf_allows_remote_rpc_by_default() {
         const BUNDLED_CONF: &str = include_str!("../../binaries/aria2.conf");
-        assert!(BUNDLED_CONF.contains("rpc-listen-all=false"));
-        assert!(BUNDLED_CONF.contains("rpc-allow-origin-all=false"));
+        assert!(BUNDLED_CONF.contains("rpc-listen-all=true"));
+        assert!(BUNDLED_CONF.contains("rpc-allow-origin-all=true"));
     }
 
     #[test]
