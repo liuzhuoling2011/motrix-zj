@@ -136,6 +136,7 @@ export default {
   'update-channel': 'قناة التحديث',
   'update-channel-stable': 'مستقر',
   'update-channel-beta': 'تجريبي',
+  'update-channel-latest': 'أحدث إصدار عبر كل القنوات',
   'auto-check-update': 'التحقق من التحديثات تلقائيًا',
   'last-check-update-time': 'آخر فحص',
   'follow-metalink': 'تنزيل محتوى Metalink تلقائيًا',

@@ -136,6 +136,7 @@ export default {
   'update-channel': 'Канал за обновяване',
   'update-channel-stable': 'Стабилна',
   'update-channel-beta': 'Бета',
+  'update-channel-latest': 'Най-нова версия от всички канали',
   'auto-check-update': 'Автоматично проверявай за обновления',
   'last-check-update-time': 'Последна проверка',
   'follow-metalink': 'Автоматично изтегляй Metalink съдържание',

@@ -136,6 +136,7 @@ export default {
   'update-channel': 'Saluran Pembaruan',
   'update-channel-stable': 'Stabil',
   'update-channel-beta': 'Beta',
+  'update-channel-latest': 'Terbaru di semua saluran',
   'auto-check-update': 'Periksa pembaruan secara otomatis',
   'last-check-update-time': 'Pemeriksaan terakhir',
   'follow-metalink': 'Unduh konten Metalink secara otomatis',

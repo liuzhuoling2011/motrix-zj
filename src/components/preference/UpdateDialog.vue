@@ -21,6 +21,7 @@ import {
 } from '@vicons/ionicons5'
 import { usePreferenceStore } from '@/stores/preference'
 import { logger } from '@shared/logger'
+import type { ResolvedUpdateChannel, UpdateChannel } from '@shared/types'
 import {
   isActionDisabled,
   getActionLabel,
@@ -40,6 +41,8 @@ interface UpdateMetadata {
   version: string
   body: string | null
   date: string | null
+  channel: ResolvedUpdateChannel
+  requestedChannel: UpdateChannel
 }
 
 interface UpdateProgressStarted {
@@ -78,9 +81,18 @@ const errorMsg = ref('')
 const downloadTotal = ref(0)
 const downloadReceived = ref(0)
 const downloadCancelled = ref(false)
-const activeChannel = ref('stable')
+const activeChannel = ref<ResolvedUpdateChannel>('stable')
+const requestedChannel = ref<UpdateChannel>('stable')
 let progressUnlisten: UnlistenFn | null = null
 const dialogClosable = computed(() => shouldAllowUpdateDialogClose(phase.value))
+const displayChannel = computed<UpdateChannel>(() =>
+  requestedChannel.value === 'latest' ? 'latest' : activeChannel.value,
+)
+const channelTagType = computed(() => {
+  if (displayChannel.value === 'beta') return 'warning'
+  if (displayChannel.value === 'latest') return 'info'
+  return 'success'
+})
 
 const progressPercent = computed(() => calcProgressPercent(downloadReceived.value, downloadTotal.value))
 
@@ -106,8 +118,9 @@ const downloadedMB = computed(() => bytesToMB(downloadReceived.value))
 const totalMB = computed(() => bytesToMB(downloadTotal.value))
 
 async function open(channel?: string) {
-  const ch = channel || preferenceStore.config.updateChannel || 'stable'
-  activeChannel.value = ch
+  const ch = (channel || preferenceStore.config.updateChannel || 'stable') as UpdateChannel
+  requestedChannel.value = ch
+  activeChannel.value = ch === 'beta' ? 'beta' : 'stable'
   show.value = true
   phase.value = 'checking'
   logger.info('Updater', `checking channel=${ch}`)
@@ -128,8 +141,13 @@ async function open(channel?: string) {
     if (update) {
       version.value = update.version
       releaseNotes.value = update.body || ''
+      activeChannel.value = update.channel
+      requestedChannel.value = update.requestedChannel
       phase.value = 'available'
-      logger.info('Updater', `update available: v${currentVersion.value} → v${update.version}`)
+      logger.info(
+        'Updater',
+        `update available: v${currentVersion.value} → v${update.version} channel=${update.channel} requested=${update.requestedChannel}`,
+      )
     } else {
       logger.info('Updater', `up-to-date v${currentVersion.value}`)
       phase.value = 'up-to-date'
@@ -238,8 +256,8 @@ defineExpose({ open })
       <div class="update-dialog-header">
         <div class="update-dialog-title-group">
           <span class="update-dialog-title">{{ t('preferences.auto-update') }}</span>
-          <NTag :type="activeChannel === 'beta' ? 'warning' : 'success'" size="small" round :bordered="false">
-            {{ t(`preferences.update-channel-${activeChannel}`) }}
+          <NTag :type="channelTagType" size="small" round :bordered="false">
+            {{ t(`preferences.update-channel-${displayChannel}`) }}
           </NTag>
         </div>
         <button class="update-dialog-close" :disabled="!dialogClosable" @click="close">×</button>

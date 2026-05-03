@@ -136,6 +136,7 @@ export default {
   'update-channel': '업데이트 채널',
   'update-channel-stable': '안정',
   'update-channel-beta': '베타',
+  'update-channel-latest': '모든 채널 최신 버전',
   'auto-check-update': '자동으로 업데이트 확인',
   'last-check-update-time': '마지막 확인',
   'follow-metalink': 'Metalink 콘텐츠 자동 다운로드',

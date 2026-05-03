@@ -99,7 +99,7 @@ export const AUTO_SYNC_TRACKER_INTERVAL = ONE_HOUR * 12
 // One Week
 export const AUTO_CHECK_UPDATE_INTERVAL = ONE_DAY * 7
 
-export const UPDATE_CHANNELS = ['stable', 'beta'] as const
+export const UPDATE_CHANNELS = ['stable', 'beta', 'latest'] as const
 
 /**
  * Factory default values for every AppConfig field.

@@ -136,6 +136,7 @@ export default {
   'update-channel': 'Kênh cập nhật',
   'update-channel-stable': 'Ổn định',
   'update-channel-beta': 'Beta',
+  'update-channel-latest': 'Mới nhất trên mọi kênh',
   'auto-check-update': 'Tự động kiểm tra cập nhật',
   'last-check-update-time': 'Lần kiểm tra cuối',
   'follow-metalink': 'Tự động tải nội dung Metalink',

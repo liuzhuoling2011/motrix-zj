@@ -1,6 +1,8 @@
 use crate::error::AppError;
+use semver::Version;
 use serde::Serialize;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::cmp::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_updater::UpdaterExt;
@@ -13,10 +15,13 @@ const UPDATER_BASE_URL: &str =
 
 /// Serializable update metadata returned to the frontend.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateMetadata {
     pub version: String,
     pub body: Option<String>,
     pub date: Option<String>,
+    pub channel: String,
+    pub requested_channel: String,
 }
 
 /// Outcome of a download_update command.
@@ -65,18 +70,18 @@ impl UpdateCancelState {
 
     /// Arms the cancel state for a new download (resets the flag).
     fn reset(&self) {
-        self.cancelled.store(false, Ordering::SeqCst);
+        self.cancelled.store(false, AtomicOrdering::SeqCst);
     }
 
     /// Signals cancellation.
     fn cancel(&self) {
-        self.cancelled.store(true, Ordering::SeqCst);
+        self.cancelled.store(true, AtomicOrdering::SeqCst);
         self.notify.notify_waiters();
     }
 
     /// Returns `true` if cancellation has been requested.
     fn is_cancelled(&self) -> bool {
-        self.cancelled.load(Ordering::SeqCst)
+        self.cancelled.load(AtomicOrdering::SeqCst)
     }
 }
 
@@ -112,14 +117,125 @@ impl DownloadedUpdate {
     }
 }
 
-/// Returns the update endpoint URL for the given channel.
-fn endpoint_for_channel(channel: &str) -> String {
-    let file = if channel == "beta" {
-        "beta.json"
-    } else {
-        "latest.json"
-    };
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ReleaseChannel {
+    Stable,
+    Beta,
+}
+
+impl ReleaseChannel {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Stable => "stable",
+            Self::Beta => "beta",
+        }
+    }
+
+    fn endpoint_file(self) -> &'static str {
+        match self {
+            Self::Stable => "latest.json",
+            Self::Beta => "beta.json",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UpdatePolicy {
+    Stable,
+    Beta,
+    Latest,
+}
+
+impl UpdatePolicy {
+    fn from_input(input: &str) -> Self {
+        match input {
+            "beta" => Self::Beta,
+            "latest" => Self::Latest,
+            _ => Self::Stable,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Stable => "stable",
+            Self::Beta => "beta",
+            Self::Latest => "latest",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CandidateVersion {
+    channel: ReleaseChannel,
+    version: String,
+}
+
+impl CandidateVersion {
+    fn new(channel: ReleaseChannel, version: impl Into<String>) -> Self {
+        Self {
+            channel,
+            version: version.into(),
+        }
+    }
+}
+
+struct SelectedUpdate {
+    channel: ReleaseChannel,
+    requested_policy: UpdatePolicy,
+    update: tauri_plugin_updater::Update,
+}
+
+/// Returns the update endpoint URL for the given release channel.
+fn endpoint_for_channel(channel: ReleaseChannel) -> String {
+    let file = channel.endpoint_file();
     format!("{}/{}", UPDATER_BASE_URL, file)
+}
+
+fn candidate_channels_for_policy(policy: UpdatePolicy) -> Vec<ReleaseChannel> {
+    match policy {
+        UpdatePolicy::Stable => vec![ReleaseChannel::Stable],
+        UpdatePolicy::Beta => vec![ReleaseChannel::Beta],
+        UpdatePolicy::Latest => vec![ReleaseChannel::Stable, ReleaseChannel::Beta],
+    }
+}
+
+fn parse_semver(version: &str) -> Option<Version> {
+    Version::parse(version.trim_start_matches('v')).ok()
+}
+
+fn compare_candidate_versions(a: &CandidateVersion, b: &CandidateVersion) -> Ordering {
+    match (parse_semver(&a.version), parse_semver(&b.version)) {
+        (Some(a_version), Some(b_version)) => a_version.cmp(&b_version).then_with(|| {
+            release_channel_priority(a.channel).cmp(&release_channel_priority(b.channel))
+        }),
+        _ => a.version.cmp(&b.version).then_with(|| {
+            release_channel_priority(a.channel).cmp(&release_channel_priority(b.channel))
+        }),
+    }
+}
+
+fn release_channel_priority(channel: ReleaseChannel) -> u8 {
+    match channel {
+        ReleaseChannel::Stable => 1,
+        ReleaseChannel::Beta => 0,
+    }
+}
+
+fn is_strict_semver_upgrade(current: &str, target: &str) -> bool {
+    match (parse_semver(current), parse_semver(target)) {
+        (Some(current), Some(target)) => target > current,
+        _ => target != current,
+    }
+}
+
+fn select_latest_candidate(
+    current_version: &str,
+    candidates: Vec<CandidateVersion>,
+) -> Option<CandidateVersion> {
+    candidates
+        .into_iter()
+        .filter(|candidate| is_strict_semver_upgrade(current_version, &candidate.version))
+        .max_by(compare_candidate_versions)
 }
 
 fn redact_proxy_for_log(proxy: &Option<String>) -> String {
@@ -154,7 +270,7 @@ fn redact_proxy_for_log(proxy: &Option<String>) -> String {
 /// rather than mutating process-level environment variables.
 fn build_updater(
     app: &AppHandle,
-    channel: &str,
+    channel: ReleaseChannel,
     proxy: &Option<String>,
 ) -> Result<tauri_plugin_updater::Updater, AppError> {
     let endpoint =
@@ -182,6 +298,72 @@ fn build_updater(
         .map_err(|e| AppError::Updater(e.to_string()))
 }
 
+async fn check_release_channel(
+    app: &AppHandle,
+    channel: ReleaseChannel,
+    proxy: &Option<String>,
+) -> Result<Option<tauri_plugin_updater::Update>, AppError> {
+    build_updater(app, channel, proxy)?
+        .check()
+        .await
+        .map_err(|e| AppError::Updater(e.to_string()))
+}
+
+async fn resolve_update(
+    app: &AppHandle,
+    requested_policy: UpdatePolicy,
+    proxy: &Option<String>,
+) -> Result<Option<SelectedUpdate>, AppError> {
+    if requested_policy != UpdatePolicy::Latest {
+        let channel = candidate_channels_for_policy(requested_policy)
+            .into_iter()
+            .next()
+            .unwrap_or(ReleaseChannel::Stable);
+        return Ok(check_release_channel(app, channel, proxy)
+            .await?
+            .map(|update| SelectedUpdate {
+                channel,
+                requested_policy,
+                update,
+            }));
+    }
+
+    let mut current_version: Option<String> = None;
+    let mut updates: Vec<(CandidateVersion, tauri_plugin_updater::Update)> = Vec::new();
+    for channel in candidate_channels_for_policy(requested_policy) {
+        let Some(update) = check_release_channel(app, channel, proxy).await? else {
+            continue;
+        };
+        current_version.get_or_insert_with(|| update.current_version.clone());
+        let candidate = CandidateVersion::new(channel, update.version.clone());
+        updates.push((candidate, update));
+    }
+
+    let Some(best_candidate) = select_latest_candidate(
+        current_version.as_deref().unwrap_or_default(),
+        updates
+            .iter()
+            .map(|(candidate, _)| candidate.clone())
+            .collect(),
+    ) else {
+        return Ok(None);
+    };
+
+    let Some(index) = updates
+        .iter()
+        .position(|(candidate, _)| candidate == &best_candidate)
+    else {
+        return Ok(None);
+    };
+    let (candidate, update) = updates.swap_remove(index);
+
+    Ok(Some(SelectedUpdate {
+        channel: candidate.channel,
+        requested_policy,
+        update,
+    }))
+}
+
 /// Checks for available updates on the specified channel.
 ///
 /// Returns `Some(UpdateMetadata)` if an update is available, or `None`
@@ -196,18 +378,24 @@ pub async fn check_for_update(
         "updater:check channel={channel} proxy={}",
         redact_proxy_for_log(&proxy)
     );
-    let update = build_updater(&app, &channel, &proxy)?
-        .check()
-        .await
-        .map_err(|e| AppError::Updater(e.to_string()))?;
+    let requested_policy = UpdatePolicy::from_input(&channel);
+    let selected = resolve_update(&app, requested_policy, &proxy).await?;
 
-    Ok(match update {
-        Some(u) => {
-            log::info!("updater:check result=found version={}", u.version);
+    Ok(match selected {
+        Some(selected) => {
+            let u = selected.update;
+            log::info!(
+                "updater:check result=found version={} channel={} requested={}",
+                u.version,
+                selected.channel.as_str(),
+                selected.requested_policy.as_str()
+            );
             Some(UpdateMetadata {
                 version: u.version.clone(),
                 body: u.body.clone(),
                 date: u.date.map(|d| d.to_string()),
+                channel: selected.channel.as_str().into(),
+                requested_channel: selected.requested_policy.as_str().into(),
             })
         }
         None => {
@@ -238,13 +426,11 @@ pub async fn download_update(
     let cancel_state = app.state::<Arc<UpdateCancelState>>();
     cancel_state.reset();
 
-    let update = build_updater(&app, &channel, &proxy)?
-        .check()
-        .await
-        .map_err(|e| AppError::Updater(e.to_string()))?;
+    let requested_policy = UpdatePolicy::from_input(&channel);
+    let selected = resolve_update(&app, requested_policy, &proxy).await?;
 
-    let update = match update {
-        Some(u) => u,
+    let selected = match selected {
+        Some(selected) => selected,
         None => {
             log::info!("updater:download result=no-update");
             return Ok(DownloadUpdateResult {
@@ -252,6 +438,7 @@ pub async fn download_update(
             });
         }
     };
+    let update = selected.update;
 
     // ── Download only (aria2c stays alive) ───────────────────────────
     let app_handle = app.clone();
@@ -310,8 +497,10 @@ pub async fn download_update(
         bytes,
     });
     log::info!(
-        "updater:download complete version={} bytes={byte_count}",
-        update.version
+        "updater:download complete version={} channel={} requested={} bytes={byte_count}",
+        update.version,
+        selected.channel.as_str(),
+        selected.requested_policy.as_str()
     );
 
     // Emit download-finished (NOT Finished — that signals post-install)
@@ -347,11 +536,11 @@ pub async fn apply_update(
     // JSON changed between download and install), the already-downloaded
     // bytes remain in shared state and the user can retry without
     // re-downloading.
-    let update = build_updater(&app, &channel, &proxy)?
-        .check()
-        .await
-        .map_err(|e| AppError::Updater(e.to_string()))?
+    let requested_policy = UpdatePolicy::from_input(&channel);
+    let selected = resolve_update(&app, requested_policy, &proxy)
+        .await?
         .ok_or_else(|| AppError::Updater("Update no longer available".into()))?;
+    let update = selected.update;
 
     let dl_state = app.state::<Arc<DownloadedUpdate>>();
     let pkg_guard = dl_state.package.lock().await;
@@ -529,22 +718,77 @@ mod tests {
 
     #[test]
     fn endpoint_for_stable_channel_returns_latest_json() {
-        let url = endpoint_for_channel("stable");
+        let url = endpoint_for_channel(ReleaseChannel::Stable);
         assert!(url.ends_with("/latest.json"));
         assert!(url.starts_with(UPDATER_BASE_URL));
     }
 
     #[test]
     fn endpoint_for_beta_channel_returns_beta_json() {
-        let url = endpoint_for_channel("beta");
+        let url = endpoint_for_channel(ReleaseChannel::Beta);
         assert!(url.ends_with("/beta.json"));
         assert!(url.starts_with(UPDATER_BASE_URL));
     }
 
     #[test]
-    fn endpoint_for_unknown_channel_falls_back_to_latest() {
-        let url = endpoint_for_channel("nightly");
-        assert!(url.ends_with("/latest.json"));
+    fn unknown_policy_falls_back_to_stable() {
+        assert_eq!(UpdatePolicy::from_input("nightly"), UpdatePolicy::Stable);
+    }
+
+    #[test]
+    fn latest_policy_checks_stable_and_beta_channels() {
+        assert_eq!(
+            candidate_channels_for_policy(UpdatePolicy::Latest),
+            vec![ReleaseChannel::Stable, ReleaseChannel::Beta]
+        );
+    }
+
+    #[test]
+    fn stable_and_beta_policies_check_only_their_own_channel() {
+        assert_eq!(
+            candidate_channels_for_policy(UpdatePolicy::Stable),
+            vec![ReleaseChannel::Stable]
+        );
+        assert_eq!(
+            candidate_channels_for_policy(UpdatePolicy::Beta),
+            vec![ReleaseChannel::Beta]
+        );
+    }
+
+    #[test]
+    fn latest_policy_selects_highest_semver_candidate() {
+        let candidates = vec![
+            CandidateVersion::new(ReleaseChannel::Stable, "3.8.7"),
+            CandidateVersion::new(ReleaseChannel::Beta, "3.8.8-beta.1"),
+        ];
+
+        assert_eq!(
+            select_latest_candidate("3.8.6", candidates).map(|candidate| candidate.channel),
+            Some(ReleaseChannel::Beta)
+        );
+    }
+
+    #[test]
+    fn latest_policy_selects_stable_when_stable_is_newer_than_beta() {
+        let candidates = vec![
+            CandidateVersion::new(ReleaseChannel::Stable, "3.8.8"),
+            CandidateVersion::new(ReleaseChannel::Beta, "3.8.8-beta.4"),
+        ];
+
+        assert_eq!(
+            select_latest_candidate("3.8.7", candidates).map(|candidate| candidate.channel),
+            Some(ReleaseChannel::Stable)
+        );
+    }
+
+    #[test]
+    fn latest_policy_ignores_candidates_that_are_not_newer_than_current() {
+        let candidates = vec![
+            CandidateVersion::new(ReleaseChannel::Stable, "3.8.6"),
+            CandidateVersion::new(ReleaseChannel::Beta, "3.8.7-beta.4"),
+        ];
+
+        assert!(select_latest_candidate("3.8.7-beta.4", candidates).is_none());
     }
 
     #[test]
@@ -673,10 +917,10 @@ mod tests {
         );
     }
 
-    /// All three command functions must delegate to `build_updater` rather
-    /// than constructing the updater inline.
+    /// All three command functions must delegate to `resolve_update` rather
+    /// than resolving release channels inline.
     #[test]
-    fn all_commands_use_build_updater() {
+    fn all_commands_use_resolve_update() {
         let source = include_str!("updater.rs");
         let production_end = source.find("#[cfg(test)]").unwrap_or(source.len());
         let production_code = &source[..production_end];
@@ -693,8 +937,8 @@ mod tests {
                 .unwrap_or(production_end);
             let fn_body = &production_code[fn_start..fn_end];
             assert!(
-                fn_body.contains("build_updater"),
-                "{} must call build_updater helper",
+                fn_body.contains("resolve_update"),
+                "{} must call resolve_update helper",
                 cmd
             );
         }

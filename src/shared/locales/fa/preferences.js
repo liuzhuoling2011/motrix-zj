@@ -136,6 +136,7 @@ export default {
   'update-channel': 'کانال به‌روزرسانی',
   'update-channel-stable': 'پایدار',
   'update-channel-beta': 'بتا',
+  'update-channel-latest': 'جدیدترین نسخه در همه کانال‌ها',
   'auto-check-update': 'بررسی خودکار به‌روزرسانی‌ها',
   'last-check-update-time': 'آخرین بررسی',
   'follow-metalink': 'دانلود خودکار محتوای Metalink',

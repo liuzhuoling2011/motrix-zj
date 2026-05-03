@@ -111,6 +111,11 @@ describe('buildGeneralForm', () => {
     expect(userKeys).toContain('auto-check-update-interval')
   })
 
+  it('exposes all supported update channels', async () => {
+    const { UPDATE_CHANNELS } = await import('@shared/constants')
+    expect(UPDATE_CHANNELS).toEqual(['stable', 'beta', 'latest'])
+  })
+
   it('defaults updateChannel to stable', () => {
     const form = buildGeneralForm(emptyConfig)
     expect(form.updateChannel).toBe('stable')
@@ -119,6 +124,11 @@ describe('buildGeneralForm', () => {
   it('reads updateChannel from config', () => {
     const form = buildGeneralForm({ updateChannel: 'beta' } as AppConfig)
     expect(form.updateChannel).toBe('beta')
+  })
+
+  it('reads all-channel latest updateChannel from config', () => {
+    const form = buildGeneralForm({ updateChannel: 'latest' } as AppConfig)
+    expect(form.updateChannel).toBe('latest')
   })
 
   // ── Startup Behavior ────────────────────────────────────────────

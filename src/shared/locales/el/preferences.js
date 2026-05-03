@@ -136,6 +136,7 @@ export default {
   'update-channel': 'Κανάλι ενημέρωσης',
   'update-channel-stable': 'Σταθερό',
   'update-channel-beta': 'Beta',
+  'update-channel-latest': 'Νεότερη έκδοση από όλα τα κανάλια',
   'auto-check-update': 'Αυτόματος έλεγχος ενημερώσεων',
   'last-check-update-time': 'Τελευταίος έλεγχος',
   'follow-metalink': 'Αυτόματη λήψη περιεχομένου Metalink',

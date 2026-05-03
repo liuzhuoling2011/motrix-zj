@@ -136,6 +136,7 @@ export default {
   'update-channel': 'Frissítési csatorna',
   'update-channel-stable': 'Stabil',
   'update-channel-beta': 'Béta',
+  'update-channel-latest': 'Legújabb verzió minden csatornán',
   'auto-check-update': 'Automatikus frissítéskeresés',
   'last-check-update-time': 'Utolsó ellenőrzés',
   'follow-metalink': 'Metalink tartalom automatikus letöltése',

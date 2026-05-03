@@ -12,7 +12,7 @@ import aria2Api from './api/aria2'
 import { ENGINE_RPC_PORT, AUTO_SYNC_TRACKER_INTERVAL, DEFAULT_TRACKER_SOURCE } from '@shared/constants'
 import { convertTrackerDataToLine, convertTrackerDataToComma, reduceTrackerString } from '@shared/utils/tracker'
 import { logger } from '@shared/logger'
-import type { AppConfig } from '@shared/types'
+import type { AppConfig, TauriUpdate } from '@shared/types'
 import App from './App.vue'
 import 'virtual:uno.css'
 import './styles/variables.css'
@@ -83,12 +83,9 @@ window.addEventListener('unhandledrejection', (e) => {
       const proxy = config.proxy
       const proxyServer =
         proxy?.enable && proxy.server && (proxy.scope || []).includes('update-app') ? proxy.server : null
-      const update = await invoke<{ version: string; body: string | null; date: string | null } | null>(
-        'check_for_update',
-        { channel, proxy: proxyServer },
-      )
+      const update = await invoke<TauriUpdate | null>('check_for_update', { channel, proxy: proxyServer })
       if (update) {
-        appStore.pendingUpdate = { version: update.version, body: update.body, date: update.date }
+        appStore.pendingUpdate = update
       }
       preferenceStore.updateAndSave({ lastCheckUpdateTime: Date.now() })
     } catch (e) {

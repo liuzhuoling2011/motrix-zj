@@ -136,6 +136,7 @@ export default {
   'update-channel': 'Canal de actualizare',
   'update-channel-stable': 'Stabil',
   'update-channel-beta': 'Beta',
+  'update-channel-latest': 'Cea mai nouă versiune din toate canalele',
   'auto-check-update': 'Verifică automat actualizările',
   'last-check-update-time': 'Ultima verificare',
   'follow-metalink': 'Descarcă automat conținutul Metalink',

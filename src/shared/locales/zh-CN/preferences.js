@@ -136,6 +136,7 @@ export default {
   'update-channel': '更新通道',
   'update-channel-stable': '正式版',
   'update-channel-beta': '测试版',
+  'update-channel-latest': '全通道最新版',
   'auto-check-update': '自动检查更新',
   'last-check-update-time': '上次检查时间',
   'follow-metalink': '自动下载 Metalink 内容',

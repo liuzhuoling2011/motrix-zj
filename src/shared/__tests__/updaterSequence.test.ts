@@ -36,8 +36,8 @@ describe('updater.rs — apply_update sequence', () => {
     expect(applyUpdateBody.length).toBeGreaterThan(0)
   })
 
-  it('calls .check() before .take() to avoid discarding downloaded bytes', () => {
-    const checkIdx = applyUpdateBody.indexOf('.check()')
+  it('resolves the remote update before .take() to avoid discarding downloaded bytes', () => {
+    const checkIdx = applyUpdateBody.indexOf('resolve_update')
     const takeIdx = applyUpdateBody.indexOf('.take()')
     expect(checkIdx).toBeGreaterThan(0)
     expect(takeIdx).toBeGreaterThan(0)

@@ -42,6 +42,7 @@ import PreferenceActionBar from './PreferenceActionBar.vue'
 import MTooltip from '@/components/common/MTooltip.vue'
 import { CloudDownloadOutline } from '@vicons/ionicons5'
 import UpdateDialog from '@/components/preference/UpdateDialog.vue'
+import type { UpdateChannel } from '@shared/types'
 
 const { t, locale } = useI18n()
 const preferenceStore = usePreferenceStore()
@@ -359,7 +360,7 @@ onMounted(async () => {
           size="small"
           @update:value="
             async (v: string) => {
-              const ok = await preferenceStore.updateAndSave({ updateChannel: v as 'stable' | 'beta' })
+              const ok = await preferenceStore.updateAndSave({ updateChannel: v as UpdateChannel })
               if (ok) {
                 patchSnapshot({ updateChannel: v } as Partial<typeof form.value>)
               }
@@ -368,6 +369,7 @@ onMounted(async () => {
         >
           <NRadioButton value="stable">{{ t('preferences.update-channel-stable') }}</NRadioButton>
           <NRadioButton value="beta">{{ t('preferences.update-channel-beta') }}</NRadioButton>
+          <NRadioButton value="latest">{{ t('preferences.update-channel-latest') }}</NRadioButton>
         </NRadioGroup>
       </NFormItem>
       <NFormItem :label="t('preferences.last-check-update-time')">

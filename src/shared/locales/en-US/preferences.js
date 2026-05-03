@@ -136,6 +136,7 @@ export default {
   'update-channel': 'Update Channel',
   'update-channel-stable': 'Stable',
   'update-channel-beta': 'Beta',
+  'update-channel-latest': 'Latest Across Channels',
   'auto-check-update': 'Check for updates automatically',
   'last-check-update-time': 'Last checked',
   'follow-metalink': 'Auto-download metalink content',

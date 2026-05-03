@@ -85,6 +85,21 @@ describe('startDownload error handling (regression)', () => {
   })
 })
 
+describe('all-channel latest update channel handling', () => {
+  it('stores the resolved release channel before downloading', () => {
+    const start = SOURCE.indexOf('async function open')
+    expect(start).toBeGreaterThanOrEqual(0)
+    const snippet = SOURCE.slice(start, start + 1800)
+    expect(snippet).toContain('update.channel')
+    expect(snippet).toContain('activeChannel.value')
+  })
+
+  it('keeps the requested channel available for the dialog label', () => {
+    expect(SOURCE).toContain('requestedChannel')
+    expect(SOURCE).toContain('displayChannel')
+  })
+})
+
 // ── open function error handling (regression guard) ──────────────────
 
 describe('open function error handling (regression)', () => {

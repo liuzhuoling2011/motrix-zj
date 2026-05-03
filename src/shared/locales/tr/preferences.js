@@ -136,6 +136,7 @@ export default {
   'update-channel': 'Güncelleme Kanalı',
   'update-channel-stable': 'Kararlı',
   'update-channel-beta': 'Beta',
+  'update-channel-latest': 'Tüm kanallardaki en yeni sürüm',
   'auto-check-update': 'Güncellemeleri otomatik kontrol et',
   'last-check-update-time': 'Son kontrol',
   'follow-metalink': 'Metalink içeriğini otomatik indir',

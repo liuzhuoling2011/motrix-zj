@@ -119,6 +119,9 @@ export interface SystemProxyInfo {
   isSocks: boolean
 }
 
+export type UpdateChannel = 'stable' | 'beta' | 'latest'
+export type ResolvedUpdateChannel = Exclude<UpdateChannel, 'latest'>
+
 /** Protocol handler registration settings (system-level). */
 export interface ProtocolsConfig {
   magnet: boolean
@@ -239,7 +242,7 @@ export interface AppConfig {
    *  If enabling this causes a WebKitGTK crash, the Rust gpu_guard module
    *  automatically reverts it to false on the next launch. */
   hardwareRendering: boolean
-  updateChannel: 'stable' | 'beta'
+  updateChannel: UpdateChannel
   runMode: string
   userAgent: string
   rpcListenPort: number
@@ -335,6 +338,8 @@ export interface TauriUpdate {
   version: string
   body: string | null
   date: string | null
+  channel: ResolvedUpdateChannel
+  requestedChannel: UpdateChannel
 }
 
 // ── Batch Add Task ──────────────────────────────────────────────────
