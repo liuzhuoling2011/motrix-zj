@@ -44,6 +44,7 @@ impl PendingFrontendActionState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FrontendActionChannel {
+    #[cfg(target_os = "macos")]
     MenuEvent,
     TrayMenuAction,
 }
@@ -51,6 +52,7 @@ pub enum FrontendActionChannel {
 impl FrontendActionChannel {
     fn event_name(self) -> &'static str {
         match self {
+            #[cfg(target_os = "macos")]
             Self::MenuEvent => "menu-event",
             Self::TrayMenuAction => "tray-menu-action",
         }
@@ -60,22 +62,32 @@ impl FrontendActionChannel {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FrontendActionKind {
+    #[cfg(target_os = "macos")]
     About,
     NewTask,
+    #[cfg(target_os = "macos")]
     OpenTorrent,
+    #[cfg(target_os = "macos")]
     Preferences,
+    #[cfg(target_os = "macos")]
     ReleaseNotes,
+    #[cfg(target_os = "macos")]
     ReportIssue,
 }
 
 impl FrontendActionKind {
     fn as_str(self) -> &'static str {
         match self {
+            #[cfg(target_os = "macos")]
             Self::About => "about",
             Self::NewTask => "new-task",
+            #[cfg(target_os = "macos")]
             Self::OpenTorrent => "open-torrent",
+            #[cfg(target_os = "macos")]
             Self::Preferences => "preferences",
+            #[cfg(target_os = "macos")]
             Self::ReleaseNotes => "release-notes",
+            #[cfg(target_os = "macos")]
             Self::ReportIssue => "report-issue",
         }
     }
@@ -94,6 +106,7 @@ impl PendingFrontendAction {
     }
 }
 
+#[cfg(target_os = "macos")]
 pub fn menu_action_from_id(id: &str) -> Option<FrontendActionKind> {
     match id {
         "about" => Some(FrontendActionKind::About),
@@ -223,9 +236,12 @@ fn wake_main_window(app: &AppHandle, source: &'static str) {
 #[cfg(test)]
 mod tests {
     use super::{
-        menu_action_from_id, take_pending_frontend_actions, FrontendActionChannel,
-        FrontendActionKind, PendingFrontendAction, PendingFrontendActionState,
+        take_pending_frontend_actions, FrontendActionChannel, FrontendActionKind,
+        PendingFrontendAction, PendingFrontendActionState,
     };
+
+    #[cfg(target_os = "macos")]
+    use super::menu_action_from_id;
 
     #[test]
     fn take_pending_frontend_actions_drains_queue_once() {
@@ -273,6 +289,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn maps_supported_native_menu_ids() {
         assert_eq!(
             menu_action_from_id("new-task"),

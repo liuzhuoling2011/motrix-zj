@@ -183,6 +183,25 @@ describe('lib.rs — native menu actions queue across WebView recreation', () =>
   })
 })
 
+describe('frontend_action.rs — macOS native menu symbols stay cfg-gated', () => {
+  let source: string
+
+  beforeAll(() => {
+    const frontendActionPath = path.join(PROJECT_ROOT, 'src-tauri', 'src', 'services', 'frontend_action.rs')
+    source = fs.readFileSync(frontendActionPath, 'utf-8')
+  })
+
+  it('gates native menu-only channels and actions to macOS', () => {
+    expect(source).toMatch(/#\[cfg\(target_os = "macos"\)\]\s+MenuEvent/)
+    expect(source).toMatch(/#\[cfg\(target_os = "macos"\)\]\s+About/)
+    expect(source).toMatch(/#\[cfg\(target_os = "macos"\)\]\s+OpenTorrent/)
+    expect(source).toMatch(/#\[cfg\(target_os = "macos"\)\]\s+Preferences/)
+    expect(source).toMatch(/#\[cfg\(target_os = "macos"\)\]\s+ReleaseNotes/)
+    expect(source).toMatch(/#\[cfg\(target_os = "macos"\)\]\s+ReportIssue/)
+    expect(source).toMatch(/#\[cfg\(target_os = "macos"\)\]\s+pub fn menu_action_from_id/)
+  })
+})
+
 // ═══════════════════════════════════════════════════════════════════
 // Group 5: Rust — macOS deep-link queues before window wake
 // ═══════════════════════════════════════════════════════════════════
