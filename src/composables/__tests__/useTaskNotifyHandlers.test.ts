@@ -9,14 +9,13 @@
  * Tests written BEFORE implementation per TDD Iron Law.
  *
  * Key behaviors under test:
- *   1. onComplete handler always sends in-app toast; OS notification gated.
- *   2. onBtComplete handler always sends in-app toast; OS notification gated.
- *   3. onError handler: OS notification gated by taskNotification.
- *   4. taskNotification=false skips OS notification but NOT toast.
- *   5. Metadata tasks are excluded from completion notifications.
- *   6. When action callbacks are provided, toast contains a render function.
- *   7. When action callbacks are absent, toast falls back to plain string.
- *   8. handleTaskStart sends aggregated toast + OS notification.
+ *   1. onComplete handler always sends in-app toast; Rust sends native OS notification.
+ *   2. onBtComplete handler always sends in-app toast; Rust sends native OS notification.
+ *   3. onError handler logs the frontend toast path; Rust sends native OS notification.
+ *   4. Metadata tasks are excluded from completion notifications.
+ *   5. When action callbacks are provided, toast contains a render function.
+ *   6. When action callbacks are absent, toast falls back to plain string.
+ *   7. handleTaskStart sends aggregated toast + OS notification.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Aria2Task } from '@shared/types'
@@ -83,7 +82,6 @@ import type { NotifyDeps, StartNotifyDeps } from '../useTaskNotifyHandlers'
 function makeDeps(overrides: Partial<NotifyDeps> = {}): NotifyDeps {
   return {
     messageSuccess: vi.fn() as unknown as NotifyDeps['messageSuccess'],
-    messageError: vi.fn() as unknown as NotifyDeps['messageError'],
     t: vi.fn((key: string, params?: Record<string, unknown>) => {
       if (key === 'task.download-complete-message' && params?.taskName) {
         return `${params.taskName} completed`
@@ -94,8 +92,6 @@ function makeDeps(overrides: Partial<NotifyDeps> = {}): NotifyDeps {
       if (key === 'task.error-unknown') return 'Unknown error'
       return key
     }) as unknown as NotifyDeps['t'],
-    taskNotification: true,
-    notifyOnComplete: true,
     ...overrides,
   }
 }
@@ -118,36 +114,6 @@ describe('handleTaskComplete', () => {
     expect(deps.messageSuccess).toHaveBeenCalledWith('test-file.zip completed')
   })
 
-  it('sends OS notification with task display name', () => {
-    const deps = makeDeps()
-    const task = makeTask()
-
-    handleTaskComplete(task, deps)
-
-    expect(mockNotifyOs).toHaveBeenCalledOnce()
-    expect(mockNotifyOs).toHaveBeenCalledWith('MotrixNext', 'test-file.zip completed')
-  })
-
-  it('sends toast but skips OS notification when taskNotification is false', () => {
-    const deps = makeDeps({ taskNotification: false })
-    const task = makeTask()
-
-    handleTaskComplete(task, deps)
-
-    expect(deps.messageSuccess).toHaveBeenCalledOnce()
-    expect(mockNotifyOs).not.toHaveBeenCalled()
-  })
-
-  it('sends toast but skips OS notification when notifyOnComplete is false', () => {
-    const deps = makeDeps({ notifyOnComplete: false })
-    const task = makeTask()
-
-    handleTaskComplete(task, deps)
-
-    expect(deps.messageSuccess).toHaveBeenCalledOnce()
-    expect(mockNotifyOs).not.toHaveBeenCalled()
-  })
-
   it('skips metadata-only tasks (followedBy present)', () => {
     const deps = makeDeps()
     const task = makeTask({ followedBy: ['follow-gid'] })
@@ -155,7 +121,6 @@ describe('handleTaskComplete', () => {
     handleTaskComplete(task, deps)
 
     expect(deps.messageSuccess).not.toHaveBeenCalled()
-    expect(mockNotifyOs).not.toHaveBeenCalled()
   })
 
   it('uses bittorrent info name as display name when available', () => {
@@ -165,7 +130,6 @@ describe('handleTaskComplete', () => {
     handleTaskComplete(task, deps)
 
     expect(deps.messageSuccess).toHaveBeenCalledWith('Ubuntu 24.04 completed')
-    expect(mockNotifyOs).toHaveBeenCalledWith('MotrixNext', 'Ubuntu 24.04 completed')
   })
 
   it('sends render function when onOpenFile callback is provided', () => {
@@ -178,8 +142,6 @@ describe('handleTaskComplete', () => {
     expect(deps.messageSuccess).toHaveBeenCalledOnce()
     const arg = (deps.messageSuccess as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(typeof arg).toBe('function')
-    // OS notification still uses plain string
-    expect(mockNotifyOs).toHaveBeenCalledWith('MotrixNext', 'test-file.zip completed')
   })
 
   it('sends render function when onShowInFolder callback is provided', () => {
@@ -225,36 +187,6 @@ describe('handleBtComplete', () => {
     expect(deps.messageSuccess).toHaveBeenCalledWith('Big Archive — download complete, seeding...')
   })
 
-  it('sends OS notification with task display name', () => {
-    const deps = makeDeps()
-    const task = makeTask({ bittorrent: { info: { name: 'Big Archive' } } })
-
-    handleBtComplete(task, deps)
-
-    expect(mockNotifyOs).toHaveBeenCalledOnce()
-    expect(mockNotifyOs).toHaveBeenCalledWith('MotrixNext', 'Big Archive — download complete, seeding...')
-  })
-
-  it('sends toast but skips OS notification when taskNotification is false', () => {
-    const deps = makeDeps({ taskNotification: false })
-    const task = makeTask()
-
-    handleBtComplete(task, deps)
-
-    expect(deps.messageSuccess).toHaveBeenCalledOnce()
-    expect(mockNotifyOs).not.toHaveBeenCalled()
-  })
-
-  it('sends toast but skips OS notification when notifyOnComplete is false', () => {
-    const deps = makeDeps({ notifyOnComplete: false })
-    const task = makeTask()
-
-    handleBtComplete(task, deps)
-
-    expect(deps.messageSuccess).toHaveBeenCalledOnce()
-    expect(mockNotifyOs).not.toHaveBeenCalled()
-  })
-
   it('sends render function when action callbacks are provided', () => {
     const onOpenFile = vi.fn()
     const onShowInFolder = vi.fn()
@@ -266,8 +198,6 @@ describe('handleBtComplete', () => {
     expect(deps.messageSuccess).toHaveBeenCalledOnce()
     const arg = (deps.messageSuccess as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(typeof arg).toBe('function')
-    // OS notification still uses plain string
-    expect(mockNotifyOs).toHaveBeenCalledWith('MotrixNext', 'Big Archive — download complete, seeding...')
   })
 })
 
@@ -278,25 +208,14 @@ describe('handleTaskError', () => {
     vi.clearAllMocks()
   })
 
-  it('sends OS notification with error text', () => {
-    const deps = makeDeps()
+  it('logs error notification path without sending frontend OS notification', () => {
     const task = makeTask({
       status: 'error',
       errorCode: '6',
       errorMessage: 'Network problem',
     })
 
-    handleTaskError(task, 'test-file.zip: Network problem', deps)
-
-    expect(mockNotifyOs).toHaveBeenCalledOnce()
-    expect(mockNotifyOs).toHaveBeenCalledWith('MotrixNext', 'test-file.zip: Network problem')
-  })
-
-  it('skips OS notification when taskNotification is false', () => {
-    const deps = makeDeps({ taskNotification: false })
-    const task = makeTask({ status: 'error', errorCode: '3' })
-
-    handleTaskError(task, 'file: error', deps)
+    handleTaskError(task, 'test-file.zip: Network problem')
 
     expect(mockNotifyOs).not.toHaveBeenCalled()
   })

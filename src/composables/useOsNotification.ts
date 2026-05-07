@@ -13,7 +13,7 @@
  * to prevent notification failures from disrupting core download functionality.
  */
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
-import { logger } from '@shared/logger'
+import { formatLogFields, logger } from '@shared/logger'
 
 /**
  * Send an OS-level notification if permission is granted.
@@ -22,16 +22,23 @@ import { logger } from '@shared/logger'
  * a notification daemon, or dev-mode webview context issues).
  */
 export async function notifyOs(title: string, body: string): Promise<void> {
+  let stage: 'permission-check' | 'permission-request' | 'send' = 'permission-check'
   try {
     let granted = await isPermissionGranted()
     if (!granted) {
+      stage = 'permission-request'
       const permission = await requestPermission()
       granted = permission === 'granted'
     }
     if (granted) {
+      stage = 'send'
       sendNotification({ title, body })
+      logger.info('notifyOs', formatLogFields({ stage, title }))
+    } else {
+      logger.debug('notifyOs', formatLogFields({ stage, result: 'permission-denied', title }))
     }
   } catch (e) {
-    logger.debug('notifyOs failed', e)
+    const message = e instanceof Error ? e.message : String(e)
+    logger.debug('notifyOs', formatLogFields({ stage, result: 'failed', title, error: message }))
   }
 }

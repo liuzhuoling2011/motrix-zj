@@ -23,10 +23,15 @@ vi.mock('@tauri-apps/plugin-notification', () => ({
 
 // ── Mock @shared/logger ─────────────────────────────────────────────
 vi.mock('@shared/logger', () => ({
-  logger: { debug: vi.fn() },
+  formatLogFields: (fields: Record<string, unknown>) =>
+    Object.entries(fields)
+      .map(([key, value]) => `${key}=${String(value)}`)
+      .join(' '),
+  logger: { debug: vi.fn(), info: vi.fn() },
 }))
 
 import { notifyOs } from '../useOsNotification'
+import { logger } from '@shared/logger'
 
 describe('notifyOs', () => {
   beforeEach(() => {
@@ -69,6 +74,7 @@ describe('notifyOs', () => {
 
     expect(mockRequestPermission).toHaveBeenCalledOnce()
     expect(mockSendNotification).not.toHaveBeenCalled()
+    expect(logger.debug).toHaveBeenCalledWith('notifyOs', expect.stringContaining('result=permission-denied'))
   })
 
   it('silently catches errors without throwing', async () => {
@@ -78,6 +84,8 @@ describe('notifyOs', () => {
     await expect(notifyOs('MotrixNext', 'body')).resolves.toBeUndefined()
 
     expect(mockSendNotification).not.toHaveBeenCalled()
+    expect(logger.debug).toHaveBeenCalledWith('notifyOs', expect.stringContaining('stage=permission-check'))
+    expect(logger.debug).toHaveBeenCalledWith('notifyOs', expect.stringContaining('result=failed'))
   })
 
   it('catches sendNotification errors without throwing', async () => {
@@ -87,6 +95,8 @@ describe('notifyOs', () => {
     })
 
     await expect(notifyOs('MotrixNext', 'body')).resolves.toBeUndefined()
+    expect(logger.debug).toHaveBeenCalledWith('notifyOs', expect.stringContaining('stage=send'))
+    expect(logger.debug).toHaveBeenCalledWith('notifyOs', expect.stringContaining('notification daemon crashed'))
   })
 
   it('passes title and body verbatim without truncation', async () => {

@@ -7,11 +7,14 @@
 //! ensuring task completion data survives even when the WebView is
 //! destroyed in lightweight mode (issue #194).
 //!
-//! Also emits Tauri events to the frontend for notification display
-//! when the WebView is available.
+//! Sends native system notifications from Rust so lightweight mode still
+//! notifies when the WebView is destroyed. Also emits Tauri events to the
+//! frontend when it is available so the UI can show in-app toasts and run
+//! file actions.
 //!
 //! Port of the frontend `createTaskLifecycleService`.
 
+use super::notification::send_task_notification;
 use crate::aria2::types::Aria2Task;
 use crate::history::HistoryDbState;
 use std::collections::HashSet;
@@ -458,7 +461,6 @@ async fn monitor_loop(
             .iter()
             .any(|(n, _)| n == events::TASK_COMPLETE || n == events::BT_COMPLETE);
 
-        // Gate on user preference — skip notification events when disabled
         if !events.is_empty() {
             // ── Rust-side history persistence (lightweight mode safety) ──
             // Write completion/error records directly to the DB so they
@@ -508,7 +510,24 @@ async fn monitor_loop(
                 }
             }
 
+            let runtime_config = match app.try_state::<super::config::RuntimeConfigState>() {
+                Some(state) => state.snapshot().await,
+                None => {
+                    log::warn!("notification:runtime-config-unavailable fallback=defaults");
+                    super::config::RuntimeConfig::default()
+                }
+            };
+
             for (event_name, payload) in events {
+                let webview_alive = app.get_webview_window("main").is_some();
+                log::info!(
+                    "task_monitor:event type={} gid={} name={:?} webview_alive={}",
+                    event_name,
+                    payload.gid,
+                    payload.name,
+                    webview_alive
+                );
+                send_task_notification(&app, &event_name, &payload, &runtime_config);
                 if let Err(e) = app.emit(&event_name, &payload) {
                     log::warn!("task_monitor: failed to emit {event_name}: {e}");
                 }

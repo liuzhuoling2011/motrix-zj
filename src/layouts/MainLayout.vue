@@ -672,13 +672,7 @@ onMounted(async () => {
       const taskName = getTaskDisplayName(task, { defaultName: 'Unknown' })
       const errorText = i18nKey ? t(i18nKey) : task.errorMessage || t('task.error-unknown')
       message.error(`${taskName}: ${errorText}`)
-      handleTaskError(task, `${taskName}: ${errorText}`, {
-        messageSuccess: message.success,
-        messageError: message.error,
-        t,
-        taskNotification: preferenceStore.config?.taskNotification !== false,
-        notifyOnComplete: preferenceStore.config?.notifyOnComplete !== false,
-      })
+      handleTaskError(task, `${taskName}: ${errorText}`)
     },
     onTaskComplete: async (task) => {
       if (isMetadataTask(task)) return
@@ -691,10 +685,7 @@ onMounted(async () => {
       historyStore.addRecord(record).catch((e) => logger.debug('Lifecycle.historyRecord', e))
       handleTaskComplete(task, {
         messageSuccess: message.success,
-        messageError: message.error,
         t,
-        taskNotification: preferenceStore.config?.taskNotification !== false,
-        notifyOnComplete: preferenceStore.config?.notifyOnComplete !== false,
         onOpenFile: openFileFromNotification,
         onShowInFolder: showInFolderFromNotification,
       })
@@ -768,10 +759,7 @@ onMounted(async () => {
       }
       handleBtComplete(task, {
         messageSuccess: message.success,
-        messageError: message.error,
         t,
-        taskNotification: preferenceStore.config?.taskNotification !== false,
-        notifyOnComplete: preferenceStore.config?.notifyOnComplete !== false,
         onOpenFile: openFileFromNotification,
         onShowInFolder: showInFolderFromNotification,
       })

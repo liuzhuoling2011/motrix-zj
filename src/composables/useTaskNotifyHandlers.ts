@@ -7,8 +7,8 @@
  *
  * **Notification architecture:**
  * - In-app toast (Naive UI message) — always fires for immediate feedback.
- * - OS-level notification (tauri-plugin-notification) — gated by the
- *   user's `taskNotification` preference.
+ * - OS-level completion/error notification is sent by Rust's task monitor so
+ *   lightweight mode works after the WebView is destroyed.
  *
  * When `onOpenFile` / `onShowInFolder` callbacks are provided in deps,
  * the in-app toast renders inline action buttons so the user can open
@@ -26,11 +26,7 @@ import { renderCompletionToast } from '@/composables/useNotificationToast'
 /** Dependency interface for testability. */
 export interface NotifyDeps {
   messageSuccess: (content: string | (() => VNodeChild)) => void
-  messageError: (content: string, options?: Record<string, unknown>) => void
   t: (key: string, params?: Record<string, unknown>) => string
-  taskNotification: boolean
-  /** Fine-grained: OS notification on download complete / BT seeding. */
-  notifyOnComplete: boolean
   /** Optional: open the downloaded file with the default application. */
   onOpenFile?: (task: Aria2Task) => void
   /** Optional: reveal the downloaded file in the system file manager. */
@@ -39,7 +35,7 @@ export interface NotifyDeps {
 
 /**
  * Handle a completed HTTP/FTP download.
- * Always sends in-app toast; OS notification gated by `taskNotification` + `notifyOnComplete`.
+ * Always sends in-app toast. Native OS notification is sent by Rust monitor.
  *
  * When action callbacks are provided, the toast includes inline buttons
  * for "Open File" and "Show in Folder".
@@ -57,15 +53,12 @@ export function handleTaskComplete(task: Aria2Task, deps: NotifyDeps): void {
     onShowInFolder: deps.onShowInFolder ? () => deps.onShowInFolder!(task) : undefined,
   })
   deps.messageSuccess(toastContent)
-  if (deps.taskNotification && deps.notifyOnComplete) {
-    notifyOs('MotrixNext', body)
-  }
   logger.info('TaskNotify.complete', `gid=${task.gid} name="${taskName}"`)
 }
 
 /**
  * Handle a BT download entering seeding state (download phase complete).
- * Always sends in-app toast; OS notification gated by `taskNotification` + `notifyOnComplete`.
+ * Always sends in-app toast. Native OS notification is sent by Rust monitor.
  *
  * When action callbacks are provided, the toast includes inline buttons
  * for "Open File" and "Show in Folder".
@@ -81,21 +74,14 @@ export function handleBtComplete(task: Aria2Task, deps: NotifyDeps): void {
     onShowInFolder: deps.onShowInFolder ? () => deps.onShowInFolder!(task) : undefined,
   })
   deps.messageSuccess(toastContent)
-  if (deps.taskNotification && deps.notifyOnComplete) {
-    notifyOs('MotrixNext', body)
-  }
   logger.info('TaskNotify.btComplete', `gid=${task.gid} name="${taskName}" → seeding`)
 }
 
 /**
- * Handle a download error — send OS notification for the error text.
- * The in-app error toast is already handled by the caller in MainLayout.
- * OS notification gated by `taskNotification`.
+ * Handle a download error. The in-app error toast is already handled by the
+ * caller in MainLayout, and native OS notification is sent by Rust monitor.
  */
-export function handleTaskError(_task: Aria2Task, errorText: string, deps: NotifyDeps): void {
-  if (deps.taskNotification) {
-    notifyOs('MotrixNext', errorText)
-  }
+export function handleTaskError(_task: Aria2Task, errorText: string): void {
   logger.warn('TaskNotify.error', `gid=${_task.gid} error="${errorText}"`)
 }
 

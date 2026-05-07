@@ -17,6 +17,8 @@ pub mod deep_link;
 pub mod frontend_action;
 pub mod http_api;
 pub mod monitor;
+pub mod notification;
+pub mod notification_i18n;
 pub mod speed;
 pub mod stat;
 

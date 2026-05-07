@@ -368,6 +368,16 @@ describe('monitor.rs — Rust-side history DB persistence', () => {
   it('TaskEvent carries announce_list for magnet reconstruction', () => {
     expect(source).toContain('pub announce_list: Vec<Vec<String>>')
   })
+
+  it('sends native notifications from Rust monitor before frontend emit', () => {
+    expect(source).toContain('send_task_notification')
+    expect(source.indexOf('send_task_notification')).toBeLessThan(source.indexOf('app.emit(&event_name'))
+  })
+
+  it('logs lifecycle notification diagnostics with WebView availability', () => {
+    expect(source).toContain('task_monitor:event')
+    expect(source).toContain('webview_alive')
+  })
 })
 
 // ═══════════════════════════════════════════════════════════════════
