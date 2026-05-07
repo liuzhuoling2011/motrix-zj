@@ -36,14 +36,55 @@ const mockMessageSuccess = vi.fn(() => ({ destroy: vi.fn() }))
 const mockMessageWarning = vi.fn(() => ({ destroy: vi.fn() }))
 const mockMessageError = vi.fn(() => ({ destroy: vi.fn() }))
 
+function renderDialogText(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (typeof value !== 'function') return ''
+  const parts: string[] = []
+  const walk = (node: unknown) => {
+    if (typeof node === 'string') {
+      parts.push(node)
+      return
+    }
+    if (!node || typeof node !== 'object') return
+    const children = (node as { children?: unknown }).children
+    if (Array.isArray(children)) {
+      children.forEach(walk)
+      return
+    }
+    if (typeof children === 'string') {
+      parts.push(children)
+      return
+    }
+    if (children && typeof children === 'object') {
+      const defaultSlot = (children as { default?: () => unknown }).default
+      if (typeof defaultSlot === 'function') walk(defaultSlot())
+    }
+  }
+  walk(value())
+  return parts.join(' ')
+}
+
 // ── Module mocks ────────────────────────────────────────────────────
 
 vi.mock('@/api/aria2', () => ({
   isEngineReady: () => mockIsEngineReady(),
 }))
 
+function translateForTest(key: string, params?: Record<string, unknown>): string {
+  const messages: Record<string, string> = {
+    'task.delete-all-task': 'Clear Download Queue',
+    'task.delete-task-queue': 'Clear Download Queue',
+    'task.batch-delete-task-confirm': `This will remove ${params?.count ?? '{count}'} downloading, waiting, or paused task(s).`,
+    'task.delete-queue-files-label': 'Also delete downloaded files',
+    'task.purge-record': 'Clear History Records',
+    'task.purge-record-confirm': 'This will clear all completed, failed, or removed task records.',
+    'task.purge-record-files-label': 'Also delete local files',
+  }
+  return messages[key] ?? key
+}
+
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({ t: translateForTest }),
 }))
 
 vi.mock('naive-ui', () => ({
@@ -53,7 +94,7 @@ vi.mock('naive-ui', () => ({
   },
   NIcon: { template: '<span :class="$attrs.class"><slot /></span>' },
   NTooltip: { template: '<span><slot /><slot name="trigger" /></span>' },
-  NCheckbox: { template: '<label><slot /></label>' },
+  NCheckbox: { template: '<label><slot /></label>', props: ['checked'] },
   NPopover: {
     template: '<div><slot name="trigger" /></div>',
     props: ['show', 'trigger', 'placement', 'showArrow', 'raw'],
@@ -459,6 +500,11 @@ describe('TaskActions', () => {
       const wrapper = createWrapper()
 
       await clickButton(wrapper, 3) // Purge
+      expect(lastDialogOptions?.title).toBe('Clear History Records')
+      expect(renderDialogText(lastDialogOptions?.content)).toContain(
+        'This will clear all completed, failed, or removed task records.',
+      )
+      expect(renderDialogText(lastDialogOptions?.content)).toContain('Also delete local files')
       const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
       // onPositiveClick has internal setTimeout(50) — must advance timer
       const promise = onPositiveClick()
@@ -487,6 +533,11 @@ describe('TaskActions', () => {
       await clickButton(wrapper, 6) // Delete All
 
       expect(mockDialogWarning).toHaveBeenCalledOnce()
+      expect(lastDialogOptions?.title).toBe('Clear Download Queue')
+      expect(renderDialogText(lastDialogOptions?.content)).toContain(
+        'This will remove 2 downloading, waiting, or paused task(s).',
+      )
+      expect(renderDialogText(lastDialogOptions?.content)).toContain('Also delete downloaded files')
     })
 
     it('calls batchRemoveTask with all gids on confirmation', async () => {

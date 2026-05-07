@@ -130,7 +130,7 @@ const liveGids = computed(() =>
   taskStore.taskList.filter((t: { status: string }) => LIVE_STATUSES.has(t.status)).map((t: { gid: string }) => t.gid),
 )
 
-/** Delete All disabled state: in 'all' view, check live tasks; otherwise check all tasks */
+/** Queue clear disabled state: in 'all' view, check live tasks; otherwise check all tasks */
 const deleteAllDisabled = computed(() =>
   currentList.value === 'all' ? liveGids.value.length === 0 : allGids.value.length === 0,
 )
@@ -152,13 +152,13 @@ function onRefresh() {
 }
 
 function onDeleteAll() {
-  // In 'all' view: only delete live (aria2-managed) tasks, not DB-only history items
+  // In 'all' view, clear only live aria2 tasks, not DB-only history items.
   const targetGids = currentList.value === 'all' ? [...liveGids.value] : [...allGids.value]
   if (targetGids.length === 0) return
   const gids = targetGids
   const deleteFiles = ref(false)
   const d = dialog.warning({
-    title: t('task.delete-task'),
+    title: t('task.delete-task-queue'),
     content: () =>
       h('div', {}, [
         h('p', { style: 'margin: 0 0 12px;' }, t('task.batch-delete-task-confirm', { count: gids.length })),
@@ -170,7 +170,7 @@ function onDeleteAll() {
               deleteFiles.value = v
             },
           },
-          { default: () => t('task.delete-task-label') },
+          { default: () => t('task.delete-queue-files-label') },
         ),
       ]),
     positiveText: t('app.yes'),
@@ -341,7 +341,7 @@ function purgeRecord() {
               deleteFiles.value = v
             },
           },
-          { default: () => t('task.delete-task-label') },
+          { default: () => t('task.purge-record-files-label') },
         ),
       ]),
     positiveText: t('app.yes'),
