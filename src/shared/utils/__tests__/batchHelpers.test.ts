@@ -413,6 +413,18 @@ describe('sanitizeAria2OutHint', () => {
     expect(sanitizeAria2OutHint('=%3FUTF-8%3FB%3F0JjQotCe0JPQmCDQm9CU0KMgMjAyNi54bHN4%3F=')).toBe('ИТОГИ ЛДУ 2026.xlsx')
   })
 
+  it('decodes legacy percent-encoded UTF-8 filenames before filesystem sanitization', () => {
+    expect(
+      sanitizeAria2OutHint(
+        'K430006866701%20%20%20%20%2020251022%20%20%20ASKO%20%20%20%20CW5937GCN%20%20%20%20%20CW51237GCN%E8%AF%B4%E6%98%8E%E4%B9%A6%28%E6%96%B0%E5%9B%BD%E6%A0%87%29.pdf',
+      ),
+    ).toBe('K430006866701     20251022   ASKO    CW5937GCN     CW51237GCN说明书(新国标).pdf')
+  })
+
+  it('keeps percent-decoded slashes inside a single safe filename', () => {
+    expect(sanitizeAria2OutHint('safe%2Fevil.pdf')).toBe('safe_evil.pdf')
+  })
+
   it('removes control characters', () => {
     expect(sanitizeAria2OutHint('\x01\x02file.jpg')).toBe('file.jpg')
   })

@@ -265,18 +265,18 @@ function looksLikeRfc2047EncodedWord(value: string): boolean {
 
 function decodeFilenameEncoding(raw: string): string {
   const trimmed = raw.trim()
-  const candidates = [trimmed]
+  const decodedCandidates = [trimmed]
 
   if (trimmed.includes('%')) {
     try {
       const decoded = decodeURIComponent(trimmed)
-      if (decoded !== trimmed) candidates.push(decoded)
+      if (decoded !== trimmed) decodedCandidates.push(decoded)
     } catch {
       // Malformed percent sequences are treated as literal filename text.
     }
   }
 
-  for (const candidate of candidates) {
+  for (const candidate of decodedCandidates) {
     if (!looksLikeRfc2047EncodedWord(candidate)) continue
     try {
       const decoded = decodeMimeWords(candidate)
@@ -286,7 +286,8 @@ function decodeFilenameEncoding(raw: string): string {
     }
   }
 
-  return trimmed
+  const percentDecoded = decodedCandidates[1]?.trim()
+  return percentDecoded || trimmed
 }
 
 /**
@@ -308,7 +309,8 @@ export function sanitizeAria2OutHint(raw: string): string {
   if (!raw) return ''
 
   // 1. Basename — strip path prefixes
-  let name = decodeFilenameEncoding(raw).replace(/^.*[/\\]/, '')
+  const basename = raw.trim().replace(/^.*[/\\]/, '')
+  let name = decodeFilenameEncoding(basename)
 
   // 2. Strip URL query/fragment pollution without treating every '?' as a URL boundary.
   name = stripUrlSuffixPollution(name)

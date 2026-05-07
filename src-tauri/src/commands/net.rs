@@ -262,13 +262,46 @@ pub(crate) fn has_extension(name: &str) -> bool {
 ///
 /// `filename*` takes precedence over `filename` when both are present.
 pub(crate) fn parse_cd_filename(header: &str) -> Option<String> {
+    if let Some(filename_star) = extract_content_disposition_param(header, "filename*") {
+        if let Some(decoded) = decode_rfc5987_filename_value(&filename_star) {
+            return normalize_content_disposition_filename(
+                &decoded,
+                FilenameEncodingSource::Extended,
+            );
+        }
+    }
+
     let parsed = content_disposition::parse_content_disposition(header);
     let candidate = select_content_disposition_filename(&parsed)?;
-    normalize_content_disposition_filename(&candidate)
+    normalize_content_disposition_filename(&candidate.value, candidate.source)
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum FilenameEncodingSource {
+    Legacy,
+    Extended,
 }
 
 pub(crate) fn decode_filename_encoding(filename: &str) -> String {
+    decode_filename_encoding_for_source(filename, FilenameEncodingSource::Legacy)
+}
+
+fn decode_filename_encoding_for_source(
+    filename: &str,
+    source: FilenameEncodingSource,
+) -> String {
     let trimmed = filename.trim();
+
+    if matches!(source, FilenameEncodingSource::Extended) {
+        if looks_like_rfc2047_encoded_word(trimmed) {
+            let decoded = decode_rfc2047_filename(trimmed.to_string());
+            if decoded != trimmed && !decoded.trim().is_empty() {
+                return decoded.trim().to_string();
+            }
+        }
+        return trimmed.to_string();
+    }
+
     let percent_decoded = urlencoding::decode(trimmed)
         .ok()
         .map(|value| value.to_string());
@@ -278,20 +311,29 @@ pub(crate) fn decode_filename_encoding(filename: &str) -> String {
         candidates.push(decoded);
     }
 
-    for candidate in candidates {
+    for candidate in &candidates {
         if looks_like_rfc2047_encoded_word(&candidate) {
             let decoded = decode_rfc2047_filename(candidate.clone());
-            if decoded != candidate && !decoded.trim().is_empty() {
+            if decoded != *candidate && !decoded.trim().is_empty() {
                 return decoded.trim().to_string();
             }
+        }
+    }
+
+    if matches!(source, FilenameEncodingSource::Legacy) {
+        if let Some(decoded) = candidates.get(1).filter(|decoded| !decoded.trim().is_empty()) {
+            return decoded.trim().to_string();
         }
     }
 
     trimmed.to_string()
 }
 
-fn normalize_content_disposition_filename(filename: &str) -> Option<String> {
-    let decoded = decode_filename_encoding(filename);
+fn normalize_content_disposition_filename(
+    filename: &str,
+    source: FilenameEncodingSource,
+) -> Option<String> {
+    let decoded = decode_filename_encoding_for_source(filename, source);
     validate_content_disposition_filename(&decoded)
 }
 
@@ -325,19 +367,97 @@ fn looks_like_corrupt_question_mark_filename(value: &str) -> bool {
     question_marks * 3 >= visible
 }
 
+struct ContentDispositionFilename {
+    value: String,
+    source: FilenameEncodingSource,
+}
+
 fn select_content_disposition_filename(
     parsed: &content_disposition::ParsedContentDisposition,
-) -> Option<String> {
-    if let Some(filename_star) = parsed.params.get("filename*") {
-        let star_only = content_disposition::parse_content_disposition(&format!(
-            "attachment; filename*={filename_star}"
-        ));
-        if let Some(decoded) = star_only.filename_full().filter(|name| !name.is_empty()) {
-            return Some(decoded);
+) -> Option<ContentDispositionFilename> {
+    parsed
+        .filename_full()
+        .filter(|name| !name.is_empty())
+        .map(|value| ContentDispositionFilename {
+            value,
+            source: FilenameEncodingSource::Legacy,
+        })
+}
+
+fn extract_content_disposition_param(header: &str, wanted_name: &str) -> Option<String> {
+    let mut in_quote = false;
+    let mut escaped = false;
+    let mut segment_start = 0;
+
+    for (index, ch) in header.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match ch {
+            '\\' if in_quote => escaped = true,
+            '"' => in_quote = !in_quote,
+            ';' if !in_quote => {
+                if let Some(value) =
+                    extract_param_from_segment(&header[segment_start..index], wanted_name)
+                {
+                    return Some(value);
+                }
+                segment_start = index + ch.len_utf8();
+            }
+            _ => {}
         }
     }
 
-    parsed.filename_full().filter(|name| !name.is_empty())
+    extract_param_from_segment(&header[segment_start..], wanted_name)
+}
+
+fn extract_param_from_segment(segment: &str, wanted_name: &str) -> Option<String> {
+    let (name, value) = segment.split_once('=')?;
+    if !name.trim().eq_ignore_ascii_case(wanted_name) {
+        return None;
+    }
+    Some(unquote_header_param_value(value.trim()))
+}
+
+fn unquote_header_param_value(value: &str) -> String {
+    let Some(inner) = value.strip_prefix('"').and_then(|v| v.strip_suffix('"')) else {
+        return value.to_string();
+    };
+
+    let mut result = String::with_capacity(inner.len());
+    let mut escaped = false;
+    for ch in inner.chars() {
+        if escaped {
+            result.push(ch);
+            escaped = false;
+        } else if ch == '\\' {
+            escaped = true;
+        } else {
+            result.push(ch);
+        }
+    }
+    if escaped {
+        result.push('\\');
+    }
+    result
+}
+
+fn decode_rfc5987_filename_value(value: &str) -> Option<String> {
+    let unquoted = value.trim();
+    let mut parts = unquoted.splitn(3, '\'');
+    let charset = parts.next()?.trim();
+    let _language = parts.next()?;
+    let encoded = parts.next()?;
+
+    if !charset.eq_ignore_ascii_case("utf-8") {
+        return None;
+    }
+
+    urlencoding::decode(encoded)
+        .ok()
+        .map(|decoded| decoded.to_string())
+        .filter(|decoded| !decoded.is_empty())
 }
 
 fn decode_rfc2047_filename(filename: String) -> String {
@@ -521,6 +641,32 @@ mod tests {
                 "attachment; filename=\"=%3FUTF-8%3FB%3F0JjQotCe0JPQmCDQm9CU0KMgMjAyNi54bHN4%3F=\""
             ),
             Some("ИТОГИ ЛДУ 2026.xlsx".into())
+        );
+    }
+
+    #[test]
+    fn parse_cd_filename_decodes_legacy_percent_encoded_utf8_filename() {
+        assert_eq!(
+            parse_cd_filename(
+                "attachment; filename=\"K430006866701%20%20%20%20%2020251022%20%20%20ASKO%20%20%20%20CW5937GCN%20%20%20%20%20CW51237GCN%E8%AF%B4%E6%98%8E%E4%B9%A6%28%E6%96%B0%E5%9B%BD%E6%A0%87%29.pdf\""
+            ),
+            Some("K430006866701     20251022   ASKO    CW5937GCN     CW51237GCN说明书(新国标).pdf".into())
+        );
+    }
+
+    #[test]
+    fn parse_cd_filename_star_does_not_double_decode_plain_percent_sequences() {
+        assert_eq!(
+            parse_cd_filename("attachment; filename*=UTF-8''100%2520done.pdf"),
+            Some("100%20done.pdf".into())
+        );
+    }
+
+    #[test]
+    fn parse_cd_filename_rejects_percent_decoded_path_separators() {
+        assert_eq!(
+            parse_cd_filename("attachment; filename=\"safe%2Fevil.pdf\""),
+            None
         );
     }
 
