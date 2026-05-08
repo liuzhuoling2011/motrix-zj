@@ -66,7 +66,7 @@ impl LinuxNotificationRegistry {
         let mut retained = self
             .retained
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let pruned_expired =
             prune_expired_linux_notifications(&mut retained, now, LINUX_NOTIFICATION_RETENTION_TTL);
 
