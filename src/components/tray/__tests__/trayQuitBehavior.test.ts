@@ -397,6 +397,12 @@ describe('notification.rs — Linux desktop notification identity', () => {
     expect(source).not.toContain('notify_rust::Hint::DesktopEntry')
   })
 
+  it('sets normal urgency on Linux notifications so GNOME does not expire them immediately', () => {
+    expect(source).toContain('notify_rust::Urgency::Normal')
+    expect(source).toContain('.urgency(identity.urgency)')
+    expect(source).toContain('urgency=normal')
+  })
+
   it('pins Linux notifications to the GNOME application identity', () => {
     expect(source).toContain('app_name: "motrixnext"')
     expect(source).toContain('icon: "motrix-next"')

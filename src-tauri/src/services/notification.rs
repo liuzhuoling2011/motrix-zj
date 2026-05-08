@@ -13,6 +13,7 @@ use tauri_plugin_notification::NotificationExt;
 pub struct LinuxNotificationIdentity {
     pub app_name: &'static str,
     pub icon: &'static str,
+    pub urgency: notify_rust::Urgency,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,6 +47,7 @@ pub fn linux_notification_identity() -> LinuxNotificationIdentity {
     LinuxNotificationIdentity {
         app_name: "motrixnext",
         icon: "motrix-next",
+        urgency: notify_rust::Urgency::Normal,
     }
 }
 
@@ -172,7 +174,7 @@ fn log_notification_success(
     match dispatch {
         NotificationDispatchResult::Delivered { id, identity } => {
             log::info!(
-                "notification:delivered platform=linux id={} type={:?} gid={} locale={} webview_alive={} app_name={} icon={}",
+                "notification:delivered platform=linux id={} type={:?} gid={} locale={} webview_alive={} app_name={} icon={} urgency=normal",
                 id,
                 content.kind,
                 event.gid,
@@ -214,6 +216,7 @@ fn send_platform_notification(
     let handle = notify_rust::Notification::new()
         .appname(identity.app_name)
         .icon(identity.icon)
+        .urgency(identity.urgency)
         .summary(&content.title)
         .body(&content.body)
         .show()
@@ -319,5 +322,6 @@ mod tests {
         let identity = linux_notification_identity();
         assert_eq!(identity.app_name, "motrixnext");
         assert_eq!(identity.icon, "motrix-next");
+        assert_eq!(identity.urgency, notify_rust::Urgency::Normal);
     }
 }
