@@ -1,0 +1,86 @@
+name: SignPath Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  test-signing:
+    name: Test SignPath signing
+    runs-on: windows-latest
+
+    steps:
+      - name: Create test executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          dotnet new console --output signpath-smoke-test --no-restore
+          dotnet publish signpath-smoke-test `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained false `
+            -p:UseAppHost=true `
+            -p:AssemblyName=signpath-smoke-test `
+            -o signpath-output
+
+          New-Item -ItemType Directory -Path signpath-artifact | Out-Null
+          Copy-Item signpath-output/signpath-smoke-test.exe signpath-artifact/signpath-smoke-test.exe
+
+      - name: Upload unsigned artifact
+        id: unsigned-artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: signpath-test-unsigned
+          path: signpath-artifact/signpath-smoke-test.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Submit SignPath signing request
+        id: signpath
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_TEST_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned-artifact.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1800
+          output-artifact-directory: signed-artifact
+
+      - name: Verify signed artifact
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $signedFile = Get-ChildItem signed-artifact -Recurse -Filter signpath-smoke-test.exe | Select-Object -First 1
+          if (-not $signedFile) {
+            throw "The signed executable was not downloaded."
+          }
+
+          $signature = Get-AuthenticodeSignature -FilePath $signedFile.FullName
+          if (-not $signature.SignerCertificate) {
+            throw "The signed executable does not contain an Authenticode signer certificate."
+          }
+
+          $expectedSubject = "CN=Test certificate for 'Motrix Next [OSS]'"
+          if ($signature.SignerCertificate.Subject -notlike "*$expectedSubject*") {
+            throw "Unexpected signer certificate subject: $($signature.SignerCertificate.Subject)"
+          }
+
+          "Signed artifact: $($signedFile.FullName)"
+          "Signature status: $($signature.Status)"
+          "Signer subject: $($signature.SignerCertificate.Subject)"
+          "Signing request: ${{ steps.signpath.outputs.signing-request-web-url }}"
+
+      - name: Upload signed artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: signpath-test-signed
+          path: signed-artifact
+          if-no-files-found: error
+          retention-days: 1
