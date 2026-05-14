@@ -38,6 +38,13 @@ interface PortSwitchEvent {
   newPort: number
 }
 
+interface PortSwitchFailureEvent {
+  kind: 'rpc' | 'extensionApi' | 'bt' | 'dht'
+  port: number
+  reason: 'disabled' | 'noAvailablePort' | 'bindFailed'
+  source: 'startup' | 'btRuntime' | 'extensionApi'
+}
+
 interface AppEventsDeps {
   t: (key: string, params?: Record<string, unknown>) => string
   appStore: {
@@ -204,12 +211,6 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       }),
     )
 
-    const unlistenHttpApiFailed = registerCleanup(
-      await listen<number>('http-api-bind-failed', (event) => {
-        message.error(t('preferences.extension-api-port-failed', { port: event.payload }))
-      }),
-    )
-
     const unlistenPortAutoSwitched = registerCleanup(
       await listen<PortSwitchEvent[]>('port-auto-switched', (event) => {
         const switches = event.payload
@@ -235,13 +236,39 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       }),
     )
 
+    const unlistenPortAutoSwitchFailed = registerCleanup(
+      await listen<PortSwitchFailureEvent>('port-auto-switch-failed', (event) => {
+        const failure = event.payload
+        if (!failure || typeof failure.port !== 'number') return
+        const labels: Record<PortSwitchFailureEvent['kind'], string> = {
+          rpc: t('preferences.rpc-listen-port'),
+          extensionApi: t('preferences.extension-api-port'),
+          bt: t('preferences.bt-port'),
+          dht: t('preferences.dht-port'),
+        }
+        const params = {
+          label: labels[failure.kind] ?? failure.kind,
+          port: failure.port,
+        }
+        if (failure.reason === 'disabled') {
+          message.warning(t('preferences.port-auto-switch-disabled', params))
+          return
+        }
+        if (failure.reason === 'noAvailablePort') {
+          message.error(t('preferences.port-auto-switch-no-available-port', params), { closable: true })
+          return
+        }
+        message.error(t('preferences.port-auto-switch-bind-failed', params), { closable: true })
+      }),
+    )
+
     return {
       unlistenEngineCrashed,
       unwatchEngineState,
       unlistenEngineRecovered,
       unlistenEngineStopped,
-      unlistenHttpApiFailed,
       unlistenPortAutoSwitched,
+      unlistenPortAutoSwitchFailed,
     }
   }
 

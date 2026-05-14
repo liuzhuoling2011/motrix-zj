@@ -31,6 +31,31 @@ pub(crate) struct PortSwitch {
     new_port: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum PortSwitchFailureReason {
+    Disabled,
+    NoAvailablePort,
+    BindFailed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum PortSwitchFailureSource {
+    Startup,
+    BtRuntime,
+    ExtensionApi,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PortSwitchFailure {
+    kind: PortKind,
+    port: u16,
+    reason: PortSwitchFailureReason,
+    source: PortSwitchFailureSource,
+}
+
 fn range_for(kind: PortKind) -> PortRange {
     match kind {
         PortKind::Rpc | PortKind::ExtensionApi => PortRange {
@@ -68,10 +93,6 @@ fn choose_available_port(kind: PortKind, reserved: &BTreeSet<u16>) -> Option<u16
 }
 
 pub(crate) fn reconcile_exposed_ports(app: &AppHandle) -> Result<Vec<PortSwitch>, AppError> {
-    if !auto_switch_enabled(app) {
-        return Ok(Vec::new());
-    }
-
     let prefs_store = app
         .store("config.json")
         .map_err(|e| AppError::Store(format!("Failed to open config.json: {e}")))?;
@@ -84,6 +105,7 @@ pub(crate) fn reconcile_exposed_ports(app: &AppHandle) -> Result<Vec<PortSwitch>
     let mut reserved = current.all_ports();
     let mut next = current;
     let mut switches = Vec::new();
+    let auto_switch = auto_switch_enabled(app);
 
     for kind in [
         PortKind::Rpc,
@@ -95,9 +117,31 @@ pub(crate) fn reconcile_exposed_ports(app: &AppHandle) -> Result<Vec<PortSwitch>
         if port_available(port) {
             continue;
         }
+        if !auto_switch {
+            emit_failure(
+                app,
+                PortSwitchFailure {
+                    kind,
+                    port,
+                    reason: PortSwitchFailureReason::Disabled,
+                    source: PortSwitchFailureSource::Startup,
+                },
+            );
+            continue;
+        }
         reserved.remove(&port);
-        let new_port = choose_available_port(kind, &reserved)
-            .ok_or_else(|| AppError::Engine(format!("No available port for {kind:?}")))?;
+        let Some(new_port) = choose_available_port(kind, &reserved) else {
+            emit_failure(
+                app,
+                PortSwitchFailure {
+                    kind,
+                    port,
+                    reason: PortSwitchFailureReason::NoAvailablePort,
+                    source: PortSwitchFailureSource::Startup,
+                },
+            );
+            return Err(AppError::Engine(format!("No available port for {kind:?}")));
+        };
         reserved.insert(new_port);
         next.set(kind, new_port);
         switches.push(PortSwitch {
@@ -118,6 +162,20 @@ pub(crate) fn reconcile_exposed_ports(app: &AppHandle) -> Result<Vec<PortSwitch>
 
 pub(crate) fn reconcile_bt_ports(app: &AppHandle) -> Result<Vec<PortSwitch>, AppError> {
     if !auto_switch_enabled(app) {
+        let prefs_store = app
+            .store("config.json")
+            .map_err(|e| AppError::Store(format!("Failed to open config.json: {e}")))?;
+        let prefs = prefs_store.get("preferences").unwrap_or_else(|| json!({}));
+        let current = PortSnapshot::from_preferences(&prefs);
+        emit_failure(
+            app,
+            PortSwitchFailure {
+                kind: PortKind::Bt,
+                port: current.bt,
+                reason: PortSwitchFailureReason::Disabled,
+                source: PortSwitchFailureSource::BtRuntime,
+            },
+        );
         return Ok(Vec::new());
     }
 
@@ -137,8 +195,18 @@ pub(crate) fn reconcile_bt_ports(app: &AppHandle) -> Result<Vec<PortSwitch>, App
     for kind in [PortKind::Bt, PortKind::Dht] {
         let old_port = next.get(kind);
         reserved.remove(&old_port);
-        let new_port = choose_available_port(kind, &reserved)
-            .ok_or_else(|| AppError::Engine(format!("No available port for {kind:?}")))?;
+        let Some(new_port) = choose_available_port(kind, &reserved) else {
+            emit_failure(
+                app,
+                PortSwitchFailure {
+                    kind,
+                    port: old_port,
+                    reason: PortSwitchFailureReason::NoAvailablePort,
+                    source: PortSwitchFailureSource::BtRuntime,
+                },
+            );
+            return Err(AppError::Engine(format!("No available port for {kind:?}")));
+        };
         reserved.insert(new_port);
         next.set(kind, new_port);
         switches.push(PortSwitch {
@@ -158,6 +226,15 @@ pub(crate) async fn recover_extension_api_port(
     old_port: u16,
 ) -> Result<u16, AppError> {
     if !auto_switch_enabled(app) {
+        emit_failure(
+            app,
+            PortSwitchFailure {
+                kind: PortKind::ExtensionApi,
+                port: old_port,
+                reason: PortSwitchFailureReason::Disabled,
+                source: PortSwitchFailureSource::ExtensionApi,
+            },
+        );
         return Err(AppError::Io(format!(
             "Failed to bind HTTP API on port {old_port}"
         )));
@@ -174,8 +251,18 @@ pub(crate) async fn recover_extension_api_port(
     let mut snapshot = PortSnapshot::from_preferences(&prefs);
     let mut reserved = snapshot.all_ports();
     reserved.remove(&old_port);
-    let new_port = choose_available_port(PortKind::ExtensionApi, &reserved)
-        .ok_or_else(|| AppError::Engine("No available extension API port".into()))?;
+    let Some(new_port) = choose_available_port(PortKind::ExtensionApi, &reserved) else {
+        emit_failure(
+            app,
+            PortSwitchFailure {
+                kind: PortKind::ExtensionApi,
+                port: old_port,
+                reason: PortSwitchFailureReason::NoAvailablePort,
+                source: PortSwitchFailureSource::ExtensionApi,
+            },
+        );
+        return Err(AppError::Engine("No available extension API port".into()));
+    };
 
     snapshot.extension_api = new_port;
     persist_snapshot(&prefs_store, &system_store, &mut prefs, snapshot)?;
@@ -188,6 +275,23 @@ pub(crate) async fn recover_extension_api_port(
         }],
     );
     Ok(new_port)
+}
+
+pub(crate) fn emit_bind_failed(
+    app: &AppHandle,
+    kind: PortKind,
+    port: u16,
+    source: PortSwitchFailureSource,
+) {
+    emit_failure(
+        app,
+        PortSwitchFailure {
+            kind,
+            port,
+            reason: PortSwitchFailureReason::BindFailed,
+            source,
+        },
+    );
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -279,6 +383,11 @@ fn emit_switches(app: &AppHandle, switches: &[PortSwitch]) {
     }
     log::warn!("port_guard:auto-switched ports={switches:?}");
     let _ = app.emit("port-auto-switched", switches);
+}
+
+fn emit_failure(app: &AppHandle, failure: PortSwitchFailure) {
+    log::warn!("port_guard:auto-switch failed={failure:?}");
+    let _ = app.emit("port-auto-switch-failed", failure);
 }
 
 fn port_available(port: u16) -> bool {

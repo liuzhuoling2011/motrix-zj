@@ -232,7 +232,6 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
         message.success(t('preferences.extension-api-port-applied', { port: appliedPort }))
       } catch (e) {
         logger.warn('Advanced.extensionApi', `restart_http_api port=${newPort} failed: ${e}`)
-        message.error(t('preferences.extension-api-port-failed', { port: newPort }))
       }
     }
 

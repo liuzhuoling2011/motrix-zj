@@ -72,4 +72,16 @@ describe('port auto-switch coverage', () => {
     expect(rpcSection).toContain("t('preferences.auto-change-conflicting-ports')")
     expect(rpcSection).toContain('v-model:value="form.autoChangeConflictingPorts"')
   })
+
+  it('emits a unified failure event when automatic port switching cannot recover', () => {
+    const portGuardSource = readProjectFile('src-tauri/src/services/port_guard.rs')
+    const appEventsSource = readProjectFile('src/composables/useAppEvents.ts')
+
+    expect(portGuardSource).toContain('PortSwitchFailureReason')
+    expect(portGuardSource).toContain('port-auto-switch-failed')
+    expect(appEventsSource).toContain("listen<PortSwitchFailureEvent>('port-auto-switch-failed'")
+    expect(appEventsSource).toContain("t('preferences.port-auto-switch-disabled'")
+    expect(appEventsSource).toContain("t('preferences.port-auto-switch-no-available-port'")
+    expect(appEventsSource).toContain("t('preferences.port-auto-switch-bind-failed'")
+  })
 })

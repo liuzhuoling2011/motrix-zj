@@ -497,7 +497,18 @@ pub async fn restart_on_port(app: &AppHandle, new_port: u16) -> Result<u16, AppE
         Err(e) => {
             log::warn!("http_api: bind failed on port {new_port}: {e}");
             let fallback = port_guard::recover_extension_api_port(app, new_port).await?;
-            spawn_http_api(app.clone(), fallback).await?
+            match spawn_http_api(app.clone(), fallback).await {
+                Ok(handle) => handle,
+                Err(e) => {
+                    port_guard::emit_bind_failed(
+                        app,
+                        port_guard::PortKind::ExtensionApi,
+                        fallback,
+                        port_guard::PortSwitchFailureSource::ExtensionApi,
+                    );
+                    return Err(e);
+                }
+            }
         }
     };
     let port = handle.port();

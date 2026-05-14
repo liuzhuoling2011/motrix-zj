@@ -271,6 +271,23 @@ describe('useAppEvents', () => {
     })
   })
 
+  it('shows a toast when local port auto-switch recovery fails', async () => {
+    const { deps, message } = createDeps()
+    const { setupListeners } = mountComposable(deps)
+
+    await setupListeners()
+    eventCallbacks['port-auto-switch-failed']?.({
+      payload: {
+        kind: 'bt',
+        port: 21301,
+        reason: 'disabled',
+        source: 'bt-runtime',
+      },
+    })
+
+    expect(message.warning).toHaveBeenCalledWith('preferences.port-auto-switch-disabled')
+  })
+
   it('opens the add-task dialog from a pending tray action after listeners are ready', async () => {
     invokeMock.mockImplementation(async (command: string) => {
       if (command === 'take_pending_frontend_actions') {

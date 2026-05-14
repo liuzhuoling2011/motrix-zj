@@ -27,7 +27,7 @@ pub mod stat;
 use crate::aria2::client::Aria2State;
 use crate::error::AppError;
 use config::RuntimeConfigState;
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
 /// Keys that aria2 rejects via `changeGlobalOption` — they are bound at
@@ -244,7 +244,12 @@ async fn spawn_background_services(app: &tauri::AppHandle) {
                     log::warn!(
                         "runtime_services: HTTP API bind failed on port {desired_port}: {e}"
                     );
-                    let _ = app.emit("http-api-bind-failed", desired_port);
+                    port_guard::emit_bind_failed(
+                        app,
+                        port_guard::PortKind::ExtensionApi,
+                        desired_port,
+                        port_guard::PortSwitchFailureSource::Startup,
+                    );
                 }
             }
         }
