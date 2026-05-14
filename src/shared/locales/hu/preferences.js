@@ -110,6 +110,8 @@ export default {
   'proxy-http-only-hint': 'Az aria2 csak HTTP proxyt támogat. A SOCKS proxy nem támogatott.',
   'user-agent-string': 'UA karakterlánc',
   'port': 'Figyelő portok',
+  'auto-change-conflicting-ports': 'Auto-switch conflicting ports',
+  'port-auto-switched': 'Port conflict detected. Switched {ports}.',
   'bt-port': 'BT port',
   'dht-port': 'DHT port',
   'security': 'Biztonság',

@@ -398,6 +398,9 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.extension-api-port')">
         <NInputNumber v-model:value="form.extensionApiPort" :min="1024" :max="65535" style="width: 160px" />
       </NFormItem>
+      <NFormItem :label="t('preferences.auto-change-conflicting-ports')">
+        <NSwitch v-model:value="form.autoChangeConflictingPorts" />
+      </NFormItem>
       <NFormItem
         :label="t('preferences.extension-api-secret')"
         :validation-status="form.extensionApiSecret ? undefined : 'warning'"

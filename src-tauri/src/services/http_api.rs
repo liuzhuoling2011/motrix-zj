@@ -21,6 +21,7 @@ use crate::aria2::client::Aria2State;
 use crate::error::AppError;
 use crate::services::config::RuntimeConfigState;
 use crate::services::deep_link;
+use crate::services::port_guard;
 use axum::{
     extract::State,
     http::{header, HeaderMap, Method, StatusCode},
@@ -490,8 +491,15 @@ pub async fn restart_on_port(app: &AppHandle, new_port: u16) -> Result<(), AppEr
         handle.stop().await;
     }
 
-    // Spawn on the new port
-    let handle = spawn_http_api(app.clone(), new_port).await?;
+    // Spawn on the new port, then recover once if the chosen port is busy.
+    let handle = match spawn_http_api(app.clone(), new_port).await {
+        Ok(handle) => handle,
+        Err(e) => {
+            log::warn!("http_api: bind failed on port {new_port}: {e}");
+            let fallback = port_guard::recover_extension_api_port(app, new_port).await?;
+            spawn_http_api(app.clone(), fallback).await?
+        }
+    };
     *guard = Some(handle);
     Ok(())
 }

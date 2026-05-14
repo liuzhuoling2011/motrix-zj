@@ -110,6 +110,8 @@ export default {
   'proxy-http-only-hint': 'aria2 només admet proxy HTTP. El proxy SOCKS no és compatible.',
   'user-agent-string': 'Cadena UA',
   'port': 'Ports d\'escolta',
+  'auto-change-conflicting-ports': 'Auto-switch conflicting ports',
+  'port-auto-switched': 'Port conflict detected. Switched {ports}.',
   'bt-port': 'Port BT',
   'dht-port': 'Port DHT',
   'security': 'Seguretat',

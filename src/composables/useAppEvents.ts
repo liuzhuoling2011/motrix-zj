@@ -32,6 +32,12 @@ interface PendingFrontendAction {
   action: string
 }
 
+interface PortSwitchEvent {
+  kind: 'rpc' | 'extensionApi' | 'bt' | 'dht'
+  oldPort: number
+  newPort: number
+}
+
 interface AppEventsDeps {
   t: (key: string, params?: Record<string, unknown>) => string
   appStore: {
@@ -56,7 +62,11 @@ interface AppEventsDeps {
     config: {
       rpcListenPort?: string | number
       rpcSecret?: string
+      extensionApiPort?: number
+      listenPort?: number
+      dhtListenPort?: number
     }
+    updatePreference?: (cfg: Record<string, unknown>) => void
   }
   message: {
     success: (msg: string) => void
@@ -200,12 +210,38 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       }),
     )
 
+    const unlistenPortAutoSwitched = registerCleanup(
+      await listen<PortSwitchEvent[]>('port-auto-switched', (event) => {
+        const switches = event.payload
+        if (!Array.isArray(switches) || switches.length === 0) return
+        const labels: Record<PortSwitchEvent['kind'], string> = {
+          rpc: t('preferences.rpc-listen-port'),
+          extensionApi: t('preferences.extension-api-port'),
+          bt: t('preferences.bt-port'),
+          dht: t('preferences.dht-port'),
+        }
+        const ports = switches
+          .map((item) => `${labels[item.kind] ?? item.kind} ${item.oldPort} -> ${item.newPort}`)
+          .join(', ')
+        const patch: Record<string, number> = {}
+        for (const item of switches) {
+          if (item.kind === 'rpc') patch.rpcListenPort = item.newPort
+          if (item.kind === 'extensionApi') patch.extensionApiPort = item.newPort
+          if (item.kind === 'bt') patch.listenPort = item.newPort
+          if (item.kind === 'dht') patch.dhtListenPort = item.newPort
+        }
+        preferenceStore.updatePreference?.(patch)
+        message.success(t('preferences.port-auto-switched', { ports }))
+      }),
+    )
+
     return {
       unlistenEngineCrashed,
       unwatchEngineState,
       unlistenEngineRecovered,
       unlistenEngineStopped,
       unlistenHttpApiFailed,
+      unlistenPortAutoSwitched,
     }
   }
 

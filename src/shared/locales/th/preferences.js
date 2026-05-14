@@ -110,6 +110,8 @@ export default {
   'proxy-http-only-hint': 'aria2 รองรับเฉพาะ HTTP พร็อกซี ไม่รองรับ SOCKS พร็อกซี',
   'user-agent-string': 'สตริง UA',
   'port': 'พอร์ตรับฟัง',
+  'auto-change-conflicting-ports': 'Auto-switch conflicting ports',
+  'port-auto-switched': 'Port conflict detected. Switched {ports}.',
   'bt-port': 'พอร์ต BT',
   'dht-port': 'พอร์ต DHT',
   'security': 'ความปลอดภัย',

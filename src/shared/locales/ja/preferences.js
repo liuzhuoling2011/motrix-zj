@@ -110,6 +110,8 @@ export default {
   'proxy-http-only-hint': 'aria2はHTTPプロキシのみ対応しています。SOCKSプロキシには対応していません。',
   'user-agent-string': 'UA 文字列',
   'port': '待受ポート',
+  'auto-change-conflicting-ports': 'Auto-switch conflicting ports',
+  'port-auto-switched': 'Port conflict detected. Switched {ports}.',
   'bt-port': 'BT 待受ポート',
   'dht-port': 'DHT 待受ポート',
   'security': 'セキュリティ',

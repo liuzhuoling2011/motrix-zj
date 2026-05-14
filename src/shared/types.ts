@@ -255,6 +255,8 @@ export interface AppConfig {
    *  undefined → auto-generate. '' → user intentionally cleared. */
   extensionApiSecret?: string
   rpcSecret: string
+  /** Automatically switches locally bound ports when another process or OS reservation blocks them. */
+  autoChangeConflictingPorts: boolean
   listenPort: number
   dhtListenPort: number
   btTracker: string

@@ -110,6 +110,8 @@ export default {
   'proxy-http-only-hint': 'Το aria2 υποστηρίζει μόνο HTTP proxy. Το SOCKS proxy δεν υποστηρίζεται.',
   'user-agent-string': 'Συμβολοσειρά UA',
   'port': 'Θύρες ακρόασης',
+  'auto-change-conflicting-ports': 'Auto-switch conflicting ports',
+  'port-auto-switched': 'Port conflict detected. Switched {ports}.',
   'bt-port': 'Θύρα BT',
   'dht-port': 'Θύρα DHT',
   'security': 'Ασφάλεια',

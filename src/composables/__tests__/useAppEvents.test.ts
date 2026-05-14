@@ -99,6 +99,7 @@ function createDeps() {
   const preferenceStore = reactive({
     pendingChanges: false,
     saveBeforeLeave: null as (() => Promise<void>) | null,
+    updatePreference: vi.fn(),
     config: {
       rpcListenPort: 16800,
       rpcSecret: '',
@@ -253,6 +254,21 @@ describe('useAppEvents', () => {
 
     expect(appStore.handleDeepLinkUrls).toHaveBeenCalledTimes(1)
     expect(appStore.handleDeepLinkUrls).toHaveBeenCalledWith(['file:///Users/example/ubuntu.torrent'])
+  })
+
+  it('shows a toast when local ports are auto-switched', async () => {
+    const { deps, message } = createDeps()
+    const { setupListeners } = mountComposable(deps)
+
+    await setupListeners()
+    eventCallbacks['port-auto-switched']?.({
+      payload: [{ kind: 'bt', oldPort: 21301, newPort: 20000 }],
+    })
+
+    expect(message.success).toHaveBeenCalledWith('preferences.port-auto-switched')
+    expect(deps.preferenceStore.updatePreference).toHaveBeenCalledWith({
+      listenPort: 20000,
+    })
   })
 
   it('opens the add-task dialog from a pending tray action after listeners are ready', async () => {

@@ -6,6 +6,60 @@ use tauri_plugin_shell::ShellExt;
 use super::args::build_start_args;
 use super::cleanup::cleanup_port;
 use super::state::{log_engine_stdout, path_to_safe_string, EngineState};
+use crate::services::port_guard;
+
+static BT_PORT_RECOVERY_IN_FLIGHT: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+fn recover_bt_port_conflict(app: &tauri::AppHandle) {
+    if BT_PORT_RECOVERY_IN_FLIGHT.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let recovery = match port_guard::reconcile_bt_ports(&app_handle) {
+            Ok(switches) if !switches.is_empty() => {
+                log::warn!("port_guard: recovering BT bind failure switches={switches:?}");
+                let app_for_restart = app_handle.clone();
+                match tokio::task::spawn_blocking(move || {
+                    let config =
+                        crate::commands::config::get_system_config(app_for_restart.clone())?;
+                    restart_engine(&app_for_restart, &config)
+                        .map_err(crate::error::AppError::Engine)
+                })
+                .await
+                {
+                    Ok(Ok(())) => {
+                        let _ = app_handle.emit(
+                            "engine-recovered",
+                            serde_json::json!({ "source": "bt-port-auto-switch" }),
+                        );
+                        Ok(())
+                    }
+                    Ok(Err(e)) => {
+                        log::error!("port_guard: BT bind recovery restart failed: {e}");
+                        Err(())
+                    }
+                    Err(e) => {
+                        log::error!("port_guard: BT bind recovery task failed: {e}");
+                        Err(())
+                    }
+                }
+            }
+            Ok(_) => {
+                log::warn!("port_guard: BT bind failure detected but no port was switched");
+                Err(())
+            }
+            Err(e) => {
+                log::error!("port_guard: BT bind recovery failed: {e}");
+                Err(())
+            }
+        };
+        let _ = recovery;
+        BT_PORT_RECOVERY_IN_FLIGHT.store(false, Ordering::SeqCst);
+    });
+}
 
 fn kill_process_by_pid(pid: u32) -> Result<(), String> {
     #[cfg(windows)]
@@ -54,6 +108,13 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
             .map_err(|e| format!("Failed to create download directory '{}': {}", dir, e))?;
     }
 
+    if let Err(e) = port_guard::reconcile_exposed_ports(app) {
+        log::warn!("port_guard: startup reconciliation failed: {e}");
+    }
+
+    let config =
+        crate::commands::config::get_system_config(app.clone()).map_err(|e| e.to_string())?;
+
     // Kill any leftover aria2c process on the RPC port before starting
     let port = config
         .get("rpc-listen-port")
@@ -84,7 +145,7 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
     }
 
     let args = build_start_args(
-        config,
+        &config,
         if conf_path.exists() {
             log::info!("loading engine config: {}", conf_str);
             Some(&conf_str)
@@ -123,6 +184,9 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
                 CommandEvent::Stdout(line) => {
                     let text = String::from_utf8_lossy(&line);
                     log_engine_stdout(&text);
+                    if port_guard::aria2_bt_bind_error_line(&text) {
+                        recover_bt_port_conflict(&app_handle);
+                    }
                 }
                 CommandEvent::Stderr(line) => {
                     let text = String::from_utf8_lossy(&line);
@@ -247,7 +311,7 @@ pub fn stop_engine(app: &tauri::AppHandle, for_exit: bool) -> Result<(), String>
 ///
 /// This is the fix for: rapid "Save & Apply" → "Restart Engine" creating
 /// orphaned aria2c processes on all platforms.
-pub fn restart_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Result<(), String> {
+pub fn restart_engine(app: &tauri::AppHandle, _config: &serde_json::Value) -> Result<(), String> {
     let state = app.state::<EngineState>();
     // Signal intentional stop BEFORE kill so the old process's Terminated
     // handler suppresses engine-error.
@@ -263,6 +327,13 @@ pub fn restart_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Res
         // Wait for the OS to reclaim the process and release the port
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
+
+    if let Err(e) = port_guard::reconcile_exposed_ports(app) {
+        log::warn!("port_guard: restart reconciliation failed: {e}");
+    }
+
+    let config =
+        crate::commands::config::get_system_config(app.clone()).map_err(|e| e.to_string())?;
 
     // Step 2: Defense-in-depth — kill any orphans still holding the port
     let port = config
@@ -295,7 +366,7 @@ pub fn restart_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Res
     }
 
     let args = build_start_args(
-        config,
+        &config,
         if conf_path.exists() {
             log::info!("restart: loading engine config: {}", conf_str);
             Some(&conf_str)
@@ -340,6 +411,9 @@ pub fn restart_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Res
                 CommandEvent::Stdout(line) => {
                     let text = String::from_utf8_lossy(&line);
                     log_engine_stdout(&text);
+                    if port_guard::aria2_bt_bind_error_line(&text) {
+                        recover_bt_port_conflict(&app_handle);
+                    }
                 }
                 CommandEvent::Stderr(line) => {
                     let text = String::from_utf8_lossy(&line);

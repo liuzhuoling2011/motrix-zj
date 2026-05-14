@@ -110,6 +110,8 @@ export default {
   'proxy-http-only-hint': 'aria2 поддерживает только HTTP-прокси. SOCKS-прокси не поддерживается.',
   'user-agent-string': 'Строка UA',
   'port': 'Порты прослушивания',
+  'auto-change-conflicting-ports': 'Auto-switch conflicting ports',
+  'port-auto-switched': 'Port conflict detected. Switched {ports}.',
   'bt-port': 'Порт BT',
   'dht-port': 'Порт DHT',
   'security': 'Безопасность',

@@ -267,6 +267,7 @@ export const DEFAULT_APP_CONFIG = {
   enableUpnp: true, // old Motrix=true; required for BitTorrent behind NAT
   rpcListenPort: ENGINE_RPC_PORT,
   extensionApiPort: 16801,
+  autoChangeConflictingPorts: true,
   // extensionApiSecret is intentionally ABSENT from defaults.
   // rpcSecret is intentionally ABSENT from defaults.
   // For both secrets:

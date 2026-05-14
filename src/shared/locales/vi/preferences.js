@@ -110,6 +110,8 @@ export default {
   'proxy-http-only-hint': 'aria2 chỉ hỗ trợ proxy HTTP. Proxy SOCKS không được hỗ trợ.',
   'user-agent-string': 'Chuỗi UA',
   'port': 'Cổng lắng nghe',
+  'auto-change-conflicting-ports': 'Auto-switch conflicting ports',
+  'port-auto-switched': 'Port conflict detected. Switched {ports}.',
   'bt-port': 'Cổng BT',
   'dht-port': 'Cổng DHT',
   'security': 'Bảo mật',

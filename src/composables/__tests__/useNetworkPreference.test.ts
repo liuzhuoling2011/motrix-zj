@@ -220,6 +220,7 @@ describe('buildNetworkForm', () => {
     const form = buildNetworkForm(emptyConfig)
     expect(form).toHaveProperty('proxy')
     expect(form).toHaveProperty('enableUpnp')
+    expect(form).toHaveProperty('autoChangeConflictingPorts')
     expect(form).toHaveProperty('listenPort')
     expect(form).toHaveProperty('dhtListenPort')
     expect(form).toHaveProperty('connectTimeout')
@@ -235,6 +236,7 @@ describe('buildNetworkSystemConfig', () => {
   const baseForm: NetworkForm = {
     proxy: { enable: false, server: '', bypass: '', scope: [] },
     enableUpnp: true,
+    autoChangeConflictingPorts: true,
     listenPort: 21301,
     dhtListenPort: 26701,
     connectTimeout: 10,
@@ -345,6 +347,7 @@ describe('transformNetworkForStore', () => {
   const baseForm: NetworkForm = {
     proxy: { enable: false, server: '', bypass: '', scope: [] },
     enableUpnp: true,
+    autoChangeConflictingPorts: true,
     listenPort: 21301,
     dhtListenPort: 26701,
     connectTimeout: 10,
@@ -359,6 +362,11 @@ describe('transformNetworkForStore', () => {
     expect(typeof result.listenPort).toBe('number')
     expect(result.dhtListenPort).toBe(26701)
     expect(typeof result.dhtListenPort).toBe('number')
+  })
+
+  it('preserves automatic conflicting port switching preference', () => {
+    const result = transformNetworkForStore({ ...baseForm, autoChangeConflictingPorts: false })
+    expect(result.autoChangeConflictingPorts).toBe(false)
   })
 
   it('preserves proxy config through transform', () => {
@@ -392,6 +400,7 @@ describe('validateNetworkForm', () => {
   const validForm: NetworkForm = {
     proxy: { enable: false, server: '', bypass: '', scope: [] },
     enableUpnp: true,
+    autoChangeConflictingPorts: true,
     listenPort: 21301,
     dhtListenPort: 26701,
     connectTimeout: 10,

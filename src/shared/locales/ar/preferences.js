@@ -110,6 +110,8 @@ export default {
   'proxy-http-only-hint': 'يدعم aria2 وكيل HTTP فقط، لا يدعم وكيل SOCKS.',
   'user-agent-string': 'سلسلة UA',
   'port': 'منافذ الاستماع',
+  'auto-change-conflicting-ports': 'Auto-switch conflicting ports',
+  'port-auto-switched': 'Port conflict detected. Switched {ports}.',
   'bt-port': 'منفذ BT',
   'dht-port': 'منفذ DHT',
   'security': 'الأمان',

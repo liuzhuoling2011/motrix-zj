@@ -26,6 +26,7 @@ export interface NetworkForm {
     scope: string[]
   }
   enableUpnp: boolean
+  autoChangeConflictingPorts: boolean
   listenPort: number
   dhtListenPort: number
   connectTimeout: number
@@ -50,6 +51,7 @@ export function buildNetworkForm(config: AppConfig): NetworkForm {
       scope: proxy.scope ?? [...PROXY_SCOPE_OPTIONS],
     },
     enableUpnp: config.enableUpnp ?? D.enableUpnp,
+    autoChangeConflictingPorts: config.autoChangeConflictingPorts ?? D.autoChangeConflictingPorts,
     listenPort: Number(config.listenPort ?? D.listenPort),
     dhtListenPort: Number(config.dhtListenPort ?? D.dhtListenPort),
     connectTimeout: config.connectTimeout ?? D.connectTimeout,

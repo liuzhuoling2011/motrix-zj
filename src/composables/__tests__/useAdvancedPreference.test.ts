@@ -246,6 +246,7 @@ describe('buildAdvancedSystemConfig', () => {
     extensionApiPort: 16801,
     extensionApiSecret: 'test-api-secret',
     autoSubmitFromExtension: false,
+    autoChangeConflictingPorts: true,
     clipboardEnable: true,
     clipboardHttp: true,
     clipboardFtp: false,
@@ -333,6 +334,7 @@ describe('transformAdvancedForStore', () => {
       extensionApiPort: 16801,
       extensionApiSecret: 'test-api-secret',
       autoSubmitFromExtension: false,
+      autoChangeConflictingPorts: true,
       clipboardEnable: true,
       clipboardHttp: true,
       clipboardFtp: false,
@@ -369,6 +371,7 @@ describe('transformAdvancedForStore', () => {
       extensionApiPort: 16801,
       extensionApiSecret: 'test-api-secret',
       autoSubmitFromExtension: false,
+      autoChangeConflictingPorts: true,
       clipboardEnable: true,
       clipboardHttp: true,
       clipboardFtp: false,
@@ -387,6 +390,12 @@ describe('transformAdvancedForStore', () => {
     expect(typeof result.listenPort).toBe('number')
     expect(result.dhtListenPort).toBe(26701)
     expect(typeof result.dhtListenPort).toBe('number')
+  })
+
+  it('preserves automatic conflicting port switching preference', () => {
+    const form = buildAdvancedForm({ ...DEFAULT_APP_CONFIG, autoChangeConflictingPorts: false } as AppConfig).form
+    const result = transformAdvancedForStore(form)
+    expect(result.autoChangeConflictingPorts).toBe(false)
   })
 
   it('round-trip: buildAdvancedForm → transformAdvancedForStore produces no phantom diff', () => {
@@ -503,6 +512,7 @@ describe('validateAdvancedForm', () => {
     extensionApiPort: 16801,
     extensionApiSecret: 'test-api-secret',
     autoSubmitFromExtension: false,
+    autoChangeConflictingPorts: true,
     clipboardEnable: true,
     clipboardHttp: true,
     clipboardFtp: false,
@@ -658,6 +668,7 @@ describe('proxy configuration invariants', () => {
       extensionApiPort: 16801,
       extensionApiSecret: 'test-api-secret',
       autoSubmitFromExtension: false,
+      autoChangeConflictingPorts: true,
       clipboardEnable: true,
       clipboardHttp: true,
       clipboardFtp: false,
@@ -701,6 +712,7 @@ describe('proxy configuration invariants', () => {
       extensionApiPort: 16801,
       extensionApiSecret: 'test-api-secret',
       autoSubmitFromExtension: false,
+      autoChangeConflictingPorts: true,
       clipboardEnable: true,
       clipboardHttp: true,
       clipboardFtp: false,
@@ -742,6 +754,7 @@ describe('proxy configuration invariants', () => {
       extensionApiPort: 16801,
       extensionApiSecret: 'test-api-secret',
       autoSubmitFromExtension: false,
+      autoChangeConflictingPorts: true,
       clipboardEnable: true,
       clipboardHttp: true,
       clipboardFtp: false,
@@ -802,6 +815,7 @@ describe('transformAdvancedForStore — hardwareRendering', () => {
       extensionApiPort: 16801,
       extensionApiSecret: 'test-api-secret',
       autoSubmitFromExtension: false,
+      autoChangeConflictingPorts: true,
       clipboardEnable: true,
       clipboardHttp: true,
       clipboardFtp: false,

@@ -2,6 +2,7 @@
 const userKeys = [
   'auto-check-update',
   'auto-check-update-interval',
+  'auto-change-conflicting-ports',
   'auto-delete-stale-records',
   'auto-hide-window',
   'auto-submit-from-extension',

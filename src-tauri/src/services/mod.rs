@@ -19,6 +19,7 @@ pub mod http_api;
 pub mod monitor;
 pub mod notification;
 pub mod notification_i18n;
+pub mod port_guard;
 pub mod power;
 pub mod speed;
 pub mod stat;
@@ -240,10 +241,30 @@ async fn spawn_background_services(app: &tauri::AppHandle) {
                     log::info!("runtime_services: HTTP API listening on port {desired_port}");
                 }
                 Err(e) => {
-                    log::error!(
+                    log::warn!(
                         "runtime_services: HTTP API bind failed on port {desired_port}: {e}"
                     );
-                    let _ = app.emit("http-api-bind-failed", desired_port);
+                    match port_guard::recover_extension_api_port(app, desired_port).await {
+                        Ok(new_port) => match http_api::restart_on_port(app, new_port).await {
+                            Ok(()) => {
+                                log::info!(
+                                    "runtime_services: HTTP API auto-switched to port {new_port}"
+                                );
+                            }
+                            Err(retry_error) => {
+                                log::error!(
+                                    "runtime_services: HTTP API auto-switch bind failed on port {new_port}: {retry_error}"
+                                );
+                                let _ = app.emit("http-api-bind-failed", new_port);
+                            }
+                        },
+                        Err(recover_error) => {
+                            log::error!(
+                                "runtime_services: HTTP API bind recovery failed on port {desired_port}: {recover_error}"
+                            );
+                            let _ = app.emit("http-api-bind-failed", desired_port);
+                        }
+                    }
                 }
             }
         }

@@ -110,6 +110,8 @@ export default {
   'proxy-http-only-hint': 'aria2 仅支持 HTTP 代理，不支持 SOCKS 代理',
   'user-agent-string': 'UA 字符串',
   'port': '监听端口',
+  'auto-change-conflicting-ports': '端口冲突时自动切换',
+  'port-auto-switched': '检测到端口冲突，已切换 {ports}。',
   'bt-port': 'BT 监听端口',
   'dht-port': 'DHT 监听端口',
   'security': '安全',

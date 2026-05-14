@@ -110,6 +110,8 @@ export default {
   'proxy-http-only-hint': 'aria2는 HTTP 프록시만 지원합니다. SOCKS 프록시는 지원하지 않습니다.',
   'user-agent-string': 'UA 문자열',
   'port': '수신 포트',
+  'auto-change-conflicting-ports': 'Auto-switch conflicting ports',
+  'port-auto-switched': 'Port conflict detected. Switched {ports}.',
   'bt-port': 'BT 수신 포트',
   'dht-port': 'DHT 수신 포트',
   'security': '보안',

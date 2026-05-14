@@ -110,6 +110,8 @@ export default {
   'proxy-http-only-hint': 'aria2 acceptă doar proxy HTTP. Proxy SOCKS nu este suportat.',
   'user-agent-string': 'Șir UA',
   'port': 'Porturi de ascultare',
+  'auto-change-conflicting-ports': 'Auto-switch conflicting ports',
+  'port-auto-switched': 'Port conflict detected. Switched {ports}.',
   'bt-port': 'Port BT',
   'dht-port': 'Port DHT',
   'security': 'Securitate',

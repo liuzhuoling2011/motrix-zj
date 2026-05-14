@@ -234,6 +234,9 @@ onMounted(() => {
       <NFormItem label="UPnP/NAT-PMP">
         <NSwitch v-model:value="form.enableUpnp" />
       </NFormItem>
+      <NFormItem :label="t('preferences.auto-change-conflicting-ports')">
+        <NSwitch v-model:value="form.autoChangeConflictingPorts" />
+      </NFormItem>
       <NFormItem :label="t('preferences.bt-port')">
         <NInputGroup>
           <NInputNumber v-model:value="form.listenPort" :min="1024" :max="65535" style="width: 160px" />
