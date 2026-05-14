@@ -49,7 +49,7 @@ Motrix Next is a ground-up rewrite — same download manager spirit, entirely ne
 | **Auto-Update** | electron-updater | **Tauri updater plugin** |
 
 > [!NOTE]
-> **6-platform aria2 engine** — the [official aria2 release](https://github.com/aria2/aria2/releases) only ships Windows 32/64-bit and Android ARM64 pre-built binaries. We [compile aria2 from source](https://github.com/AnInsomniacy/aria2-builder) as fully static binaries for all 6 targets: macOS (Apple Silicon / Intel), Windows (x64 / ARM64), and Linux (x64 / ARM64).
+> **6-platform aria2-next engine** — Motrix Next embeds [`aria2-next`](https://github.com/AnInsomniacy/aria2-next), a maintained aria2-compatible fork that preserves the `aria2c` command, config, session, JSON-RPC, and libaria2 interfaces. Release builds are published for macOS (Apple Silicon / Intel), Windows (x64 / ARM64), and Linux (x64 / ARM64), so the app now uses the maintained engine release pipeline directly.
 
 
 ### Design & Motion
@@ -165,7 +165,7 @@ This removes the quarantine flag that macOS Gatekeeper applies to unsigned apps.
 
 <br>
 
-Motrix Next relies on [aria2](https://aria2.github.io/) as a sidecar process — a separate executable that Tauri launches at runtime. The aria2 binaries are [compiled from source](https://github.com/AnInsomniacy/aria2-builder) as fully static builds covering all 6 supported platforms. This architecture means:
+Motrix Next relies on [`aria2-next`](https://github.com/AnInsomniacy/aria2-next) as a sidecar process — a separate aria2-compatible `aria2c` executable that Tauri launches at runtime. The sidecar binaries are built and released from the aria2-next repository for all 6 supported desktop targets. This architecture means:
 
 - The **aria2 binary must exist alongside the main executable** — it cannot be embedded into a single `.exe`.
 - **Deep links** (`magnet://`, `thunder://`) and **file associations** (`.torrent`) require Windows registry entries that only an installer can configure.
