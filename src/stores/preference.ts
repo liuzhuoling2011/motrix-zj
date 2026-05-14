@@ -99,6 +99,20 @@ export const usePreferenceStore = defineStore('preference', () => {
     }
   }
 
+  async function reloadPreferenceFromDisk(): Promise<boolean> {
+    try {
+      const store = await getStore()
+      const saved = await store.get<Partial<AppConfig>>(STORE_KEY)
+      if (!saved || isEmpty(saved)) return false
+      config.value = { ...config.value, ...saved }
+      invoke('refresh_runtime_config').catch((e: unknown) => logger.debug('PreferenceStore.refreshRuntimeConfig', e))
+      return true
+    } catch (e) {
+      logger.error('PreferenceStore.reloadPreferenceFromDisk', e)
+      return false
+    }
+  }
+
   async function savePreference(): Promise<boolean> {
     try {
       const store = await getStore()
@@ -243,6 +257,7 @@ export const usePreferenceStore = defineStore('preference', () => {
     updatePreference,
     updateAndSave,
     loadPreference,
+    reloadPreferenceFromDisk,
     savePreference,
     recordHistoryDirectory,
     addHistoryDirectory,

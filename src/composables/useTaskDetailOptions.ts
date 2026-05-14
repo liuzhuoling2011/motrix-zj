@@ -43,6 +43,8 @@ export interface TaskDetailOptionsForm {
   referer: string
   cookie: string
   authorization: string
+  httpAuthUsername: string
+  httpAuthPassword: string
   proxyMode: ProxyMode
   customProxy: string
 }
@@ -107,6 +109,8 @@ function createEmptyForm(): TaskDetailOptionsForm {
     referer: '',
     cookie: '',
     authorization: '',
+    httpAuthUsername: '',
+    httpAuthPassword: '',
     proxyMode: 'none',
     customProxy: '',
   }
@@ -151,6 +155,8 @@ function populateFormFromResponse(opts: Record<string, string>, form: TaskDetail
   const parsed = parseHeaders(headerRaw)
   form.cookie = parsed.cookie
   form.authorization = parsed.authorization
+  form.httpAuthUsername = (opts.httpUser as string) ?? ''
+  form.httpAuthPassword = (opts.httpPasswd as string) ?? ''
 
   const allProxy = (opts.allProxy as string) ?? ''
   const detected = detectProxyMode(allProxy, globalServer)
@@ -181,6 +187,12 @@ function buildChangedOptions(
   }
   if (form.cookie !== loaded.cookie || form.authorization !== loaded.authorization) {
     options.header = buildHeaders(form.cookie, form.authorization)
+  }
+  if (form.httpAuthUsername !== loaded.httpAuthUsername || form.httpAuthPassword !== loaded.httpAuthPassword) {
+    const username = sanitizeHeaderValue(form.httpAuthUsername)
+    options['http-user'] = username
+    options['http-passwd'] = sanitizeHeaderValue(form.httpAuthPassword)
+    options['http-auth-challenge'] = username ? 'true' : 'false'
   }
   if (form.proxyMode !== loaded.proxyMode || form.customProxy !== loaded.customProxy) {
     options['all-proxy'] = resolvedProxy
@@ -220,6 +232,8 @@ export function useTaskDetailOptions(config: UseTaskDetailOptionsConfig) {
       form.referer !== loaded.referer ||
       form.cookie !== loaded.cookie ||
       form.authorization !== loaded.authorization ||
+      form.httpAuthUsername !== loaded.httpAuthUsername ||
+      form.httpAuthPassword !== loaded.httpAuthPassword ||
       form.proxyMode !== loaded.proxyMode ||
       form.customProxy !== loaded.customProxy,
   )

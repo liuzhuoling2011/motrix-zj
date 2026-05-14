@@ -265,6 +265,8 @@ describe('useTaskDetailOptions', () => {
       ['referer', 'https://new.com'],
       ['cookie', 'new=1'],
       ['authorization', 'Bearer new'],
+      ['httpAuthUsername', 'demo'],
+      ['httpAuthPassword', 'secret'],
     ] as const)('dirty becomes true when %s changes', async (field, value) => {
       const { form, dirty } = setup(createMocks())
       await nextTick()
@@ -398,6 +400,23 @@ describe('useTaskDetailOptions', () => {
         gid: 'abc123',
         options: expect.objectContaining({
           header: ['Cookie: session=abc', 'Authorization: Bearer xyz'],
+        }),
+      })
+    })
+
+    it('sends aria2 native HTTP auth options when Basic Auth changes', async () => {
+      const mocks = createMocks()
+      const { form, applyOptions } = setup(mocks)
+      await nextTick()
+      form.httpAuthUsername = ' demo '
+      form.httpAuthPassword = ' secret '
+      await applyOptions()
+      expect(mocks.changeTaskOption).toHaveBeenCalledWith({
+        gid: 'abc123',
+        options: expect.objectContaining({
+          'http-user': 'demo',
+          'http-passwd': 'secret',
+          'http-auth-challenge': 'true',
         }),
       })
     })

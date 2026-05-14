@@ -223,8 +223,13 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
     if (changed.extensionApiPort !== undefined) {
       const newPort = f.extensionApiPort
       try {
-        await invoke('restart_http_api', { port: newPort })
-        message.success(t('preferences.extension-api-port-applied', { port: newPort }))
+        const appliedPort = await invoke<number>('restart_http_api', { port: newPort })
+        if (appliedPort !== newPort) {
+          f.extensionApiPort = appliedPort
+          preferenceStore.updatePreference({ extensionApiPort: appliedPort })
+          resetSnapshot()
+        }
+        message.success(t('preferences.extension-api-port-applied', { port: appliedPort }))
       } catch (e) {
         logger.warn('Advanced.extensionApi', `restart_http_api port=${newPort} failed: ${e}`)
         message.error(t('preferences.extension-api-port-failed', { port: newPort }))
@@ -434,6 +439,9 @@ onMounted(async () => {
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.rpc') }}</NDivider>
+      <NFormItem :label="t('preferences.auto-change-conflicting-ports')">
+        <NSwitch v-model:value="form.autoChangeConflictingPorts" />
+      </NFormItem>
       <NFormItem :label="t('preferences.rpc-listen-port')">
         <NInputGroup>
           <NInputNumber v-model:value="form.rpcListenPort" :min="1024" :max="65535" style="width: 160px" />

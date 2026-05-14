@@ -749,6 +749,12 @@ pub fn run() {
                             sql: include_str!("../migrations/002_add_added_at.sql"),
                             kind: tauri_plugin_sql::MigrationKind::Up,
                         },
+                        tauri_plugin_sql::Migration {
+                            version: 3,
+                            description: "add HTTP auth credentials table",
+                            sql: include_str!("../migrations/003_http_auth_credentials.sql"),
+                            kind: tauri_plugin_sql::MigrationKind::Up,
+                        },
                     ],
                 )
                 .build(),

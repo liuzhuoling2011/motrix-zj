@@ -475,7 +475,7 @@ pub async fn spawn_http_api(app: AppHandle, port: u16) -> Result<HttpApiHandle, 
 /// The old server is stopped *before* binding the new one because the old
 /// and new port may be identical (user changed and reverted), so the
 /// listener must be released first.
-pub async fn restart_on_port(app: &AppHandle, new_port: u16) -> Result<(), AppError> {
+pub async fn restart_on_port(app: &AppHandle, new_port: u16) -> Result<u16, AppError> {
     let api_state = app
         .try_state::<HttpApiState>()
         .ok_or_else(|| AppError::Engine("HttpApiState not managed".into()))?;
@@ -500,8 +500,9 @@ pub async fn restart_on_port(app: &AppHandle, new_port: u16) -> Result<(), AppEr
             spawn_http_api(app.clone(), fallback).await?
         }
     };
+    let port = handle.port();
     *guard = Some(handle);
-    Ok(())
+    Ok(port)
 }
 
 // ── Read extension API port from RuntimeConfig ─────────────────────

@@ -398,6 +398,7 @@ window.addEventListener('unhandledrejection', (e) => {
       // - on_engine_ready() syncs system.json options to aria2 via changeGlobalOption
       // - spawn_speed_scheduler() runs a 60s timer in tokio (no WebView needed)
       if (ok) {
+        await preferenceStore.reloadPreferenceFromDisk()
         logger.info('Engine', 'Rust on_engine_ready completed: options synced, services spawned')
       }
     } catch (e) {

@@ -14,6 +14,9 @@ const props = defineProps<{
   show: boolean
   userAgent: string
   authorization: string
+  httpAuthUsername: string
+  httpAuthPassword: string
+  saveHttpAuth: boolean
   referer: string
   cookie: string
   /** Proxy mode: 'none' | 'global' | 'custom'. */
@@ -30,6 +33,9 @@ const emit = defineEmits<{
   'update:show': [value: boolean]
   'update:userAgent': [value: string]
   'update:authorization': [value: string]
+  'update:httpAuthUsername': [value: string]
+  'update:httpAuthPassword': [value: string]
+  'update:saveHttpAuth': [value: boolean]
   'update:referer': [value: string]
   'update:cookie': [value: string]
   'update:proxyMode': [value: 'none' | 'global' | 'custom']
@@ -96,6 +102,25 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
           :autosize="{ minRows: 1, maxRows: 3 }"
           @update:value="$emit('update:authorization', $event)"
         />
+      </NFormItem>
+      <NFormItem :label="t('task.task-http-auth') + ':'">
+        <div class="http-auth-fields">
+          <NInput
+            :value="httpAuthUsername"
+            :placeholder="t('task.task-http-auth-username-placeholder')"
+            @update:value="$emit('update:httpAuthUsername', $event)"
+          />
+          <NInput
+            :value="httpAuthPassword"
+            type="password"
+            show-password-on="click"
+            :placeholder="t('task.task-http-auth-password-placeholder')"
+            @update:value="$emit('update:httpAuthPassword', $event)"
+          />
+          <NCheckbox :checked="saveHttpAuth" @update:checked="$emit('update:saveHttpAuth', $event)">
+            {{ t('task.task-http-auth-save') }}
+          </NCheckbox>
+        </div>
       </NFormItem>
       <NFormItem :label="t('task.task-referer') + ':'">
         <NInput
@@ -224,5 +249,11 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
 }
 .custom-proxy-input .n-button {
   align-self: flex-start;
+}
+.http-auth-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
 }
 </style>

@@ -111,6 +111,9 @@ describe('buildEngineOptions', () => {
     authorization: '',
     referer: '',
     cookie: '',
+    httpAuthUsername: '',
+    httpAuthPassword: '',
+    saveHttpAuth: true,
     proxyMode: 'none',
     customProxy: '',
   }
@@ -159,6 +162,17 @@ describe('buildEngineOptions', () => {
       authorization: 'Bearer token',
     })
     expect(opts.header).toEqual(['Cookie: session=abc', 'Authorization: Bearer token'])
+  })
+
+  it('builds aria2 native HTTP auth options from Basic Auth fields', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      httpAuthUsername: ' demo ',
+      httpAuthPassword: ' secret ',
+    })
+    expect(opts['http-user']).toBe('demo')
+    expect(opts['http-passwd']).toBe('secret')
+    expect(opts['http-auth-challenge']).toBe('true')
   })
 
   it('sanitizes every HTTP header value before building aria2 options', () => {
@@ -419,6 +433,9 @@ describe('submitManualUris', () => {
     authorization: '',
     referer: '',
     cookie: '',
+    httpAuthUsername: '',
+    httpAuthPassword: '',
+    saveHttpAuth: true,
     proxyMode: 'none',
     customProxy: '',
   }
@@ -589,6 +606,9 @@ describe('useAddTaskSubmit', () => {
     authorization: '',
     referer: '',
     cookie: '',
+    httpAuthUsername: '',
+    httpAuthPassword: '',
+    saveHttpAuth: true,
     proxyMode: 'none',
     customProxy: '',
   }

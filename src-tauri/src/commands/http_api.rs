@@ -7,7 +7,7 @@ use crate::services::{deep_link, frontend_action, http_api};
 /// Advanced settings and confirms the port-switch dialog.  The old server
 /// is stopped before binding the new port.
 #[tauri::command]
-pub async fn restart_http_api(app: tauri::AppHandle, port: u16) -> Result<(), AppError> {
+pub async fn restart_http_api(app: tauri::AppHandle, port: u16) -> Result<u16, AppError> {
     http_api::restart_on_port(&app, port).await
 }
 

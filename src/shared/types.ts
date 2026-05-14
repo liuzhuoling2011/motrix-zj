@@ -303,6 +303,23 @@ export interface Aria2EngineOptions {
   [key: string]: string | string[] | undefined
 }
 
+/** Saved HTTP Basic authentication credential scoped to a normalized URL origin. */
+export interface HttpAuthCredential {
+  id: number
+  origin: string
+  username: string
+  password: string
+  created_at?: string
+  updated_at?: string
+  last_used_at?: string | null
+}
+
+export interface HttpAuthInput {
+  url: string
+  username: string
+  password: string
+}
+
 /** Parameters for adding a URI-based download task. */
 export interface AddUriParams {
   uris: string[]

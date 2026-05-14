@@ -18,6 +18,7 @@ import {
 import { sortTasks, sortRecords } from '@/composables/useTaskSort'
 import { DEFAULT_TASK_SORT } from '@/composables/useTaskSort'
 import { useHistoryStore } from '@/stores/history'
+import { useHttpAuthStore } from '@/stores/httpAuth'
 import { usePreferenceStore } from '@/stores/preference'
 
 import { restartTask as restartTaskImpl } from './restart'
@@ -187,7 +188,21 @@ export const useTaskStore = defineStore('task', () => {
     options: Aria2EngineOptions
     fileCategory?: { enabled: boolean; categories: import('@shared/types').FileCategory[] }
   }) {
-    const gids = await api.addUri(data)
+    const gids: string[] = []
+    const httpAuthStore = useHttpAuthStore()
+
+    for (let index = 0; index < data.uris.length; index++) {
+      const uri = data.uris[index]
+      const options = await applySavedHttpAuth(uri, data.options, httpAuthStore)
+      const added = await api.addUri({
+        uris: [uri],
+        outs: [data.outs[index] ?? ''],
+        options,
+        fileCategory: data.fileCategory,
+      })
+      gids.push(...added)
+    }
+
     const now = new Date().toISOString()
     const historyStore = useHistoryStore()
     for (const gid of gids) {
@@ -195,6 +210,27 @@ export const useTaskStore = defineStore('task', () => {
       historyStore.recordTaskBirth(gid, now).catch((e) => logger.debug('taskBirth.write', e))
     }
     await fetchList()
+  }
+
+  async function applySavedHttpAuth(
+    uri: string,
+    options: Aria2EngineOptions,
+    httpAuthStore: ReturnType<typeof useHttpAuthStore>,
+  ): Promise<Aria2EngineOptions> {
+    if (options['http-user'] || options.httpUser) return options
+
+    const credential = await httpAuthStore.findByUrl(uri)
+    if (!credential) return options
+
+    if (credential.id) {
+      httpAuthStore.markUsed(credential.id).catch((e) => logger.debug('httpAuth.markUsed', e))
+    }
+    return {
+      ...options,
+      'http-user': credential.username,
+      'http-passwd': credential.password,
+      'http-auth-challenge': 'true',
+    }
   }
 
   /**

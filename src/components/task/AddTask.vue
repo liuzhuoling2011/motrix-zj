@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useTaskStore } from '@/stores/task'
 import { usePreferenceStore } from '@/stores/preference'
+import { useHttpAuthStore } from '@/stores/httpAuth'
 import { ADD_TASK_TYPE, ENGINE_MAX_CONNECTION_PER_SERVER } from '@shared/constants'
 import { detectResource, bytesToSize } from '@shared/utils'
 import { calcColumnWidth } from '@shared/utils/calcColumnWidth'
@@ -61,6 +62,7 @@ const router = useRouter()
 const appStore = useAppStore()
 const taskStore = useTaskStore()
 const preferenceStore = usePreferenceStore()
+const httpAuthStore = useHttpAuthStore()
 const message = useAppMessage()
 /** Tracks whether the user manually edited the download directory in this session. */
 const dirUserModified = ref(false)
@@ -98,6 +100,9 @@ const form = ref({
   split: preferenceStore.config.split || 16,
   userAgent: '',
   authorization: '',
+  httpAuthUsername: '',
+  httpAuthPassword: '',
+  saveHttpAuth: true,
   referer: '',
   cookie: '',
   proxyMode: (isGlobalDownloadProxyActive(preferenceStore.config.proxy) ? 'global' : 'none') as
@@ -404,6 +409,9 @@ function handleClose() {
     out: '',
     userAgent: '',
     authorization: '',
+    httpAuthUsername: '',
+    httpAuthPassword: '',
+    saveHttpAuth: true,
     referer: '',
     cookie: '',
     proxyMode: isGlobalDownloadProxyActive(preferenceStore.config.proxy) ? 'global' : 'none',
@@ -472,6 +480,22 @@ async function handleSubmit() {
       for (let i = 0; i < manualResult.magnetGids.length; i++) {
         const dn = magnetUris[i] ? extractMagnetDisplayName(magnetUris[i]) : ''
         taskNames.push(dn || t('task.magnet-task'))
+      }
+
+      if (effectiveForm.saveHttpAuth && effectiveForm.httpAuthUsername.trim()) {
+        const firstHttpUri = normalizeUriLines(effectiveForm.uris).find((uri) => /^https?:\/\//i.test(uri))
+        if (firstHttpUri) {
+          try {
+            await httpAuthStore.saveCredential({
+              url: firstHttpUri,
+              username: effectiveForm.httpAuthUsername,
+              password: effectiveForm.httpAuthPassword,
+            })
+            message.success(t('task.task-http-auth-saved'))
+          } catch (err) {
+            logger.warn('AddTask.httpAuth', `credential save failed: ${err}`)
+          }
+        }
       }
 
       handleClose()
@@ -679,6 +703,9 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
             v-model:show="showAdvanced"
             v-model:user-agent="form.userAgent"
             v-model:authorization="form.authorization"
+            v-model:http-auth-username="form.httpAuthUsername"
+            v-model:http-auth-password="form.httpAuthPassword"
+            v-model:save-http-auth="form.saveHttpAuth"
             v-model:referer="form.referer"
             v-model:cookie="form.cookie"
             v-model:proxy-mode="form.proxyMode"

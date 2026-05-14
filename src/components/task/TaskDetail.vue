@@ -696,6 +696,22 @@ function handleClose() {
                   :placeholder="t('task.task-authorization-placeholder') || ''"
                 />
               </NFormItem>
+              <NFormItem :label="t('task.task-http-auth') + ':'">
+                <div class="http-auth-fields">
+                  <NInput
+                    v-model:value="optForm.httpAuthUsername"
+                    :readonly="!optCanModify"
+                    :placeholder="t('task.task-http-auth-username-placeholder') || ''"
+                  />
+                  <NInput
+                    v-model:value="optForm.httpAuthPassword"
+                    type="password"
+                    show-password-on="click"
+                    :readonly="!optCanModify"
+                    :placeholder="t('task.task-http-auth-password-placeholder') || ''"
+                  />
+                </div>
+              </NFormItem>
               <NFormItem :label="t('task.task-referer') + ':'">
                 <NInput
                   v-model:value="optForm.referer"
@@ -971,6 +987,12 @@ function handleClose() {
 }
 .custom-proxy-input .n-button {
   align-self: flex-start;
+}
+.http-auth-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
 }
 .proxy-hint-collapse {
   display: grid;

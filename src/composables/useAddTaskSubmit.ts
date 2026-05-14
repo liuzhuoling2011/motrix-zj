@@ -38,6 +38,9 @@ export interface AddTaskForm {
   split: number
   userAgent: string
   authorization: string
+  httpAuthUsername: string
+  httpAuthPassword: string
+  saveHttpAuth: boolean
   referer: string
   cookie: string
   /** Proxy mode: none (no proxy), global (use global), custom (user-entered). */
@@ -91,6 +94,14 @@ export function buildEngineOptions(form: AddTaskForm): Aria2EngineOptions {
   if (headers.cookie) headerLines.push(`Cookie: ${headers.cookie}`)
   if (headers.authorization) headerLines.push(`Authorization: ${headers.authorization}`)
   if (headerLines.length > 0) options.header = headerLines
+
+  const httpAuthUsername = sanitizeHttpHeaderOptions({ authorization: form.httpAuthUsername }).authorization ?? ''
+  const httpAuthPassword = sanitizeHttpHeaderOptions({ authorization: form.httpAuthPassword }).authorization ?? ''
+  if (httpAuthUsername) {
+    options['http-user'] = httpAuthUsername
+    options['http-passwd'] = httpAuthPassword
+    options['http-auth-challenge'] = 'true'
+  }
 
   // Always set all-proxy — empty string clears any inherited global proxy.
   // Without this, mode 'none' would silently inherit the engine-level proxy.

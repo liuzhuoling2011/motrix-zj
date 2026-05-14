@@ -24,6 +24,14 @@ vi.mock('@/stores/history', () => ({
   useHistoryStore: () => mockHistoryFns,
 }))
 
+const mockHttpAuthFns = {
+  findByUrl: vi.fn().mockResolvedValue(null),
+  markUsed: vi.fn().mockResolvedValue(undefined),
+}
+vi.mock('@/stores/httpAuth', () => ({
+  useHttpAuthStore: () => mockHttpAuthFns,
+}))
+
 const makeMockTask = (gid: string, status: TaskStatus = 'active', extra: Partial<Aria2Task> = {}): Aria2Task => ({
   gid,
   status,
@@ -91,6 +99,8 @@ describe('TaskStore', () => {
     Object.values(mockHistoryFns).forEach((fn) => fn.mockClear())
     mockHistoryFns.getRecords.mockResolvedValue([])
     mockHistoryFns.recordTaskBirth.mockResolvedValue(undefined)
+    mockHttpAuthFns.findByUrl.mockResolvedValue(null)
+    mockHttpAuthFns.markUsed.mockResolvedValue(undefined)
     // Reset in-memory task order state
     _resetForTesting()
   })
@@ -386,6 +396,32 @@ describe('TaskStore', () => {
     await store.addUri({ uris: ['http://example.com/file.zip'], outs: [], options: {} })
     expect(mockApi.addUri).toHaveBeenCalled()
     expect(mockApi.fetchTaskList).toHaveBeenCalled()
+  })
+
+  it('addUri injects saved HTTP auth credentials for matching origins', async () => {
+    mockHttpAuthFns.findByUrl.mockResolvedValueOnce({
+      id: 10,
+      origin: 'https://files.example.com',
+      username: 'demo',
+      password: 'secret',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      last_used_at: null,
+    })
+
+    await store.addUri({ uris: ['https://files.example.com/private/file.zip'], outs: [], options: {} })
+
+    expect(mockApi.addUri).toHaveBeenCalledWith({
+      uris: ['https://files.example.com/private/file.zip'],
+      outs: [''],
+      options: expect.objectContaining({
+        'http-user': 'demo',
+        'http-passwd': 'secret',
+        'http-auth-challenge': 'true',
+      }),
+      fileCategory: undefined,
+    })
+    expect(mockHttpAuthFns.markUsed).toHaveBeenCalledWith(10)
   })
 
   it('addTorrent calls API, refreshes, and returns gid', async () => {

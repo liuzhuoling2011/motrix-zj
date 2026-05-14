@@ -25,7 +25,7 @@ use std::path::Path;
 ///
 /// **MUST** be kept in sync with the `add_migrations()` vec in `lib.rs`.
 /// When adding a new migration, append its version here as well.
-const REGISTERED_VERSIONS: &[i64] = &[1, 2];
+const REGISTERED_VERSIONS: &[i64] = &[1, 2, 3];
 
 // ─── Public API ──────────────────────────────────────────────────────
 
@@ -471,7 +471,7 @@ mod tests {
     #[test]
     fn all_versions_recognised() {
         let dir = tempfile::tempdir().expect("tmpdir");
-        create_test_db(dir.path(), &[1, 2]);
+        create_test_db(dir.path(), &[1, 2, 3]);
 
         let unknown =
             find_unknown_versions(&dir.path().join("history.db")).expect("should succeed");
@@ -481,21 +481,21 @@ mod tests {
     #[test]
     fn unknown_version_detected() {
         let dir = tempfile::tempdir().expect("tmpdir");
-        create_test_db(dir.path(), &[1, 2, 3]);
+        create_test_db(dir.path(), &[1, 2, 3, 4]);
 
         let unknown =
             find_unknown_versions(&dir.path().join("history.db")).expect("should succeed");
-        assert_eq!(unknown, vec![3]);
+        assert_eq!(unknown, vec![4]);
     }
 
     #[test]
     fn multiple_unknown_versions() {
         let dir = tempfile::tempdir().expect("tmpdir");
-        create_test_db(dir.path(), &[1, 2, 3, 4, 5]);
+        create_test_db(dir.path(), &[1, 2, 3, 4, 5, 6]);
 
         let unknown =
             find_unknown_versions(&dir.path().join("history.db")).expect("should succeed");
-        assert_eq!(unknown, vec![3, 4, 5]);
+        assert_eq!(unknown, vec![4, 5, 6]);
     }
 
     #[test]
