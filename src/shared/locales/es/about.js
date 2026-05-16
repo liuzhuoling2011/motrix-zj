@@ -9,7 +9,7 @@ export default {
   'click-to-copy': 'Haz clic para copiar',
   'version-copied': 'Versión de {label} copiada',
   'app-version': 'Versión de Motrix Next',
-  'aria2-version': 'Versión de aria2',
+  'aria2-version': 'Versión de Aria2 Next',
   'loading': 'Cargando…',
   'unavailable': 'No disponible',
 }

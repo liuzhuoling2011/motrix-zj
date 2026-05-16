@@ -12,14 +12,14 @@ Motrix Next does **not** collect, store, or transmit telemetry, analytics, usage
 
 Application data is stored locally on your device and is not synced by Motrix Next:
 
-| Data | Location | Purpose |
-|------|----------|---------|
-| Preferences | `config.json` (app data directory) | User settings |
-| Engine options | `system.json` (app data directory) | aria2 runtime configuration |
-| Download history | `history.db` (local SQLite database) | Task records |
+| Data              | Location                                | Purpose                            |
+| ----------------- | --------------------------------------- | ---------------------------------- |
+| Preferences       | `config.json` (app data directory)      | User settings                      |
+| Engine options    | `system.json` (app data directory)      | Aria2 Next runtime configuration   |
+| Download history  | `history.db` (local SQLite database)    | Task records                       |
 | Task resume cache | `download.session` (app data directory) | Resume active and paused downloads |
-| Application logs | app log directory | Diagnostics and troubleshooting |
-| Download files | User-specified directory | Downloaded content |
+| Application logs  | app log directory                       | Diagnostics and troubleshooting    |
+| Download files    | User-specified directory                | Downloaded content                 |
 
 Diagnostic log exports are created only when the user chooses **Advanced Settings → Export Diagnostic Logs**. The exported ZIP may include log files, system/runtime metadata, and a sanitized `config.json` snapshot. RPC secrets, Extension API secrets, cookies, and proxy credentials are redacted before export.
 
@@ -29,31 +29,31 @@ Motrix Next can make the following automatic network connections. They can be di
 
 ### 1. Update Check
 
-| | |
-|---|---|
-| **Default** | Enabled, every application startup |
-| **Contacts** | GitHub-hosted updater metadata and release assets |
-| **Purpose** | Check if a newer version of Motrix Next is available |
-| **Data sent** | Standard HTTPS request metadata, including client IP as seen by GitHub |
+|                   |                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------- |
+| **Default**       | Enabled, every application startup                                                                |
+| **Contacts**      | GitHub-hosted updater metadata and release assets                                                 |
+| **Purpose**       | Check if a newer version of Motrix Next is available                                              |
+| **Data sent**     | Standard HTTPS request metadata, including client IP as seen by GitHub                            |
 | **Data received** | Version metadata, release notes, signatures, and update package when the user downloads an update |
-| **Disable** | Settings → General → uncheck "Check for updates automatically" |
+| **Disable**       | Settings → General → uncheck "Check for updates automatically"                                    |
 
 The update channel can be Stable, Beta, or Latest Across Channels. If a proxy is configured for app updates, update checks use that proxy.
 
 ### 2. BT Tracker List Sync
 
-| | |
-|---|---|
-| **Default** | Enabled, at most once every 12 hours |
-| **Contacts** | Configured community tracker list URLs, such as `cdn.jsdelivr.net` or `raw.githubusercontent.com` |
-| **Purpose** | Update BitTorrent tracker lists for better peer discovery |
-| **Data sent** | Standard HTTP GET request (no user data) |
-| **Data received** | Plain-text tracker URL list |
-| **Disable** | Settings → BitTorrent → uncheck "Auto-update tracker list" |
+|                   |                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------- |
+| **Default**       | Enabled, at most once every 12 hours                                                              |
+| **Contacts**      | Configured community tracker list URLs, such as `cdn.jsdelivr.net` or `raw.githubusercontent.com` |
+| **Purpose**       | Update BitTorrent tracker lists for better peer discovery                                         |
+| **Data sent**     | Standard HTTP GET request (no user data)                                                          |
+| **Data received** | Plain-text tracker URL list                                                                       |
+| **Disable**       | Settings → BitTorrent → uncheck "Auto-update tracker list"                                        |
 
 ## User-Initiated Network Connections
 
-When you add a download task, Motrix Next and its aria2 sidecar connect to the servers or peers needed for that task. This can include HTTP/FTP servers, BitTorrent trackers, DHT nodes, peers, and metadata endpoints.
+When you add a download task, Motrix Next and its Aria2 Next sidecar connect to the servers or peers needed for that task. This can include HTTP/FTP servers, BitTorrent trackers, DHT nodes, peers, and metadata endpoints.
 
 Some task creation flows resolve filenames before download. This may issue HTTP requests to the URL you submit so the app can inspect response headers such as `Content-Disposition`.
 
@@ -73,11 +73,11 @@ The project website is a static site. It may request GitHub API endpoints in the
 
 ## Third-Party Components
 
-| Component | Purpose | Network behavior |
-|-----------|---------|-----------------|
-| [aria2](https://aria2.github.io/) | Download engine | Connects to download servers and BitTorrent peers as directed by the user |
-| [DB-IP](https://db-ip.com/) | GeoIP database (CC BY 4.0) | **Offline only** — bundled database, no network requests |
-| [Tauri Updater Plugin](https://github.com/tauri-apps/plugins-workspace) | Auto-update framework | Used for update checks and update installation |
+| Component                                                               | Purpose                    | Network behavior                                                          |
+| ----------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------- |
+| [Aria2 Next](https://github.com/AnInsomniacy/aria2-next)                | Download engine            | Connects to download servers and BitTorrent peers as directed by the user |
+| [DB-IP](https://db-ip.com/)                                             | GeoIP database (CC BY 4.0) | **Offline only** — bundled database, no network requests                  |
+| [Tauri Updater Plugin](https://github.com/tauri-apps/plugins-workspace) | Auto-update framework      | Used for update checks and update installation                            |
 
 ## Children's Privacy
 

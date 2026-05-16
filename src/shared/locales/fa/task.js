@@ -50,7 +50,7 @@ export default {
   'proxy-mode-custom': 'پروکسی سفارشی',
   'use-proxy': 'استفاده از پروکسی سراسری',
   'proxy-not-configured': 'پروکسی پیکربندی نشده',
-  'proxy-unsupported-protocol': 'پروتکل پروکسی پشتیبانی نمی‌شود، aria2 فقط از پروکسی HTTP پشتیبانی می‌کند',
+  'proxy-unsupported-protocol': 'پروتکل پروکسی پشتیبانی نمی‌شود، Aria2 Next فقط از پروکسی HTTP پشتیبانی می‌کند',
   'no-changes': 'بدون تغییر',
   'apply-changes': 'اعمال تغییرات',
   'task-proxy-label': 'پروکسی',

@@ -155,7 +155,7 @@ function applyTranslations() {
   // HTML interpolation variables — keeps locale files free of markup
   const HTML_VARS = {
     link: '<a href="https://github.com/agalwood/Motrix" target="_blank" rel="noopener">Motrix</a>',
-    aria2Next: '<a href="https://github.com/AnInsomniacy/aria2-next" target="_blank" rel="noopener">aria2-next</a>',
+    aria2Next: '<a href="https://github.com/AnInsomniacy/aria2-next" target="_blank" rel="noopener">Aria2 Next</a>',
   }
   document.querySelectorAll('[data-i18n-html]').forEach((el) => {
     const key = el.getAttribute('data-i18n-html')

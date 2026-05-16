@@ -9,7 +9,7 @@ export default {
   'click-to-copy': 'Click pentru a copia',
   'version-copied': 'Versiunea {label} copiată',
   'app-version': 'Versiune Motrix Next',
-  'aria2-version': 'Versiune aria2',
+  'aria2-version': 'Versiune Aria2 Next',
   'loading': 'Se încarcă…',
   'unavailable': 'Indisponibil',
 }

@@ -50,7 +50,7 @@ export default {
   'proxy-mode-custom': 'Proxy kustom',
   'use-proxy': 'Gunakan proxy global',
   'proxy-not-configured': 'Proxy belum dikonfigurasi',
-  'proxy-unsupported-protocol': 'Protokol proxy tidak didukung, aria2 hanya mendukung proxy HTTP',
+  'proxy-unsupported-protocol': 'Protokol proxy tidak didukung, Aria2 Next hanya mendukung proxy HTTP',
   'no-changes': 'Tidak ada perubahan',
   'apply-changes': 'Terapkan perubahan',
   'task-proxy-label': 'Proxy',

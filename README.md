@@ -30,7 +30,7 @@
 ## Why Motrix Next?
 
 > [!NOTE]
-> Motrix Next uses [`aria2-next`](https://github.com/AnInsomniacy/aria2-next) as its download engine. This maintained aria2 fork is modernized for current toolchains, dependencies, and release workflows. It preserves the original aria2 interfaces while modernizing the architecture and fixing long-standing bugs and upstream issues.
+> Motrix Next uses [Aria2 Next](https://github.com/AnInsomniacy/aria2-next) as its download engine, a maintained fork of aria2 modernized for current toolchains, dependencies, and release workflows. It preserves the original aria2 interfaces while modernizing the architecture and fixing long-standing bugs and upstream issues.
 
 [Motrix](https://github.com/agalwood/Motrix) by [agalwood](https://github.com/agalwood) was one of the best open-source download managers available — clean UI, aria2-powered, cross-platform. It inspired thousands of users and developers alike.
 
@@ -165,9 +165,9 @@ This removes the quarantine flag that macOS Gatekeeper applies to unsigned apps.
 
 <br>
 
-Motrix Next relies on [`aria2-next`](https://github.com/AnInsomniacy/aria2-next) as a sidecar process — a separate aria2-compatible `aria2c` executable that Tauri launches at runtime. The sidecar binaries are built and released from the aria2-next repository for all 6 supported desktop targets. This architecture means:
+Motrix Next relies on [Aria2 Next](https://github.com/AnInsomniacy/aria2-next) as a sidecar process — a separate aria2-compatible `aria2c` executable that Tauri launches at runtime. The sidecar binaries are built and released from the aria2-next repository for all 6 supported desktop targets. This architecture means:
 
-- The **aria2 binary must exist alongside the main executable** — it cannot be embedded into a single `.exe`.
+- The **Aria2 Next sidecar binary must exist alongside the main executable** — it cannot be embedded into a single `.exe`.
 - **Deep links** (`magnet://`, `thunder://`) and **file associations** (`.torrent`) require Windows registry entries that only an installer can configure.
 - The **auto-updater** needs a known installation path to replace files in place.
 
@@ -216,7 +216,7 @@ pnpm tauri build
 ```
 motrix-next/
 ├── src/                        # Frontend (Vue 3 + TypeScript)
-│   ├── api/                    # Aria2 JSON-RPC client
+│   ├── api/                    # aria2-compatible JSON-RPC client
 │   ├── components/             # Vue components
 │   │   ├── about/              #   About panel
 │   │   ├── common/             #   Shared UI primitives
@@ -240,7 +240,7 @@ motrix-next/
 │   ├── src/
 │   │   ├── aria2/              #   Native Rust aria2 JSON-RPC client
 │   │   ├── commands/           #   Tauri invoke handlers (config, engine, fs, etc.)
-│   │   ├── engine/             #   Aria2 sidecar lifecycle (args, state, cleanup)
+│   │   ├── engine/             #   Aria2 Next sidecar lifecycle (args, state, cleanup)
 │   │   ├── services/           #   Runtime services (stat, speed, monitor, HTTP API, deep links)
 │   │   ├── db_guard.rs         #   SQLite health checks and rebuild guard
 │   │   ├── error.rs            #   AppError enum
@@ -250,7 +250,7 @@ motrix-next/
 │   │   ├── tray.rs             #   System tray setup
 │   │   ├── upnp.rs             #   UPnP/IGD port mapping
 │   │   └── lib.rs              #   Tauri builder & plugin registration
-│   ├── binaries/               #   Aria2 sidecar binaries (6 platforms)
+│   ├── binaries/               #   Aria2 Next sidecar binaries (6 platforms)
 │   └── migrations/             #   SQLite schema migrations
 ├── scripts/                    # bump-version.sh, release.sh
 ├── .github/workflows/          # CI (ci.yml) + Release (release.yml)
@@ -264,7 +264,7 @@ PRs and issues are welcome! Please read the [Contributing Guide](docs/CONTRIBUTI
 ## Acknowledgements
 
 - [Motrix](https://github.com/agalwood/Motrix) by [agalwood](https://github.com/agalwood) and all its contributors
-- [Aria2](https://aria2.github.io/) — the powerful download engine at the core
+- [Aria2 Next](https://github.com/AnInsomniacy/aria2-next) — the maintained download engine at the core
 - Community translators who contributed 26 locale packs for worldwide accessibility
 
 ## Sponsor

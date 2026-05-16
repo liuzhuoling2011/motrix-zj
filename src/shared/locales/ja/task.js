@@ -50,7 +50,7 @@ export default {
   'proxy-mode-custom': 'カスタムプロキシ',
   'use-proxy': 'グローバルプロキシを使用',
   'proxy-not-configured': 'プロキシ未設定',
-  'proxy-unsupported-protocol': 'サポートされていないプロキシプロトコル。aria2はHTTPプロキシのみ対応しています。',
+  'proxy-unsupported-protocol': 'サポートされていないプロキシプロトコル。Aria2 NextはHTTPプロキシのみ対応しています。',
   'no-changes': '変更なし',
   'apply-changes': '変更を適用',
   'task-proxy-label': 'プロキシ',

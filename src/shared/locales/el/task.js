@@ -50,7 +50,7 @@ export default {
   'proxy-mode-custom': 'Προσαρμοσμένο proxy',
   'use-proxy': 'Χρήση καθολικού proxy',
   'proxy-not-configured': 'Δεν έχει ρυθμιστεί proxy',
-  'proxy-unsupported-protocol': 'Μη υποστηριζόμενο πρωτόκολλο proxy, το aria2 υποστηρίζει μόνο HTTP proxy',
+  'proxy-unsupported-protocol': 'Μη υποστηριζόμενο πρωτόκολλο proxy, το Aria2 Next υποστηρίζει μόνο HTTP proxy',
   'no-changes': 'Χωρίς αλλαγές',
   'apply-changes': 'Εφαρμογή αλλαγών',
   'task-proxy-label': 'Proxy',

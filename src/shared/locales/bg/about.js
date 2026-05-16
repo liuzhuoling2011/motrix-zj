@@ -9,7 +9,7 @@ export default {
   'click-to-copy': 'Щракнете за копиране',
   'version-copied': 'Версията на {label} е копирана',
   'app-version': 'Версия на Motrix Next',
-  'aria2-version': 'Версия на aria2',
+  'aria2-version': 'Версия на Aria2 Next',
   'loading': 'Зареждане…',
   'unavailable': 'Недостъпен',
 }

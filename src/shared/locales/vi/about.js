@@ -9,7 +9,7 @@ export default {
   'click-to-copy': 'Nhấp để sao chép',
   'version-copied': 'Đã sao chép phiên bản {label}',
   'app-version': 'Phiên bản Motrix Next',
-  'aria2-version': 'Phiên bản aria2',
+  'aria2-version': 'Phiên bản Aria2 Next',
   'loading': 'Đang tải…',
   'unavailable': 'Không khả dụng',
 }

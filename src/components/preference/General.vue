@@ -315,7 +315,10 @@ onMounted(async () => {
       <NFormItem :label="t('about.aria2-version')">
         <MTooltip v-if="sysAria2Version">
           <template #trigger>
-            <button class="sysinfo-ver-badge" @click="copyVersionToClipboard(`aria2 v${sysAria2Version}`, 'aria2')">
+            <button
+              class="sysinfo-ver-badge"
+              @click="copyVersionToClipboard(`Aria2 Next v${sysAria2Version}`, 'Aria2 Next')"
+            >
               <span class="sysinfo-ver-value">v{{ sysAria2Version }}</span>
               <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />

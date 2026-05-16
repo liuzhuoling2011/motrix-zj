@@ -50,7 +50,7 @@ export default {
   'proxy-mode-custom': '自定义代理',
   'use-proxy': '使用全局代理',
   'proxy-not-configured': '未配置代理',
-  'proxy-unsupported-protocol': '不支持的代理协议，aria2 仅支持 HTTP 代理',
+  'proxy-unsupported-protocol': '不支持的代理协议，Aria2 Next 仅支持 HTTP 代理',
   'no-changes': '无更改',
   'apply-changes': '应用更改',
   'task-proxy-label': '代理',

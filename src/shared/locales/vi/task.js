@@ -50,7 +50,7 @@ export default {
   'proxy-mode-custom': 'Proxy tùy chỉnh',
   'use-proxy': 'Sử dụng proxy toàn cục',
   'proxy-not-configured': 'Chưa cấu hình proxy',
-  'proxy-unsupported-protocol': 'Giao thức proxy không được hỗ trợ, aria2 chỉ hỗ trợ proxy HTTP',
+  'proxy-unsupported-protocol': 'Giao thức proxy không được hỗ trợ, Aria2 Next chỉ hỗ trợ proxy HTTP',
   'no-changes': 'Không có thay đổi',
   'apply-changes': 'Áp dụng thay đổi',
   'task-proxy-label': 'Proxy',

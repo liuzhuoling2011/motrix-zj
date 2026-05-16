@@ -9,7 +9,7 @@ export default {
   'click-to-copy': 'Klik untuk menyalin',
   'version-copied': 'Versi {label} disalin',
   'app-version': 'Versi Motrix Next',
-  'aria2-version': 'Versi aria2',
+  'aria2-version': 'Versi Aria2 Next',
   'loading': 'Memuat…',
   'unavailable': 'Tidak tersedia',
 }

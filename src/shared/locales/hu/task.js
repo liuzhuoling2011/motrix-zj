@@ -50,7 +50,7 @@ export default {
   'proxy-mode-custom': 'Egyéni proxy',
   'use-proxy': 'Globális proxy használata',
   'proxy-not-configured': 'Proxy nincs beállítva',
-  'proxy-unsupported-protocol': 'Nem támogatott proxy protokoll, az aria2 csak HTTP proxyt támogat',
+  'proxy-unsupported-protocol': 'Nem támogatott proxy protokoll, az Aria2 Next csak HTTP proxyt támogat',
   'no-changes': 'Nincs változás',
   'apply-changes': 'Módosítások alkalmazása',
   'task-proxy-label': 'Proxy',

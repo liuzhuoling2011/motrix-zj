@@ -50,7 +50,7 @@ export default {
   'proxy-mode-custom': '사용자 정의 프록시',
   'use-proxy': '글로벌 프록시 사용',
   'proxy-not-configured': '프록시 미설정',
-  'proxy-unsupported-protocol': '지원하지 않는 프록시 프로토콜입니다. aria2는 HTTP 프록시만 지원합니다.',
+  'proxy-unsupported-protocol': '지원하지 않는 프록시 프로토콜입니다. Aria2 Next는 HTTP 프록시만 지원합니다.',
   'no-changes': '변경 없음',
   'apply-changes': '변경 적용',
   'task-proxy-label': '프록시',

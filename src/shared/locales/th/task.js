@@ -50,7 +50,7 @@ export default {
   'proxy-mode-custom': 'พร็อกซีแบบกำหนดเอง',
   'use-proxy': 'ใช้พร็อกซีส่วนกลาง',
   'proxy-not-configured': 'ยังไม่ได้ตั้งค่าพร็อกซี',
-  'proxy-unsupported-protocol': 'โปรโตคอลพร็อกซีไม่รองรับ aria2 รองรับเฉพาะ HTTP พร็อกซี',
+  'proxy-unsupported-protocol': 'โปรโตคอลพร็อกซีไม่รองรับ Aria2 Next รองรับเฉพาะ HTTP พร็อกซี',
   'no-changes': 'ไม่มีการเปลี่ยนแปลง',
   'apply-changes': 'ใช้การเปลี่ยนแปลง',
   'task-proxy-label': 'พร็อกซี',

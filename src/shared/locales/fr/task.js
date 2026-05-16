@@ -50,7 +50,7 @@ export default {
   'proxy-mode-custom': 'Proxy personnalisé',
   'use-proxy': 'Utiliser le proxy global',
   'proxy-not-configured': 'Proxy non configuré',
-  'proxy-unsupported-protocol': 'Protocole proxy non pris en charge, aria2 ne prend en charge que le proxy HTTP',
+  'proxy-unsupported-protocol': 'Protocole proxy non pris en charge, Aria2 Next ne prend en charge que le proxy HTTP',
   'no-changes': 'Aucun changement',
   'apply-changes': 'Appliquer les modifications',
   'task-proxy-label': 'Proxy',

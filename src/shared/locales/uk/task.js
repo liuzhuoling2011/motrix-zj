@@ -50,7 +50,7 @@ export default {
   'proxy-mode-custom': 'Власний проксі',
   'use-proxy': 'Використовувати глобальний проксі',
   'proxy-not-configured': 'Проксі не налаштовано',
-  'proxy-unsupported-protocol': 'Непідтримуваний протокол проксі. aria2 підтримує лише HTTP-проксі.',
+  'proxy-unsupported-protocol': 'Непідтримуваний протокол проксі. Aria2 Next підтримує лише HTTP-проксі.',
   'no-changes': 'Немає змін',
   'apply-changes': 'Застосувати зміни',
   'task-proxy-label': 'Проксі',

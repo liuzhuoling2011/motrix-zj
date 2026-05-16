@@ -50,7 +50,7 @@ export default {
   'proxy-mode-custom': 'وكيل مخصص',
   'use-proxy': 'استخدام الوكيل العام',
   'proxy-not-configured': 'لم يتم إعداد الوكيل',
-  'proxy-unsupported-protocol': 'بروتوكول وكيل غير مدعوم، يدعم aria2 وكيل HTTP فقط',
+  'proxy-unsupported-protocol': 'بروتوكول وكيل غير مدعوم، يدعم Aria2 Next وكيل HTTP فقط',
   'no-changes': 'لا توجد تغييرات',
   'apply-changes': 'تطبيق التغييرات',
   'task-proxy-label': 'الوكيل',

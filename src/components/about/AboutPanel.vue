@@ -27,7 +27,7 @@ onMounted(async () => {
   appVersion.value = await getVersion()
 })
 
-/* Trigger entrance animation and re-fetch aria2 version each time the panel opens. */
+/* Trigger entrance animation and re-fetch Aria2 Next version each time the panel opens. */
 watch(
   () => props.show,
   async (visible) => {
@@ -37,7 +37,7 @@ watch(
         animate.value = true
       })
 
-      /* Reset state and fetch fresh aria2 version */
+      /* Reset state and fetch fresh Aria2 Next version */
       aria2Loading.value = true
       aria2Error.value = false
       aria2Version.value = ''
@@ -45,7 +45,7 @@ watch(
         const info = await getAria2Version()
         aria2Version.value = info.version
       } catch (e) {
-        logger.warn('AboutPanel', `aria2 version fetch failed: ${e}`)
+        logger.warn('AboutPanel', `Aria2 Next version fetch failed: ${e}`)
         aria2Error.value = true
       } finally {
         aria2Loading.value = false
@@ -183,7 +183,7 @@ function openUrl(url: string) {
           <!-- Success -->
           <MTooltip v-else key="loaded">
             <template #trigger>
-              <button class="version-badge" @click="copyToClipboard(`aria2 v${aria2Version}`, 'aria2')">
+              <button class="version-badge" @click="copyToClipboard(`Aria2 Next v${aria2Version}`, 'Aria2 Next')">
                 <span class="version-label">{{ t('about.aria2-version') }}</span>
                 <span class="version-value">v{{ aria2Version }}</span>
                 <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
