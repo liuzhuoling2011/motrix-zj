@@ -2,7 +2,7 @@
  * @fileoverview Tests for the useEngineRestart composable.
  *
  * Verifies the concurrency guard that prevents multiple simultaneous engine
- * restarts — the root cause of orphaned aria2c processes.
+ * restarts — the root cause of orphaned Aria2 Next processes.
  *
  * Now tests the invoke()-only flow: restart_engine_command (which runs
  * on_engine_ready internally) + wait_for_engine (Rust-side health check).

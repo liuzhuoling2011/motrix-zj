@@ -6,10 +6,10 @@ use tauri::AppHandle;
 
 use super::config::get_system_config;
 
-/// Starts the aria2c engine process with current system configuration.
+/// Starts the Aria2 Next engine process with current system configuration.
 /// Runs on a background thread to avoid blocking the WebView main thread.
 ///
-/// NOTE: This ONLY spawns the aria2c sidecar. It does NOT wait for
+/// NOTE: This ONLY spawns the Aria2 Next sidecar. It does NOT wait for
 /// readiness or sync options. The frontend must call `wait_for_engine`
 /// afterwards, which handles: probe → credential update → option sync.
 #[tauri::command]
@@ -24,7 +24,7 @@ pub async fn start_engine_command(app: AppHandle) -> Result<(), AppError> {
     .map_err(|e| AppError::Engine(e.to_string()))?
 }
 
-/// Gracefully stops the running aria2c engine process.
+/// Gracefully stops the running Aria2 Next engine process.
 /// Runs on a background thread to avoid blocking the WebView main thread.
 #[tauri::command]
 pub async fn stop_engine_command(app: AppHandle) -> Result<(), AppError> {
@@ -34,7 +34,7 @@ pub async fn stop_engine_command(app: AppHandle) -> Result<(), AppError> {
         .map_err(|e| AppError::Engine(e.to_string()))?
 }
 
-/// Stops and restarts the aria2c engine with current system configuration.
+/// Stops and restarts the Aria2 Next engine with current system configuration.
 /// Runs on a background thread to avoid blocking the WebView main thread
 /// during the kill → sleep → cleanup → spawn sequence.
 ///
@@ -52,7 +52,7 @@ pub async fn restart_engine_command(app: AppHandle) -> Result<(), AppError> {
     .map_err(|e| AppError::Engine(e.to_string()))?
 }
 
-/// Rust-side health check: probes the aria2c RPC endpoint with retries.
+/// Rust-side health check: probes the Aria2 Next RPC endpoint with retries.
 ///
 /// On successful probe, runs `on_engine_ready()` which:
 ///   1. Updates Aria2Client credentials
@@ -85,7 +85,7 @@ pub async fn wait_for_engine(app: AppHandle) -> Result<bool, AppError> {
             Ok(_) => {
                 log::info!("wait_for_engine: connected on attempt {}", i + 1);
 
-                // aria2c is confirmed ready — NOW safe to sync options.
+                // Aria2 Next is confirmed ready — NOW safe to sync options.
                 if let Err(e) = services::on_engine_ready(&app).await {
                     log::warn!("wait_for_engine: on_engine_ready failed: {e}");
                     // Non-fatal: engine is usable even if option sync fails.

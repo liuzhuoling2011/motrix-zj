@@ -5,13 +5,13 @@ import { resolve } from 'path'
 /**
  * Sidecar Binary Structural Tests
  *
- * Validates that all platform-specific aria2c sidecar binaries are present,
+ * Validates that all platform-specific Aria2 Next sidecar binaries are present,
  * correctly named for Tauri's externalBin resolution, and contain valid
  * executable content.
  *
  * Tauri resolves sidecars by appending the Rust target triple to the base
  * name specified in tauri.conf.json's externalBin array. For example:
- *   "binaries/motrixnext-aria2c" → "binaries/motrixnext-aria2c-aarch64-apple-darwin"
+ *   "binaries/aria2-next" → "binaries/aria2-next-aarch64-apple-darwin"
  *
  * Missing or corrupt sidecar binaries cause silent build failures or
  * runtime crashes — these tests catch both classes of defect.
@@ -44,7 +44,7 @@ const MIN_SIDECAR_SIZE = 1_000_000
  */
 function sidecarFilename(target: string): string {
   const ext = target.includes('windows') ? '.exe' : ''
-  return `motrixnext-aria2c-${target}${ext}`
+  return `aria2-next-${target}${ext}`
 }
 
 describe('sidecar binaries', () => {
@@ -172,13 +172,8 @@ describe('sidecar binaries', () => {
           // IMAGE_FILE_MACHINE_AMD64 = 0x8664
           expect(machine).toBe(0x8664)
         } else if (target.includes('aarch64')) {
-          // Windows ARM ships the x64 aria2c binary: aria2 has no official
-          // ARM64 build, and Windows 11 ARM runs x64 transparently via
-          // Prism emulation.  Accept both ARM64 and AMD64 machine types
-          // so the test passes whether using the x64 fallback or a future
-          // native ARM64 build.
-          // IMAGE_FILE_MACHINE_ARM64 = 0xAA64, IMAGE_FILE_MACHINE_AMD64 = 0x8664
-          expect([0xaa64, 0x8664]).toContain(machine)
+          // IMAGE_FILE_MACHINE_ARM64 = 0xAA64
+          expect(machine).toBe(0xaa64)
         }
       })
     }
@@ -189,7 +184,7 @@ describe('sidecar binaries', () => {
       const tauriConf = JSON.parse(readFileSync(resolve(BINARIES_DIR, '..', 'tauri.conf.json'), 'utf-8'))
       const externalBin: string[] = tauriConf.bundle?.externalBin ?? []
       // At least one entry should match the sidecar base path
-      const hasAria2Sidecar = externalBin.some((entry: string) => entry.includes('motrixnext-aria2c'))
+      const hasAria2Sidecar = externalBin.some((entry: string) => entry.includes('aria2-next'))
       expect(hasAria2Sidecar).toBe(true)
     })
   })

@@ -11,6 +11,8 @@ use crate::services::port_guard;
 static BT_PORT_RECOVERY_IN_FLIGHT: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
+const ENGINE_SIDECAR_NAME: &str = "aria2-next";
+
 fn recover_bt_port_conflict(app: &tauri::AppHandle) {
     if BT_PORT_RECOVERY_IN_FLIGHT.swap(true, Ordering::SeqCst) {
         return;
@@ -91,7 +93,7 @@ fn kill_process_by_pid(pid: u32) -> Result<(), String> {
     }
 }
 
-/// Spawns the aria2c engine process with the given configuration.
+/// Spawns the Aria2 Next engine process with the given configuration.
 /// Creates the download directory, cleans up stale port listeners, and passes
 /// whitelisted config keys as CLI arguments.
 pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Result<(), String> {
@@ -115,7 +117,7 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
     let config =
         crate::commands::config::get_system_config(app.clone()).map_err(|e| e.to_string())?;
 
-    // Kill any leftover aria2c process on the RPC port before starting
+    // Kill any leftover supported engine process on the RPC port before starting
     let port = config
         .get("rpc-listen-port")
         .and_then(|v| v.as_str())
@@ -162,13 +164,13 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
 
     let sidecar = app
         .shell()
-        .sidecar("motrixnext-aria2c")
+        .sidecar(ENGINE_SIDECAR_NAME)
         .map_err(|e| format!("Failed to create sidecar: {}", e))?
         .args(&args);
 
     let (mut rx, child) = sidecar
         .spawn()
-        .map_err(|e| format!("Failed to spawn aria2c: {}", e))?;
+        .map_err(|e| format!("Failed to spawn Aria2 Next: {}", e))?;
 
     log::info!("started engine process: PID {}", child.pid());
 
@@ -267,7 +269,7 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
 ///   process tree is dead, then sleeps 100 ms for the OS to release the RPC
 ///   port before a new engine instance binds to it.
 ///
-/// aria2c is a single-process, multi-threaded binary — it never spawns child
+/// Aria2 Next is a single-process, multi-threaded binary — it never spawns child
 /// processes — so `CommandChild::kill()` and `taskkill /T` are functionally
 /// equivalent for termination.  The distinction matters only for timing: the
 /// fast path avoids the ~800 ms overhead of spawning `taskkill.exe` and the
@@ -304,13 +306,13 @@ pub fn stop_engine(app: &tauri::AppHandle, for_exit: bool) -> Result<(), String>
 /// Atomically stops the current engine and starts a new one.
 ///
 /// Holds the `EngineState` Mutex for the entire duration to prevent concurrent
-/// restarts from spawning duplicate aria2c processes.  Sequence:
+/// restarts from spawning duplicate Aria2 Next processes.  Sequence:
 ///   1. Kill the old child (if any) and wait for OS cleanup
-///   2. Run `cleanup_port` to kill any orphaned aria2c on the RPC port
-///   3. Spawn a new aria2c sidecar
+///   2. Run `cleanup_port` to kill any orphaned engine on the RPC port
+///   3. Spawn a new Aria2 Next sidecar
 ///
 /// This is the fix for: rapid "Save & Apply" → "Restart Engine" creating
-/// orphaned aria2c processes on all platforms.
+/// orphaned engine processes on all platforms.
 pub fn restart_engine(app: &tauri::AppHandle, _config: &serde_json::Value) -> Result<(), String> {
     let state = app.state::<EngineState>();
     // Signal intentional stop BEFORE kill so the old process's Terminated
@@ -342,7 +344,7 @@ pub fn restart_engine(app: &tauri::AppHandle, _config: &serde_json::Value) -> Re
         .unwrap_or("16800");
     cleanup_port(port);
 
-    // Step 3: Spawn new aria2c (inlined from start_engine to keep lock held)
+    // Step 3: Spawn new Aria2 Next (inlined from start_engine to keep lock held)
     if let Some(dir) = config.get("dir").and_then(|v| v.as_str()) {
         std::fs::create_dir_all(dir)
             .map_err(|e| format!("Failed to create download directory '{}': {}", dir, e))?;
@@ -383,13 +385,13 @@ pub fn restart_engine(app: &tauri::AppHandle, _config: &serde_json::Value) -> Re
 
     let sidecar = app
         .shell()
-        .sidecar("motrixnext-aria2c")
+        .sidecar(ENGINE_SIDECAR_NAME)
         .map_err(|e| format!("Failed to create sidecar: {}", e))?
         .args(&args);
 
     let (mut rx, child) = sidecar
         .spawn()
-        .map_err(|e| format!("Failed to spawn aria2c: {}", e))?;
+        .map_err(|e| format!("Failed to spawn Aria2 Next: {}", e))?;
 
     log::info!("restart: started new engine process: PID {}", child.pid());
     let spawned_pid = child.pid();

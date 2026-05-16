@@ -407,7 +407,7 @@ pub async fn check_for_update(
 
 /// Downloads the latest update on the specified channel WITHOUT installing.
 ///
-/// The aria2c engine keeps running during download — user tasks are unaffected.
+/// The Aria2 Next engine keeps running during download — user tasks are unaffected.
 /// Downloaded bytes are stored in `DownloadedUpdate` shared state for later
 /// installation via `apply_update`.
 ///
@@ -440,7 +440,7 @@ pub async fn download_update(
     };
     let update = selected.update;
 
-    // ── Download only (aria2c stays alive) ───────────────────────────
+    // ── Download only (Aria2 Next stays alive) ───────────────────────────
     let app_handle = app.clone();
     let cancel = cancel_state.inner().clone();
     let mut downloaded: u64 = 0;
@@ -516,7 +516,7 @@ pub async fn download_update(
 /// Installs a previously downloaded update.
 ///
 /// Uses a two-phase approach:
-///   1. **Stop engine** — kill the aria2c sidecar so NSIS can overwrite it.
+///   1. **Stop engine** — kill the Aria2 Next sidecar so NSIS can overwrite it.
 ///   2. **Install** — run the platform installer (NSIS / tar.gz replacement).
 ///
 /// The caller (frontend) should invoke this only after `download_update`
@@ -564,7 +564,7 @@ pub async fn apply_update(
     }
     drop(pkg_guard); // release lock before engine stop
 
-    // ── Phase 1: Stop aria2c engine BEFORE installation ─────────────
+    // ── Phase 1: Stop Aria2 Next engine BEFORE installation ─────────────
     // On Windows, NSIS cannot overwrite a running .exe binary.
     // On macOS/Linux this prevents session file corruption.
     {

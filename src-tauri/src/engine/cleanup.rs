@@ -1,20 +1,20 @@
-/// Determines whether a process command name is an aria2c process.
+/// Determines whether a process command name is a supported Aria2 Next process.
 ///
-/// Used by `cleanup_port` (Unix) to verify that only aria2c processes are
+/// Used by `cleanup_port` (Unix) to verify that only supported engine processes are
 /// killed when reclaiming the RPC port — never arbitrary processes that
 /// happen to occupy the same port.
 ///
-/// Matches both `aria2c` and `motrixnext-aria2c` (the namespaced sidecar name).
+/// Matches the current `aria2-next` sidecar plus legacy names used by older builds.
 ///
 /// On Windows, the equivalent check is inlined via `tasklist` CSV output
 /// (see the `#[cfg(windows)]` block in `cleanup_port`).
 #[cfg(any(unix, test))]
-fn is_aria2c_process(comm: &str) -> bool {
-    comm.contains("aria2c")
+fn is_supported_engine_process(comm: &str) -> bool {
+    comm.contains("aria2-next")
 }
 
-/// Kill only aria2c processes occupying the given port, so a new aria2c can bind to it.
-/// Non-aria2c processes on the same port are left untouched to prevent accidental kills.
+/// Kill only supported engine processes occupying the given port, so a new engine can bind to it.
+/// Non-engine processes on the same port are left untouched to prevent accidental kills.
 pub(crate) fn cleanup_port(port: &str) {
     // Validate port is a legal u16 — rejects injection payloads,
     // out-of-range values, and non-numeric strings at the gate.
@@ -42,7 +42,7 @@ pub(crate) fn cleanup_port(port: &str) {
                     if pid.is_empty() {
                         continue;
                     }
-                    // Verify the process is aria2c before killing
+                    // Verify the process is a supported engine before killing
                     let check = std::process::Command::new("ps")
                         .args(["-p", pid, "-o", "comm="])
                         .stderr(std::process::Stdio::null())
@@ -50,9 +50,9 @@ pub(crate) fn cleanup_port(port: &str) {
                     if let Ok(check_out) = check {
                         let comm = String::from_utf8_lossy(&check_out.stdout);
                         let comm = comm.trim();
-                        if is_aria2c_process(comm) {
+                        if is_supported_engine_process(comm) {
                             log::debug!(
-                                "killing leftover aria2c process on port {}: PID {}",
+                                "killing leftover engine process on port {}: PID {}",
                                 port,
                                 pid
                             );
@@ -63,7 +63,7 @@ pub(crate) fn cleanup_port(port: &str) {
                             killed_any = true;
                         } else {
                             log::debug!(
-                                "port {} occupied by non-aria2c process '{}' (PID {}), skipping",
+                                "port {} occupied by non-engine process '{}' (PID {}), skipping",
                                 port,
                                 comm,
                                 pid
@@ -100,7 +100,7 @@ pub(crate) fn cleanup_port(port: &str) {
             for line in text.lines() {
                 if let Some(pid) = line.split_whitespace().last() {
                     if pid.parse::<u32>().is_ok() {
-                        // Verify the process is aria2c before killing
+                        // Verify the process is a supported engine before killing
                         let check = std::process::Command::new("cmd")
                             .args([
                                 "/C",
@@ -108,15 +108,15 @@ pub(crate) fn cleanup_port(port: &str) {
                             ])
                             .creation_flags(CREATE_NO_WINDOW)
                             .output();
-                        let is_aria2c = check
+                        let is_supported_engine = check
                             .map(|o| {
-                                let s = String::from_utf8_lossy(&o.stdout);
-                                s.to_lowercase().contains("aria2c")
+                                let s = String::from_utf8_lossy(&o.stdout).to_lowercase();
+                                is_supported_engine_process(&s)
                             })
                             .unwrap_or(false);
-                        if is_aria2c {
+                        if is_supported_engine {
                             log::debug!(
-                                "killing leftover aria2c process on port {}: PID {}",
+                                "killing leftover engine process on port {}: PID {}",
                                 port,
                                 pid
                             );
@@ -127,7 +127,7 @@ pub(crate) fn cleanup_port(port: &str) {
                             killed_any = true;
                         } else {
                             log::debug!(
-                                "port {} occupied by non-aria2c process (PID {}), skipping",
+                                "port {} occupied by non-engine process (PID {}), skipping",
                                 port,
                                 pid
                             );
@@ -148,26 +148,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn is_aria2c_process_matches_aria2c() {
-        assert!(is_aria2c_process("aria2c"));
+    fn is_supported_engine_process_matches_aria2_next() {
+        assert!(is_supported_engine_process("aria2-next"));
+        assert!(is_supported_engine_process(
+            "/Applications/MotrixNext.app/Contents/Resources/aria2-next"
+        ));
     }
 
     #[test]
-    fn is_aria2c_process_matches_namespaced_sidecar() {
-        assert!(is_aria2c_process("motrixnext-aria2c"));
-    }
-
-    #[test]
-    fn is_aria2c_process_matches_full_path() {
-        assert!(is_aria2c_process("/usr/local/bin/aria2c"));
-    }
-
-    #[test]
-    fn is_aria2c_process_rejects_other_processes() {
-        assert!(!is_aria2c_process("nginx"));
-        assert!(!is_aria2c_process("node"));
-        assert!(!is_aria2c_process("python3"));
-        assert!(!is_aria2c_process(""));
+    fn is_supported_engine_process_rejects_other_processes() {
+        assert!(!is_supported_engine_process("nginx"));
+        assert!(!is_supported_engine_process("node"));
+        assert!(!is_supported_engine_process("python3"));
+        assert!(!is_supported_engine_process(""));
     }
 
     // ── Port validation tests (code review fix) ──────────────────

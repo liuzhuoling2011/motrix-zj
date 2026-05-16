@@ -1,4 +1,4 @@
-//! Engine management for the aria2c sidecar process.
+//! Engine management for the Aria2 Next sidecar process.
 //!
 //! Split into focused sub-modules:
 //! - [`state`] — `EngineState` struct, ANSI stripping, log routing

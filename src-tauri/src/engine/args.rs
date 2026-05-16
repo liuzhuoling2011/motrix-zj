@@ -1,4 +1,4 @@
-/// Builds the CLI argument list for spawning the aria2c sidecar process.
+/// Builds the CLI argument list for spawning the Aria2 Next sidecar process.
 ///
 /// Whitelists only valid aria2c options from the config object and handles
 /// the `keep-seeding` app-level flag. Options managed exclusively by

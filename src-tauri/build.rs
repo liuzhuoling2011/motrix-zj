@@ -8,11 +8,11 @@ fn main() {
         use std::process::Command;
         // Clear source binaries
         let _ = Command::new("xattr").args(["-cr", "binaries/"]).status();
-        // Clear copied sidecar in target/debug and target/release
+        // Clear copied sidecars in target/debug and target/release.
         let _ = Command::new("sh")
             .args([
                 "-c",
-                "xattr -cr target/debug/aria2c* target/release/aria2c* 2>/dev/null || true",
+                "xattr -cr target/debug/aria2-next* target/release/aria2-next* 2>/dev/null || true",
             ])
             .status();
     }

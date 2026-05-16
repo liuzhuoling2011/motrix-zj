@@ -21,7 +21,7 @@ pub(crate) fn path_to_safe_string(path: &std::path::Path) -> String {
 }
 
 /// Strips ANSI escape sequences (color codes) from a string.
-/// aria2c emits colored output (e.g., `\x1b[1;31mERROR\x1b[0m`) which
+/// Aria2 Next emits colored output (e.g., `\x1b[1;31mERROR\x1b[0m`) which
 /// produces garbage in log files.
 pub(crate) fn strip_ansi(input: &str) -> String {
     strip_ansi_escapes::strip_str(input)
@@ -56,7 +56,7 @@ pub(crate) fn log_engine_stdout(raw: &str) {
     }
 }
 
-/// Holds the aria2c child process handle, protected by a Mutex for thread-safe access.
+/// Holds the Aria2 Next child process handle, protected by a Mutex for thread-safe access.
 ///
 /// `intentional_stop` distinguishes deliberate kills (restart, update, relaunch)
 /// from genuine crashes.  Set to `true` before `child.kill()`, checked by the

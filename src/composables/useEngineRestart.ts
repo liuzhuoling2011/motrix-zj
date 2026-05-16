@@ -2,7 +2,7 @@
  * @fileoverview Composable for engine restart with concurrency guard.
  *
  * Prevents multiple simultaneous engine restarts — the root cause of orphaned
- * aria2c processes.  Only ONE restart may be in-flight at any time; subsequent
+ * Aria2 Next processes.  Only ONE restart may be in-flight at any time; subsequent
  * calls return `false` immediately.
  *
  * The Rust `restart_engine_command` handles the full lifecycle:
