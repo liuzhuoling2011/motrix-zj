@@ -3,16 +3,20 @@
   <h1>Motrix Next</h1>
   <p>A full-featured download manager — rebuilt from the ground up.</p>
 
-  [![GitHub release](https://img.shields.io/github/v/release/AnInsomniacy/motrix-next.svg)](https://github.com/AnInsomniacy/motrix-next/releases)
-  ![Build](https://img.shields.io/github/actions/workflow/status/AnInsomniacy/motrix-next/ci.yml?branch=main&label=Build)
-  ![Total Downloads](https://img.shields.io/github/downloads/AnInsomniacy/motrix-next/total.svg)
-  <br>
-  ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue.svg)
-  ![Bundle Size](https://img.shields.io/badge/bundle%20size-~20MB-brightgreen.svg)
+[![GitHub release](https://img.shields.io/github/v/release/AnInsomniacy/motrix-next.svg)](https://github.com/AnInsomniacy/motrix-next/releases)
+![Build](https://img.shields.io/github/actions/workflow/status/AnInsomniacy/motrix-next/ci.yml?branch=main&label=Build)
+![Total Downloads](https://img.shields.io/github/downloads/AnInsomniacy/motrix-next/total.svg)
+<br>
+![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue.svg)
+![Bundle Size](https://img.shields.io/badge/bundle%20size-~20MB-brightgreen.svg)
 
-  [![Website](https://img.shields.io/badge/Website-E0A422?style=for-the-badge&logo=safari&logoColor=white)](https://motrix-next.pages.dev)
-  [![Browser Extension](https://img.shields.io/badge/Extension-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://github.com/AnInsomniacy/motrix-next-extension)
+[![Website](https://img.shields.io/badge/Website-E0A422?style=for-the-badge&logo=safari&logoColor=white)](https://motrix-next.pages.dev)
+[![Browser Extension](https://img.shields.io/badge/Extension-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://github.com/AnInsomniacy/motrix-next-extension)
+
 </div>
+
+> [!NOTE]
+> Motrix Next runs on [`aria2-next`](https://github.com/AnInsomniacy/aria2-next), the maintained aria2-compatible engine built for Motrix Next and other aria2 consumers. It preserves the `aria2c` command, configuration, session, JSON-RPC, and libaria2 interfaces while publishing current release binaries for macOS, Windows, and Linux across x64 and ARM64.
 
 ---
 
@@ -36,21 +40,17 @@ However, the original project has been largely inactive since 2023. The Electron
 
 Motrix Next is a ground-up rewrite — same download manager spirit, entirely new codebase.
 
-| Layer | Motrix (Legacy) | Motrix Next |
-|-------|----------------|-------------|
-| **Runtime** | Electron | **Tauri 2** (Rust) |
-| **Frontend** | Vue 2 + Vuex | **Vue 3 Composition API + Pinia** |
-| **UI Framework** | Element UI | **Naive UI** |
-| **Language** | JavaScript | **TypeScript + Rust** |
-| **Styling** | SCSS + Element theme | **Vanilla CSS + custom properties** |
-| **Engine Mgmt** | Node.js `child_process` | **Tauri sidecar** |
-| **Build System** | electron-builder | **Vite + Cargo** |
-| **Bundle Size** | ~80 MB | **~20 MB** |
-| **Auto-Update** | electron-updater | **Tauri updater plugin** |
-
-> [!NOTE]
-> **6-platform aria2-next engine** — Motrix Next embeds [`aria2-next`](https://github.com/AnInsomniacy/aria2-next), a maintained aria2-compatible fork that preserves the `aria2c` command, config, session, JSON-RPC, and libaria2 interfaces. Release builds are published for macOS (Apple Silicon / Intel), Windows (x64 / ARM64), and Linux (x64 / ARM64), so the app now uses the maintained engine release pipeline directly.
-
+| Layer            | Motrix (Legacy)         | Motrix Next                         |
+| ---------------- | ----------------------- | ----------------------------------- |
+| **Runtime**      | Electron                | **Tauri 2** (Rust)                  |
+| **Frontend**     | Vue 2 + Vuex            | **Vue 3 Composition API + Pinia**   |
+| **UI Framework** | Element UI              | **Naive UI**                        |
+| **Language**     | JavaScript              | **TypeScript + Rust**               |
+| **Styling**      | SCSS + Element theme    | **Vanilla CSS + custom properties** |
+| **Engine Mgmt**  | Node.js `child_process` | **Tauri sidecar**                   |
+| **Build System** | electron-builder        | **Vite + Cargo**                    |
+| **Bundle Size**  | ~80 MB                  | **~20 MB**                          |
+| **Auto-Update**  | electron-updater        | **Tauri updater plugin**            |
 
 ### Design & Motion
 
@@ -97,10 +97,10 @@ xattr -cr /Applications/MotrixNext.app  # remove quarantine (app is unsigned)
 
 Or download the `.dmg` installer from [Releases](https://github.com/AnInsomniacy/motrix-next/releases):
 
-| Architecture | File |
-|-------------|------|
+| Architecture  | File                           |
+| ------------- | ------------------------------ |
 | Apple Silicon | `MotrixNext_x.x.x_aarch64.dmg` |
-| Intel | `MotrixNext_x.x.x_x64.dmg` |
+| Intel         | `MotrixNext_x.x.x_x64.dmg`     |
 
 The `.app.tar.gz` macOS artifacts are published for the Tauri updater and Homebrew cask automation.
 
@@ -111,10 +111,10 @@ The `.app.tar.gz` macOS artifacts are published for the Tauri updater and Homebr
 
 Download the installer from [Releases](https://github.com/AnInsomniacy/motrix-next/releases):
 
-| Architecture | File |
-|-------------|------|
-| x64 (most PCs) | `MotrixNext_x.x.x_x64-setup.exe` |
-| ARM64 | `MotrixNext_x.x.x_arm64-setup.exe` |
+| Architecture   | File                               |
+| -------------- | ---------------------------------- |
+| x64 (most PCs) | `MotrixNext_x.x.x_x64-setup.exe`   |
+| ARM64          | `MotrixNext_x.x.x_arm64-setup.exe` |
 
 Run the installer — it takes about 10 seconds, no reboot required.
 
