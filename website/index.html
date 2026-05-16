@@ -347,7 +347,9 @@
               stroke-linecap="round"
               stroke-linejoin="round"
             >
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+              <path
+                d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+              />
               <circle cx="12" cy="12" r="4" />
             </svg>
             <span class="hero-stat-value loading" id="stat-version">&middot;&middot;&middot;</span>
@@ -446,6 +448,16 @@
 
       <section id="story" class="section">
         <h2 class="reveal" data-i18n="story.title">Why Motrix Next?</h2>
+        <aside class="engine-note reveal">
+          <span class="engine-note-label" data-i18n="story.engine.label">Engine</span>
+          <p data-i18n-html="story.engine">
+            Motrix Next uses
+            <a href="https://github.com/AnInsomniacy/aria2-next" target="_blank" rel="noopener">aria2-next</a> as its
+            download engine. This maintained aria2 fork is modernized for current toolchains, dependencies, and release
+            workflows. It preserves the original aria2 interfaces while modernizing the architecture and fixing
+            long-standing bugs and upstream issues.
+          </p>
+        </aside>
         <div class="prose reveal">
           <p data-i18n="story.p1">
             Motrix by agalwood was one of the best open-source download managers available — clean UI, aria2-powered,
@@ -917,7 +929,7 @@
           <img
             id="star-history-preload"
             aria-hidden="true"
-            style="display:none"
+            style="display: none"
             loading="lazy"
             src="https://api.star-history.com/chart?repos=AnInsomniacy/motrix-next&type=date&legend=top-left"
           />
@@ -1308,8 +1320,6 @@
           const ver = data.tag_name || ''
           cachedVer = ver
           releaseUrl = data.html_url || releaseUrl
-
-
 
           for (const p of PLATFORMS) {
             const a = assets.find((a) => p.match(a.name))

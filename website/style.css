@@ -859,6 +859,53 @@ code {
   max-width: 55ch;
 }
 
+/* ── Engine note ───────────────────────────────────────────────────── */
+.engine-note {
+  position: relative;
+  display: grid;
+  gap: 0.625rem;
+  max-width: 62ch;
+  margin: 0 0 1.5rem;
+  padding-block: 1rem;
+  padding-inline: 1.25rem 1.125rem;
+  border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--accent);
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--accent-soft), transparent 62%), var(--bg-raised);
+}
+
+[dir='rtl'] .engine-note {
+  padding-inline: 1.125rem 1.25rem;
+  background: linear-gradient(270deg, var(--accent-soft), transparent 62%), var(--bg-raised);
+}
+
+.engine-note-label {
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.engine-note p {
+  color: var(--text-dim);
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+
+.engine-note a {
+  color: var(--accent);
+  border-bottom: 1px solid transparent;
+  transition: border-color 200ms;
+}
+
+.engine-note a:hover {
+  opacity: 1;
+  border-color: var(--accent);
+}
+
 /* ── Card grids ────────────────────────────────────────────────────── */
 .card-grid {
   display: grid;
@@ -1008,8 +1055,6 @@ tbody tr:last-child td {
   font-size: 0.875rem;
   margin-bottom: 1.5rem;
 }
-
-
 
 .dl-toggle {
   display: block;
@@ -1344,12 +1389,7 @@ tbody tr:last-child td {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--border-subtle) 40%,
-    transparent 80%
-  );
+  background: linear-gradient(90deg, transparent 0%, var(--border-subtle) 40%, transparent 80%);
   background-size: 200% 100%;
   animation: shimmer 1.6s linear infinite;
   transition: opacity 400ms ease;
@@ -1362,8 +1402,12 @@ tbody tr:last-child td {
 }
 
 @keyframes shimmer {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 .star-history-frame img {

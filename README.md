@@ -15,9 +15,6 @@
 
 </div>
 
-> [!NOTE]
-> Motrix Next runs on [`aria2-next`](https://github.com/AnInsomniacy/aria2-next), the maintained aria2-compatible engine built for Motrix Next and other aria2 consumers. It preserves the `aria2c` command, configuration, session, JSON-RPC, and libaria2 interfaces while publishing current release binaries for macOS, Windows, and Linux across x64 and ARM64.
-
 ---
 
 <div align="center">
@@ -31,6 +28,9 @@
 </div>
 
 ## Why Motrix Next?
+
+> [!NOTE]
+> Motrix Next uses [`aria2-next`](https://github.com/AnInsomniacy/aria2-next) as its download engine. This maintained aria2 fork is modernized for current toolchains, dependencies, and release workflows. It preserves the original aria2 interfaces while modernizing the architecture and fixing long-standing bugs and upstream issues.
 
 [Motrix](https://github.com/agalwood/Motrix) by [agalwood](https://github.com/agalwood) was one of the best open-source download managers available — clean UI, aria2-powered, cross-platform. It inspired thousands of users and developers alike.
 
