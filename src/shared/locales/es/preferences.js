@@ -330,6 +330,9 @@ export default {
   'file-category-auto-archive-hint':
     'Los tipos no reconocidos se guardan en la ruta predeterminada y se archivan automáticamente después de la descarga',
   'auto-submit-from-extension': 'Omitir confirmación para descargas de la extensión',
+  'silent-auto-submit-from-extension': 'Procesar descargas de la extension en segundo plano',
+  'silent-auto-submit-from-extension-tip':
+    'Cuando se omite la confirmacion, las descargas de la extension pueden aceptarse sin mostrar la ventana principal.',
   'extension-api-port': 'Puerto de API de extensión',
   'extension-api-secret-tip':
     'Introduzca esta clave en la configuración de la extensión del navegador para autenticarse.',

@@ -100,10 +100,17 @@ export const useAppStore = defineStore('app', () => {
   const pendingMagnetGids = ref<string[]>([])
   /** Protocols detected as hijacked at startup (set by syncProtocolHandlers). */
   const pendingProtocolHijack = ref<string[]>([])
+  const externalInputSubmitting = ref(false)
+  let externalInputSubmitCount = 0
   let externalInputErrorHandler: ((error: unknown) => void) | null = null
+  let externalInputStartHandler: ((taskNames: string[]) => void) | null = null
 
   function setExternalInputErrorHandler(handler: ((error: unknown) => void) | null) {
     externalInputErrorHandler = handler
+  }
+
+  function setExternalInputStartHandler(handler: ((taskNames: string[]) => void) | null) {
+    externalInputStartHandler = handler
   }
 
   function updateInterval(millisecond: number) {
@@ -389,8 +396,10 @@ export const useAppStore = defineStore('app', () => {
     }
 
     const options = buildEngineOptions(form)
+    externalInputSubmitCount += 1
+    externalInputSubmitting.value = true
     try {
-      await submitManualUris(
+      const result = await submitManualUris(
         form,
         options,
         taskStore,
@@ -400,11 +409,16 @@ export const useAppStore = defineStore('app', () => {
         },
         getDownloadProxy(preferenceStore.config.proxy),
       )
+      const taskNames = result.submittedTaskNames.length > 0 ? result.submittedTaskNames : [filenameHint || url]
+      externalInputStartHandler?.(taskNames)
       preferenceStore.recordHistoryDirectory(form.dir || preferenceStore.config.dir)
       logger.info('autoSubmit', `auto-submitted: ${url}`)
     } catch (e) {
       logger.error('autoSubmit', e)
       externalInputErrorHandler?.(e)
+    } finally {
+      externalInputSubmitCount = Math.max(0, externalInputSubmitCount - 1)
+      externalInputSubmitting.value = externalInputSubmitCount > 0
     }
   }
 
@@ -442,7 +456,9 @@ export const useAppStore = defineStore('app', () => {
     fetchEngineOptions,
     handleDeepLinkUrls,
     setExternalInputErrorHandler,
+    setExternalInputStartHandler,
     pendingProtocolHijack,
     pendingFilename,
+    externalInputSubmitting,
   }
 })

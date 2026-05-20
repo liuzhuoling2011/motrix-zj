@@ -325,6 +325,9 @@ export default {
   'file-category-auto-archive-hint':
     'Các loại không nhận dạng được sẽ được lưu vào đường dẫn mặc định và tự động lưu trữ sau khi tải xuống',
   'auto-submit-from-extension': 'Bỏ qua xác nhận cho tải xuống từ tiện ích',
+  'silent-auto-submit-from-extension': 'Xu ly tai xuong tu tien ich trong nen',
+  'silent-auto-submit-from-extension-tip':
+    'Khi bo qua xac nhan, tai xuong tu tien ich co the duoc nhan ma khong hien cua so chinh.',
   'extension-api-port': 'Cổng API tiện ích',
   'extension-api-secret-tip': 'Nhập khóa này vào cài đặt tiện ích mở rộng trình duyệt để xác thực.',
   'extension-api-secret': 'Khóa bí mật API tiện ích',

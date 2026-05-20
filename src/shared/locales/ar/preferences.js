@@ -323,6 +323,9 @@ export default {
   'file-category-auto-archive': 'أرشفة تلقائية',
   'file-category-auto-archive-hint': 'الأنواع غير المعروفة تُحفظ في المسار الافتراضي وتُؤرشف تلقائياً بعد التنزيل',
   'auto-submit-from-extension': 'تخطي التأكيد لتنزيلات الإضافة',
+  'silent-auto-submit-from-extension': 'معالجة تنزيلات الإضافة في الخلفية',
+  'silent-auto-submit-from-extension-tip':
+    'عند تخطي التأكيد، يمكن استقبال تنزيلات الإضافة دون إظهار النافذة الرئيسية.',
   'extension-api-port': 'منفذ API للإضافة',
   'extension-api-secret-tip': 'أدخل هذا المفتاح في إعدادات إضافة المتصفح للمصادقة.',
   'extension-api-secret': 'مفتاح API للإضافة',

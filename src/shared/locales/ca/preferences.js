@@ -328,6 +328,9 @@ export default {
   'file-category-auto-archive-hint':
     "Els tipus no reconeguts es desen a la ruta per defecte i s'arxiven automàticament després de la descàrrega",
   'auto-submit-from-extension': "Ometre la confirmació per a descàrregues de l'extensió",
+  'silent-auto-submit-from-extension': 'Processa les baixades de l\'extensio en segon pla',
+  'silent-auto-submit-from-extension-tip':
+    'Quan se salta la confirmacio, les baixades de l\'extensio es poden acceptar sense mostrar la finestra principal.',
   'extension-api-port': "Port de l'API de l'extensió",
   'extension-api-secret-tip':
     "Introduïu aquesta clau a la configuració de l'extensió del navegador per autenticar-vos.",

@@ -325,6 +325,9 @@ export default {
   'file-category-auto-archive-hint':
     'Tanınmayan türler varsayılan yola kaydedilir ve indirdikten sonra otomatik olarak arşivlenir',
   'auto-submit-from-extension': 'Eklenti indirmeleri için onayı atla',
+  'silent-auto-submit-from-extension': 'Uzanti indirmelerini arka planda isle',
+  'silent-auto-submit-from-extension-tip':
+    'Onay atlandiginda uzanti indirmeleri ana pencere gosterilmeden kabul edilebilir.',
   'extension-api-port': 'Uzantı API Portu',
   'extension-api-secret-tip': 'Kimlik doğrulaması için bu anahtarı tarayıcı eklentisi ayarlarına girin.',
   'extension-api-secret': 'Eklenti API Anahtarı',

@@ -326,6 +326,9 @@ export default {
   'file-category-auto-archive-hint':
     '認識できないタイプはデフォルトパスに保存され、ダウンロード後に自動的にアーカイブされます',
   'auto-submit-from-extension': '拡張機能からのダウンロードを確認なしで開始',
+  'silent-auto-submit-from-extension': '拡張機能のダウンロードをバックグラウンドで処理',
+  'silent-auto-submit-from-extension-tip':
+    '確認をスキップする場合、メインウィンドウを表示せずに拡張機能からのダウンロードを受け付けます。',
   'extension-api-port': '拡張機能 API ポート',
   'extension-api-secret-tip': '認証のためにブラウザ拡張機能の設定にこのシークレットを入力してください。',
   'extension-api-secret': '拡張機能 API シークレット',

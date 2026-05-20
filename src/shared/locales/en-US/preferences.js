@@ -326,6 +326,9 @@ export default {
   'file-category-auto-archive-hint':
     'Unrecognized types are saved to the default path and auto-archived after download',
   'auto-submit-from-extension': 'Skip confirmation for extension downloads',
+  'silent-auto-submit-from-extension': 'Process extension downloads in the background',
+  'silent-auto-submit-from-extension-tip':
+    'When confirmation is skipped, extension downloads can be accepted without showing the main window.',
   'extension-api-port': 'Extension API Port',
   'extension-api-secret-tip': 'Enter this secret in the browser extension settings to authenticate.',
   'extension-api-secret': 'Extension API Secret',

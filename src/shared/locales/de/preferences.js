@@ -328,6 +328,9 @@ export default {
   'file-category-auto-archive-hint':
     'Unbekannte Dateitypen werden im Standard-Pfad gespeichert und nach dem Download automatisch archiviert',
   'auto-submit-from-extension': 'Bestätigung für Erweiterungs-Downloads überspringen',
+  'silent-auto-submit-from-extension': 'Erweiterungsdownloads im Hintergrund verarbeiten',
+  'silent-auto-submit-from-extension-tip':
+    'Wenn die Bestatigung ubersprungen wird, konnen Erweiterungsdownloads angenommen werden, ohne das Hauptfenster anzuzeigen.',
   'extension-api-port': 'Erweiterungs-API-Port',
   'extension-api-secret-tip':
     'Geben Sie diesen Schlüssel in den Einstellungen der Browser-Erweiterung zur Authentifizierung ein.',

@@ -323,6 +323,9 @@ export default {
   'file-category-auto-archive': 'จัดเก็บอัตโนมัติ',
   'file-category-auto-archive-hint': 'ไฟล์ที่ไม่รู้จักจะถูกบันทึกไว้ในเส้นทางเริ่มต้นและจัดเก็บอัตโนมัติหลังดาวน์โหลด',
   'auto-submit-from-extension': 'ข้ามการยืนยันสำหรับดาวน์โหลดจากส่วนขยาย',
+  'silent-auto-submit-from-extension': 'ประมวลผลการดาวน์โหลดจากส่วนขยายในพื้นหลัง',
+  'silent-auto-submit-from-extension-tip':
+    'เมื่อข้ามการยืนยัน จะรับการดาวน์โหลดจากส่วนขยายได้โดยไม่แสดงหน้าต่างหลัก',
   'extension-api-port': 'พอร์ต API ส่วนขยาย',
   'extension-api-secret-tip': 'ป้อนคีย์นี้ในการตั้งค่าส่วนขยายเบราว์เซอร์เพื่อยืนยันตัวตน',
   'extension-api-secret': 'คีย์ลับ API ของส่วนขยาย',

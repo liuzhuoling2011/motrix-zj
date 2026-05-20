@@ -326,6 +326,9 @@ export default {
   'file-category-auto-archive-hint':
     'Nierozpoznane typy są zapisywane w domyślnej ścieżce i automatycznie archiwizowane po pobraniu',
   'auto-submit-from-extension': 'Pomiń potwierdzenie dla pobrań z rozszerzenia',
+  'silent-auto-submit-from-extension': 'Przetwarzaj pobrania z rozszerzenia w tle',
+  'silent-auto-submit-from-extension-tip':
+    'Gdy potwierdzenie jest pomijane, pobrania z rozszerzenia moga byc przyjmowane bez pokazywania glownego okna.',
   'extension-api-port': 'Port API rozszerzenia',
   'extension-api-secret-tip': 'Wprowadź ten klucz w ustawieniach rozszerzenia przeglądarki w celu uwierzytelnienia.',
   'extension-api-secret': 'Klucz API rozszerzenia',

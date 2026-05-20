@@ -328,6 +328,9 @@ export default {
   'file-category-auto-archive-hint':
     'I tipi non riconosciuti vengono salvati nel percorso predefinito e archiviati automaticamente dopo il download',
   'auto-submit-from-extension': "Scarica direttamente dall'estensione",
+  'silent-auto-submit-from-extension': 'Elabora i download dell\'estensione in background',
+  'silent-auto-submit-from-extension-tip':
+    'Quando la conferma viene saltata, i download dell\'estensione possono essere accettati senza mostrare la finestra principale.',
   'extension-api-port': 'Porta API estensione',
   'extension-api-secret-tip':
     "Inserisci questa chiave nelle impostazioni dell'estensione del browser per l'autenticazione.",

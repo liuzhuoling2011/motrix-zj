@@ -119,6 +119,17 @@ pub enum WindowActivationOutcome {
     WindowUnavailable,
 }
 
+pub fn ensure_main_window(app: &AppHandle, source: &'static str) -> WindowActivationOutcome {
+    log::info!("window:ensure-start source={source}");
+    if get_or_create_main_window(app).is_some() {
+        log::info!("window:ensure-done source={source}");
+        WindowActivationOutcome::Activated
+    } else {
+        log::error!("window:ensure-failed source={source} reason=window-unavailable");
+        WindowActivationOutcome::WindowUnavailable
+    }
+}
+
 pub fn activate_main_window(app: &AppHandle, source: &'static str) -> WindowActivationOutcome {
     log::info!("window:activate-start source={source}");
     #[cfg(target_os = "macos")]

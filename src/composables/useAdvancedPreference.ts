@@ -51,6 +51,7 @@ export interface AdvancedForm {
   extensionApiPort: number
   extensionApiSecret: string
   autoSubmitFromExtension: boolean
+  silentAutoSubmitFromExtension: boolean
   autoChangeConflictingPorts: boolean
   enableUpnp: boolean
   listenPort: number
@@ -130,6 +131,7 @@ export function buildAdvancedForm(config: AppConfig): {
       extensionApiPort: config.extensionApiPort ?? D.extensionApiPort,
       extensionApiSecret,
       autoSubmitFromExtension: config.autoSubmitFromExtension ?? D.autoSubmitFromExtension,
+      silentAutoSubmitFromExtension: config.silentAutoSubmitFromExtension ?? D.silentAutoSubmitFromExtension,
       autoChangeConflictingPorts: config.autoChangeConflictingPorts ?? D.autoChangeConflictingPorts,
       enableUpnp: config.enableUpnp ?? D.enableUpnp,
       listenPort: Number(config.listenPort ?? D.listenPort),

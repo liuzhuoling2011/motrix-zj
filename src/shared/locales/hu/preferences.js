@@ -325,6 +325,9 @@ export default {
   'file-category-auto-archive-hint':
     'A fel nem ismert típusok az alapértelmezett útvonalra kerülnek, és letöltés után automatikusan archiválódnak',
   'auto-submit-from-extension': 'Megerősítés kihagyása a bővítmény letöltéseinél',
+  'silent-auto-submit-from-extension': 'Bovitmeny letolteseinek feldolgozasa a hatterben',
+  'silent-auto-submit-from-extension-tip':
+    'Ha a megerosites kihagyasa aktiv, a bovitmeny letoltesei a foablak megjelenitese nelkul fogadhatok.',
   'extension-api-port': 'Bővítmény API port',
   'extension-api-secret-tip': 'Adja meg ezt a kulcsot a böngészőbővítmény beállításaiban a hitelesítéshez.',
   'extension-api-secret': 'Bővítmény API kulcs',

@@ -447,6 +447,14 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.auto-submit-from-extension')">
         <NSwitch v-model:value="form.autoSubmitFromExtension" />
       </NFormItem>
+      <NCollapseTransition :show="form.autoSubmitFromExtension">
+        <NFormItem :label="t('preferences.silent-auto-submit-from-extension')">
+          <div class="stacked-control">
+            <NSwitch v-model:value="form.silentAutoSubmitFromExtension" />
+            <div class="info-text">{{ t('preferences.silent-auto-submit-from-extension-tip') }}</div>
+          </div>
+        </NFormItem>
+      </NCollapseTransition>
       <NFormItem :label="t('preferences.extension-api-port')">
         <NInputNumber v-model:value="form.extensionApiPort" :min="1024" :max="65535" style="width: 160px" />
       </NFormItem>
@@ -736,6 +744,11 @@ onMounted(async () => {
   font-size: 12px;
   max-width: 520px;
   word-wrap: break-word;
+}
+.stacked-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .info-link {
   color: var(--color-primary);

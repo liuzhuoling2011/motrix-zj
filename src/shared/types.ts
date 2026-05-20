@@ -305,6 +305,10 @@ export interface AppConfig {
    *  Torrent/metalink URLs always show the dialog regardless — they require
    *  a fetch→parse→file-select pipeline that cannot be skipped. */
   autoSubmitFromExtension: boolean
+  /** When true, auto-submitted extension downloads are handled in the
+   *  background without raising the main window. Only applies when
+   *  autoSubmitFromExtension is enabled. */
+  silentAutoSubmitFromExtension: boolean
   trackerSource: string[]
   customTrackerUrls: string[]
   historyDirectories: string[]

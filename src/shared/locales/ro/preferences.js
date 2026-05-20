@@ -327,6 +327,9 @@ export default {
   'file-category-auto-archive-hint':
     'Tipurile nerecunoscute sunt salvate în calea implicită și arhivate automat după descărcare',
   'auto-submit-from-extension': 'Omite confirmarea pentru descărcările din extensie',
+  'silent-auto-submit-from-extension': 'Proceseaza descarcarile extensiei in fundal',
+  'silent-auto-submit-from-extension-tip':
+    'Cand confirmarea este omisa, descarcarile extensiei pot fi acceptate fara afisarea ferestrei principale.',
   'extension-api-port': 'Port API extensie',
   'extension-api-secret-tip': 'Introduceți această cheie în setările extensiei browserului pentru autentificare.',
   'extension-api-secret': 'Cheie secretă API extensie',

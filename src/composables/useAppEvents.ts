@@ -17,6 +17,7 @@ import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
 import { createExternalInputTraceId, summarizeExternalInputBatch } from '@shared/utils/externalInputDiagnostics'
 import { getErrorMessage } from '@shared/utils/errorMessage'
 import { isMotrixNewTaskLink } from '@shared/utils/motrixDeepLink'
+import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
 import { onUnmounted, watch, type Ref, type WatchStopHandle } from 'vue'
 
 interface DeepLinkHandlingResult {
@@ -24,6 +25,11 @@ interface DeepLinkHandlingResult {
   queued: number
   autoSubmitted: number
   ignored: number
+}
+
+interface PendingDeepLinksPayload {
+  urls: string[]
+  silent: boolean
 }
 
 type PendingFrontendActionChannel = 'menu-event' | 'tray-menu-action'
@@ -53,8 +59,13 @@ interface AppEventsDeps {
     enqueueBatch: (items: ReturnType<typeof createBatchItem>[]) => number
     handleDeepLinkUrls: (urls: string[]) => DeepLinkHandlingResult | void
     setExternalInputErrorHandler?: (handler: ((error: unknown) => void) | null) => void
+    setExternalInputStartHandler?: (handler: ((taskNames: string[]) => void) | null) => void
     engineReady: boolean
     engineRestarting: boolean
+    addTaskVisible: boolean
+    pendingBatch: unknown[]
+    pendingMagnetGids: string[]
+    externalInputSubmitting: boolean
   }
   taskStore: {
     taskList: unknown[]
@@ -75,6 +86,9 @@ interface AppEventsDeps {
       listenPort?: number
       dhtListenPort?: number
       ed2kListenPort?: number
+      lightweightMode?: boolean
+      taskNotification?: boolean
+      notifyOnStart?: boolean
     }
     updatePreference?: (cfg: Record<string, unknown>) => void
   }
@@ -118,6 +132,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
   const router = useRouter()
   const route = useRoute()
   const cleanupFns: Array<() => void> = []
+  let silentCleanupTimer: ReturnType<typeof setTimeout> | null = null
 
   function registerCleanup(cleanup: (() => void) | null | undefined): () => void {
     let active = true
@@ -131,6 +146,10 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
   }
 
   function teardown() {
+    if (silentCleanupTimer) {
+      clearTimeout(silentCleanupTimer)
+      silentCleanupTimer = null
+    }
     const pending = cleanupFns.splice(0)
     for (const cleanup of pending.reverse()) {
       cleanup()
@@ -149,6 +168,16 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
     )
   })
   registerCleanup(() => appStore.setExternalInputErrorHandler?.(null))
+
+  appStore.setExternalInputStartHandler?.((taskNames) => {
+    handleTaskStart(taskNames, {
+      messageInfo: message.info,
+      t,
+      taskNotification: preferenceStore.config.taskNotification === true,
+      notifyOnStart: preferenceStore.config.notifyOnStart === true,
+    })
+  })
+  registerCleanup(() => appStore.setExternalInputStartHandler?.(null))
 
   async function runExternalInputWindowStage(
     traceId: string,
@@ -514,27 +543,58 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
    * Shared by the live `deep-link-open` listener and the pending-URL
    * consumption path (lightweight mode window recreation).
    */
-  async function processIncomingDeepLinks(urls: string[]) {
+  async function scheduleSilentLightweightCleanup(traceId: string) {
+    if (silentCleanupTimer) clearTimeout(silentCleanupTimer)
+    silentCleanupTimer = setTimeout(() => {
+      silentCleanupTimer = null
+      void (async () => {
+        if (!preferenceStore.config.lightweightMode) return
+        if (appStore.externalInputSubmitting) return
+        if (appStore.addTaskVisible) return
+        if (appStore.pendingBatch.length > 0) return
+        if (appStore.pendingMagnetGids.length > 0) return
+        const mainWindow = getCurrentWindow()
+        try {
+          if (await mainWindow.isVisible()) return
+          const { invoke } = await import('@tauri-apps/api/core')
+          await invoke('minimize_to_tray')
+          logger.info('ExternalInput', formatLogFields({ traceId, stage: 'silent-cleanup', result: 'ok' }))
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error)
+          logger.debug(
+            'ExternalInput',
+            formatLogFields({ traceId, stage: 'silent-cleanup', result: 'skipped', reason }),
+          )
+        }
+      })()
+    }, 7000)
+  }
+
+  async function processIncomingDeepLinks(urls: string[], options: { silent?: boolean } = {}) {
     const traceId = createExternalInputTraceId()
+    const silent = options.silent === true
     logger.info(
       'ExternalInput',
       formatLogFields({
         traceId,
         stage: 'received',
         route: route.path,
+        silent,
         ...summarizeExternalInputBatch(urls),
       }),
     )
-    const mainWindow = getCurrentWindow()
-    await runExternalInputWindowStage(traceId, 'unminimize', () => mainWindow.unminimize())
-    await runExternalInputWindowStage(traceId, 'show', () => mainWindow.show())
-    await runExternalInputWindowStage(traceId, 'setFocus', () => mainWindow.setFocus())
+    if (!silent) {
+      const mainWindow = getCurrentWindow()
+      await runExternalInputWindowStage(traceId, 'unminimize', () => mainWindow.unminimize())
+      await runExternalInputWindowStage(traceId, 'show', () => mainWindow.show())
+      await runExternalInputWindowStage(traceId, 'setFocus', () => mainWindow.setFocus())
+    }
 
     // Navigate to the "All" downloads tab when receiving new tasks from
     // extension.  Always land on /task/all regardless of current sub-tab
     // (active, stopped, etc.) so the user sees the full task list.
     const hasNewTask = urls.some(isMotrixNewTaskLink)
-    if (hasNewTask && route.path !== '/task/all') {
+    if (!silent && hasNewTask && route.path !== '/task/all') {
       try {
         await router.push('/task/all')
         logger.debug('ExternalInput', formatLogFields({ traceId, stage: 'navigate', result: 'ok', route: '/task/all' }))
@@ -566,6 +626,9 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       const reason = error instanceof Error ? error.message : String(error)
       logger.error('ExternalInput', formatLogFields({ traceId, stage: 'route-download', result: 'failed', reason }))
       throw error
+    }
+    if (silent) {
+      await scheduleSilentLightweightCleanup(traceId)
     }
   }
 
@@ -618,10 +681,15 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
     // Normal startups return an empty array — this is a no-op.
     try {
       const { invoke } = await import('@tauri-apps/api/core')
-      const pendingUrls = await invoke<string[]>('take_pending_deep_links')
+      const pending = await invoke<PendingDeepLinksPayload>('take_pending_deep_links')
+      const pendingUrls = Array.isArray(pending) ? pending : pending.urls
+      const silent = Array.isArray(pending) ? false : pending.silent === true
       if (pendingUrls.length > 0) {
-        logger.info('AppEvents', `consuming ${pendingUrls.length} pending deep-link(s) from window recreation`)
-        await processIncomingDeepLinks(pendingUrls)
+        logger.info(
+          'AppEvents',
+          `consuming ${pendingUrls.length} pending deep-link(s) from window recreation silent=${silent}`,
+        )
+        await processIncomingDeepLinks(pendingUrls, { silent })
       }
       const pendingActions = await invoke<PendingFrontendAction[]>('take_pending_frontend_actions')
       if (pendingActions.length > 0) {

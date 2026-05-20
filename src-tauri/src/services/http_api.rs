@@ -197,7 +197,7 @@ async fn handle_add(
     //
     // The frontend decides whether to show the AddTask dialog (autoSubmit=OFF)
     // or auto-submit silently (autoSubmit=ON) based on the user's preference.
-    // Rust's only job: ensure the window exists and is focused, then emit.
+    // Rust's only job: ensure the window exists, then emit.
     //
     // This unified path handles all URL types (HTTP, magnet, torrent, metalink)
     // and all window states (normal, hidden, destroyed in lightweight mode).
@@ -341,7 +341,29 @@ fn read_api_secret(app: &AppHandle) -> String {
 /// Route a download request through the shared external-input channel.
 fn route_to_frontend(app: &AppHandle, req: &AddRequest) {
     let deep_link_str = build_deep_link_url(req);
-    deep_link::route_external_inputs(app, vec![deep_link_str], "http-api");
+    if should_silent_route_extension_input(app) {
+        deep_link::route_silent_external_inputs(app, vec![deep_link_str], "http-api");
+    } else {
+        deep_link::route_external_inputs(app, vec![deep_link_str], "http-api");
+    }
+}
+
+fn should_silent_route_extension_input(app: &AppHandle) -> bool {
+    app.store("config.json")
+        .ok()
+        .and_then(|s| s.get("preferences"))
+        .map(|p| {
+            let auto_submit = p
+                .get("autoSubmitFromExtension")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true);
+            let silent = p
+                .get("silentAutoSubmitFromExtension")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true);
+            auto_submit && silent
+        })
+        .unwrap_or(false)
 }
 
 /// Build a `motrixnext://new?url=X&referer=Y&cookie=Z` deep-link URL.

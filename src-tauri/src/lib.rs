@@ -883,6 +883,7 @@ pub fn run() {
             commands::lookup_peer_ips,
             commands::refresh_runtime_config,
             commands::restart_http_api,
+            commands::peek_pending_deep_links_silent,
             commands::take_pending_deep_links,
             commands::take_pending_frontend_actions,
             commands::history_add_record,

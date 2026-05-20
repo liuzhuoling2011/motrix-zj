@@ -332,6 +332,9 @@ export default {
   'file-category-auto-archive-hint':
     'Les types non reconnus sont enregistrés dans le chemin par défaut et archivés automatiquement après le téléchargement',
   'auto-submit-from-extension': "Télécharger directement depuis l'extension",
+  'silent-auto-submit-from-extension': 'Traiter les telechargements de l\'extension en arriere-plan',
+  'silent-auto-submit-from-extension-tip':
+    'Lorsque la confirmation est ignoree, les telechargements de l\'extension peuvent etre acceptes sans afficher la fenetre principale.',
   'extension-api-port': "Port API de l'extension",
   'extension-api-secret-tip':
     "Saisissez cette clé dans les paramètres de l'extension du navigateur pour l'authentification.",

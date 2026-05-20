@@ -12,9 +12,17 @@ use tauri::{AppHandle, Emitter, Manager};
 struct PendingDeepLinks {
     queue: Vec<String>,
     frontend_ready: bool,
+    silent: bool,
 }
 
 pub struct PendingDeepLinkState(Mutex<PendingDeepLinks>);
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingDeepLinksPayload {
+    pub urls: Vec<String>,
+    pub silent: bool,
+}
 
 impl PendingDeepLinkState {
     pub fn new() -> Self {
@@ -69,17 +77,28 @@ pub fn is_autostart_arg_launch(args: &[String]) -> bool {
 }
 
 /// Drain pending external inputs for the frontend boot path.
-pub fn take_pending_deep_links(state: &PendingDeepLinkState) -> Vec<String> {
+pub fn take_pending_deep_links(state: &PendingDeepLinkState) -> PendingDeepLinksPayload {
     match state.0.lock() {
         Ok(mut inner) => {
             inner.frontend_ready = true;
-            std::mem::take(&mut inner.queue)
+            take_pending_payload(&mut inner)
         }
         Err(poisoned) => {
             let mut inner = poisoned.into_inner();
             inner.frontend_ready = true;
-            std::mem::take(&mut inner.queue)
+            take_pending_payload(&mut inner)
         }
+    }
+}
+
+pub fn peek_pending_deep_links_silent(state: &PendingDeepLinkState) -> bool {
+    state.0.lock().map(|inner| inner.silent).unwrap_or(false)
+}
+
+fn take_pending_payload(inner: &mut PendingDeepLinks) -> PendingDeepLinksPayload {
+    PendingDeepLinksPayload {
+        urls: std::mem::take(&mut inner.queue),
+        silent: std::mem::take(&mut inner.silent),
     }
 }
 
@@ -97,6 +116,19 @@ pub fn mark_frontend_unready(app: &AppHandle) {
 /// Route external inputs to the active frontend, or queue them before waking a
 /// destroyed lightweight-mode window.
 pub fn route_external_inputs(app: &AppHandle, urls: Vec<String>, source: &'static str) {
+    route_external_inputs_with_intent(app, urls, source, false);
+}
+
+pub fn route_silent_external_inputs(app: &AppHandle, urls: Vec<String>, source: &'static str) {
+    route_external_inputs_with_intent(app, urls, source, true);
+}
+
+fn route_external_inputs_with_intent(
+    app: &AppHandle,
+    urls: Vec<String>,
+    source: &'static str,
+    silent: bool,
+) {
     if urls.is_empty() {
         log::debug!("deep_link:route source={source} count=0 skipped=true");
         return;
@@ -110,7 +142,7 @@ pub fn route_external_inputs(app: &AppHandle, urls: Vec<String>, source: &'stati
 
     let frontend_ready = is_frontend_ready(app);
     if window_was_alive && frontend_ready {
-        wake_main_window(app, source);
+        wake_main_window(app, source, silent);
         match app.emit("deep-link-open", &urls) {
             Ok(()) => return,
             Err(e) => {
@@ -119,30 +151,34 @@ pub fn route_external_inputs(app: &AppHandle, urls: Vec<String>, source: &'stati
         }
     }
 
-    queue_pending_deep_links(app, &urls, source);
-    schedule_main_window_wake(app, source);
+    queue_pending_deep_links(app, &urls, source, silent);
+    schedule_main_window_wake(app, source, silent);
 }
 
-fn queue_pending_deep_links(app: &AppHandle, urls: &[String], source: &'static str) {
+fn queue_pending_deep_links(app: &AppHandle, urls: &[String], source: &'static str, silent: bool) {
     match app.try_state::<PendingDeepLinkState>() {
         Some(state) => match state.0.lock() {
             Ok(mut inner) => {
                 let added = append_unique_pending(&mut inner.queue, urls);
+                inner.silent = inner.silent || silent;
                 log::info!(
-                    "deep_link:queued source={source} count={} added={} pending={}",
+                    "deep_link:queued source={source} count={} added={} pending={} silent={}",
                     urls.len(),
                     added,
-                    inner.queue.len()
+                    inner.queue.len(),
+                    inner.silent
                 );
             }
             Err(poisoned) => {
                 let mut inner = poisoned.into_inner();
                 let added = append_unique_pending(&mut inner.queue, urls);
+                inner.silent = inner.silent || silent;
                 log::warn!(
-                    "deep_link:queued-after-poison source={source} count={} added={} pending={}",
+                    "deep_link:queued-after-poison source={source} count={} added={} pending={} silent={}",
                     urls.len(),
                     added,
-                    inner.queue.len()
+                    inner.queue.len(),
+                    inner.silent
                 );
             }
         },
@@ -173,25 +209,28 @@ fn is_frontend_ready(app: &AppHandle) -> bool {
         .unwrap_or(false)
 }
 
-fn schedule_main_window_wake(app: &AppHandle, source: &'static str) {
+fn schedule_main_window_wake(app: &AppHandle, source: &'static str, silent: bool) {
     let app_for_task = app.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_millis(50)).await;
         let app_for_main = app_for_task.clone();
         if let Err(e) = app_for_task.run_on_main_thread(move || {
-            wake_main_window(&app_for_main, source);
+            wake_main_window(&app_for_main, source, silent);
         }) {
             log::error!("deep_link:wake-schedule-failed source={source} error={e}");
         }
     });
 }
 
-fn wake_main_window(app: &AppHandle, source: &'static str) {
-    log::debug!("deep_link:wake-start source={source}");
-    if crate::tray::activate_main_window(app, source)
-        == crate::tray::WindowActivationOutcome::Activated
-    {
-        log::debug!("deep_link:wake-done source={source}");
+fn wake_main_window(app: &AppHandle, source: &'static str, silent: bool) {
+    log::debug!("deep_link:wake-start source={source} silent={silent}");
+    let outcome = if silent {
+        crate::tray::ensure_main_window(app, source)
+    } else {
+        crate::tray::activate_main_window(app, source)
+    };
+    if outcome == crate::tray::WindowActivationOutcome::Activated {
+        log::debug!("deep_link:wake-done source={source} silent={silent}");
     } else {
         log::error!("deep_link:wake-failed source={source}");
     }
@@ -283,14 +322,18 @@ mod tests {
             );
         }
 
+        let first = take_pending_deep_links(&state);
         assert_eq!(
-            take_pending_deep_links(&state),
+            first.urls,
             vec![
                 "file:///Users/example/ubuntu.torrent".to_string(),
                 "magnet:?xt=urn:btih:abc".to_string(),
             ]
         );
-        assert!(take_pending_deep_links(&state).is_empty());
+        assert!(!first.silent);
+        let second = take_pending_deep_links(&state);
+        assert!(second.urls.is_empty());
+        assert!(!second.silent);
     }
 
     #[test]
@@ -312,5 +355,27 @@ mod tests {
         state.set_frontend_ready(false);
 
         assert!(!state.frontend_ready());
+    }
+
+    #[test]
+    fn take_pending_deep_links_preserves_silent_intent() {
+        let state = PendingDeepLinkState::new();
+        {
+            let mut inner = state.0.lock().expect("pending deep-link state poisoned");
+            append_unique_pending(
+                &mut inner.queue,
+                &["motrixnext://new?url=https%3A%2F%2Fexample.com%2Ffile.zip".to_string()],
+            );
+            inner.silent = true;
+        }
+
+        let payload = take_pending_deep_links(&state);
+
+        assert_eq!(
+            payload.urls,
+            vec!["motrixnext://new?url=https%3A%2F%2Fexample.com%2Ffile.zip".to_string()]
+        );
+        assert!(payload.silent);
+        assert!(!take_pending_deep_links(&state).silent);
     }
 }

@@ -33,7 +33,7 @@ describe('useAppStore', () => {
     setActivePinia(createPinia())
     resetBatchIdCounter()
     submitManualUrisMock.mockReset()
-    submitManualUrisMock.mockResolvedValue({})
+    submitManualUrisMock.mockResolvedValue({ submittedTaskNames: [], magnetGids: [], magnetFailures: [] })
   })
 
   // ── enqueueBatch ────────────────────────────────────────────────
@@ -372,6 +372,11 @@ describe('useAppStore', () => {
   // ── handleDeepLinkUrls ──────────────────────────────────────────
 
   describe('handleDeepLinkUrls', () => {
+    beforeEach(async () => {
+      const { usePreferenceStore } = await import('@/stores/preference')
+      usePreferenceStore().config.autoSubmitFromExtension = false
+    })
+
     it('detects remote .torrent and .metalink URLs with correct kind', () => {
       const store = useAppStore()
       store.handleDeepLinkUrls([
@@ -613,6 +618,11 @@ describe('useAppStore', () => {
   // ── autoSubmitFromExtension ───────────────────────────────────────
 
   describe('autoSubmitFromExtension', () => {
+    beforeEach(async () => {
+      const { usePreferenceStore } = await import('@/stores/preference')
+      usePreferenceStore().recordHistoryDirectory = vi.fn()
+    })
+
     // Helper: build a motrixnext://new deep link
     function buildDeepLink(downloadUrl: string, referer = '', cookie = '', filename = ''): string {
       const u = encodeURIComponent(downloadUrl)
@@ -627,12 +637,16 @@ describe('useAppStore', () => {
       const { usePreferenceStore } = await import('@/stores/preference')
       const prefStore = usePreferenceStore()
       prefStore.config.autoSubmitFromExtension = true
+      const onStart = vi.fn()
+      store.setExternalInputStartHandler(onStart)
 
       store.handleDeepLinkUrls([buildDeepLink('https://example.com/file.zip')])
+      await new Promise((resolve) => setTimeout(resolve, 0))
 
       // Auto-submitted: pendingBatch should be empty, dialog should NOT open
       expect(store.pendingBatch).toHaveLength(0)
       expect(store.addTaskVisible).toBe(false)
+      expect(onStart).toHaveBeenCalledWith(['https://example.com/file.zip'])
     })
 
     it('auto-submits magnet URI when enabled', async () => {
@@ -661,9 +675,11 @@ describe('useAppStore', () => {
       expect(store.addTaskVisible).toBe(false)
     })
 
-    it('falls back to AddTask dialog when disabled', () => {
+    it('falls back to AddTask dialog when disabled', async () => {
       const store = useAppStore()
-      // Default config has autoSubmitFromExtension = false
+      const { usePreferenceStore } = await import('@/stores/preference')
+      const prefStore = usePreferenceStore()
+      prefStore.config.autoSubmitFromExtension = false
 
       store.handleDeepLinkUrls([buildDeepLink('https://example.com/file.zip')])
 

@@ -318,6 +318,9 @@ export default {
   'file-category-auto-archive': '自動歸檔',
   'file-category-auto-archive-hint': '無法識別的類型將儲存到預設路徑，下載完成後自動歸檔',
   'auto-submit-from-extension': '接收擴充下載時跳過確認',
+  'silent-auto-submit-from-extension': '在背景處理擴充功能下載',
+  'silent-auto-submit-from-extension-tip':
+    '略過確認時，可以接收擴充功能下載且不顯示主視窗。',
   'extension-api-port': '擴充 API 連接埠',
   'extension-api-secret-tip': '在瀏覽器擴充功能設定中輸入此金鑰以進行身份驗證。',
   'extension-api-secret': '擴充功能 API 金鑰',

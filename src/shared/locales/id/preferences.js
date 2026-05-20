@@ -326,6 +326,9 @@ export default {
   'file-category-auto-archive-hint':
     'Jenis yang tidak dikenali disimpan ke jalur default dan diarsipkan secara otomatis setelah unduhan',
   'auto-submit-from-extension': 'Lewati konfirmasi untuk unduhan ekstensi',
+  'silent-auto-submit-from-extension': 'Proses unduhan ekstensi di latar belakang',
+  'silent-auto-submit-from-extension-tip':
+    'Saat konfirmasi dilewati, unduhan ekstensi dapat diterima tanpa menampilkan jendela utama.',
   'extension-api-port': 'Port API Ekstensi',
   'extension-api-secret-tip': 'Masukkan kunci ini di pengaturan ekstensi browser untuk autentikasi.',
   'extension-api-secret': 'Kunci API Ekstensi',

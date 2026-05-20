@@ -22,8 +22,15 @@ pub async fn restart_http_api(app: tauri::AppHandle, port: u16) -> Result<u16, A
 #[tauri::command]
 pub fn take_pending_deep_links(
     state: tauri::State<'_, deep_link::PendingDeepLinkState>,
-) -> Vec<String> {
+) -> deep_link::PendingDeepLinksPayload {
     deep_link::take_pending_deep_links(state.inner())
+}
+
+#[tauri::command]
+pub fn peek_pending_deep_links_silent(
+    state: tauri::State<'_, deep_link::PendingDeepLinkState>,
+) -> bool {
+    deep_link::peek_pending_deep_links_silent(state.inner())
 }
 
 /// Drain and return all pending frontend UI actions.

@@ -597,6 +597,7 @@ onMounted(async () => {
   {
     const { invoke } = await import('@tauri-apps/api/core')
     const isAutostart: boolean = await invoke('is_autostart_launch')
+    const silentExternalInput = await invoke<boolean>('peek_pending_deep_links_silent')
     // Read autoHideWindow directly from the Tauri persistent store
     // instead of the Pinia reactive state.  The Pinia store initialises
     // with DEFAULT_APP_CONFIG (autoHideWindow: false) and is hydrated
@@ -611,10 +612,10 @@ onMounted(async () => {
     const tauriStore = await load('config.json')
     const prefs = await tauriStore.get<Record<string, unknown>>('preferences')
     const autoHide = !!(prefs?.autoHideWindow ?? false)
-    const shouldHide = isAutostart && autoHide
+    const shouldHide = (isAutostart && autoHide) || silentExternalInput
     logger.info(
       'MainLayout.windowVisibility',
-      `autostart=${isAutostart} autoHide=${autoHide} → shouldHide=${shouldHide}`,
+      `autostart=${isAutostart} autoHide=${autoHide} silentExternalInput=${silentExternalInput} -> shouldHide=${shouldHide}`,
     )
     if (!shouldHide) {
       const appWindow = getCurrentWindow()

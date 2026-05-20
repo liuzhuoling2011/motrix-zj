@@ -12,6 +12,7 @@ const windowApiMock = vi.hoisted(() => ({
   unminimize: vi.fn(),
   show: vi.fn(),
   setFocus: vi.fn(),
+  isVisible: vi.fn(),
 }))
 const loggerMock = vi.hoisted(() => ({
   debug: vi.fn(),
@@ -85,8 +86,13 @@ function createDeps() {
     enqueueBatch: vi.fn(() => 0),
     handleDeepLinkUrls: vi.fn(),
     setExternalInputErrorHandler: vi.fn(),
+    setExternalInputStartHandler: vi.fn(),
     engineReady: false,
     engineRestarting: true,
+    addTaskVisible: false,
+    pendingBatch: [] as unknown[],
+    pendingMagnetGids: [] as string[],
+    externalInputSubmitting: false,
   })
   const taskStore = reactive({
     taskList: [] as unknown[],
@@ -104,6 +110,9 @@ function createDeps() {
     config: {
       rpcListenPort: 16800,
       rpcSecret: '',
+      lightweightMode: false,
+      taskNotification: true,
+      notifyOnStart: true,
     },
   })
   const message = {
@@ -160,6 +169,7 @@ describe('useAppEvents', () => {
     windowApiMock.unminimize.mockResolvedValue(undefined)
     windowApiMock.show.mockResolvedValue(undefined)
     windowApiMock.setFocus.mockResolvedValue(undefined)
+    windowApiMock.isVisible.mockResolvedValue(false)
 
     listenMock.mockImplementation(async (eventName: string, callback?: (event: { payload: unknown }) => unknown) => {
       const unlisten = vi.fn().mockName(`unlisten:${eventName}`)
@@ -245,7 +255,8 @@ describe('useAppEvents', () => {
 
   it('processes external input drained from the Rust pending queue once listeners are ready', async () => {
     invokeMock.mockImplementation(async (command: string) => {
-      if (command === 'take_pending_deep_links') return ['file:///Users/example/ubuntu.torrent']
+      if (command === 'take_pending_deep_links')
+        return { urls: ['file:///Users/example/ubuntu.torrent'], silent: false }
       return []
     })
     const { deps, appStore } = createDeps()
@@ -255,6 +266,29 @@ describe('useAppEvents', () => {
 
     expect(appStore.handleDeepLinkUrls).toHaveBeenCalledTimes(1)
     expect(appStore.handleDeepLinkUrls).toHaveBeenCalledWith(['file:///Users/example/ubuntu.torrent'])
+  })
+
+  it('routes silent pending input without showing or focusing the window', async () => {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'take_pending_deep_links') {
+        return {
+          urls: ['motrixnext://new?url=https%3A%2F%2Fexample.com%2Ffile.zip'],
+          silent: true,
+        }
+      }
+      return []
+    })
+    const { deps, appStore } = createDeps()
+    const { setupListeners } = mountComposable(deps)
+
+    await setupListeners()
+
+    expect(windowApiMock.unminimize).not.toHaveBeenCalled()
+    expect(windowApiMock.show).not.toHaveBeenCalled()
+    expect(windowApiMock.setFocus).not.toHaveBeenCalled()
+    expect(appStore.handleDeepLinkUrls).toHaveBeenCalledWith([
+      'motrixnext://new?url=https%3A%2F%2Fexample.com%2Ffile.zip',
+    ])
   })
 
   it('shows localized readable text for external input auto-submit errors', async () => {
