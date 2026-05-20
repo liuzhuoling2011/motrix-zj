@@ -215,6 +215,35 @@ impl Aria2Client {
         self.call("getPeers", vec![gid.into()]).await
     }
 
+    /// Starts an ED2K search and returns the search GID.
+    pub async fn ed2k_search(
+        &self,
+        keyword: &str,
+        opts: serde_json::Value,
+    ) -> Result<String, AppError> {
+        self.call("ed2kSearch", vec![keyword.into(), opts]).await
+    }
+
+    /// Returns ED2K search results for a search GID.
+    pub async fn get_ed2k_search_results(&self, gid: &str) -> Result<serde_json::Value, AppError> {
+        self.call("getEd2kSearchResults", vec![gid.into()]).await
+    }
+
+    /// Removes an internal ED2K search request group after results are read.
+    pub async fn cleanup_ed2k_search(&self, gid: &str) -> Result<(), AppError> {
+        match self.force_remove(gid).await {
+            Ok(_) => return Ok(()),
+            Err(e) => log::debug!("ed2k: force_remove search gid={gid} skipped: {e}"),
+        }
+        match self.remove_download_result(gid).await {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                log::debug!("ed2k: remove_download_result search gid={gid} skipped: {e}");
+                Ok(())
+            }
+        }
+    }
+
     /// Gracefully pauses a task (waits for piece boundary).
     pub async fn pause(&self, gid: &str) -> Result<String, AppError> {
         self.call("pause", vec![gid.into()]).await

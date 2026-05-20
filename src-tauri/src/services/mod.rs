@@ -37,6 +37,12 @@ use tauri_plugin_store::StoreExt;
 const NON_HOT_RELOADABLE: &[&str] = &[
     // needRestartKeys
     "dht-listen-port",
+    "ed2k-listen-port",
+    "ed2k-node-list",
+    "ed2k-server",
+    "ed2k-server-list",
+    "ed2k-share-file",
+    "ed2k-upload-slots",
     "listen-port",
     "rpc-listen-port",
     "rpc-secret",

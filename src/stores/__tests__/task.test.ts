@@ -368,6 +368,33 @@ describe('TaskStore', () => {
       expect(store.taskList).toHaveLength(1)
       expect(store.taskList[0].gid).toBe('meta-active')
     })
+
+    it('filters ED2K search request groups from the task list', async () => {
+      await store.changeCurrentList('all')
+
+      const searchTask = makeMockTask('search-gid', 'active', {
+        ed2k: { searchActive: true },
+        files: [
+          {
+            index: '1',
+            path: '/Users/test/Downloads/aria2-next-ed2k-search-search-gid',
+            length: '0',
+            completedLength: '0',
+            selected: 'true',
+            uris: [],
+          },
+        ],
+      })
+      const downloadTask = makeMockTask('download-gid', 'active')
+
+      mockApi.fetchTaskList.mockResolvedValueOnce([searchTask, downloadTask]).mockResolvedValueOnce([])
+      mockHistoryFns.getRecords.mockResolvedValueOnce([])
+
+      await store.fetchList()
+
+      expect(store.taskList).toHaveLength(1)
+      expect(store.taskList[0].gid).toBe('download-gid')
+    })
   })
 
   it('fetchList prunes selectedGidList to valid gids only', async () => {

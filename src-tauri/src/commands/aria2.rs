@@ -7,7 +7,13 @@ use crate::aria2::client::Aria2State;
 use crate::aria2::types::{Aria2File, Aria2Task};
 use crate::commands::net::decode_filename_encoding;
 use crate::error::AppError;
-use tauri::State;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use tauri::{AppHandle, Manager, State};
+use tauri_plugin_store::StoreExt;
+
+const ED2K_SEARCH_TEMP_PREFIX: &str = "motrix-next-ed2k-search-";
+const ED2K_SEARCH_FILE_PREFIX: &str = "aria2-next-ed2k-search-";
 
 /// Fetch task list by type: "active" returns active+waiting, otherwise stopped.
 #[tauri::command]
@@ -50,7 +56,12 @@ pub async fn aria2_fetch_task_item_with_peers(
     state: State<'_, Aria2State>,
     gid: String,
 ) -> Result<serde_json::Value, AppError> {
-    let (task, peers) = tokio::try_join!(state.0.tell_status(&gid), state.0.get_peers(&gid),)?;
+    let task = state.0.tell_status(&gid).await?;
+    let peers = if task.bittorrent.is_some() {
+        state.0.get_peers(&gid).await?
+    } else {
+        serde_json::json!([])
+    };
     let mut result =
         serde_json::to_value(&task).map_err(|e| AppError::Aria2(format!("serialize task: {e}")))?;
     result["peers"] = peers;
@@ -226,6 +237,175 @@ pub async fn aria2_add_metalink(
     state.0.add_metalink(&metalink, options).await
 }
 
+/// Start an ED2K search and return the search GID.
+#[tauri::command]
+pub async fn aria2_ed2k_search(
+    app: AppHandle,
+    state: State<'_, Aria2State>,
+    keyword: String,
+    mut options: serde_json::Value,
+) -> Result<String, AppError> {
+    let keyword = keyword.trim();
+    if keyword.is_empty() {
+        return Err(AppError::Aria2("ED2K search keyword is empty".into()));
+    }
+    log::info!("aria2:ed2k-search");
+    cleanup_stale_ed2k_search_dirs(&app);
+    let search_dir = create_ed2k_search_temp_dir(&app)?;
+    ensure_json_object(&mut options).insert(
+        "dir".to_string(),
+        serde_json::Value::String(crate::engine::path_to_safe_string(&search_dir)),
+    );
+    let gid = match state.0.ed2k_search(keyword, options).await {
+        Ok(gid) => gid,
+        Err(e) => {
+            cleanup_ed2k_search_dir(&search_dir);
+            return Err(e);
+        }
+    };
+    register_ed2k_search_dir(&app, &gid, &search_dir);
+    Ok(gid)
+}
+
+/// Return ED2K search results by search GID.
+#[tauri::command]
+pub async fn aria2_get_ed2k_search_results(
+    state: State<'_, Aria2State>,
+    gid: String,
+) -> Result<serde_json::Value, AppError> {
+    state.0.get_ed2k_search_results(&gid).await
+}
+
+/// Remove an internal ED2K search request group and its temporary files.
+#[tauri::command]
+pub async fn aria2_cleanup_ed2k_search(
+    app: AppHandle,
+    state: State<'_, Aria2State>,
+    gid: String,
+) -> Result<(), AppError> {
+    state.0.cleanup_ed2k_search(&gid).await?;
+    cleanup_ed2k_search_files(&app, &gid);
+    Ok(())
+}
+
+fn ensure_json_object(
+    value: &mut serde_json::Value,
+) -> &mut serde_json::Map<String, serde_json::Value> {
+    if !value.is_object() {
+        *value = serde_json::Value::Object(serde_json::Map::new());
+    }
+    value
+        .as_object_mut()
+        .expect("value was normalized to object")
+}
+
+fn ed2k_search_temp_root(app: &AppHandle) -> Result<PathBuf, AppError> {
+    let configured = app
+        .store("config.json")
+        .ok()
+        .and_then(|store| store.get("preferences"))
+        .and_then(|prefs| {
+            prefs
+                .get("tempFilesDir")?
+                .as_str()
+                .map(str::trim)
+                .map(str::to_string)
+        })
+        .filter(|path| !path.is_empty());
+
+    if let Some(path) = configured {
+        Ok(PathBuf::from(path))
+    } else {
+        app.path()
+            .temp_dir()
+            .map_err(|e| AppError::Io(e.to_string()))
+    }
+}
+
+fn create_ed2k_search_temp_dir(app: &AppHandle) -> Result<PathBuf, AppError> {
+    let root = ed2k_search_temp_root(app)?;
+    tempfile::Builder::new()
+        .prefix(ED2K_SEARCH_TEMP_PREFIX)
+        .tempdir_in(root)
+        .map(|dir| dir.keep())
+        .map_err(AppError::from)
+}
+
+fn ed2k_search_temp_paths(search_dir: &Path, gid: &str) -> Result<[PathBuf; 2], AppError> {
+    if !is_safe_gid(gid) {
+        return Err(AppError::Aria2("Invalid ED2K search GID".into()));
+    }
+    let base = search_dir.join(format!("{ED2K_SEARCH_FILE_PREFIX}{gid}"));
+    Ok([base.clone(), base.with_extension("aria2")])
+}
+
+fn cleanup_ed2k_search_files(app: &AppHandle, gid: &str) {
+    let Some(search_dir) = take_ed2k_search_dir(app, gid) else {
+        return;
+    };
+    if let Err(e) = ed2k_search_temp_paths(&search_dir, gid) {
+        log::debug!("ed2k: search temp path cleanup skipped gid={gid} error={e}");
+    }
+    cleanup_ed2k_search_dir(&search_dir);
+}
+
+fn cleanup_ed2k_search_dir(path: &Path) {
+    match std::fs::remove_dir_all(path) {
+        Ok(()) => log::debug!("ed2k: removed search temp dir {}", path.display()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => log::debug!(
+            "ed2k: search temp dir cleanup skipped path={} error={}",
+            path.display(),
+            e
+        ),
+    }
+}
+
+fn cleanup_stale_ed2k_search_dirs(app: &AppHandle) {
+    let Ok(root) = ed2k_search_temp_root(app) else {
+        return;
+    };
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|v| v.to_str()) else {
+            continue;
+        };
+        if name.starts_with(ED2K_SEARCH_TEMP_PREFIX) {
+            cleanup_ed2k_search_dir(&path);
+        }
+    }
+}
+
+fn is_safe_gid(gid: &str) -> bool {
+    !gid.is_empty() && gid.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+static ED2K_SEARCH_DIRS: std::sync::OnceLock<std::sync::Mutex<HashMap<String, PathBuf>>> =
+    std::sync::OnceLock::new();
+
+fn ed2k_search_dirs() -> &'static std::sync::Mutex<HashMap<String, PathBuf>> {
+    ED2K_SEARCH_DIRS.get_or_init(|| std::sync::Mutex::new(HashMap::new()))
+}
+
+fn register_ed2k_search_dir(_app: &AppHandle, gid: &str, path: &Path) {
+    if !is_safe_gid(gid) {
+        return;
+    }
+    if let Ok(mut dirs) = ed2k_search_dirs().lock() {
+        dirs.insert(gid.to_string(), path.to_path_buf());
+    }
+}
+
+fn take_ed2k_search_dir(_app: &AppHandle, gid: &str) -> Option<PathBuf> {
+    if !is_safe_gid(gid) {
+        return None;
+    }
+    ed2k_search_dirs().lock().ok()?.remove(gid)
+}
+
 /// Forcefully remove a task by GID.
 #[tauri::command]
 pub async fn aria2_force_remove(
@@ -354,9 +534,51 @@ pub async fn aria2_batch_force_remove(
 
 #[cfg(test)]
 mod tests {
-    use super::sanitize_out_option;
+    use super::{ed2k_search_temp_paths, sanitize_out_option};
+    use std::path::{Path, PathBuf};
 
     // ── Existing #261 tests (updated for String return) ─────────────
+
+    #[test]
+    fn ed2k_search_temp_paths_stay_inside_search_cache_dir() {
+        let root = PathBuf::from("/tmp/motrix-ed2k-search");
+        let paths = ed2k_search_temp_paths(&root, "75c1fb5d8979819f").expect("valid gid");
+
+        assert_eq!(
+            paths[0],
+            PathBuf::from("/tmp/motrix-ed2k-search/aria2-next-ed2k-search-75c1fb5d8979819f")
+        );
+        assert_eq!(
+            paths[1],
+            PathBuf::from("/tmp/motrix-ed2k-search/aria2-next-ed2k-search-75c1fb5d8979819f.aria2")
+        );
+    }
+
+    #[test]
+    fn ed2k_search_temp_paths_reject_path_like_gid_values() {
+        assert!(ed2k_search_temp_paths(Path::new("/tmp/motrix-ed2k-search"), "../bad").is_err());
+        assert!(ed2k_search_temp_paths(Path::new("/tmp/motrix-ed2k-search"), "bad/path").is_err());
+        assert!(ed2k_search_temp_paths(Path::new("/tmp/motrix-ed2k-search"), "").is_err());
+    }
+
+    #[test]
+    fn ed2k_search_temp_paths_allow_per_search_temp_dirs() {
+        let root = PathBuf::from("/tmp/motrix-next-ed2k-search-abc123");
+        let paths = ed2k_search_temp_paths(&root, "75c1fb5d8979819f").expect("valid gid");
+
+        assert_eq!(
+            paths[0],
+            PathBuf::from(
+                "/tmp/motrix-next-ed2k-search-abc123/aria2-next-ed2k-search-75c1fb5d8979819f"
+            )
+        );
+        assert_eq!(
+            paths[1],
+            PathBuf::from(
+                "/tmp/motrix-next-ed2k-search-abc123/aria2-next-ed2k-search-75c1fb5d8979819f.aria2"
+            )
+        );
+    }
 
     #[test]
     fn bare_filename_passes_through() {

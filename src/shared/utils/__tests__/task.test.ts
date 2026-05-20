@@ -6,6 +6,7 @@ import {
   getTaskName,
   isMagnetTask,
   checkTaskIsBT,
+  checkTaskIsEd2kSearch,
   checkTaskIsSeeder,
   getFileNameFromFile,
   getTaskDisplayName,
@@ -330,6 +331,26 @@ describe('checkTaskIsBT', () => {
 
   it('returns false for empty object', () => {
     expect(checkTaskIsBT()).toBe(false)
+  })
+})
+
+describe('checkTaskIsEd2kSearch', () => {
+  it('returns true for ED2K search request groups', () => {
+    const task = createMockTask({
+      ed2k: { searchActive: true },
+      files: [createMockFile({ path: '/Users/test/Downloads/aria2-next-ed2k-search-75c1fb5d8979819f' })],
+    })
+
+    expect(checkTaskIsEd2kSearch(task)).toBe(true)
+  })
+
+  it('returns false for normal ED2K file downloads', () => {
+    const task = createMockTask({
+      ed2k: { searchActive: false, name: 'eMule0.50a-Installer.exe' },
+      files: [createMockFile({ path: '/Users/test/Downloads/eMule0.50a-Installer.exe' })],
+    })
+
+    expect(checkTaskIsEd2kSearch(task)).toBe(false)
   })
 })
 

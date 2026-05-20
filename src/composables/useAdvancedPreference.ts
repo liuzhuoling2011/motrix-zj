@@ -57,6 +57,7 @@ export interface AdvancedForm {
   dhtListenPort: number
   userAgent: string
   logLevel: string
+  tempFilesDir: string
   hardwareRendering: boolean
   // Clipboard detection (migrated from legacy Basic tab)
   clipboardEnable: boolean
@@ -135,6 +136,7 @@ export function buildAdvancedForm(config: AppConfig): {
       dhtListenPort: Number(config.dhtListenPort ?? D.dhtListenPort),
       userAgent: config.userAgent ?? D.userAgent,
       logLevel: config.logLevel ?? D.logLevel,
+      tempFilesDir: config.tempFilesDir ?? D.tempFilesDir,
       hardwareRendering: config.hardwareRendering ?? D.hardwareRendering,
       // Clipboard detection
       clipboardEnable: config.clipboard?.enable ?? D.clipboard.enable,

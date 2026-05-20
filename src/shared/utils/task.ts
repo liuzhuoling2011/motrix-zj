@@ -103,6 +103,13 @@ export const checkTaskIsBT = (task: Partial<Aria2Task> = {} as Partial<Aria2Task
   return !!task.bittorrent
 }
 
+/** Returns true for Aria2 Next internal ED2K search request groups. */
+export const checkTaskIsEd2kSearch = (task: Partial<Aria2Task> = {} as Partial<Aria2Task>): boolean => {
+  return !!(
+    task.ed2k?.searchActive === true || task.files?.some((file) => file.path.includes('aria2-next-ed2k-search-'))
+  )
+}
+
 /** Builds a magnet link from a BT task, optionally including tracker URLs. */
 export const buildMagnetLink = (task: Aria2Task, withTracker = false, btTracker: string[] = []): string => {
   const { bittorrent, infoHash } = task

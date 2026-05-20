@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { EMPTY_STRING } from '@shared/constants'
-import { intersection } from '@shared/utils'
+import { checkTaskIsEd2kSearch, intersection } from '@shared/utils'
 import { logger } from '@shared/logger'
 import type { Aria2Task, Aria2File, Aria2Peer, Aria2EngineOptions, AddMetalinkParams, TaskApi } from '@shared/types'
 
@@ -91,6 +91,7 @@ export const useTaskStore = defineStore('task', () => {
           useHistoryStore().getRecords(undefined, ALL_HISTORY_LIMIT),
         ])
         data = mergeHistoryIntoTasks([...activeTasks, ...stoppedTasks], historyRecords)
+        data = data.filter((t) => !checkTaskIsEd2kSearch(t))
         // Filter stale metadata tasks (completed magnet resolution) but keep
         // actively-downloading metadata visible so users see the progress.
         const LIVE_TASK_STATUSES = new Set(['active', 'waiting', 'paused'])
@@ -119,6 +120,7 @@ export const useTaskStore = defineStore('task', () => {
       } else {
         // Active tab: aria2 returns insertion-order; apply user sort.
         data = await api.fetchTaskList({ type: currentList.value })
+        data = data.filter((t) => !checkTaskIsEd2kSearch(t))
         trackFirstSeen(data)
         const addedAtIndex = buildSortableAddedAtMap(data, [])
         const { field, direction } = sortConfig.active

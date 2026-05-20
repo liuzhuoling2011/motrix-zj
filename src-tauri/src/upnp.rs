@@ -110,12 +110,13 @@ async fn unmap_port(
 
 // ─── Lifecycle ───────────────────────────────────────────────────────
 
-/// Start mapping the BT and DHT ports.  Idempotent: stops any existing
+/// Start mapping the BT, DHT, and optional ED2K ports.  Idempotent: stops any existing
 /// mapping first.
 pub async fn start_mapping(
     state: &UpnpState,
     bt_port: u16,
     dht_port: u16,
+    ed2k_port: Option<u16>,
 ) -> Result<serde_json::Value, String> {
     let _guard = state.op_lock.lock().await;
     // Stop any existing mapping first (idempotent).
@@ -124,10 +125,17 @@ pub async fn start_mapping(
     let gw = discover_gateway().await?;
     let local_ip = detect_local_ip(&gw.addr);
 
-    // Map BT listen port (TCP) and DHT listen port (UDP).
+    // Map BT listen port (TCP), DHT listen port (UDP), and ED2K listen port (TCP).
     // Use allSettled-style: report per-port results without short-circuiting.
     let bt_result = map_port(&gw, local_ip, bt_port, PortMappingProtocol::TCP).await;
     let dht_result = map_port(&gw, local_ip, dht_port, PortMappingProtocol::UDP).await;
+    let ed2k_result = match ed2k_port.filter(|port| *port > 0) {
+        Some(port) => Some((
+            port,
+            map_port(&gw, local_ip, port, PortMappingProtocol::TCP).await,
+        )),
+        None => None,
+    };
 
     let mut mapped = Vec::new();
     let mut errors: Vec<String> = Vec::new();
@@ -151,6 +159,19 @@ pub async fn start_mapping(
         Err(e) => {
             log::warn!("upnp:map-failed port={dht_port} proto=UDP err={e}");
             errors.push(e);
+        }
+    }
+
+    if let Some((port, result)) = ed2k_result {
+        match result {
+            Ok(()) => mapped.push(MappedPort {
+                internal: port,
+                protocol: PortMappingProtocol::TCP,
+            }),
+            Err(e) => {
+                log::warn!("upnp:map-failed port={port} proto=TCP err={e}");
+                errors.push(e);
+            }
         }
     }
 

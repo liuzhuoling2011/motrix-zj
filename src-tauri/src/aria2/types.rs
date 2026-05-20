@@ -47,6 +47,72 @@ pub struct Aria2BtName {
     pub name: String,
 }
 
+fn bool_from_json_bool_or_string<'de, D>(deserializer: D) -> Result<Option<bool>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(match value {
+        Some(serde_json::Value::Bool(value)) => Some(value),
+        Some(serde_json::Value::String(value)) => match value.as_str() {
+            "true" => Some(true),
+            "false" => Some(false),
+            _ => None,
+        },
+        _ => None,
+    })
+}
+
+/// ED2K metadata attached to a task when the download is an ED2K file link or search request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Aria2Ed2kInfo {
+    #[serde(default)]
+    pub hash: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub length: Option<String>,
+    #[serde(default)]
+    pub part_hash_count: Option<String>,
+    #[serde(default)]
+    pub aich_root: Option<String>,
+    #[serde(default)]
+    pub server_count: Option<String>,
+    #[serde(default)]
+    pub connected_server_count: Option<String>,
+    #[serde(default)]
+    pub peer_count: Option<String>,
+    #[serde(default)]
+    pub queued_peer_count: Option<String>,
+    #[serde(default)]
+    pub accepted_peer_count: Option<String>,
+    #[serde(default)]
+    pub dead_peer_count: Option<String>,
+    #[serde(default)]
+    pub kad_node_count: Option<String>,
+    #[serde(default)]
+    pub kad_router_count: Option<String>,
+    #[serde(default, deserialize_with = "bool_from_json_bool_or_string")]
+    pub kad_firewalled: Option<bool>,
+    #[serde(default)]
+    pub kad_observed_address_count: Option<String>,
+    #[serde(default, deserialize_with = "bool_from_json_bool_or_string")]
+    pub search_active: Option<bool>,
+    #[serde(default, deserialize_with = "bool_from_json_bool_or_string")]
+    pub search_more_results: Option<bool>,
+    #[serde(default)]
+    pub search_result_count: Option<String>,
+    #[serde(default)]
+    pub shared_file_count: Option<String>,
+    #[serde(default)]
+    pub uploading_peer_count: Option<String>,
+    #[serde(default)]
+    pub waiting_upload_peer_count: Option<String>,
+    #[serde(default)]
+    pub peer_credit_count: Option<String>,
+}
+
 /// Complete aria2 task object returned by tellStatus, tellActive,
 /// tellWaiting, or tellStopped.
 ///
@@ -67,6 +133,8 @@ pub struct Aria2Task {
     pub files: Vec<Aria2File>,
     #[serde(default)]
     pub bittorrent: Option<Aria2BtInfo>,
+    #[serde(default)]
+    pub ed2k: Option<Aria2Ed2kInfo>,
     #[serde(default)]
     pub info_hash: Option<String>,
     #[serde(default)]
@@ -208,6 +276,43 @@ mod tests {
         let task: Aria2Task = serde_json::from_value(json).expect("deserialize");
         assert_eq!(task.error_code.as_deref(), Some("1"));
         assert_eq!(task.error_message.as_deref(), Some("unknown error"));
+    }
+
+    #[test]
+    fn deserialize_ed2k_search_task_with_boolean_status_fields() {
+        let json = serde_json::json!({
+            "gid": "75c1fb5d8979819f",
+            "status": "active",
+            "totalLength": "0",
+            "completedLength": "0",
+            "uploadLength": "0",
+            "downloadSpeed": "0",
+            "uploadSpeed": "0",
+            "connections": "2",
+            "dir": "/Users/test/Downloads",
+            "files": [
+                {
+                    "index": "1",
+                    "path": "/Users/test/Downloads/aria2-next-ed2k-search-75c1fb5d8979819f",
+                    "length": "0",
+                    "completedLength": "0",
+                    "selected": "true",
+                    "uris": []
+                }
+            ],
+            "ed2k": {
+                "name": "ubuntu",
+                "kadFirewalled": false,
+                "searchActive": true,
+                "searchMoreResults": false,
+                "searchResultCount": "4"
+            }
+        });
+        let task: Aria2Task = serde_json::from_value(json).expect("deserialize");
+        let ed2k = task.ed2k.as_ref().unwrap();
+        assert_eq!(ed2k.search_active, Some(true));
+        assert_eq!(ed2k.search_more_results, Some(false));
+        assert_eq!(ed2k.kad_firewalled, Some(false));
     }
 
     #[test]

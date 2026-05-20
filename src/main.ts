@@ -382,6 +382,7 @@ window.addEventListener('unhandledrejection', (e) => {
           invoke('start_upnp_mapping', {
             btPort: Number(config.listenPort) || 21301,
             dhtPort: Number(config.dhtListenPort) || 26701,
+            ed2kPort: Number(config.ed2kListenPort) > 0 ? Number(config.ed2kListenPort) : null,
           }),
         )
         .catch((e) => logger.warn('UPnP', 'startup mapping failed: ' + e))

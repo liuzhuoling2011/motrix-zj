@@ -116,17 +116,21 @@ interface TabDef {
   labelKey: string
   icon: typeof InformationCircleOutline
   btOnly?: boolean
+  ed2kOnly?: boolean
 }
 const allTabs: TabDef[] = [
   { key: 'general', labelKey: 'task.task-tab-general', icon: InformationCircleOutline },
   { key: 'activity', labelKey: 'task.task-tab-activity', icon: PulseOutline },
   { key: 'files', labelKey: 'task.task-tab-files', icon: DocumentOutline },
   { key: 'options', labelKey: 'task.task-tab-options', icon: SettingsOutline },
+  { key: 'ed2k', labelKey: 'task.task-tab-ed2k', icon: ServerOutline, ed2kOnly: true },
   { key: 'peers', labelKey: 'task.task-tab-peers', icon: PeopleOutline, btOnly: true },
   { key: 'trackers', labelKey: 'task.task-tab-trackers', icon: ServerOutline, btOnly: true },
 ]
 
-const visibleTabs = computed(() => allTabs.filter((tab) => !tab.btOnly || isBT.value))
+const visibleTabs = computed(() =>
+  allTabs.filter((tab) => (!tab.btOnly || isBT.value) && (!tab.ed2kOnly || isED2K.value)),
+)
 
 function switchTab(key: string) {
   const oldIdx = visibleTabs.value.findIndex((t) => t.key === activeTab.value)
@@ -137,6 +141,7 @@ function switchTab(key: string) {
 }
 
 const isBT = computed(() => (props.task ? checkTaskIsBT(props.task) : false))
+const isED2K = computed(() => !!props.task?.ed2k)
 
 const prevTaskGid = ref('')
 watch(
@@ -221,6 +226,17 @@ const btInfo = computed(() => {
   if (!isBT.value || !props.task) return null
   return props.task.bittorrent
 })
+
+const ed2kInfo = computed(() => {
+  if (!isED2K.value || !props.task) return null
+  return props.task.ed2k
+})
+
+function yesNo(value?: boolean | string): string {
+  if (value === undefined || value === '') return '-'
+  const normalized = typeof value === 'boolean' ? value : value === 'true'
+  return normalized ? t('task.task-ed2k-yes') : t('task.task-ed2k-no')
+}
 
 const statusTagType = computed(() => {
   switch (taskStatusKey.value) {
@@ -564,7 +580,7 @@ function handleClose() {
           @click="switchTab(tab.key)"
         >
           <NIcon :size="16"><component :is="tab.icon" /></NIcon>
-          <span class="detail-tab-label">{{ t(tab.labelKey) }}</span>
+          <span class="detail-tab-label">{{ tab.key === 'ed2k' ? t('task.task-tab-ed2k') : t(tab.labelKey) }}</span>
         </button>
       </div>
 
@@ -622,6 +638,24 @@ function handleClose() {
                   </NDescriptionsItem>
                   <NDescriptionsItem v-if="btInfo?.comment" :label="t('task.task-bittorrent-comment') || 'Comment'">
                     {{ btInfo.comment }}
+                  </NDescriptionsItem>
+                </NDescriptions>
+              </template>
+              <template v-if="isED2K && ed2kInfo">
+                <div class="section-divider">ED2K</div>
+                <NDescriptions
+                  :column="1"
+                  label-placement="left"
+                  bordered
+                  size="small"
+                  :label-style="{ width: '1px', whiteSpace: 'nowrap' }"
+                >
+                  <NDescriptionsItem :label="t('task.task-ed2k-hash')">{{ ed2kInfo.hash || '-' }}</NDescriptionsItem>
+                  <NDescriptionsItem :label="t('task.task-ed2k-server-count')">
+                    {{ ed2kInfo.connectedServerCount || 0 }} / {{ ed2kInfo.serverCount || 0 }}
+                  </NDescriptionsItem>
+                  <NDescriptionsItem :label="t('task.task-ed2k-peer-count')">
+                    {{ ed2kInfo.peerCount || 0 }}
                   </NDescriptionsItem>
                 </NDescriptions>
               </template>
@@ -776,6 +810,78 @@ function handleClose() {
                 </NButton>
               </div>
             </div>
+          </div>
+
+          <div v-else-if="activeTab === 'ed2k'" key="ed2k" class="tab-content">
+            <template v-if="ed2kInfo">
+              <NDescriptions
+                :column="1"
+                label-placement="left"
+                bordered
+                size="small"
+                :label-style="{ width: '1px', whiteSpace: 'nowrap' }"
+              >
+                <NDescriptionsItem :label="t('task.task-ed2k-hash')">{{ ed2kInfo.hash || '-' }}</NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-name')">{{ ed2kInfo.name || taskFullName }}</NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-file-size')">
+                  {{ ed2kInfo.length ? bytesToSize(ed2kInfo.length) : bytesToSize(task?.totalLength || '0') }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-part-hash-count')">
+                  {{ ed2kInfo.partHashCount || 0 }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-aich-root')">
+                  {{ ed2kInfo.aichRoot || '-' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-server-count')">
+                  {{ ed2kInfo.connectedServerCount || 0 }} / {{ ed2kInfo.serverCount || 0 }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-peer-count')">
+                  {{ ed2kInfo.peerCount || 0 }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-queued-peer-count')">
+                  {{ ed2kInfo.queuedPeerCount || 0 }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-accepted-peer-count')">
+                  {{ ed2kInfo.acceptedPeerCount || 0 }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-dead-peer-count')">
+                  {{ ed2kInfo.deadPeerCount || 0 }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-kad-node-count')">
+                  {{ ed2kInfo.kadNodeCount || 0 }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-kad-router-count')">
+                  {{ ed2kInfo.kadRouterCount || 0 }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-kad-firewalled')">
+                  {{ yesNo(ed2kInfo.kadFirewalled) }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-kad-observed-address-count')">
+                  {{ ed2kInfo.kadObservedAddressCount || 0 }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-search-active')">
+                  {{ yesNo(ed2kInfo.searchActive) }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-search-more-results')">
+                  {{ yesNo(ed2kInfo.searchMoreResults) }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-search-result-count')">
+                  {{ ed2kInfo.searchResultCount || 0 }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-shared-file-count')">
+                  {{ ed2kInfo.sharedFileCount || 0 }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-uploading-peer-count')">
+                  {{ ed2kInfo.uploadingPeerCount || 0 }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-waiting-upload-peer-count')">
+                  {{ ed2kInfo.waitingUploadPeerCount || 0 }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-peer-credit-count')">
+                  {{ ed2kInfo.peerCreditCount || 0 }}
+                </NDescriptionsItem>
+              </NDescriptions>
+            </template>
           </div>
 
           <div v-else-if="activeTab === 'peers'" key="peers" class="tab-content">

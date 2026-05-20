@@ -29,6 +29,61 @@ export interface Aria2BtInfo {
   mode?: string
 }
 
+/** ED2K metadata attached to a task when the download is an ED2K file link. */
+export interface Aria2Ed2kInfo {
+  hash?: string
+  name?: string
+  length?: string
+  partHashCount?: string
+  aichRoot?: string
+  serverCount?: string
+  connectedServerCount?: string
+  peerCount?: string
+  queuedPeerCount?: string
+  acceptedPeerCount?: string
+  deadPeerCount?: string
+  kadNodeCount?: string
+  kadRouterCount?: string
+  kadFirewalled?: boolean
+  kadObservedAddressCount?: string
+  searchActive?: boolean
+  searchMoreResults?: boolean
+  searchResultCount?: string
+  sharedFileCount?: string
+  uploadingPeerCount?: string
+  waitingUploadPeerCount?: string
+  peerCreditCount?: string
+}
+
+export interface Ed2kSearchOptions {
+  fileType?: string
+  extension?: string
+  minSize?: string
+  maxSize?: string
+  minSourceCount?: string
+  minCompleteSourceCount?: string
+}
+
+export interface Ed2kSearchResult {
+  hash?: string
+  name?: string
+  length?: string
+  sourceCount?: string
+  completeSourceCount?: string
+  fileType?: string
+  extension?: string
+  sourceNetwork?: string
+  ed2kLink?: string
+}
+
+export interface Ed2kSearchResults {
+  gid?: string
+  status?: string
+  moreResults?: boolean
+  results?: Ed2kSearchResult[]
+  [key: string]: unknown
+}
+
 /** Remote peer information for an active BitTorrent task. */
 export interface Aria2Peer {
   peerId: string
@@ -58,6 +113,7 @@ export interface Aria2Task {
   dir: string
   files: Aria2File[]
   bittorrent?: Aria2BtInfo
+  ed2k?: Aria2Ed2kInfo
   infoHash?: string
   numSeeders?: string
   seeder?: string
@@ -226,6 +282,8 @@ export interface AppConfig {
   dockBadgeSpeed: boolean
   logLevel: string
   engineBinPath: string
+  /** Directory for internal temporary engine files. Empty means the OS temporary directory. */
+  tempFilesDir: string
   cookie: string
   proxy: ProxyConfig
   protocols: ProtocolsConfig
@@ -262,6 +320,12 @@ export interface AppConfig {
   autoChangeConflictingPorts: boolean
   listenPort: number
   dhtListenPort: number
+  ed2kListenPort: number
+  ed2kServer: string
+  ed2kServerList: string
+  ed2kNodeList: string
+  ed2kUploadSlots: number
+  ed2kShareFiles: string[]
   btTracker: string
   forceSave: boolean
   btSaveMetadata: boolean

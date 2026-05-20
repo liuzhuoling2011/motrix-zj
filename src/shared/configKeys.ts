@@ -15,6 +15,12 @@ const userKeys = [
   'color-scheme',
   'delete-torrent-after-complete',
   'delete-files-when-skip-confirm',
+  'ed2k-listen-port',
+  'ed2k-server',
+  'ed2k-server-list',
+  'ed2k-node-list',
+  'ed2k-upload-slots',
+  'ed2k-share-files',
   'enable-upnp',
   'engine-bin-path',
   'extension-api-port',
@@ -56,6 +62,7 @@ const userKeys = [
   'notify-on-start',
   'notify-on-complete',
   'task-sort',
+  'temp-files-dir',
   'theme',
   'timeout',
   'tracker-source',
@@ -104,6 +111,12 @@ const systemKeys = [
   'dht-listen-port',
   'dir',
   'dry-run',
+  'ed2k-listen-port',
+  'ed2k-node-list',
+  'ed2k-server',
+  'ed2k-server-list',
+  'ed2k-share-file',
+  'ed2k-upload-slots',
   'enable-http-keep-alive',
   'enable-http-pipelining',
   'enable-mmap',
@@ -186,6 +199,17 @@ const systemKeys = [
   'user-agent',
 ]
 
-const needRestartKeys = ['dht-listen-port', 'listen-port', 'rpc-listen-port', 'rpc-secret']
+const needRestartKeys = [
+  'dht-listen-port',
+  'ed2k-listen-port',
+  'ed2k-node-list',
+  'ed2k-server',
+  'ed2k-server-list',
+  'ed2k-share-file',
+  'ed2k-upload-slots',
+  'listen-port',
+  'rpc-listen-port',
+  'rpc-secret',
+]
 
 export { userKeys, systemKeys, needRestartKeys }

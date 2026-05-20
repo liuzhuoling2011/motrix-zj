@@ -285,6 +285,20 @@ describe('useAppEvents', () => {
     })
   })
 
+  it('updates the ED2K listen port after automatic conflict recovery', async () => {
+    const { deps } = createDeps()
+    const { setupListeners } = mountComposable(deps)
+
+    await setupListeners()
+    eventCallbacks['port-auto-switched']?.({
+      payload: [{ kind: 'ed2k', oldPort: 4662, newPort: 30000 }],
+    })
+
+    expect(deps.preferenceStore.updatePreference).toHaveBeenCalledWith({
+      ed2kListenPort: 30000,
+    })
+  })
+
   it('shows a toast when local port auto-switch recovery fails', async () => {
     const { deps, message } = createDeps()
     const { setupListeners } = mountComposable(deps)

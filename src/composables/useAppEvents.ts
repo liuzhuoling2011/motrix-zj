@@ -34,13 +34,13 @@ interface PendingFrontendAction {
 }
 
 interface PortSwitchEvent {
-  kind: 'rpc' | 'extensionApi' | 'bt' | 'dht'
+  kind: 'rpc' | 'extensionApi' | 'bt' | 'dht' | 'ed2k'
   oldPort: number
   newPort: number
 }
 
 interface PortSwitchFailureEvent {
-  kind: 'rpc' | 'extensionApi' | 'bt' | 'dht'
+  kind: 'rpc' | 'extensionApi' | 'bt' | 'dht' | 'ed2k'
   port: number
   reason: 'disabled' | 'noAvailablePort' | 'bindFailed'
   source: 'startup' | 'btRuntime' | 'extensionApi'
@@ -74,6 +74,7 @@ interface AppEventsDeps {
       extensionApiPort?: number
       listenPort?: number
       dhtListenPort?: number
+      ed2kListenPort?: number
     }
     updatePreference?: (cfg: Record<string, unknown>) => void
   }
@@ -233,6 +234,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
           extensionApi: t('preferences.extension-api-port'),
           bt: t('preferences.bt-port'),
           dht: t('preferences.dht-port'),
+          ed2k: t('preferences.ed2k-listen-port'),
         }
         const ports = switches
           .map((item) => `${labels[item.kind] ?? item.kind} ${item.oldPort} -> ${item.newPort}`)
@@ -243,6 +245,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
           if (item.kind === 'extensionApi') patch.extensionApiPort = item.newPort
           if (item.kind === 'bt') patch.listenPort = item.newPort
           if (item.kind === 'dht') patch.dhtListenPort = item.newPort
+          if (item.kind === 'ed2k') patch.ed2kListenPort = item.newPort
         }
         preferenceStore.updatePreference?.(patch)
         message.success(t('preferences.port-auto-switched', { ports }))
@@ -258,6 +261,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
           extensionApi: t('preferences.extension-api-port'),
           bt: t('preferences.bt-port'),
           dht: t('preferences.dht-port'),
+          ed2k: t('preferences.ed2k-listen-port'),
         }
         const params = {
           label: labels[failure.kind] ?? failure.kind,

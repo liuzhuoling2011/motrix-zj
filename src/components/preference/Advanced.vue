@@ -2,6 +2,7 @@
 /** @fileoverview Advanced preference tab: RPC, extension, clipboard, protocols, engine, log, history, diagnostics. */
 import { ref, nextTick, onMounted, h } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { usePlatform } from '@/composables/usePlatform'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
@@ -12,7 +13,7 @@ import { useHistoryStore } from '@/stores/history'
 import { useAdvancedActions } from '@/composables/useAdvancedActions'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { useIpc } from '@/composables/useIpc'
-import { appDataDir, appLogDir, join } from '@tauri-apps/api/path'
+import { appDataDir, appLogDir, join, tempDir } from '@tauri-apps/api/path'
 import { LOG_LEVELS } from '@shared/constants'
 import {
   generateSecret,
@@ -64,6 +65,7 @@ const logLevelOptions = LOG_LEVELS.map((l: string) => ({ label: l, value: l }))
 const aria2ConfPath = ref('')
 const sessionPath = ref('')
 const logPath = ref('')
+const defaultTempPath = ref('')
 
 const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceForm({
   buildForm,
@@ -315,6 +317,11 @@ async function loadPaths() {
   } catch (e) {
     logger.debug('Advanced.loadLogPath', e)
   }
+  try {
+    defaultTempPath.value = await tempDir()
+  } catch (e) {
+    logger.debug('Advanced.loadTempPath', e)
+  }
 }
 
 function onRpcPortDice() {
@@ -337,6 +344,15 @@ async function copyToClipboard(text: string, label: string) {
   } catch (e) {
     logger.debug('Advanced.clipboard', `writeText failed: ${e}`)
   }
+}
+
+async function handleSelectTempDir() {
+  const selected = await openDialog({ directory: true, multiple: false })
+  if (typeof selected === 'string') form.value.tempFilesDir = selected
+}
+
+function handleClearTempDir() {
+  form.value.tempFilesDir = ''
 }
 
 // ─── Advanced Actions (delegated to composable) ─────────────────────
@@ -402,9 +418,6 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.auto-submit-from-extension')">
         <NSwitch v-model:value="form.autoSubmitFromExtension" />
       </NFormItem>
-      <NFormItem :label="t('preferences.auto-change-conflicting-ports')">
-        <NSwitch v-model:value="form.autoChangeConflictingPorts" />
-      </NFormItem>
       <NFormItem :label="t('preferences.extension-api-port')">
         <NInputNumber v-model:value="form.extensionApiPort" :min="1024" :max="65535" style="width: 160px" />
       </NFormItem>
@@ -441,9 +454,6 @@ onMounted(async () => {
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.rpc') }}</NDivider>
-      <NFormItem :label="t('preferences.auto-change-conflicting-ports')">
-        <NSwitch v-model:value="form.autoChangeConflictingPorts" />
-      </NFormItem>
       <NFormItem :label="t('preferences.rpc-listen-port')">
         <NInputGroup>
           <NInputNumber v-model:value="form.rpcListenPort" :min="1024" :max="65535" style="width: 160px" />
@@ -486,6 +496,32 @@ onMounted(async () => {
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.engine-section') }}</NDivider>
+      <NFormItem :label="t('preferences.temp-files-dir')">
+        <NInputGroup>
+          <NInput
+            :value="form.tempFilesDir || defaultTempPath"
+            readonly
+            style="flex: 1"
+            :placeholder="defaultTempPath"
+          />
+          <NButton
+            style="padding: 0 10px"
+            @click="copyToClipboard(form.tempFilesDir || defaultTempPath, t('preferences.temp-files-dir'))"
+          >
+            <template #icon>
+              <NIcon :size="14"><CopyOutline /></NIcon>
+            </template>
+          </NButton>
+          <NButton style="padding: 0 10px" @click="handleSelectTempDir">
+            <template #icon>
+              <NIcon :size="14"><FolderOpenOutline /></NIcon>
+            </template>
+          </NButton>
+          <NButton v-if="form.tempFilesDir" quaternary style="padding: 0 10px" @click="handleClearTempDir">
+            {{ t('preferences.ua-reset') }}
+          </NButton>
+        </NInputGroup>
+      </NFormItem>
       <NFormItem :label="t('preferences.aria2-conf-path')">
         <NInputGroup>
           <NInput :value="aria2ConfPath" readonly style="flex: 1" />

@@ -47,6 +47,7 @@ vi.mock('@vicons/ionicons5', () => ({
   ConstructOutline: { template: '<i />' },
   DownloadOutline: { template: '<i />' },
   MagnetOutline: { template: '<i />' },
+  GitNetworkOutline: { template: '<i />' },
   GlobeOutline: { template: '<i />' },
 }))
 
@@ -99,10 +100,10 @@ describe('keyboard-accessible navigation', () => {
     const wrapper = mount(PreferenceSubnav)
     const buttons = wrapper.findAll('button')
 
-    expect(buttons).toHaveLength(5)
+    expect(buttons).toHaveLength(6)
     expect(buttons[0].attributes('aria-current')).toBe('page')
 
-    await buttons[4].trigger('click')
+    await buttons[5].trigger('click')
     expect(pushMock).toHaveBeenCalledWith({ path: '/preference/advanced' })
   })
 })

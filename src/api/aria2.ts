@@ -6,7 +6,16 @@
  */
 import { invoke } from '@tauri-apps/api/core'
 import { changeKeysToCamelCase, formatOptionsForEngine } from '@shared/utils'
-import type { Aria2Task, Aria2RawGlobalStat, Aria2Peer, Aria2EngineOptions, Aria2File, AppConfig } from '@shared/types'
+import type {
+  Aria2Task,
+  Aria2RawGlobalStat,
+  Aria2Peer,
+  Aria2EngineOptions,
+  Aria2File,
+  AppConfig,
+  Ed2kSearchOptions,
+  Ed2kSearchResults,
+} from '@shared/types'
 import { logger } from '@shared/logger'
 import { resolveDownloadDir } from '@shared/utils/fileCategory'
 import { sanitizeAria2OutHint } from '@shared/utils/batchHelpers'
@@ -155,6 +164,24 @@ export async function addMetalink(params: { metalink: string; options: Aria2Engi
   return gids
 }
 
+/** Starts an ED2K search and returns the search GID. */
+export async function ed2kSearch(params: { keyword: string; options?: Ed2kSearchOptions }): Promise<string> {
+  return invoke<string>('aria2_ed2k_search', {
+    keyword: params.keyword,
+    options: params.options ?? {},
+  })
+}
+
+/** Fetches ED2K search results by search GID. */
+export async function getEd2kSearchResults(params: { gid: string }): Promise<Ed2kSearchResults> {
+  return invoke<Ed2kSearchResults>('aria2_get_ed2k_search_results', { gid: params.gid })
+}
+
+/** Cleans up an internal ED2K search task and its temporary files. */
+export async function cleanupEd2kSearch(params: { gid: string }): Promise<void> {
+  await invoke<void>('aria2_cleanup_ed2k_search', { gid: params.gid })
+}
+
 /** Forcefully removes a download task by GID. */
 export async function removeTask(params: { gid: string }): Promise<string> {
   return invoke<string>('aria2_force_remove', { gid: params.gid })
@@ -241,6 +268,9 @@ const api = {
   addUriAtomic,
   addTorrent,
   addMetalink,
+  ed2kSearch,
+  getEd2kSearchResults,
+  cleanupEd2kSearch,
   removeTask,
   forcePauseTask,
   pauseTask,

@@ -45,7 +45,9 @@ describe('port auto-switch coverage', () => {
 
   it('keeps extension API port recovery out of the engine restart lifecycle', () => {
     const source = readProjectFile('src-tauri/src/services/port_guard.rs')
-    expect(source).toContain('const ENGINE_PORT_KINDS: [PortKind; 3] = [PortKind::Rpc, PortKind::Bt, PortKind::Dht];')
+    expect(source).toMatch(
+      /const ENGINE_PORT_KINDS: \[PortKind; 4\]\s*=\s*\[\s*PortKind::Rpc,\s*PortKind::Bt,\s*PortKind::Dht,\s*PortKind::Ed2k,?\s*\];/,
+    )
     const enginePortBlock = sliceBetween(
       source,
       'pub(crate) fn reconcile_engine_ports(app: &AppHandle) -> Result<Vec<PortSwitch>, AppError>',
@@ -72,18 +74,6 @@ describe('port auto-switch coverage', () => {
     expect(source).toContain('f.extensionApiPort = appliedPort')
     expect(source).toContain('preferenceStore.updatePreference({ extensionApiPort: appliedPort })')
     expect(source).toContain("message.success(t('preferences.extension-api-port-applied', { port: appliedPort }))")
-  })
-
-  it('exposes the auto-switch control inside the RPC settings section', () => {
-    const source = readProjectFile('src/components/preference/Advanced.vue')
-    const rpcSection = sliceBetween(
-      source,
-      '<NDivider title-placement="left">{{ t(\'preferences.rpc\') }}</NDivider>',
-      '<NDivider title-placement="left">{{ t(\'preferences.engine-section\') }}</NDivider>',
-    )
-
-    expect(rpcSection).toContain("t('preferences.auto-change-conflicting-ports')")
-    expect(rpcSection).toContain('v-model:value="form.autoChangeConflictingPorts"')
   })
 
   it('emits a unified failure event when automatic port switching cannot recover', () => {

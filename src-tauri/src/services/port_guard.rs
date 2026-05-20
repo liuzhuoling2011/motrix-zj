@@ -15,6 +15,7 @@ pub(crate) enum PortKind {
     ExtensionApi,
     Bt,
     Dht,
+    Ed2k,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,7 +24,25 @@ struct PortRange {
     end: u16,
 }
 
-const ENGINE_PORT_KINDS: [PortKind; 3] = [PortKind::Rpc, PortKind::Bt, PortKind::Dht];
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PortTransport {
+    Tcp,
+    Udp,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PortSpec {
+    kind: PortKind,
+    prefs_key: &'static str,
+    system_key: &'static str,
+    fallback: u16,
+    range: PortRange,
+    transport: PortTransport,
+    allows_zero: bool,
+}
+
+const ENGINE_PORT_KINDS: [PortKind; 4] =
+    [PortKind::Rpc, PortKind::Bt, PortKind::Dht, PortKind::Ed2k];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,19 +77,72 @@ pub(crate) struct PortSwitchFailure {
     source: PortSwitchFailureSource,
 }
 
+#[cfg(test)]
 fn range_for(kind: PortKind) -> PortRange {
+    spec_for(kind).range
+}
+
+fn spec_for(kind: PortKind) -> PortSpec {
     match kind {
-        PortKind::Rpc | PortKind::ExtensionApi => PortRange {
-            start: 16800,
-            end: 19999,
+        PortKind::Rpc => PortSpec {
+            kind,
+            prefs_key: "rpcListenPort",
+            system_key: "rpc-listen-port",
+            fallback: 16800,
+            range: PortRange {
+                start: 16800,
+                end: 19999,
+            },
+            transport: PortTransport::Tcp,
+            allows_zero: false,
         },
-        PortKind::Bt => PortRange {
-            start: 20000,
-            end: 24999,
+        PortKind::ExtensionApi => PortSpec {
+            kind,
+            prefs_key: "extensionApiPort",
+            system_key: "",
+            fallback: 16801,
+            range: PortRange {
+                start: 16800,
+                end: 19999,
+            },
+            transport: PortTransport::Tcp,
+            allows_zero: false,
         },
-        PortKind::Dht => PortRange {
-            start: 25000,
-            end: 29999,
+        PortKind::Bt => PortSpec {
+            kind,
+            prefs_key: "listenPort",
+            system_key: "listen-port",
+            fallback: 21301,
+            range: PortRange {
+                start: 20000,
+                end: 24999,
+            },
+            transport: PortTransport::Tcp,
+            allows_zero: false,
+        },
+        PortKind::Dht => PortSpec {
+            kind,
+            prefs_key: "dhtListenPort",
+            system_key: "dht-listen-port",
+            fallback: 26701,
+            range: PortRange {
+                start: 25000,
+                end: 29999,
+            },
+            transport: PortTransport::Udp,
+            allows_zero: false,
+        },
+        PortKind::Ed2k => PortSpec {
+            kind,
+            prefs_key: "ed2kListenPort",
+            system_key: "ed2k-listen-port",
+            fallback: 4662,
+            range: PortRange {
+                start: 30000,
+                end: 34999,
+            },
+            transport: PortTransport::Tcp,
+            allows_zero: true,
         },
     }
 }
@@ -90,8 +162,9 @@ fn auto_switch_enabled(app: &AppHandle) -> bool {
 }
 
 fn choose_available_port(kind: PortKind, reserved: &BTreeSet<u16>) -> Option<u16> {
-    let range = range_for(kind);
-    (range.start..=range.end).find(|port| !reserved.contains(port) && port_available(*port))
+    let spec = spec_for(kind);
+    (spec.range.start..=spec.range.end)
+        .find(|port| !reserved.contains(port) && port_available(*port, spec.transport))
 }
 
 pub(crate) fn reconcile_engine_ports(app: &AppHandle) -> Result<Vec<PortSwitch>, AppError> {
@@ -111,7 +184,11 @@ pub(crate) fn reconcile_engine_ports(app: &AppHandle) -> Result<Vec<PortSwitch>,
 
     for kind in ENGINE_PORT_KINDS {
         let port = next.get(kind);
-        if port_available(port) {
+        let spec = spec_for(kind);
+        if spec.allows_zero && port == 0 {
+            continue;
+        }
+        if port_available(port, spec.transport) {
             continue;
         }
         if !auto_switch {
@@ -297,20 +374,45 @@ struct PortSnapshot {
     extension_api: u16,
     bt: u16,
     dht: u16,
+    ed2k: u16,
 }
 
 impl PortSnapshot {
     fn from_preferences(prefs: &serde_json::Value) -> Self {
         Self {
-            rpc: read_u16(prefs, "rpcListenPort", 16800),
-            extension_api: read_u16(prefs, "extensionApiPort", 16801),
-            bt: read_u16(prefs, "listenPort", 21301),
-            dht: read_u16(prefs, "dhtListenPort", 26701),
+            rpc: read_u16(
+                prefs,
+                spec_for(PortKind::Rpc).prefs_key,
+                spec_for(PortKind::Rpc).fallback,
+            ),
+            extension_api: read_u16(
+                prefs,
+                spec_for(PortKind::ExtensionApi).prefs_key,
+                spec_for(PortKind::ExtensionApi).fallback,
+            ),
+            bt: read_u16(
+                prefs,
+                spec_for(PortKind::Bt).prefs_key,
+                spec_for(PortKind::Bt).fallback,
+            ),
+            dht: read_u16(
+                prefs,
+                spec_for(PortKind::Dht).prefs_key,
+                spec_for(PortKind::Dht).fallback,
+            ),
+            ed2k: read_u16(
+                prefs,
+                spec_for(PortKind::Ed2k).prefs_key,
+                spec_for(PortKind::Ed2k).fallback,
+            ),
         }
     }
 
     fn all_ports(self) -> BTreeSet<u16> {
-        BTreeSet::from([self.rpc, self.extension_api, self.bt, self.dht])
+        [self.rpc, self.extension_api, self.bt, self.dht, self.ed2k]
+            .into_iter()
+            .filter(|port| *port > 0)
+            .collect()
     }
 
     fn get(self, kind: PortKind) -> u16 {
@@ -319,6 +421,7 @@ impl PortSnapshot {
             PortKind::ExtensionApi => self.extension_api,
             PortKind::Bt => self.bt,
             PortKind::Dht => self.dht,
+            PortKind::Ed2k => self.ed2k,
         }
     }
 
@@ -328,6 +431,7 @@ impl PortSnapshot {
             PortKind::ExtensionApi => self.extension_api = port,
             PortKind::Bt => self.bt = port,
             PortKind::Dht => self.dht = port,
+            PortKind::Ed2k => self.ed2k = port,
         }
     }
 }
@@ -357,6 +461,7 @@ fn persist_snapshot<R: tauri::Runtime>(
     obj.insert("extensionApiPort".into(), json!(snapshot.extension_api));
     obj.insert("listenPort".into(), json!(snapshot.bt));
     obj.insert("dhtListenPort".into(), json!(snapshot.dht));
+    obj.insert("ed2kListenPort".into(), json!(snapshot.ed2k));
     obj.insert("autoChangeConflictingPorts".into(), json!(true));
 
     prefs_store.set("preferences", prefs.clone());
@@ -367,6 +472,7 @@ fn persist_snapshot<R: tauri::Runtime>(
     system_store.set("rpc-listen-port", json!(snapshot.rpc.to_string()));
     system_store.set("listen-port", json!(snapshot.bt.to_string()));
     system_store.set("dht-listen-port", json!(snapshot.dht.to_string()));
+    system_store.set("ed2k-listen-port", json!(snapshot.ed2k.to_string()));
     system_store
         .save()
         .map_err(|e| AppError::Store(format!("Failed to save system.json: {e}")))?;
@@ -387,8 +493,11 @@ fn emit_failure(app: &AppHandle, failure: PortSwitchFailure) {
     let _ = app.emit("port-auto-switch-failed", failure);
 }
 
-fn port_available(port: u16) -> bool {
-    tcp_available(port) && udp_available(port)
+fn port_available(port: u16, transport: PortTransport) -> bool {
+    match transport {
+        PortTransport::Tcp => tcp_available(port),
+        PortTransport::Udp => udp_available(port),
+    }
 }
 
 fn tcp_available(port: u16) -> bool {
@@ -427,13 +536,20 @@ mod tests {
                 end: 29999
             }
         );
+        assert_eq!(
+            range_for(PortKind::Ed2k),
+            PortRange {
+                start: 30000,
+                end: 34999
+            }
+        );
     }
 
     #[test]
     fn engine_port_reconciliation_excludes_extension_api() {
         assert_eq!(
             ENGINE_PORT_KINDS,
-            [PortKind::Rpc, PortKind::Bt, PortKind::Dht]
+            [PortKind::Rpc, PortKind::Bt, PortKind::Dht, PortKind::Ed2k]
         );
         assert!(!ENGINE_PORT_KINDS.contains(&PortKind::ExtensionApi));
     }

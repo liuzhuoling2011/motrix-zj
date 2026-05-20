@@ -276,6 +276,12 @@ export const DEFAULT_APP_CONFIG = {
   //   'abc' → user-set or auto-generated secret (kept as-is).
   listenPort: 21301,
   dhtListenPort: 26701,
+  ed2kListenPort: 4662,
+  ed2kServer: '',
+  ed2kServerList: '',
+  ed2kNodeList: '',
+  ed2kUploadSlots: 3,
+  ed2kShareFiles: [] as string[],
   proxy: { enable: false, server: '', bypass: '', scope: ['download', 'update-app', 'update-trackers'] },
   protocols: { magnet: true, ed2k: true, thunder: false, motrixnext: true },
   clipboard: { enable: true, http: true, ftp: true, magnet: true, ed2k: true, thunder: true, btHash: true },
@@ -286,6 +292,7 @@ export const DEFAULT_APP_CONFIG = {
   cookie: '',
   runMode: '',
   engineBinPath: '',
+  tempFilesDir: '',
 
   // ── Tracker ───────────────────────────────────────────────────
   autoSyncTracker: true,

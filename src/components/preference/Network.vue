@@ -114,8 +114,11 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
   },
   afterSave: async (f, prevConfig) => {
     // Sync UPnP mapping state after save
-    if (f.enableUpnp !== prevConfig.enableUpnp) {
-      syncUpnpState(!!f.enableUpnp, f.listenPort, f.dhtListenPort)
+    if (
+      f.enableUpnp !== prevConfig.enableUpnp ||
+      (f.enableUpnp && (f.listenPort !== prevConfig.listenPort || f.dhtListenPort !== prevConfig.dhtListenPort))
+    ) {
+      syncUpnpState(!!f.enableUpnp, f.listenPort, f.dhtListenPort, preferenceStore.config.ed2kListenPort)
     }
 
     // Engine restart — user already confirmed in beforeSave, execute immediately.
@@ -140,10 +143,10 @@ function onDhtPortDice() {
 }
 
 // ── UPnP save-time sync ─────────────────────────────────────────────
-async function syncUpnpState(enabled: boolean, btPort: number, dhtPort: number) {
+async function syncUpnpState(enabled: boolean, btPort: number, dhtPort: number, ed2kPort: number) {
   try {
     if (enabled) {
-      await invoke('start_upnp_mapping', { btPort, dhtPort })
+      await invoke('start_upnp_mapping', { btPort, dhtPort, ed2kPort: ed2kPort > 0 ? ed2kPort : null })
     } else {
       await invoke('stop_upnp_mapping')
     }
@@ -236,6 +239,9 @@ onMounted(() => {
       </NFormItem>
       <NFormItem :label="t('preferences.auto-change-conflicting-ports')">
         <NSwitch v-model:value="form.autoChangeConflictingPorts" />
+      </NFormItem>
+      <NFormItem :show-label="false">
+        <div class="info-text">{{ t('preferences.auto-change-conflicting-ports-hint') }}</div>
       </NFormItem>
       <NFormItem :label="t('preferences.bt-port')">
         <NInputGroup>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** @fileoverview Preference settings view with 5-tab sub-routes. */
+/** @fileoverview Preference settings view with preference sub-routes. */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
@@ -11,6 +11,7 @@ const tabKey = computed(() => {
   const path = route.path
   if (path.includes('downloads')) return 'downloads'
   if (path.includes('bt')) return 'bt'
+  if (path.includes('ed2k')) return 'ed2k'
   if (path.includes('network')) return 'network'
   if (path.includes('advanced')) return 'advanced'
   return 'general'
