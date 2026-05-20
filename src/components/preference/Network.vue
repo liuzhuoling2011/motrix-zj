@@ -39,6 +39,7 @@ import {
 } from 'naive-ui'
 const needsRestart = ref(false)
 import PreferenceActionBar from './PreferenceActionBar.vue'
+import PreferenceCheckboxGrid from './PreferenceCheckboxGrid.vue'
 import { SearchOutline, DiceOutline } from '@vicons/ionicons5'
 
 const { t } = useI18n()
@@ -50,6 +51,25 @@ const proxyScopeOptions = PROXY_SCOPE_OPTIONS.map((s: string) => ({
   label: t(`preferences.proxy-scope-${s}`),
   value: s,
 }))
+
+type PortRecoveryTarget = 'rpc' | 'extensionApi' | 'bt' | 'dht' | 'ed2k'
+const portRecoveryTargets: PortRecoveryTarget[] = ['rpc', 'extensionApi', 'bt', 'dht', 'ed2k']
+const portRecoveryTargetOptions = computed(() => [
+  { label: t('preferences.rpc-listen-port'), value: 'rpc' },
+  { label: t('preferences.extension-api-port'), value: 'extensionApi' },
+  { label: t('preferences.port-conflict-recovery-bt'), value: 'bt' },
+  { label: t('preferences.port-conflict-recovery-dht'), value: 'dht' },
+  { label: t('preferences.port-conflict-recovery-ed2k'), value: 'ed2k' },
+])
+const selectedPortRecoveryTargets = computed<string[]>({
+  get: () => portRecoveryTargets.filter((target) => form.value.portConflictRecovery[target]),
+  set: (targets) => {
+    const selected = new Set(targets)
+    for (const target of portRecoveryTargets) {
+      form.value.portConflictRecovery[target] = selected.has(target)
+    }
+  },
+})
 
 // ── Proxy detection ─────────────────────────────────────────────────
 const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect({
@@ -261,28 +281,7 @@ onMounted(() => {
             <div class="info-text">{{ t('preferences.port-conflict-recovery-range-hint') }}</div>
           </NFormItem>
           <NFormItem :label="t('preferences.port-conflict-recovery-apply-to')">
-            <div class="port-recovery-switches">
-              <div class="port-recovery-switch">
-                <span>{{ t('preferences.rpc-listen-port') }}</span>
-                <NSwitch v-model:value="form.portConflictRecovery.rpc" />
-              </div>
-              <div class="port-recovery-switch">
-                <span>{{ t('preferences.extension-api-port') }}</span>
-                <NSwitch v-model:value="form.portConflictRecovery.extensionApi" />
-              </div>
-              <div class="port-recovery-switch">
-                <span>{{ t('preferences.port-conflict-recovery-bt') }}</span>
-                <NSwitch v-model:value="form.portConflictRecovery.bt" />
-              </div>
-              <div class="port-recovery-switch">
-                <span>{{ t('preferences.port-conflict-recovery-dht') }}</span>
-                <NSwitch v-model:value="form.portConflictRecovery.dht" />
-              </div>
-              <div class="port-recovery-switch">
-                <span>{{ t('preferences.port-conflict-recovery-ed2k') }}</span>
-                <NSwitch v-model:value="form.portConflictRecovery.ed2k" />
-              </div>
-            </div>
+            <PreferenceCheckboxGrid v-model:value="selectedPortRecoveryTargets" :options="portRecoveryTargetOptions" />
           </NFormItem>
         </div>
       </div>
@@ -428,22 +427,6 @@ onMounted(() => {
   font-size: 12px;
   line-height: 1;
 }
-.port-recovery-switches {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(180px, 1fr));
-  gap: 10px 18px;
-  max-width: 520px;
-}
-.port-recovery-switch {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 28px;
-  color: var(--m3-on-surface);
-  font-size: 13px;
-}
-
 /* ── UA preset row ───────────────────────────────────────────────── */
 .ua-preset-row {
   display: flex;

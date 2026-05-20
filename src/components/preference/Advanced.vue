@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** @fileoverview Advanced preference tab: RPC, extension, clipboard, protocols, engine, log, history, diagnostics. */
-import { ref, nextTick, onMounted, h } from 'vue'
+import { ref, computed, nextTick, onMounted, h } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { usePlatform } from '@/composables/usePlatform'
@@ -45,6 +45,7 @@ import { useAppMessage } from '@/composables/useAppMessage'
 import { DiceOutline, DownloadOutline, FolderOpenOutline, TrashOutline, CopyOutline } from '@vicons/ionicons5'
 import { logger } from '@shared/logger'
 import PreferenceActionBar from './PreferenceActionBar.vue'
+import PreferenceCheckboxGrid from './PreferenceCheckboxGrid.vue'
 
 const { restartEngine } = useEngineRestart()
 
@@ -61,6 +62,34 @@ import { ENGINE_RPC_PORT } from '@shared/constants'
 import { diffConfig, checkIsNeedRestart } from '@shared/utils/config'
 
 const logLevelOptions = LOG_LEVELS.map((l: string) => ({ label: l, value: l }))
+
+type ClipboardType = 'http' | 'ftp' | 'magnet' | 'ed2k' | 'thunder' | 'btHash'
+const clipboardTypes: ClipboardType[] = ['http', 'ftp', 'magnet', 'ed2k', 'thunder', 'btHash']
+const clipboardTypeOptions = computed(() => [
+  { label: t('preferences.clipboard-http'), value: 'http' },
+  { label: t('preferences.clipboard-ftp'), value: 'ftp' },
+  { label: t('preferences.clipboard-magnet'), value: 'magnet' },
+  { label: t('preferences.clipboard-ed2k'), value: 'ed2k' },
+  { label: t('preferences.clipboard-thunder'), value: 'thunder' },
+  { label: t('preferences.clipboard-bt-hash'), value: 'btHash' },
+])
+const clipboardFieldByType: Record<ClipboardType, keyof typeof form.value> = {
+  http: 'clipboardHttp',
+  ftp: 'clipboardFtp',
+  magnet: 'clipboardMagnet',
+  ed2k: 'clipboardEd2k',
+  thunder: 'clipboardThunder',
+  btHash: 'clipboardBtHash',
+}
+const selectedClipboardTypes = computed<string[]>({
+  get: () => clipboardTypes.filter((type) => !!form.value[clipboardFieldByType[type]]),
+  set: (types) => {
+    const selected = new Set(types)
+    for (const type of clipboardTypes) {
+      form.value[clipboardFieldByType[type]] = selected.has(type)
+    }
+  },
+})
 
 const aria2ConfPath = ref('')
 const sessionPath = ref('')
@@ -636,24 +665,9 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.clipboard-auto-detect')">
         <NSwitch v-model:value="form.clipboardEnable" />
       </NFormItem>
-      <NCollapseTransition :show="form.clipboardEnable" class="collapse-indent">
-        <NFormItem :label="t('preferences.clipboard-http')">
-          <NSwitch v-model:value="form.clipboardHttp" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.clipboard-ftp')">
-          <NSwitch v-model:value="form.clipboardFtp" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.clipboard-magnet')">
-          <NSwitch v-model:value="form.clipboardMagnet" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.clipboard-ed2k')">
-          <NSwitch v-model:value="form.clipboardEd2k" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.clipboard-thunder')">
-          <NSwitch v-model:value="form.clipboardThunder" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.clipboard-bt-hash')">
-          <NSwitch v-model:value="form.clipboardBtHash" />
+      <NCollapseTransition :show="form.clipboardEnable">
+        <NFormItem label=" ">
+          <PreferenceCheckboxGrid v-model:value="selectedClipboardTypes" :options="clipboardTypeOptions" />
         </NFormItem>
       </NCollapseTransition>
 

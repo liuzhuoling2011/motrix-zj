@@ -36,6 +36,7 @@ import {
   NInputNumber,
   NSelect,
   NSwitch,
+  NCheckbox,
   NButton,
   NDivider,
   NInputGroup,
@@ -46,6 +47,7 @@ import {
   useDialog,
 } from 'naive-ui'
 import PreferenceActionBar from './PreferenceActionBar.vue'
+import PreferenceCheckboxGrid from './PreferenceCheckboxGrid.vue'
 import DirectoryPopover from '@/components/common/DirectoryPopover.vue'
 import { FolderOpenOutline } from '@vicons/ionicons5'
 
@@ -170,6 +172,38 @@ const scheduleDayOptions = computed(() => [
   { label: t('preferences.schedule-days-weekdays'), value: SCHEDULE_DAY.WEEKDAYS },
   { label: t('preferences.schedule-days-weekends'), value: SCHEDULE_DAY.WEEKENDS },
 ])
+
+const notificationTypeOptions = computed(() => [
+  { label: t('preferences.notify-on-start'), value: 'start' },
+  { label: t('preferences.notify-on-complete'), value: 'complete' },
+])
+const selectedNotificationTypes = computed<string[]>({
+  get: () => [...(form.value.notifyOnStart ? ['start'] : []), ...(form.value.notifyOnComplete ? ['complete'] : [])],
+  set: (types) => {
+    const selected = new Set(types)
+    form.value.notifyOnStart = selected.has('start')
+    form.value.notifyOnComplete = selected.has('complete')
+  },
+})
+
+const cleanupActionOptions = computed(() => [
+  { label: t('preferences.delete-torrent-after-complete'), value: 'torrent' },
+  { label: t('preferences.auto-delete-stale-records'), value: 'stale' },
+  { label: t('preferences.clear-completed-on-exit'), value: 'completed' },
+])
+const selectedCleanupActions = computed<string[]>({
+  get: () => [
+    ...(form.value.deleteTorrentAfterComplete ? ['torrent'] : []),
+    ...(form.value.autoDeleteStaleRecords ? ['stale'] : []),
+    ...(form.value.clearCompletedOnExit ? ['completed'] : []),
+  ],
+  set: (actions) => {
+    const selected = new Set(actions)
+    form.value.deleteTorrentAfterComplete = selected.has('torrent')
+    form.value.autoDeleteStaleRecords = selected.has('stale')
+    form.value.clearCompletedOnExit = selected.has('completed')
+  },
+})
 
 function parseSpeedLimit(value: unknown) {
   const str = String(value || '0')
@@ -510,20 +544,19 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.no-confirm-before-delete-task')">
         <NSwitch v-model:value="form.noConfirmBeforeDeleteTask" />
       </NFormItem>
-      <NCollapseTransition :show="form.noConfirmBeforeDeleteTask" class="collapse-indent">
-        <NFormItem :label="t('preferences.delete-files-when-skip-confirm')">
-          <NSwitch v-model:value="form.deleteFilesWhenSkipConfirm" />
+      <NCollapseTransition :show="form.noConfirmBeforeDeleteTask">
+        <NFormItem label=" ">
+          <NCheckbox v-model:checked="form.deleteFilesWhenSkipConfirm">
+            {{ t('preferences.delete-files-when-skip-confirm') }}
+          </NCheckbox>
         </NFormItem>
       </NCollapseTransition>
       <NFormItem :label="t('preferences.task-completed-notify')">
         <NSwitch v-model:value="form.taskNotification" />
       </NFormItem>
-      <NCollapseTransition :show="form.taskNotification" class="collapse-indent">
-        <NFormItem :label="t('preferences.notify-on-start')">
-          <NSwitch v-model:value="form.notifyOnStart" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.notify-on-complete')">
-          <NSwitch v-model:value="form.notifyOnComplete" />
+      <NCollapseTransition :show="form.taskNotification">
+        <NFormItem label=" ">
+          <PreferenceCheckboxGrid v-model:value="selectedNotificationTypes" :options="notificationTypeOptions" />
         </NFormItem>
       </NCollapseTransition>
       <NFormItem :label="t('preferences.shutdown-when-complete')">
@@ -535,14 +568,8 @@ onMounted(async () => {
 
       <!-- Auto Cleanup -->
       <NDivider title-placement="left">{{ t('preferences.auto-cleanup') }}</NDivider>
-      <NFormItem :label="t('preferences.delete-torrent-after-complete')">
-        <NSwitch v-model:value="form.deleteTorrentAfterComplete" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.auto-delete-stale-records')">
-        <NSwitch v-model:value="form.autoDeleteStaleRecords" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.clear-completed-on-exit')">
-        <NSwitch v-model:value="form.clearCompletedOnExit" />
+      <NFormItem label=" ">
+        <PreferenceCheckboxGrid v-model:value="selectedCleanupActions" :options="cleanupActionOptions" />
       </NFormItem>
     </NForm>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
