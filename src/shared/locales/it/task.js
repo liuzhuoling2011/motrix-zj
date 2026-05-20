@@ -64,6 +64,7 @@ export default {
   'stop-seeding': 'Interrompi condivisione',
   'stop-seeding-tip': 'Download completato. Condivisione in corso tramite BT. Clicca per interrompere.',
   'stopping-seeding': 'Interruzione seeding…',
+  'error-aria2-next': 'Errore Aria2 Next',
   'error-unknown': 'Unknown error',
   'error-timeout': 'Download timed out',
   'error-not-found': 'Resource not found (404)',

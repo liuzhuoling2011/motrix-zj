@@ -100,6 +100,11 @@ export const useAppStore = defineStore('app', () => {
   const pendingMagnetGids = ref<string[]>([])
   /** Protocols detected as hijacked at startup (set by syncProtocolHandlers). */
   const pendingProtocolHijack = ref<string[]>([])
+  let externalInputErrorHandler: ((error: unknown) => void) | null = null
+
+  function setExternalInputErrorHandler(handler: ((error: unknown) => void) | null) {
+    externalInputErrorHandler = handler
+  }
 
   function updateInterval(millisecond: number) {
     let val = millisecond
@@ -399,6 +404,7 @@ export const useAppStore = defineStore('app', () => {
       logger.info('autoSubmit', `auto-submitted: ${url}`)
     } catch (e) {
       logger.error('autoSubmit', e)
+      externalInputErrorHandler?.(e)
     }
   }
 
@@ -435,6 +441,7 @@ export const useAppStore = defineStore('app', () => {
     fetchEngineInfo,
     fetchEngineOptions,
     handleDeepLinkUrls,
+    setExternalInputErrorHandler,
     pendingProtocolHijack,
     pendingFilename,
   }

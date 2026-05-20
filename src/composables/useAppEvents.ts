@@ -15,6 +15,7 @@ import { formatLogFields, logger } from '@shared/logger'
 import { setEngineReady, isEngineReady } from '@/api/aria2'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
 import { createExternalInputTraceId, summarizeExternalInputBatch } from '@shared/utils/externalInputDiagnostics'
+import { getErrorMessage } from '@shared/utils/errorMessage'
 import { isMotrixNewTaskLink } from '@shared/utils/motrixDeepLink'
 import { onUnmounted, watch, type Ref, type WatchStopHandle } from 'vue'
 
@@ -51,6 +52,7 @@ interface AppEventsDeps {
     showAddTaskDialog: () => void
     enqueueBatch: (items: ReturnType<typeof createBatchItem>[]) => number
     handleDeepLinkUrls: (urls: string[]) => DeepLinkHandlingResult | void
+    setExternalInputErrorHandler?: (handler: ((error: unknown) => void) | null) => void
     engineReady: boolean
     engineRestarting: boolean
   }
@@ -135,6 +137,17 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
   }
 
   onUnmounted(teardown)
+
+  appStore.setExternalInputErrorHandler?.((error) => {
+    message.error(
+      getErrorMessage(error, {
+        fallback: t('task.error-unknown'),
+        labels: { Aria2: t('task.error-aria2-next') },
+      }),
+      { closable: true },
+    )
+  })
+  registerCleanup(() => appStore.setExternalInputErrorHandler?.(null))
 
   async function runExternalInputWindowStage(
     traceId: string,

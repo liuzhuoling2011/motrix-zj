@@ -299,6 +299,10 @@ describe('classifySubmitError', () => {
   it('handles non-Error values', () => {
     expect(classifySubmitError('some string error')).toBe('generic')
   })
+
+  it('classifies duplicate Tauri AppError objects', () => {
+    expect(classifySubmitError({ Aria2: 'aria2 RPC error [1]: GID already exists' })).toBe('duplicate')
+  })
 })
 
 // ── submitBatchItems ────────────────────────────────────────────────
@@ -404,6 +408,21 @@ describe('submitBatchItems', () => {
     expect(failures).toBe(1)
     expect(items[0].status).toBe('failed')
     expect(items[0].error).toBe('engine down')
+  })
+
+  it('stores readable failure text for structured Tauri errors', async () => {
+    ;(mockTaskStore.addTorrent as ReturnType<typeof vi.fn>).mockRejectedValueOnce({
+      Aria2: 'aria2 RPC error [1]: Unsupported URI scheme',
+    })
+
+    const items: BatchItem[] = [
+      { id: 8, kind: 'torrent', source: 'e.torrent', payload: 'b64', status: 'pending' } as unknown as BatchItem,
+    ]
+
+    const failures = await submitBatchItems(items, baseOptions, mockTaskStore)
+
+    expect(failures).toBe(1)
+    expect(items[0].error).toBe('Aria2 Next error [1]: Unsupported URI scheme')
   })
 
   it('skips already submitted items', async () => {
@@ -637,6 +656,25 @@ describe('useAddTaskSubmit', () => {
     expect(onClose).not.toHaveBeenCalled()
     expect(mockMessage.warning).toHaveBeenCalledWith('1 task.failed', { closable: true })
     expect(mockRouterPush).not.toHaveBeenCalled()
+  })
+
+  it('shows readable toast text for structured Tauri add-uri errors', async () => {
+    mockTaskStoreForHook.addUri.mockRejectedValueOnce({
+      Aria2: 'aria2 RPC error [1]: Unsupported URI scheme',
+    })
+    const onClose = vi.fn()
+
+    const { handleSubmit } = useAddTaskSubmit({
+      form: ref({ ...baseForm, uris: '23222233' }),
+      onClose,
+    })
+
+    await handleSubmit()
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(mockMessage.error).toHaveBeenCalledWith('task.error-aria2-next [1]: Unsupported URI scheme', {
+      closable: true,
+    })
   })
 
   it('uses the resolved output filename in the start toast for extensionless URLs', async () => {

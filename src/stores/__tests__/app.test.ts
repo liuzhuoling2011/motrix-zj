@@ -15,6 +15,16 @@ vi.mock('@tauri-apps/plugin-os', () => ({
   platform: vi.fn(() => 'macos'),
 }))
 
+const submitManualUrisMock = vi.hoisted(() => vi.fn().mockResolvedValue({}))
+
+vi.mock('@/composables/useAddTaskSubmit', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/composables/useAddTaskSubmit')>()
+  return {
+    ...actual,
+    submitManualUris: (...args: Parameters<typeof actual.submitManualUris>) => submitManualUrisMock(...args),
+  }
+})
+
 import { useAppStore } from '../app'
 import { createBatchItem, resetBatchIdCounter } from '@shared/utils/batchHelpers'
 
@@ -22,6 +32,8 @@ describe('useAppStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     resetBatchIdCounter()
+    submitManualUrisMock.mockReset()
+    submitManualUrisMock.mockResolvedValue({})
   })
 
   // ── enqueueBatch ────────────────────────────────────────────────
@@ -750,6 +762,21 @@ describe('useAppStore', () => {
 
       expect(store.pendingBatch).toHaveLength(1)
       expect(store.addTaskVisible).toBe(true)
+    })
+
+    it('reports readable auto-submit errors for structured Tauri failures', async () => {
+      const store = useAppStore()
+      const { usePreferenceStore } = await import('@/stores/preference')
+      const prefStore = usePreferenceStore()
+      prefStore.config.autoSubmitFromExtension = true
+      const onError = vi.fn()
+      submitManualUrisMock.mockRejectedValueOnce({ Aria2: 'aria2 RPC error [1]: Unsupported URI scheme' })
+
+      store.setExternalInputErrorHandler(onError)
+      store.handleDeepLinkUrls([buildDeepLink('23222233')])
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(onError).toHaveBeenCalledWith({ Aria2: 'aria2 RPC error [1]: Unsupported URI scheme' })
     })
   })
 })

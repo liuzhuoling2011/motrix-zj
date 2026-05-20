@@ -84,6 +84,7 @@ function createDeps() {
     showAddTaskDialog: vi.fn(),
     enqueueBatch: vi.fn(() => 0),
     handleDeepLinkUrls: vi.fn(),
+    setExternalInputErrorHandler: vi.fn(),
     engineReady: false,
     engineRestarting: true,
   })
@@ -254,6 +255,19 @@ describe('useAppEvents', () => {
 
     expect(appStore.handleDeepLinkUrls).toHaveBeenCalledTimes(1)
     expect(appStore.handleDeepLinkUrls).toHaveBeenCalledWith(['file:///Users/example/ubuntu.torrent'])
+  })
+
+  it('shows localized readable text for external input auto-submit errors', async () => {
+    const { deps, appStore, message } = createDeps()
+
+    mountComposable(deps)
+
+    const handler = appStore.setExternalInputErrorHandler.mock.calls[0][0] as (error: unknown) => void
+    handler({ Aria2: 'aria2 RPC error [1]: Unsupported URI scheme' })
+
+    expect(message.error).toHaveBeenCalledWith('task.error-aria2-next [1]: Unsupported URI scheme', {
+      closable: true,
+    })
   })
 
   it('shows a toast when local ports are auto-switched', async () => {

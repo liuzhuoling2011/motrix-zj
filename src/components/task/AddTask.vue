@@ -27,6 +27,7 @@ import { isMagnetUri } from '@/composables/useMagnetFlow'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { downloadDir } from '@tauri-apps/api/path'
 import { logger } from '@shared/logger'
+import { getErrorMessage } from '@shared/utils/errorMessage'
 
 import { resolveUnresolvedItems, chooseTorrentFile as chooseTorrentFileImpl } from '@/composables/useAddTaskFileOps'
 import {
@@ -520,7 +521,10 @@ async function handleSubmit() {
     }
   } catch (e: unknown) {
     const category = classifySubmitError(e)
-    const errMsg = e instanceof Error ? e.message : String(e)
+    const errMsg = getErrorMessage(e, {
+      fallback: t('task.error-unknown'),
+      labels: { Aria2: t('task.error-aria2-next') },
+    })
     logger.error('AddTask.submit', e)
     if (category === 'engine-not-ready') {
       message.error(t('app.engine-not-ready'), { closable: true })

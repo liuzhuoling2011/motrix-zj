@@ -1,5 +1,6 @@
 /** @fileoverview Centralized logging utility bridging to tauri-plugin-log for persistent file output. */
 import { error as tauriError, warn as tauriWarn, info as tauriInfo, debug as tauriDebug } from '@tauri-apps/plugin-log'
+import { getErrorMessage } from '@shared/utils/errorMessage'
 
 export type LogFieldValue = string | number | boolean | null | undefined
 export type LogFields = Record<string, LogFieldValue>
@@ -110,7 +111,7 @@ function formatDebugMessage(data: unknown): string {
 export const logger = {
   /** Logs an error with full Error object serialization to both console and log file. */
   error(context: string, error: unknown): void {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = getErrorMessage(error)
     const formatted = formatMessage(context, message)
     console.error(formatted)
     tauriError(formatted).catch(() => {})

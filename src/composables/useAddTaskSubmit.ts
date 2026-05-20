@@ -30,6 +30,7 @@ import { logger } from '@shared/logger'
 import type { Aria2EngineOptions, BatchItem, FileCategory, ProxyConfig } from '@shared/types'
 import { isMagnetUri } from '@/composables/useMagnetFlow'
 import { sanitizeHttpHeaderOptions } from '@shared/utils/headerSanitize'
+import { getErrorMessage } from '@shared/utils/errorMessage'
 
 export interface AddTaskForm {
   uris: string
@@ -153,7 +154,7 @@ export function getDownloadProxy(proxy: ProxyConfig): string | undefined {
  * Pure function — fully testable.
  */
 export function classifySubmitError(err: unknown): 'engine-not-ready' | 'duplicate' | 'generic' {
-  const msg = err instanceof Error ? err.message : String(err)
+  const msg = getErrorMessage(err)
   if (msg.includes('not initialized') || !isEngineReady()) return 'engine-not-ready'
   if (/duplicate|already/i.test(msg)) return 'duplicate'
   return 'generic'
@@ -199,7 +200,7 @@ export async function submitBatchItems(
       logger.info('submitBatchItems', `${item.kind} submitted: ${item.displayName}`)
     } catch (e) {
       item.status = 'failed'
-      item.error = e instanceof Error ? e.message : String(e)
+      item.error = getErrorMessage(e)
       logger.error('submitBatchItems', e)
       failures++
     }
@@ -306,7 +307,7 @@ export async function submitManualUris(
       logger.error('submitManualUris.magnet', e)
       result.magnetFailures.push({
         uri,
-        error: e instanceof Error ? e.message : String(e),
+        error: getErrorMessage(e),
       })
     }
   }
@@ -317,6 +318,13 @@ export async function submitManualUris(
 function resolveSubmittedTaskName(uri: string, outHint?: string): string {
   const out = outHint ? sanitizeAria2OutHint(outHint) : ''
   return out || extractDecodedFilename(uri) || uri
+}
+
+function buildSubmitErrorLabels(t: (key: string) => string): Parameters<typeof getErrorMessage>[1] {
+  return {
+    fallback: t('task.error-unknown'),
+    labels: { Aria2: t('task.error-aria2-next') },
+  }
 }
 
 export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
@@ -391,7 +399,7 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
       }
     } catch (e: unknown) {
       const category = classifySubmitError(e)
-      const errMsg = e instanceof Error ? e.message : String(e)
+      const errMsg = getErrorMessage(e, buildSubmitErrorLabels(t))
       logger.error('AddTask.submit', e)
       if (category === 'engine-not-ready') {
         message.error(t('app.engine-not-ready'), { closable: true })
