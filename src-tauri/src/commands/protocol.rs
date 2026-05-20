@@ -108,28 +108,29 @@ mod macos {
 // - Win32 API implementation — cfg(windows) gated.
 
 pub mod win_registry {
-    // Constants and pure functions are compiled on all platforms (for
-    // cross-platform testing), but only used at runtime on Windows.
-    #![cfg_attr(not(windows), allow(dead_code))]
-
     #[allow(unused_imports)]
     use crate::error::AppError;
 
     // ── Constants (cross-platform for testing) ──────────────────────
 
     /// Application name as it appears in Windows Default Apps.
+    #[cfg(any(windows, test))]
     pub const APP_NAME: &str = "Motrix Next";
 
     /// Short description shown in Windows Default Apps tooltip.
+    #[cfg(any(windows, test))]
     pub const APP_DESCRIPTION: &str = "A full-featured download manager";
 
     /// Manufacturer key path prefix under HKCU\Software.
+    #[cfg(any(windows, test))]
     pub const CAPABILITIES_PATH: &str = "Software\\MotrixNext\\Capabilities";
 
     /// The value written to HKCU\Software\RegisteredApplications.
+    #[cfg(any(windows, test))]
     pub const REGISTERED_APPS_VALUE: &str = "Software\\MotrixNext\\Capabilities";
 
     /// Registered application name key in RegisteredApplications.
+    #[cfg(any(windows, test))]
     pub const REGISTERED_APP_NAME: &str = "MotrixNext";
 
     // ── Pure helper functions (cross-platform for testing) ──────────
@@ -138,24 +139,28 @@ pub mod win_registry {
     ///
     /// Format: `MotrixNext.Url.{scheme}` — follows Microsoft ProgID
     /// naming convention: `{AppName}.{Type}.{Discriminator}`.
+    #[cfg(any(windows, test))]
     pub fn prog_id_for_scheme(scheme: &str) -> String {
         format!("MotrixNext.Url.{scheme}")
     }
 
     /// Returns the registry path for the ProgID's `shell\open\command`
     /// key under `HKCU\Software\Classes`.
+    #[cfg(any(windows, test))]
     pub fn prog_id_command_path(scheme: &str) -> String {
         let prog_id = prog_id_for_scheme(scheme);
         format!("Software\\Classes\\{prog_id}\\shell\\open\\command")
     }
 
     /// Returns the registry path for the ProgID root key.
+    #[cfg(any(windows, test))]
     pub fn prog_id_root_path(scheme: &str) -> String {
         let prog_id = prog_id_for_scheme(scheme);
         format!("Software\\Classes\\{prog_id}")
     }
 
     /// Returns the registry path for `URLAssociations` under Capabilities.
+    #[cfg(any(windows, test))]
     pub fn url_associations_path() -> String {
         format!("{}\\URLAssociations", CAPABILITIES_PATH)
     }
@@ -881,6 +886,14 @@ mod tests {
     #[test]
     fn app_name_is_motrix_next() {
         assert_eq!(win_registry::APP_NAME, "Motrix Next");
+    }
+
+    #[test]
+    fn app_description_is_download_manager() {
+        assert_eq!(
+            win_registry::APP_DESCRIPTION,
+            "A full-featured download manager"
+        );
     }
 
     #[test]

@@ -449,6 +449,20 @@ describe('validateNetworkForm', () => {
     ).toBe('preferences.port-conflict-recovery-invalid-range')
   })
 
+  it('ignores invalid hidden port recovery ranges when recovery is disabled', () => {
+    expect(
+      validateNetworkForm({
+        ...validForm,
+        portConflictRecovery: {
+          ...validForm.portConflictRecovery,
+          enabled: false,
+          rangeStart: 40000,
+          rangeEnd: 30000,
+        },
+      }),
+    ).toBeNull()
+  })
+
   it('returns null for valid proxy URL when proxy enabled', () => {
     expect(
       validateNetworkForm({

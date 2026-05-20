@@ -327,7 +327,7 @@ fn create_ed2k_search_temp_dir(app: &AppHandle) -> Result<PathBuf, AppError> {
     tempfile::Builder::new()
         .prefix(ED2K_SEARCH_TEMP_PREFIX)
         .tempdir_in(root)
-        .map(|dir| dir.keep())
+        .map(tempfile::TempDir::keep)
         .map_err(AppError::from)
 }
 

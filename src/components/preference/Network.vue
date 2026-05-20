@@ -15,10 +15,10 @@ import {
   buildNetworkForm,
   buildNetworkSystemConfig,
   transformNetworkForStore,
+  validateNetworkForm,
   randomBtPort,
   randomDhtPort,
 } from '@/composables/useNetworkPreference'
-import { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
 
 import userAgentMap from '@shared/ua'
 import { hasUnsafeHeaderChars, sanitizeHeaderValue } from '@shared/utils/headerSanitize'
@@ -81,12 +81,10 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
   buildSystemConfig: buildNetworkSystemConfig,
   transformForStore: transformNetworkForStore,
   beforeSave: async (f) => {
-    // Validate proxy URL
-    if (f.proxy.enable && f.proxy.server) {
-      if (!isValidAria2ProxyUrl(f.proxy.server)) {
-        message.error(t('preferences.proxy-invalid'))
-        return false
-      }
+    const validationKey = validateNetworkForm(f)
+    if (validationKey) {
+      message.error(t(validationKey))
+      return false
     }
 
     // Gate: engine restart confirmation (BT/DHT port change).
@@ -250,6 +248,7 @@ onMounted(() => {
                 :max="65535"
                 style="width: 140px"
               />
+              <span class="port-range-separator">to</span>
               <NInputNumber
                 v-model:value="form.portConflictRecovery.rangeEnd"
                 :min="1024"
@@ -420,6 +419,14 @@ onMounted(() => {
 }
 .port-recovery-collapse__inner {
   overflow: hidden;
+}
+.port-range-separator {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  color: var(--m3-on-surface-variant);
+  font-size: 12px;
+  line-height: 1;
 }
 .port-recovery-switches {
   display: grid;

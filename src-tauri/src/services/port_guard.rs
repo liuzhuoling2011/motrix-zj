@@ -32,7 +32,6 @@ enum PortTransport {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct PortSpec {
-    kind: PortKind,
     prefs_key: &'static str,
     system_key: &'static str,
     fallback: u16,
@@ -87,11 +86,6 @@ pub(crate) struct PortSwitchFailure {
     source: PortSwitchFailureSource,
 }
 
-#[cfg(test)]
-fn range_for(kind: PortKind) -> PortRange {
-    default_range_for(kind)
-}
-
 fn default_recovery_policy(enabled: bool) -> PortRecoveryPolicy {
     PortRecoveryPolicy {
         enabled,
@@ -107,32 +101,9 @@ fn default_recovery_policy(enabled: bool) -> PortRecoveryPolicy {
     }
 }
 
-#[cfg(test)]
-fn default_range_for(kind: PortKind) -> PortRange {
-    match kind {
-        PortKind::Rpc | PortKind::ExtensionApi => PortRange {
-            start: 16800,
-            end: 19999,
-        },
-        PortKind::Bt => PortRange {
-            start: 20000,
-            end: 24999,
-        },
-        PortKind::Dht => PortRange {
-            start: 25000,
-            end: 29999,
-        },
-        PortKind::Ed2k => PortRange {
-            start: 30000,
-            end: 34999,
-        },
-    }
-}
-
 fn spec_for(kind: PortKind) -> PortSpec {
     match kind {
         PortKind::Rpc => PortSpec {
-            kind,
             prefs_key: "rpcListenPort",
             system_key: "rpc-listen-port",
             fallback: 16800,
@@ -140,7 +111,6 @@ fn spec_for(kind: PortKind) -> PortSpec {
             allows_zero: false,
         },
         PortKind::ExtensionApi => PortSpec {
-            kind,
             prefs_key: "extensionApiPort",
             system_key: "",
             fallback: 16801,
@@ -148,7 +118,6 @@ fn spec_for(kind: PortKind) -> PortSpec {
             allows_zero: false,
         },
         PortKind::Bt => PortSpec {
-            kind,
             prefs_key: "listenPort",
             system_key: "listen-port",
             fallback: 21301,
@@ -156,7 +125,6 @@ fn spec_for(kind: PortKind) -> PortSpec {
             allows_zero: false,
         },
         PortKind::Dht => PortSpec {
-            kind,
             prefs_key: "dhtListenPort",
             system_key: "dht-listen-port",
             fallback: 26701,
@@ -164,7 +132,6 @@ fn spec_for(kind: PortKind) -> PortSpec {
             allows_zero: false,
         },
         PortKind::Ed2k => PortSpec {
-            kind,
             prefs_key: "ed2kListenPort",
             system_key: "ed2k-listen-port",
             fallback: 4662,
@@ -183,7 +150,7 @@ pub(crate) fn aria2_bt_bind_error_line(line: &str) -> bool {
 fn recovery_policy_from_preferences(prefs: &serde_json::Value) -> PortRecoveryPolicy {
     let legacy_enabled = prefs
         .get("autoChangeConflictingPorts")
-        .and_then(|v| v.as_bool())
+        .and_then(serde_json::Value::as_bool)
         .unwrap_or(true);
     let defaults = default_recovery_policy(legacy_enabled);
     let Some(value) = prefs
@@ -192,8 +159,12 @@ fn recovery_policy_from_preferences(prefs: &serde_json::Value) -> PortRecoveryPo
     else {
         return defaults;
     };
-    let read_bool =
-        |key: &str, fallback: bool| value.get(key).and_then(|v| v.as_bool()).unwrap_or(fallback);
+    let read_bool = |key: &str, fallback: bool| {
+        value
+            .get(key)
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(fallback)
+    };
     let read_port = |key: &str, fallback: u16| {
         value
             .get(key)
@@ -585,39 +556,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn port_ranges_match_exposed_settings() {
-        assert_eq!(
-            range_for(PortKind::Rpc),
-            PortRange {
-                start: 16800,
-                end: 19999
-            }
-        );
-        assert_eq!(range_for(PortKind::ExtensionApi), range_for(PortKind::Rpc));
-        assert_eq!(
-            range_for(PortKind::Bt),
-            PortRange {
-                start: 20000,
-                end: 24999
-            }
-        );
-        assert_eq!(
-            range_for(PortKind::Dht),
-            PortRange {
-                start: 25000,
-                end: 29999
-            }
-        );
-        assert_eq!(
-            range_for(PortKind::Ed2k),
-            PortRange {
-                start: 30000,
-                end: 34999
-            }
-        );
-    }
-
-    #[test]
     fn engine_port_reconciliation_excludes_extension_api() {
         assert_eq!(
             ENGINE_PORT_KINDS,
@@ -628,10 +566,7 @@ mod tests {
 
     #[test]
     fn choose_available_port_skips_reserved_ports() {
-        let policy = PortRecoveryPolicy {
-            range: range_for(PortKind::Bt),
-            ..default_recovery_policy(true)
-        };
+        let policy = default_recovery_policy(true);
         let range = policy.range;
         let reserved = BTreeSet::from([range.start]);
 

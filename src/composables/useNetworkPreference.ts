@@ -119,11 +119,12 @@ export function transformNetworkForStore(f: NetworkForm): Partial<AppConfig> {
 export function validateNetworkForm(f: NetworkForm): string | null {
   const recovery = f.portConflictRecovery
   if (
-    !Number.isInteger(recovery.rangeStart) ||
-    !Number.isInteger(recovery.rangeEnd) ||
-    recovery.rangeStart < 1024 ||
-    recovery.rangeEnd > 65535 ||
-    recovery.rangeStart > recovery.rangeEnd
+    recovery.enabled &&
+    (!Number.isInteger(recovery.rangeStart) ||
+      !Number.isInteger(recovery.rangeEnd) ||
+      recovery.rangeStart < 1024 ||
+      recovery.rangeEnd > 65535 ||
+      recovery.rangeStart > recovery.rangeEnd)
   ) {
     return 'preferences.port-conflict-recovery-invalid-range'
   }

@@ -187,7 +187,11 @@ async function handleSearch() {
     await handleCancelSearch()
     return
   }
-  if (!keyword || searchState.value !== 'idle') return
+  if (!keyword) {
+    message.warning(t('preferences.ed2k-search-keyword-required'))
+    return
+  }
+  if (searchState.value !== 'idle') return
   searchState.value = 'searching'
   searchCancelled.value = false
   searchCleanupDone.value = false
@@ -419,7 +423,7 @@ onMounted(() => {
       <NFormItem :label="t('preferences.ed2k-search-keyword')">
         <NInput v-model:value="searchKeyword" :disabled="searchActive" @keyup.enter="handleSearch" />
       </NFormItem>
-      <NFormItem :show-label="false">
+      <NFormItem label=" ">
         <div class="ed2k-search-actions">
           <NButton
             class="ed2k-search-button"

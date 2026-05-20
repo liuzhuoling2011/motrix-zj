@@ -27,14 +27,11 @@
 //! All functions are `#[cfg(target_os = "linux")]`-gated.  On Windows and macOS
 //! the public API compiles to no-ops (the module still exists for `mod` hygiene).
 //!
-//! Helper functions are called by `pre_flight()` which is
-//! `#[cfg(target_os = "linux")]`. On macOS/Windows the caller is compiled out,
-//! making them appear unused — hence the module-level allow.
-#![cfg_attr(not(target_os = "linux"), allow(dead_code))]
-
+#[cfg(any(target_os = "linux", test))]
 use std::io::Write;
 
 /// Sentinel file name — written before WebKitGTK init, deleted on success.
+#[cfg(any(target_os = "linux", test))]
 const SENTINEL_NAME: &str = ".gpu-crash-sentinel";
 
 /// Companion marker set alongside `WEBKIT_DISABLE_DMABUF_RENDERER` when
@@ -46,12 +43,14 @@ const SENTINEL_NAME: &str = ".gpu-crash-sentinel";
 /// see the parent's `WEBKIT_DISABLE_DMABUF_RENDERER=1`, treat it as a
 /// user-external override, and write `hardwareRendering=false` back to
 /// config — wiping the user's just-saved preference.
+#[cfg(any(target_os = "linux", test))]
 const SELF_SET_MARKER: &str = "_MOTRIX_DMABUF_SELF_SET";
 
 /// Resolves the application data directory (`~/.local/share/com.motrix.next`).
 ///
 /// Uses `dirs::data_dir()` (same as [`crate::read_log_level`]) because
 /// `tauri-plugin-store` is unavailable before `Builder.build()`.
+#[cfg(any(target_os = "linux", test))]
 fn data_dir() -> Option<std::path::PathBuf> {
     dirs::data_dir().map(|d| d.join("com.motrix.next"))
 }
@@ -68,6 +67,7 @@ fn data_dir() -> Option<std::path::PathBuf> {
 /// pre-flight lines survive into the diagnostic export.
 ///
 /// Output is also mirrored to stderr for developer convenience.
+#[cfg(any(target_os = "linux", test))]
 fn guard_log(message: &str) {
     eprintln!("[motrix-next] {message}");
     if let Some(dir) = data_dir() {
@@ -93,6 +93,7 @@ fn guard_log(message: &str) {
 /// Returns `true` (hardware acceleration ON) if the file is absent,
 /// unparseable, or the key is missing — matching the default in
 /// `DEFAULT_APP_CONFIG`.
+#[cfg(any(target_os = "linux", test))]
 fn read_hardware_rendering_from_config(data_dir: &std::path::Path) -> bool {
     (|| -> Option<bool> {
         let path = data_dir.join("config.json");
@@ -107,6 +108,7 @@ fn read_hardware_rendering_from_config(data_dir: &std::path::Path) -> bool {
 ///
 /// Best-effort: errors are logged but never propagated (this runs before the
 /// Tauri runtime, so there is no frontend to report to).
+#[cfg(any(target_os = "linux", test))]
 fn write_back_hardware_rendering_disabled(data_dir: &std::path::Path) {
     let path = data_dir.join("config.json");
     let result = (|| -> Result<(), String> {
@@ -138,6 +140,7 @@ fn write_back_hardware_rendering_disabled(data_dir: &std::path::Path) {
 /// Calls `std::env::set_var` / `remove_var` which are `unsafe` since Rust 1.83.
 /// Safe here because this executes at the very start of `main()`, before the
 /// async runtime or any secondary threads.
+#[cfg(target_os = "linux")]
 fn disable_dmabuf_with_marker() {
     // SAFETY: single-threaded at this point.
     unsafe {
