@@ -17,6 +17,7 @@ function getExtension(pathname: string): string {
 function summarizeRemoteUrl(value: string): string {
   const lower = value.toLowerCase()
   if (lower.startsWith('magnet:')) return `scheme=magnet length=${value.length}`
+  if (lower.startsWith('ed2k://')) return `scheme=ed2k length=${value.length}`
   if (lower.startsWith('thunder://')) return `scheme=thunder length=${value.length}`
 
   try {

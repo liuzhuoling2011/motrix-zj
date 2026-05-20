@@ -53,6 +53,7 @@ pub fn filter_external_input_args(args: &[String]) -> Vec<String> {
             let lower = arg.to_lowercase();
             lower.contains("://")
                 || lower.starts_with("magnet:")
+                || lower.starts_with("ed2k://")
                 || lower.ends_with(".torrent")
                 || lower.ends_with(".metalink")
                 || lower.ends_with(".meta4")
@@ -211,6 +212,7 @@ mod tests {
             "file:///Users/example/ubuntu.torrent".to_string(),
             "/Users/example/Fedora.METALINK".to_string(),
             "magnet:?xt=urn:btih:abc".to_string(),
+            "ed2k://|file|ubuntu.iso|123|0123456789abcdef0123456789abcdef|/".to_string(),
             "notes.txt".to_string(),
         ];
 
@@ -221,7 +223,8 @@ mod tests {
             vec![
                 "file:///Users/example/ubuntu.torrent".to_string(),
                 "/Users/example/Fedora.METALINK".to_string(),
-                "magnet:?xt=urn:btih:abc".to_string()
+                "magnet:?xt=urn:btih:abc".to_string(),
+                "ed2k://|file|ubuntu.iso|123|0123456789abcdef0123456789abcdef|/".to_string()
             ]
         );
     }

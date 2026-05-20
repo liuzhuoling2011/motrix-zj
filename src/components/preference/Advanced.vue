@@ -137,6 +137,7 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
     const prev = preferenceStore.config.protocols
     const disabledLinks: string[] = []
     if (prev.magnet && !f.protocolMagnet) disabledLinks.push('magnet')
+    if (prev.ed2k && !f.protocolEd2k) disabledLinks.push('ed2k')
     if (prev.thunder && !f.protocolThunder) disabledLinks.push('thunder')
     const disabledExt = prev.motrixnext && !f.protocolMotrixnext
 
@@ -237,9 +238,10 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
 
     // Protocol handler registration (reconcile-based).
     {
-      const prevProtocols = prevConfig.protocols ?? { magnet: false, thunder: false, motrixnext: true }
+      const prevProtocols = prevConfig.protocols ?? { magnet: false, ed2k: false, thunder: false, motrixnext: true }
       for (const [protocol, formKey, prev] of [
         ['magnet', 'protocolMagnet', prevProtocols.magnet],
+        ['ed2k', 'protocolEd2k', prevProtocols.ed2k],
         ['thunder', 'protocolThunder', prevProtocols.thunder],
         ['motrixnext', 'protocolMotrixnext', prevProtocols.motrixnext],
       ] as const) {
@@ -382,6 +384,7 @@ onMounted(async () => {
   // over the protocol association since Motrix last ran.
   try {
     form.value.protocolMagnet = await invoke<boolean>('is_default_protocol_client', { protocol: 'magnet' })
+    form.value.protocolEd2k = await invoke<boolean>('is_default_protocol_client', { protocol: 'ed2k' })
     form.value.protocolThunder = await invoke<boolean>('is_default_protocol_client', { protocol: 'thunder' })
     form.value.protocolMotrixnext = await invoke<boolean>('is_default_protocol_client', { protocol: 'motrixnext' })
     // Patch snapshot so OS-queried values don't falsely trigger dirty state.
@@ -607,6 +610,9 @@ onMounted(async () => {
         <NFormItem :label="t('preferences.clipboard-magnet')">
           <NSwitch v-model:value="form.clipboardMagnet" />
         </NFormItem>
+        <NFormItem :label="t('preferences.clipboard-ed2k')">
+          <NSwitch v-model:value="form.clipboardEd2k" />
+        </NFormItem>
         <NFormItem :label="t('preferences.clipboard-thunder')">
           <NSwitch v-model:value="form.clipboardThunder" />
         </NFormItem>
@@ -619,6 +625,9 @@ onMounted(async () => {
       <NDivider title-placement="left">{{ t('preferences.default-programs') }}</NDivider>
       <NFormItem :label="t('preferences.protocol-magnet')">
         <NSwitch v-model:value="form.protocolMagnet" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.protocol-ed2k')">
+        <NSwitch v-model:value="form.protocolEd2k" />
       </NFormItem>
       <NFormItem :label="t('preferences.protocol-thunder')">
         <NSwitch v-model:value="form.protocolThunder" />

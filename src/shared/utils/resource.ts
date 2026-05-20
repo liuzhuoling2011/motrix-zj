@@ -49,6 +49,9 @@ function buildAllowedTags(filter?: ClipboardConfig): string[] {
   if (filter.magnet) {
     tags.push('magnet:')
   }
+  if (filter.ed2k) {
+    tags.push('ed2k://')
+  }
   if (filter.thunder) {
     tags.push('thunder://')
   }

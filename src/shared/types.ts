@@ -125,6 +125,7 @@ export type ResolvedUpdateChannel = Exclude<UpdateChannel, 'latest'>
 /** Protocol handler registration settings (system-level). */
 export interface ProtocolsConfig {
   magnet: boolean
+  ed2k: boolean
   thunder: boolean
   motrixnext: boolean
 }
@@ -140,6 +141,8 @@ export interface ClipboardConfig {
   ftp: boolean
   /** Detect magnet: URIs. */
   magnet: boolean
+  /** Detect ed2k:// file links. */
+  ed2k: boolean
   /** Detect thunder:// (迅雷) links. */
   thunder: boolean
   /** Detect bare BitTorrent v1 info hashes (40-char hex / 32-char Base32). */

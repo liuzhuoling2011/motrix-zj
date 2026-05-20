@@ -377,6 +377,9 @@ fn summarize_url_for_log(value: &str) -> String {
     if lower.starts_with("magnet:") {
         return format!("scheme=magnet length={}", value.len());
     }
+    if lower.starts_with("ed2k://") {
+        return format!("scheme=ed2k length={}", value.len());
+    }
     if lower.starts_with("thunder://") {
         return format!("scheme=thunder length={}", value.len());
     }
@@ -887,5 +890,16 @@ mod tests {
         );
         assert!(!summary.contains("secret-token"));
         assert!(!summary.contains("jwt"));
+    }
+
+    #[test]
+    fn url_log_summary_redacts_ed2k_file_link_details() {
+        let summary = summarize_url_for_log(
+            "ed2k://|file|Private%20File.iso|123|0123456789abcdef0123456789abcdef|/",
+        );
+
+        assert_eq!(summary, "scheme=ed2k length=70");
+        assert!(!summary.contains("Private"));
+        assert!(!summary.contains("0123456789abcdef"));
     }
 }

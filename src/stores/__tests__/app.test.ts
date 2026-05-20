@@ -399,6 +399,15 @@ describe('useAppStore', () => {
       expect(store.pendingBatch[0].source).toBe('magnet:?xt=urn:btih:abc123')
     })
 
+    it('handles ED2K file links as URI tasks', () => {
+      const store = useAppStore()
+      const url = 'ed2k://|file|Ubuntu%2026.04.iso|123456789|0123456789abcdef0123456789abcdef|/'
+      store.handleDeepLinkUrls([url])
+      expect(store.pendingBatch[0].kind).toBe('uri')
+      expect(store.pendingBatch[0].source).toBe(url)
+      expect(store.pendingBatch[0].displayName).toBe(url)
+    })
+
     it('no-ops for empty or null-ish input', () => {
       const store = useAppStore()
       store.handleDeepLinkUrls([])
@@ -621,6 +630,20 @@ describe('useAppStore', () => {
       prefStore.config.autoSubmitFromExtension = true
 
       store.handleDeepLinkUrls([buildDeepLink('magnet:?xt=urn:btih:abc123')])
+
+      expect(store.pendingBatch).toHaveLength(0)
+      expect(store.addTaskVisible).toBe(false)
+    })
+
+    it('auto-submits ED2K URI when enabled', async () => {
+      const store = useAppStore()
+      const { usePreferenceStore } = await import('@/stores/preference')
+      const prefStore = usePreferenceStore()
+      prefStore.config.autoSubmitFromExtension = true
+
+      store.handleDeepLinkUrls([
+        buildDeepLink('ed2k://|file|Ubuntu%2026.04.iso|123456789|0123456789abcdef0123456789abcdef|/'),
+      ])
 
       expect(store.pendingBatch).toHaveLength(0)
       expect(store.addTaskVisible).toBe(false)

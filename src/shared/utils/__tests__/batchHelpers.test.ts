@@ -147,6 +147,10 @@ describe('detectKind', () => {
     expect(detectKind('thunder://QUFodHRwOi8vZXhhbXBsZS5jb20vZmlsZS56aXBaWg==')).toBe('uri')
   })
 
+  it('classifies ED2K file links as uri', () => {
+    expect(detectKind('ed2k://|file|Ubuntu%2026.04.iso|123456789|0123456789abcdef0123456789abcdef|/')).toBe('uri')
+  })
+
   // ── 2. Remote URLs: pathname-only extension match ──────────────────
 
   it('classifies remote .torrent URLs as torrent', () => {
@@ -326,6 +330,18 @@ describe('extractDecodedFilename', () => {
 
   it('returns empty string for magnet URIs', () => {
     expect(extractDecodedFilename('magnet:?xt=urn:btih:abc123')).toBe('')
+  })
+
+  it('extracts the display filename from ED2K file links', () => {
+    expect(
+      extractDecodedFilename('ed2k://|file|Ubuntu%2026.04%20LTS.iso|123456789|0123456789abcdef0123456789abcdef|/'),
+    ).toBe('Ubuntu 26.04 LTS.iso')
+  })
+
+  it('sanitizes unsafe characters in ED2K filenames', () => {
+    expect(extractDecodedFilename('ed2k://|file|bad%2Fname%3F.iso|123|0123456789abcdef0123456789abcdef|/')).toBe(
+      'bad_name_.iso',
+    )
   })
 
   it('returns empty string for data URIs', () => {

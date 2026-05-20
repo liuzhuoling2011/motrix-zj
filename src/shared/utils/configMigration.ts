@@ -21,7 +21,7 @@ import { logger } from '@shared/logger'
 import type { AppConfig } from '@shared/types'
 
 /** Current schema version. Must equal `migrations.length`. */
-export const CONFIG_VERSION = 4
+export const CONFIG_VERSION = 5
 
 /** Result returned by runMigrations for callers to act on (e.g. toast). */
 export interface MigrationResult {
@@ -162,6 +162,22 @@ const migrations: Migration[] = [
 
     if (changed) {
       logger.info('ConfigMigration', 'v4: normalized path separators and/or populated file categories')
+    }
+  },
+
+  // ── v4 → v5 ──────────────────────────────────────────────────────
+  // Add ED2K as a first-class URI protocol surface.
+  //
+  // Existing users already have nested protocols/clipboard objects persisted,
+  // so default merging alone cannot add the new nested keys reliably.
+  function migrateV5(config: Partial<AppConfig>): void {
+    if (config.protocols && config.protocols.ed2k === undefined) {
+      config.protocols.ed2k = true
+      logger.info('ConfigMigration', 'v5: backfilled protocols.ed2k')
+    }
+    if (config.clipboard && config.clipboard.ed2k === undefined) {
+      config.clipboard.ed2k = true
+      logger.info('ConfigMigration', 'v5: backfilled clipboard.ed2k')
     }
   },
 ]

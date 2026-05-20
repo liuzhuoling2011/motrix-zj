@@ -568,6 +568,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
             !a.startsWith('-') &&
             (lower.includes('://') ||
               lower.startsWith('magnet:') ||
+              lower.startsWith('ed2k://') ||
               lower.endsWith('.torrent') ||
               lower.endsWith('.metalink') ||
               lower.endsWith('.meta4'))

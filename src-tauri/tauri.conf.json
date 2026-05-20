@@ -123,6 +123,7 @@
       "desktop": {
         "schemes": [
           "magnet",
+          "ed2k",
           "thunder",
           "motrixnext"
         ]

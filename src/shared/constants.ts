@@ -194,7 +194,7 @@ export const MAX_FILE_CATEGORIES = 20
 export const BUILTIN_CATEGORY_LABELS: ReadonlySet<string> = new Set(BUILTIN_CATEGORY_TEMPLATES.map((t) => t.label))
 
 export const DEFAULT_APP_CONFIG = {
-  configVersion: 4,
+  configVersion: 5,
   dbSchemaVersion: 2,
   // ── Appearance ──────────────────────────────────────────────────
   theme: 'auto' as const,
@@ -277,8 +277,8 @@ export const DEFAULT_APP_CONFIG = {
   listenPort: 21301,
   dhtListenPort: 26701,
   proxy: { enable: false, server: '', bypass: '', scope: ['download', 'update-app', 'update-trackers'] },
-  protocols: { magnet: true, thunder: false, motrixnext: true },
-  clipboard: { enable: true, http: true, ftp: true, magnet: true, thunder: true, btHash: true },
+  protocols: { magnet: true, ed2k: true, thunder: false, motrixnext: true },
+  clipboard: { enable: true, http: true, ftp: true, magnet: true, ed2k: true, thunder: true, btHash: true },
   autoSubmitFromExtension: false,
   userAgent:
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
@@ -474,7 +474,7 @@ export const TRAY_CANVAS_CONFIG = {
   TEXT_FONT_SIZE: 8,
 }
 
-export const COMMON_RESOURCE_TAGS = ['http://', 'https://', 'ftp://', 'magnet:']
+export const COMMON_RESOURCE_TAGS = ['http://', 'https://', 'ftp://', 'magnet:', 'ed2k://']
 export const THUNDER_RESOURCE_TAGS = ['thunder://']
 
 export const RESOURCE_TAGS = [...COMMON_RESOURCE_TAGS, ...THUNDER_RESOURCE_TAGS]

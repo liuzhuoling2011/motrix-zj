@@ -38,4 +38,12 @@ describe('tauri security config', () => {
 
     expect(scopedPaths).not.toContain('**')
   })
+
+  it('registers ED2K as a desktop deep-link scheme', () => {
+    const config = readJson(TAURI_CONFIG_PATH) as {
+      plugins?: { 'deep-link'?: { desktop?: { schemes?: string[] } } }
+    }
+
+    expect(config.plugins?.['deep-link']?.desktop?.schemes).toContain('ed2k')
+  })
 })

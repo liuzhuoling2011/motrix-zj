@@ -63,10 +63,12 @@ export interface AdvancedForm {
   clipboardHttp: boolean
   clipboardFtp: boolean
   clipboardMagnet: boolean
+  clipboardEd2k: boolean
   clipboardThunder: boolean
   clipboardBtHash: boolean
   // Protocol handlers (migrated from legacy Basic tab)
   protocolMagnet: boolean
+  protocolEd2k: boolean
   protocolThunder: boolean
   protocolMotrixnext: boolean
   // Timeout & disk (shared with Network tab but kept for backward compat)
@@ -139,10 +141,12 @@ export function buildAdvancedForm(config: AppConfig): {
       clipboardHttp: config.clipboard?.http ?? D.clipboard.http,
       clipboardFtp: config.clipboard?.ftp ?? D.clipboard.ftp,
       clipboardMagnet: config.clipboard?.magnet ?? D.clipboard.magnet,
+      clipboardEd2k: config.clipboard?.ed2k ?? D.clipboard.ed2k,
       clipboardThunder: config.clipboard?.thunder ?? D.clipboard.thunder,
       clipboardBtHash: config.clipboard?.btHash ?? D.clipboard.btHash,
       // Protocol handlers
       protocolMagnet: config.protocols?.magnet ?? D.protocols.magnet,
+      protocolEd2k: config.protocols?.ed2k ?? D.protocols.ed2k,
       protocolThunder: config.protocols?.thunder ?? D.protocols.thunder,
       protocolMotrixnext: config.protocols?.motrixnext ?? D.protocols.motrixnext,
       // Timeout & disk
@@ -188,9 +192,11 @@ export function transformAdvancedForStore(f: AdvancedForm): Record<string, unkno
     clipboardHttp,
     clipboardFtp,
     clipboardMagnet,
+    clipboardEd2k,
     clipboardThunder,
     clipboardBtHash,
     protocolMagnet,
+    protocolEd2k,
     protocolThunder,
     protocolMotrixnext,
     ...rest
@@ -203,11 +209,13 @@ export function transformAdvancedForStore(f: AdvancedForm): Record<string, unkno
       http: clipboardHttp,
       ftp: clipboardFtp,
       magnet: clipboardMagnet,
+      ed2k: clipboardEd2k,
       thunder: clipboardThunder,
       btHash: clipboardBtHash,
     },
     protocols: {
       magnet: protocolMagnet,
+      ed2k: protocolEd2k,
       thunder: protocolThunder,
       motrixnext: protocolMotrixnext,
     },

@@ -86,6 +86,13 @@ export function extractMagnetDisplayName(uri: string): string {
   }
 }
 
+export function extractEd2kDisplayName(uri: string): string {
+  if (!uri.toLowerCase().startsWith('ed2k://|file|')) return ''
+  const parts = uri.split('|')
+  const rawName = parts[2]
+  return rawName ? sanitizeFilenameSegment(decodePathSegment(rawName)) : ''
+}
+
 /** Extract a short display name from a source path or URI. */
 function toDisplayName(source: string, kind: BatchItemKind): string {
   if (kind === 'uri') {
@@ -202,8 +209,11 @@ export function decodePathSegment(segment: string): string {
  * (cf. Firefox CVE-2022-31739).
  */
 export function extractDecodedFilename(uri: string): string {
+  const ed2kName = extractEd2kDisplayName(uri)
+  if (ed2kName) return ed2kName
+
   // Skip non-HTTP protocols that don't use URL-path filenames
-  if (/^(magnet|data|blob):/i.test(uri)) return ''
+  if (/^(magnet|ed2k|data|blob):/i.test(uri)) return ''
 
   let pathname: string
   try {

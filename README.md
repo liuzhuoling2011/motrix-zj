@@ -65,14 +65,14 @@ What changed is everything underneath. Every transition and micro-interaction ha
 
 ## Features
 
-- **Multi-protocol downloads** — HTTP, FTP, BitTorrent, Magnet, `.torrent`, and Metalink tasks
+- **Multi-protocol downloads** — HTTP, FTP, ED2K, BitTorrent, Magnet, `.torrent`, and Metalink tasks
 - **BitTorrent** — Selective file download, DHT, peer exchange, encryption controls, metadata caching, GeoIP peer flags, and tracker probing
 - **Browser extension integration** — Embedded Extension API with independent authentication, download confirmation, smart auto-submit, filename hints, referer/cookie forwarding, and real-time controls ([Chrome Web Store](https://chromewebstore.google.com/detail/ofeajdebdjajhkmcmamagokecnbephhl) · [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/loojjolhejmakcdlbidigoniobfanjlb))
 - **Safe filename handling** — Content-Disposition, RFC 2047, non-UTF-8, percent-encoded, and extensionless URL resolution with path traversal sanitization
 - **Download organization** — Favorite and recent folders, optional file-type categorization, stale-record cleanup, and completed history backed by SQLite
 - **Concurrent downloads** — Independent controls for active tasks, HTTP connections per server, segments per file, and BT peer limits
 - **Speed control** — Global and per-task upload/download limits with day-of-week and time-of-day scheduling
-- **System integration** — Tray operation, optional tray speed display, macOS Dock badge/progress, protocol handlers for `magnet://`, `thunder://`, and `motrixnext://`
+- **System integration** — Tray operation, optional tray speed display, macOS Dock badge/progress, protocol handlers for `magnet://`, `ed2k://`, `thunder://`, and `motrixnext://`
 - **Lightweight mode** — Destroys the WebView on minimize-to-tray while Rust keeps the engine, task monitor, notifications, history, and extension routing alive
 - **Notifications and power options** — Native task start/complete/failure notifications, keep-awake during downloads, and optional shutdown after completion
 - **Network controls** — Scoped proxy support for downloads, app updates, and tracker updates, plus system proxy detection
@@ -168,7 +168,7 @@ This removes the quarantine flag that macOS Gatekeeper applies to unsigned apps.
 Motrix Next relies on [Aria2 Next](https://github.com/AnInsomniacy/aria2-next) as its download engine and launches it through a bundled `motrix-next-engine` sidecar process at runtime. The sidecar binaries are built and released from the aria2-next repository for all 6 supported desktop targets. This architecture means:
 
 - The **Aria2 Next sidecar binary must exist alongside the main executable** — it cannot be embedded into a single `.exe`.
-- **Deep links** (`magnet://`, `thunder://`) and **file associations** (`.torrent`) require Windows registry entries that only an installer can configure.
+- **Deep links** (`magnet://`, `ed2k://`, `thunder://`) and **file associations** (`.torrent`) require Windows registry entries that only an installer can configure.
 - The **auto-updater** needs a known installation path to replace files in place.
 
 These are fundamental constraints of the Tauri sidecar model and the Windows operating system, not limitations we can work around. Notable Tauri projects like [Clash Verge Rev](https://github.com/clash-verge-rev/clash-verge-rev) (80k+ stars) previously shipped portable builds but [discontinued them](https://clash-verge.com/) due to the same set of issues.

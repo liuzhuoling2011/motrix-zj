@@ -69,6 +69,10 @@ describe('detectResource', () => {
       expect(detectResource('thunder://QUFodHRwOi8vZXhhbXBsZS5jb20vZmlsZS56aXBaWg==')).toBe(true)
     })
 
+    it('detects ED2K file link', () => {
+      expect(detectResource('ed2k://|file|Ubuntu%2026.04.iso|123456789|0123456789abcdef0123456789abcdef|/')).toBe(true)
+    })
+
     it('detects URL with trailing whitespace', () => {
       expect(detectResource('  https://example.com/file.zip  ')).toBe(true)
     })
@@ -293,6 +297,7 @@ describe('detectResource with ClipboardConfig filter', () => {
     http: true,
     ftp: true,
     magnet: true,
+    ed2k: true,
     thunder: true,
     btHash: true,
   })
@@ -374,6 +379,18 @@ describe('detectResource with ClipboardConfig filter', () => {
       expect(detectResource('thunder://QUFodHRwOi8vZXhhbXBsZS5jb20vZmlsZS56aXBaWg==', filter)).toBe(false)
     })
 
+    it('rejects ED2K link when ed2k is disabled', () => {
+      const filter: ClipboardConfig = { ...allEnabled(), ed2k: false }
+      expect(
+        detectResource('ed2k://|file|Ubuntu%2026.04.iso|123456789|0123456789abcdef0123456789abcdef|/', filter),
+      ).toBe(false)
+    })
+
+    it('still detects HTTP URL when ed2k is disabled', () => {
+      const filter: ClipboardConfig = { ...allEnabled(), ed2k: false }
+      expect(detectResource('https://example.com/file.zip', filter)).toBe(true)
+    })
+
     it('rejects bare SHA-1 info hash when btHash is disabled', () => {
       const filter: ClipboardConfig = { ...allEnabled(), btHash: false }
       expect(detectResource('d8988e034cb5de79d319242e3365bf30a7741a6e', filter)).toBe(false)
@@ -421,12 +438,14 @@ describe('detectResource with ClipboardConfig filter', () => {
         http: false,
         ftp: false,
         magnet: false,
+        ed2k: false,
         thunder: false,
         btHash: false,
       }
       expect(detectResource('https://example.com/file.zip', filter)).toBe(false)
       expect(detectResource('ftp://mirror.com/file.iso', filter)).toBe(false)
       expect(detectResource('magnet:?xt=urn:btih:abc', filter)).toBe(false)
+      expect(detectResource('ed2k://|file|a.iso|123|0123456789abcdef0123456789abcdef|/', filter)).toBe(false)
       expect(detectResource('thunder://QUFodHRwOi8vZmlsZS56aXBaWg==', filter)).toBe(false)
       expect(detectResource('d8988e034cb5de79d319242e3365bf30a7741a6e', filter)).toBe(false)
     })

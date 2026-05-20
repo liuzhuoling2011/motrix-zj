@@ -321,6 +321,7 @@ export const useAppStore = defineStore('app', () => {
         lower.startsWith('https://') ||
         lower.startsWith('ftp://') ||
         lower.startsWith('magnet:') ||
+        lower.startsWith('ed2k://') ||
         lower.startsWith('thunder://')
       const isLocalPath = !isRemoteUri && !isFileUri
 
@@ -331,6 +332,8 @@ export const useAppStore = defineStore('app', () => {
         const kind = detectKind(filePath)
         items.push(createBatchItem(kind, filePath))
       } else if (lower.startsWith('magnet:')) {
+        items.push(createBatchItem('uri', url))
+      } else if (lower.startsWith('ed2k://')) {
         items.push(createBatchItem('uri', url))
       } else if (lower.startsWith('thunder://')) {
         items.push(createBatchItem('uri', decodeThunderLink(url)))
