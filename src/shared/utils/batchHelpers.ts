@@ -133,6 +133,10 @@ function normalizeUriLine(line: string): string {
   return normalizeInfoHash(decodeThunderLink(line.trim()))
 }
 
+function normalizeRawUriLine(line: string): string {
+  return normalizeInfoHash(line.trim())
+}
+
 /**
  * Split, trim, remove blanks, and deduplicate URI lines by first occurrence.
  * Handles multiline payloads — each line is treated as an independent URI.
@@ -163,6 +167,26 @@ export function mergeUriLines(existingText: string, incoming: string[]): string 
     // Each payload may itself contain multiple lines (e.g. multiline deep-link arg)
     for (const raw of payload.split('\n')) {
       const line = normalizeUriLine(raw)
+      if (line && !seen.has(line)) {
+        seen.add(line)
+        existing.push(line)
+      }
+    }
+  }
+  return existing.join('\n')
+}
+
+/**
+ * Merge URI lines for display/editing without decoding protocol wrappers.
+ * Submission paths must use normalizeUriLines() so Thunder links are decoded
+ * before reaching aria2.
+ */
+export function mergeRawUriLines(existingText: string, incoming: string[]): string {
+  const existing = existingText.split('\n').map(normalizeRawUriLine).filter(Boolean)
+  const seen = new Set(existing)
+  for (const payload of incoming) {
+    for (const raw of payload.split('\n')) {
+      const line = normalizeRawUriLine(raw)
       if (line && !seen.has(line)) {
         seen.add(line)
         existing.push(line)

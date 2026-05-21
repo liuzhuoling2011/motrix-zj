@@ -212,6 +212,20 @@ describe('AddTask batch URI integration', () => {
     expect(appStore.pendingBatch).toEqual([])
   })
 
+  it('keeps raw Thunder links visible in the textarea when opening extension batch items', async () => {
+    const appStore = useAppStore()
+    const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+    appStore.pendingBatch = [createBatchItem('uri', thunder)]
+
+    const wrapper = mountDialog()
+
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+
+    expect((getTextarea(wrapper).element as HTMLTextAreaElement).value).toBe(thunder)
+    expect(appStore.pendingBatch).toEqual([])
+  })
+
   it('replaces textarea with newly arriving batch items (batch priority over prior content)', async () => {
     const appStore = useAppStore()
     appStore.pendingBatch = [createBatchItem('uri', 'https://a.example/file\nhttps://b.example/file')]

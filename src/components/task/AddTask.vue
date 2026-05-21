@@ -10,7 +10,7 @@ import { useHttpAuthStore } from '@/stores/httpAuth'
 import { ADD_TASK_TYPE, ENGINE_MAX_CONNECTION_PER_SERVER } from '@shared/constants'
 import { detectResource, bytesToSize } from '@shared/utils'
 import { calcColumnWidth } from '@shared/utils/calcColumnWidth'
-import { mergeUriLines, normalizeUriLines, extractMagnetDisplayName } from '@shared/utils/batchHelpers'
+import { mergeRawUriLines, normalizeUriLines, extractMagnetDisplayName } from '@shared/utils/batchHelpers'
 import {
   buildEngineOptions,
   classifySubmitError,
@@ -291,7 +291,7 @@ watch(
       // Flush URI batch items into the editable textarea via normalized merge
       const uriItems = batch.value.filter((i) => i.kind === 'uri')
       if (uriItems.length > 0) {
-        form.value.uris = mergeUriLines(
+        form.value.uris = mergeRawUriLines(
           form.value.uris,
           uriItems.map((i) => i.payload),
         )
@@ -339,7 +339,7 @@ watch(
     const uriItems = batch.value.filter((i) => i.kind === 'uri')
     if (uriItems.length > 0) {
       batchDidWrite = true
-      form.value.uris = mergeUriLines(
+      form.value.uris = mergeRawUriLines(
         '',
         uriItems.map((i) => i.payload),
       )

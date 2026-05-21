@@ -4,6 +4,7 @@ import {
   detectKind,
   extractMagnetDisplayName,
   mergeUriLines,
+  mergeRawUriLines,
   normalizeUriLines,
   resetBatchIdCounter,
   decodePathSegment,
@@ -149,6 +150,20 @@ describe('mergeUriLines', () => {
     const merged = mergeUriLines('', [thunder])
 
     expect(merged).toBe('https://example.com/file.zip')
+  })
+})
+
+describe('mergeRawUriLines', () => {
+  it('keeps Thunder links raw while still trimming blanks and deduplicating exact lines', () => {
+    const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+
+    expect(mergeRawUriLines('', [` ${thunder} \n\n${thunder}`])).toBe(thunder)
+  })
+
+  it('normalizes bare info hashes for display parity with manual URI input', () => {
+    const hash = 'd8988e034cb5de79d319242e3365bf30a7741a6e'
+
+    expect(mergeRawUriLines('', [hash])).toBe(`magnet:?xt=urn:btih:${hash}`)
   })
 })
 
