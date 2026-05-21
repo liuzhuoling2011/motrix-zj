@@ -380,7 +380,7 @@ export default {
   'ed2k-search-empty': 'ED2K 검색 완료, 결과 없음',
   'ed2k-search-cancelled': 'ED2K 검색 취소됨',
   'ed2k-search-cleanup-failed': 'ED2K 검색 정리 실패',
-  'ed2k-search-started': 'ED2K search started',
+  'ed2k-search-started': 'ED2K 검색이 시작되었습니다',
   'ed2k-search-failed': 'ED2K search failed',
   'ed2k-download-started': 'ED2K download started',
   'ed2k-invalid-listen-port': 'ED2K listen port must be between 0 and 65535',

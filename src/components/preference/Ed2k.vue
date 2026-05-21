@@ -196,6 +196,7 @@ async function handleSearch() {
   searchCancelled.value = false
   searchCleanupDone.value = false
   searchResults.value = []
+  message.info(t('preferences.ed2k-search-started'))
   let gid = ''
   let outcome: 'completed' | 'cancelled' | 'failed' = 'completed'
   let resultCount = 0
@@ -225,11 +226,10 @@ async function handleSearch() {
         message.warning(t('preferences.ed2k-search-cleanup-failed'))
       }
     }
-    if (outcome === 'failed') {
-      message.error(t(getEd2kSearchToastKey(outcome, resultCount)))
-    } else {
-      message.success(t(getEd2kSearchToastKey(outcome, resultCount), { count: resultCount }))
-    }
+    const toastKey = getEd2kSearchToastKey(outcome, resultCount)
+    if (outcome === 'failed') message.error(t(toastKey))
+    else if (outcome === 'cancelled' || resultCount === 0) message.warning(t(toastKey, { count: resultCount }))
+    else message.success(t(toastKey, { count: resultCount }))
     searchState.value = 'idle'
     currentSearchGid.value = ''
     searchCancelled.value = false

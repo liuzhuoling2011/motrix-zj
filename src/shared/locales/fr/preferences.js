@@ -391,7 +391,7 @@ export default {
   'ed2k-search-empty': 'Recherche ED2K terminée sans résultat',
   'ed2k-search-cancelled': 'Recherche ED2K annulée',
   'ed2k-search-cleanup-failed': 'Échec du nettoyage de la recherche ED2K',
-  'ed2k-search-started': 'ED2K search started',
+  'ed2k-search-started': 'Recherche ED2K lancée',
   'ed2k-search-failed': 'ED2K search failed',
   'ed2k-download-started': 'ED2K download started',
   'ed2k-invalid-listen-port': 'ED2K listen port must be between 0 and 65535',

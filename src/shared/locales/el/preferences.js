@@ -390,7 +390,7 @@ export default {
   'ed2k-search-empty': 'Η αναζήτηση ED2K ολοκληρώθηκε χωρίς αποτελέσματα',
   'ed2k-search-cancelled': 'Η αναζήτηση ED2K ακυρώθηκε',
   'ed2k-search-cleanup-failed': 'Αποτυχία καθαρισμού αναζήτησης ED2K',
-  'ed2k-search-started': 'ED2K search started',
+  'ed2k-search-started': 'Η αναζήτηση ED2K ξεκίνησε',
   'ed2k-search-failed': 'ED2K search failed',
   'ed2k-download-started': 'ED2K download started',
   'ed2k-invalid-listen-port': 'ED2K listen port must be between 0 and 65535',

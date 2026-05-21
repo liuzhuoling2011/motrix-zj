@@ -383,7 +383,7 @@ export default {
   'ed2k-search-empty': 'Поиск ED2K завершён без результатов',
   'ed2k-search-cancelled': 'Поиск ED2K отменён',
   'ed2k-search-cleanup-failed': 'Не удалось очистить поиск ED2K',
-  'ed2k-search-started': 'ED2K search started',
+  'ed2k-search-started': 'Поиск ED2K запущен',
   'ed2k-search-failed': 'ED2K search failed',
   'ed2k-download-started': 'ED2K download started',
   'ed2k-invalid-listen-port': 'ED2K listen port must be between 0 and 65535',

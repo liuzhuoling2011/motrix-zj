@@ -385,7 +385,7 @@ export default {
   'ed2k-search-empty': 'Căutarea ED2K s-a încheiat fără rezultate',
   'ed2k-search-cancelled': 'Căutarea ED2K a fost anulată',
   'ed2k-search-cleanup-failed': 'Curățarea căutării ED2K a eșuat',
-  'ed2k-search-started': 'ED2K search started',
+  'ed2k-search-started': 'Căutarea ED2K a pornit',
   'ed2k-search-failed': 'ED2K search failed',
   'ed2k-download-started': 'ED2K download started',
   'ed2k-invalid-listen-port': 'ED2K listen port must be between 0 and 65535',

@@ -378,7 +378,7 @@ export default {
   'ed2k-search-empty': 'ค้นหา ED2K เสร็จแล้ว ไม่พบผลลัพธ์',
   'ed2k-search-cancelled': 'ยกเลิกการค้นหา ED2K แล้ว',
   'ed2k-search-cleanup-failed': 'ล้างข้อมูลการค้นหา ED2K ไม่สำเร็จ',
-  'ed2k-search-started': 'ED2K search started',
+  'ed2k-search-started': 'เริ่มค้นหา ED2K แล้ว',
   'ed2k-search-failed': 'ED2K search failed',
   'ed2k-download-started': 'ED2K download started',
   'ed2k-invalid-listen-port': 'ED2K listen port must be between 0 and 65535',

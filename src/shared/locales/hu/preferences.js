@@ -383,7 +383,7 @@ export default {
   'ed2k-search-empty': 'Az ED2K keresés találat nélkül befejeződött',
   'ed2k-search-cancelled': 'Az ED2K keresés megszakítva',
   'ed2k-search-cleanup-failed': 'Az ED2K keresés takarítása sikertelen',
-  'ed2k-search-started': 'ED2K search started',
+  'ed2k-search-started': 'ED2K-keresés elindítva',
   'ed2k-search-failed': 'ED2K search failed',
   'ed2k-download-started': 'ED2K download started',
   'ed2k-invalid-listen-port': 'ED2K listen port must be between 0 and 65535',
