@@ -87,7 +87,7 @@ export default {
   'db-upgraded': 'Estrutura do banco de dados atualizada para {version}',
   'protocol-hijacked-title': 'A associação de links precisa de confirmação',
   'protocol-hijacked-body': '{protocols} não está associado ao Motrix Next',
-  'protocol-hijacked-dialog-content': 'Foi detectado que o protocolo {protocols} não está associado ao Motrix Next e os links relacionados não poderão abrir o programa automaticamente.\nIsso geralmente é causado por uma primeira instalação, uma atualização de versão ou outra ferramenta de download que assumiu a associação. Você pode reativar a associação do protocolo correspondente em Configurações → Configurações básicas.',
+  'protocol-hijacked-dialog-content': 'Foi detectado que o protocolo {protocols} não está associado ao Motrix Next e os links relacionados não poderão abrir o programa automaticamente.\nIsso geralmente é causado por uma primeira instalação, uma atualização de versão ou outra ferramenta de download que assumiu a associação. Você pode reativar a associação do protocolo correspondente em Configurações → Configurações avançadas.',
   'dismiss': 'Entendi',
   'speedometer-limit-applied': 'Limite de velocidade aplicado',
   'speedometer-limit-removed': 'Limite de velocidade removido',

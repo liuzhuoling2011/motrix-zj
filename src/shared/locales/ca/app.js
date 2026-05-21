@@ -90,7 +90,7 @@ export default {
   'protocol-hijacked-title': "Cal confirmar l'associació d'enllaços",
   'protocol-hijacked-body': '{protocols} no està associat a Motrix Next',
   'protocol-hijacked-dialog-content':
-    "S'ha detectat que el protocol {protocols} no està associat a Motrix Next i els enllaços relacionats no podran obrir el programa automàticament.\nAixò sol passar per una instal·lació inicial, una actualització de versió o una altra eina de descàrrega que ha pres l'associació. Podeu reactivar l'associació del protocol corresponent a Configuració → Configuració bàsica.",
+    "S'ha detectat que el protocol {protocols} no està associat a Motrix Next i els enllaços relacionats no podran obrir el programa automàticament.\nAixò sol passar per una instal·lació inicial, una actualització de versió o una altra eina de descàrrega que ha pres l'associació. Podeu reactivar l'associació del protocol corresponent a Configuració → Configuració avançada.",
   dismiss: 'Entesos',
   'speedometer-limit-applied': 'Límit de velocitat aplicat',
   'speedometer-limit-removed': 'Límit de velocitat eliminat',

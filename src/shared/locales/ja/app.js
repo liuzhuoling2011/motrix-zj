@@ -87,7 +87,7 @@ export default {
   'db-upgraded': 'データベース構造が {version} にアップグレードされました',
   'protocol-hijacked-title': 'リンクの関連付けの確認が必要です',
   'protocol-hijacked-body': '{protocols} は Motrix Next に関連付けられていません',
-  'protocol-hijacked-dialog-content': '{protocols} プロトコルは現在 Motrix Next に関連付けられていません。関連するリンクをクリックしても、自動的にこのアプリケーションを開くことができません。\nこれは通常、初回インストール、バージョン更新、または他のダウンロードツールが関連付けを取得したことが原因です。設定 → 基本設定で対応するプロトコルの関連付けを再度有効にできます。',
+  'protocol-hijacked-dialog-content': '{protocols} プロトコルは現在 Motrix Next に関連付けられていません。関連するリンクをクリックしても、自動的にこのアプリケーションを開くことができません。\nこれは通常、初回インストール、バージョン更新、または他のダウンロードツールが関連付けを取得したことが原因です。設定 → 進階設定で対応するプロトコルの関連付けを再度有効にできます。',
   'dismiss': '了解',
   'speedometer-limit-applied': '速度制限を適用しました',
   'speedometer-limit-removed': '速度制限を解除しました',

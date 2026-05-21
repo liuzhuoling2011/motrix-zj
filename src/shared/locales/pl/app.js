@@ -87,7 +87,7 @@ export default {
   'db-upgraded': 'Struktura bazy danych zaktualizowana do {version}',
   'protocol-hijacked-title': 'Powiązanie linków wymaga potwierdzenia',
   'protocol-hijacked-body': '{protocols} nie jest powiązany z Motrix Next',
-  'protocol-hijacked-dialog-content': 'Wykryto, że protokół {protocols} nie jest powiązany z Motrix Next, a powiązane linki nie będą mogły automatycznie otwierać programu.\nJest to zwykle spowodowane pierwszą instalacją, aktualizacją wersji lub innym narzędziem do pobierania, które przejęło powiązanie. Możesz ponownie włączyć odpowiednie powiązanie protokołu w Ustawienia → Ustawienia podstawowe.',
+  'protocol-hijacked-dialog-content': 'Wykryto, że protokół {protocols} nie jest powiązany z Motrix Next, a powiązane linki nie będą mogły automatycznie otwierać programu.\nJest to zwykle spowodowane pierwszą instalacją, aktualizacją wersji lub innym narzędziem do pobierania, które przejęło powiązanie. Możesz ponownie włączyć odpowiednie powiązanie protokołu w Ustawienia → Ustawienia zaawansowane.',
   'dismiss': 'Rozumiem',
   'speedometer-limit-applied': 'Limit prędkości zastosowany',
   'speedometer-limit-removed': 'Limit prędkości usunięty',

@@ -251,8 +251,8 @@ watch(
       positiveText: t('preferences.open-settings'),
       negativeText: t('app.dismiss'),
       onPositiveClick: () => {
-        if (!route.path.startsWith('/preference')) {
-          router.push('/preference/general')
+        if (route.path !== '/preference/advanced') {
+          router.push('/preference/advanced')
         }
       },
     })
