@@ -433,10 +433,14 @@ onMounted(() => {
             @click="handleSearch"
           >
             <template #icon>
-              <Transition name="ed2k-search-icon" mode="out-in">
-                <div v-if="searchActive" key="searching" class="ed2k-search-spinner" />
-                <NIcon v-else key="idle"><SearchOutline /></NIcon>
-              </Transition>
+              <span class="ed2k-search-icon-stack" aria-hidden="true">
+                <span class="ed2k-search-icon-layer" :class="{ 'ed2k-search-icon-layer--visible': searchActive }">
+                  <span class="ed2k-search-spinner" />
+                </span>
+                <span class="ed2k-search-icon-layer" :class="{ 'ed2k-search-icon-layer--visible': !searchActive }">
+                  <NIcon><SearchOutline /></NIcon>
+                </span>
+              </span>
             </template>
             <Transition name="ed2k-search-label" mode="out-in">
               <span :key="searchButtonText">{{ searchButtonText }}</span>
@@ -493,6 +497,32 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
 }
+.ed2k-search-icon-stack {
+  position: relative;
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+}
+.ed2k-search-icon-layer {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.88);
+  transition:
+    opacity 0.16s cubic-bezier(0.2, 0, 0, 1),
+    transform 0.16s cubic-bezier(0.2, 0, 0, 1);
+}
+.ed2k-search-icon-layer--visible {
+  opacity: 1;
+  transform: scale(1);
+}
 .ed2k-search-spinner {
   width: 14px;
   height: 14px;
@@ -502,17 +532,6 @@ onMounted(() => {
   animation: ed2k-search-spin 0.8s linear infinite;
   will-change: transform;
   contain: layout style paint;
-}
-.ed2k-search-icon-enter-active,
-.ed2k-search-icon-leave-active {
-  transition:
-    opacity 0.18s cubic-bezier(0.2, 0, 0, 1),
-    transform 0.18s cubic-bezier(0.2, 0, 0, 1);
-}
-.ed2k-search-icon-enter-from,
-.ed2k-search-icon-leave-to {
-  opacity: 0;
-  transform: scale(0.86);
 }
 .ed2k-search-label-enter-active,
 .ed2k-search-label-leave-active {
