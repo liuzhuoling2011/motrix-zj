@@ -112,8 +112,16 @@ jobs:
             throw "No Windows installer assets were found in the resolved releases."
           }
 
-          $manifest | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 signing-manifest.json
-          $skipped | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 signing-skipped.json
+          [System.IO.File]::WriteAllText(
+            (Join-Path $PWD "signing-manifest.json"),
+            (($manifest | ConvertTo-Json -Depth 4 -Compress) + "`n"),
+            [System.Text.UTF8Encoding]::new($false)
+          )
+          [System.IO.File]::WriteAllText(
+            (Join-Path $PWD "signing-skipped.json"),
+            (($skipped | ConvertTo-Json -Depth 4 -Compress) + "`n"),
+            [System.Text.UTF8Encoding]::new($false)
+          )
           "Prepared $($manifest.Count) installer(s) for one SignPath request."
           if ($skipped.Count -gt 0) {
             "Skipped $($skipped.Count) missing installer asset(s)."
@@ -139,7 +147,6 @@ jobs:
           artifact-configuration-slug: ${{ vars.SIGNPATH_RELEASE_ARTIFACT_CONFIGURATION_SLUG }}
           github-artifact-id: ${{ steps.unsigned-artifact.outputs.artifact-id }}
           wait-for-completion: true
-          wait-for-completion-timeout-in-seconds: 19800
           output-artifact-directory: signed
 
       - name: Verify signed installers
@@ -179,6 +186,7 @@ jobs:
         run: |
           set -euo pipefail
           jq -r '.[].asset' signing-manifest.json | while IFS= read -r asset; do
+            asset="${asset%$'\r'}"
             cp "signed-flat/$asset" "$asset"
             pnpm --silent tauri signer sign "$asset" > "$asset.sig"
           done
@@ -223,6 +231,8 @@ jobs:
           jq -c '.[]' signing-manifest.json | while IFS= read -r item; do
             tag=$(jq -r '.tag' <<< "$item")
             asset=$(jq -r '.asset' <<< "$item")
+            tag="${tag%$'\r'}"
+            asset="${asset%$'\r'}"
             upload_and_replace "$tag" "$asset"
             upload_and_replace "$tag" "$asset.sig"
           done
