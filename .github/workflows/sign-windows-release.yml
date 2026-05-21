@@ -1,0 +1,206 @@
+name: Sign Windows Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to sign. Use "latest" to sign the latest GitHub Release.
+        required: false
+        default: latest
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  resolve-release:
+    name: Resolve release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Resolve release tag
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUESTED_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "$REQUESTED_TAG" ] && [ "$REQUESTED_TAG" != "latest" ]; then
+            TAG="$REQUESTED_TAG"
+            gh release view "$TAG" -R "${{ github.repository }}" >/dev/null
+          else
+            TAG=$(gh release list \
+              -R "${{ github.repository }}" \
+              --exclude-drafts \
+              --limit 1 \
+              --json tagName \
+              -q '.[0].tagName')
+          fi
+
+          if [ -z "$TAG" ]; then
+            echo "No release tag found." >&2
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "Resolved release tag: $TAG"
+
+  sign:
+    name: Sign ${{ matrix.label }}
+    needs: resolve-release
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: windows-x64
+            arch: x64
+            asset_suffix: x64-setup.exe
+          - label: windows-arm64
+            arch: arm64
+            asset_suffix: arm64-setup.exe
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Node dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download unsigned installer
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve-release.outputs.tag }}
+          VERSION: ${{ needs.resolve-release.outputs.version }}
+          ASSET_SUFFIX: ${{ matrix.asset_suffix }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $asset = "MotrixNext_${env:VERSION}_${env:ASSET_SUFFIX}"
+          gh release download $env:TAG -R $env:GITHUB_REPOSITORY -p $asset -D unsigned
+          New-Item -ItemType Directory -Path signpath-input | Out-Null
+          Copy-Item "unsigned/$asset" "signpath-input/$asset"
+          "INSTALLER_NAME=$asset" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload unsigned installer
+        id: unsigned-artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: signpath-${{ needs.resolve-release.outputs.tag }}-${{ matrix.arch }}-unsigned
+          path: signpath-input/*.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Submit SignPath request
+        id: signpath
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: release-signing
+          artifact-configuration-slug: ${{ vars.SIGNPATH_RELEASE_ARTIFACT_CONFIGURATION_SLUG }}
+          github-artifact-id: ${{ steps.unsigned-artifact.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 19800
+          output-artifact-directory: signed
+
+      - name: Verify Authenticode signature
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $signedFile = Get-ChildItem signed -Recurse -Filter $env:INSTALLER_NAME | Select-Object -First 1
+          if (-not $signedFile) {
+            throw "Signed installer not found."
+          }
+
+          $signature = Get-AuthenticodeSignature -FilePath $signedFile.FullName
+          if (-not $signature.SignerCertificate) {
+            throw "Missing Authenticode signer certificate."
+          }
+
+          $expectedSubject = "CN=SignPath Foundation"
+          if (-not $signature.SignerCertificate.Subject.Contains($expectedSubject)) {
+            throw "Unexpected signer subject: $($signature.SignerCertificate.Subject)"
+          }
+
+          Copy-Item $signedFile.FullName $env:INSTALLER_NAME
+          "Signed installer: $($signedFile.FullName)"
+          "Signature status: $($signature.Status)"
+          "Signer subject: $($signature.SignerCertificate.Subject)"
+          "Signing request: ${{ steps.signpath.outputs.signing-request-web-url }}"
+
+      - name: Generate updater signature
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          pnpm --silent tauri signer sign "$INSTALLER_NAME" > "$INSTALLER_NAME.sig"
+
+      - name: Upload patched release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          upload_and_replace() {
+            local file="$1"
+            local tmp_name="$file.signed-tmp-${{ github.run_id }}-${{ github.run_attempt }}"
+
+            cp "$file" "$tmp_name"
+            gh release upload "$TAG" "$tmp_name" -R "$GITHUB_REPOSITORY"
+
+            local release_id old_asset_id tmp_asset_id
+            release_id=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json databaseId -q .databaseId)
+            old_asset_id=$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets" \
+              --paginate \
+              --jq ".[] | select(.name == \"$file\") | .id" | head -n 1)
+            tmp_asset_id=$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets" \
+              --paginate \
+              --jq ".[] | select(.name == \"$tmp_name\") | .id" | head -n 1)
+
+            if [ -z "$tmp_asset_id" ]; then
+              echo "Temporary asset not found: $tmp_name" >&2
+              exit 1
+            fi
+            if [ -n "$old_asset_id" ]; then
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$old_asset_id" --silent
+            fi
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/assets/$tmp_asset_id" \
+              -f "name=$file" \
+              -f "label=$file" \
+              --silent
+          }
+
+          upload_and_replace "$INSTALLER_NAME"
+          upload_and_replace "$INSTALLER_NAME.sig"
+
+  refresh-updater-json:
+    name: Refresh updater JSON
+    needs: [resolve-release, sign]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Generate and upload channel-specific updater JSON
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/refresh-updater-json.sh "${{ needs.resolve-release.outputs.tag }}"
