@@ -109,7 +109,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./scripts/refresh-updater-json.sh "${{ github.event.release.tag_name }}"
+          ./.github/scripts/refresh-updater-json.sh "${{ github.event.release.tag_name }}"
 
   update-homebrew:
     needs: build

@@ -6,7 +6,7 @@ if [ $# -ne 1 ]; then
   exit 1
 fi
 
-TAG="$1"
+TAG="${1%$'\r'}"
 VERSION="${TAG#v}"
 REPO="${GITHUB_REPOSITORY:-AnInsomniacy/motrix-next}"
 BASE="https://github.com/$REPO/releases/download/$TAG"

@@ -245,7 +245,8 @@ jobs:
         run: |
           set -euo pipefail
           jq -r '.[].tag' <<< "$RELEASES_JSON" | while IFS= read -r tag; do
-            ./scripts/refresh-updater-json.sh "$tag"
+            tag="${tag%$'\r'}"
+            ./.github/scripts/refresh-updater-json.sh "$tag"
           done
 
       - name: Write signing report
