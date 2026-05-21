@@ -7,6 +7,7 @@ import type { BatchItemKind, BatchItem } from '@shared/types'
 import { BARE_INFO_HASH_RE } from '@shared/constants'
 import { decodeMimeWords } from 'lettercoder'
 import sanitizeFilename from 'sanitize-filename'
+import { decodeThunderLink } from './resource'
 
 let nextId = 0
 
@@ -128,6 +129,10 @@ function normalizeInfoHash(line: string): string {
   return BARE_INFO_HASH_RE.test(line) ? `magnet:?xt=urn:btih:${line}` : line
 }
 
+function normalizeUriLine(line: string): string {
+  return normalizeInfoHash(decodeThunderLink(line.trim()))
+}
+
 /**
  * Split, trim, remove blanks, and deduplicate URI lines by first occurrence.
  * Handles multiline payloads — each line is treated as an independent URI.
@@ -137,7 +142,7 @@ export function normalizeUriLines(text: string): string[] {
   const seen = new Set<string>()
   const result: string[] = []
   for (const raw of text.split('\n')) {
-    const line = normalizeInfoHash(raw.trim())
+    const line = normalizeUriLine(raw)
     if (line && !seen.has(line)) {
       seen.add(line)
       result.push(line)
@@ -157,7 +162,7 @@ export function mergeUriLines(existingText: string, incoming: string[]): string 
   for (const payload of incoming) {
     // Each payload may itself contain multiple lines (e.g. multiline deep-link arg)
     for (const raw of payload.split('\n')) {
-      const line = normalizeInfoHash(raw.trim())
+      const line = normalizeUriLine(raw)
       if (line && !seen.has(line)) {
         seen.add(line)
         existing.push(line)

@@ -82,6 +82,26 @@ describe('normalizeUriLines', () => {
     const full = 'magnet:?xt=urn:btih:d8988e034cb5de79d319242e3365bf30a7741a6e'
     expect(normalizeUriLines(full)).toEqual([full])
   })
+
+  it('decodes Thunder links before returning URI lines', () => {
+    const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+    expect(normalizeUriLines(thunder)).toEqual(['https://example.com/file.zip'])
+  })
+
+  it('decodes mixed-case Thunder schemes before returning URI lines', () => {
+    const thunder = 'Thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+    expect(normalizeUriLines(thunder)).toEqual(['https://example.com/file.zip'])
+  })
+
+  it('deduplicates Thunder links by their decoded URI', () => {
+    const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+    expect(normalizeUriLines(`https://example.com/file.zip\n${thunder}`)).toEqual(['https://example.com/file.zip'])
+  })
+
+  it('decodes URL-encoded Thunder payloads before deduplicating URI lines', () => {
+    const thunder = 'thunder://' + encodeURIComponent(btoa('AAhttps://example.com/file.zipZZ'))
+    expect(normalizeUriLines(`https://example.com/file.zip\n${thunder}`)).toEqual(['https://example.com/file.zip'])
+  })
 })
 
 describe('mergeUriLines', () => {
@@ -122,6 +142,13 @@ describe('mergeUriLines', () => {
     expect(merged).toBe(
       [`magnet:?xt=urn:btih:${hash}`, 'magnet:?xt=urn:btih:TCIY4A2MWXPHTUYZEQUOMNS7GCDXOQTG'].join('\n'),
     )
+  })
+
+  it('decodes Thunder links in incoming payloads before merging', () => {
+    const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+    const merged = mergeUriLines('', [thunder])
+
+    expect(merged).toBe('https://example.com/file.zip')
   })
 })
 

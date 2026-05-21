@@ -12,19 +12,35 @@ import type { ClipboardConfig } from '@shared/types'
 
 /** Decodes a Thunder (迅雷) protocol link to its original HTTP/FTP URL. */
 export const decodeThunderLink = (url = ''): string => {
-  if (!url.startsWith('thunder://')) return url
   const trimmed = url.trim()
-  const payload = trimmed.slice('thunder://'.length)
+  if (!trimmed.toLowerCase().startsWith('thunder://')) return url
+  const rawPayload = trimmed.slice('thunder://'.length)
+  const payload = decodeThunderPayload(rawPayload)
   if (!payload) return url
 
   try {
-    const decoded = atob(payload)
+    const decoded = decodeBase64Utf8(payload)
     if (!decoded.startsWith('AA') || !decoded.endsWith('ZZ')) return url
     const result = decoded.substring(2, decoded.length - 2)
     return result || url
   } catch {
     return url
   }
+}
+
+function decodeThunderPayload(payload: string): string {
+  try {
+    return decodeURIComponent(payload)
+  } catch {
+    return payload
+  }
+}
+
+function decodeBase64Utf8(payload: string): string {
+  const normalized = payload.padEnd(payload.length + ((4 - (payload.length % 4)) % 4), '=')
+  const binary = atob(normalized)
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+  return new TextDecoder().decode(bytes)
 }
 
 export const splitTaskLinks = (links = ''): string[] => {

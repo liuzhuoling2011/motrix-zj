@@ -284,6 +284,50 @@ describe('aria2 API (invoke transport)', () => {
       })
     })
 
+    it('addUri decodes Thunder links before invoking the backend', async () => {
+      mockInvoke.mockResolvedValue('gid1')
+      const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+
+      await addUri({
+        uris: [thunder],
+        outs: [],
+        options: {},
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('aria2_add_uri', {
+        uris: ['https://example.com/file.zip'],
+        options: {},
+      })
+    })
+
+    it('addUri decodes Thunder links without Base64 padding before invoking the backend', async () => {
+      mockInvoke.mockResolvedValue('gid1')
+      const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ').replace(/=+$/, '')
+
+      await addUri({
+        uris: [thunder],
+        outs: [],
+        options: {},
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('aria2_add_uri', {
+        uris: ['https://example.com/file.zip'],
+        options: {},
+      })
+    })
+
+    it('addUri rejects malformed Thunder links before invoking the backend', async () => {
+      await expect(
+        addUri({
+          uris: ['thunder://not-valid-base64'],
+          outs: [],
+          options: {},
+        }),
+      ).rejects.toThrow('Invalid Thunder link')
+
+      expect(mockInvoke).not.toHaveBeenCalled()
+    })
+
     it('addUri classifies extensionless downloads by the resolved output filename', async () => {
       mockInvoke.mockResolvedValue('gid1')
 
@@ -317,6 +361,32 @@ describe('aria2 API (invoke transport)', () => {
         uris: ['http://mirror1.com/f.zip', 'http://mirror2.com/f.zip'],
         options: expect.any(Object),
       })
+    })
+
+    it('addUriAtomic decodes Thunder mirrors before invoking the backend', async () => {
+      mockInvoke.mockResolvedValueOnce('gid-atomic')
+      const thunder = 'thunder://' + btoa('AAhttps://mirror.example.com/f.zipZZ')
+
+      await addUriAtomic({
+        uris: [thunder, 'https://mirror2.example.com/f.zip'],
+        options: {},
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('aria2_add_uri', {
+        uris: ['https://mirror.example.com/f.zip', 'https://mirror2.example.com/f.zip'],
+        options: expect.any(Object),
+      })
+    })
+
+    it('addUriAtomic rejects malformed Thunder mirrors before invoking the backend', async () => {
+      await expect(
+        addUriAtomic({
+          uris: ['thunder://not-valid-base64'],
+          options: {},
+        }),
+      ).rejects.toThrow('Invalid Thunder link')
+
+      expect(mockInvoke).not.toHaveBeenCalled()
     })
 
     it('addTorrent passes base64 torrent data', async () => {

@@ -13,6 +13,18 @@ describe('decodeThunderLink', () => {
     const result = decodeThunderLink(encoded)
     expect(result).toBe('http://example.com/file.zip')
   })
+  it('decodes URL-encoded Thunder payloads', () => {
+    const payload = encodeURIComponent(btoa('AAhttps://example.com/file.zipZZ'))
+    expect(decodeThunderLink(`thunder://${payload}`)).toBe('https://example.com/file.zip')
+  })
+  it('decodes Thunder payloads without Base64 padding', () => {
+    const payload = btoa('AAhttps://example.com/file.zipZZ').replace(/=+$/, '')
+    expect(decodeThunderLink(`thunder://${payload}`)).toBe('https://example.com/file.zip')
+  })
+  it('decodes UTF-8 Thunder payloads', () => {
+    const encoded = 'thunder://' + btoa(unescape(encodeURIComponent('AAhttps://example.com/文件.zipZZ')))
+    expect(decodeThunderLink(encoded)).toBe('https://example.com/文件.zip')
+  })
   it('returns malformed thunder:// links unchanged instead of throwing', () => {
     expect(() => decodeThunderLink('thunder://not valid base64')).not.toThrow()
     expect(decodeThunderLink('thunder://not valid base64')).toBe('thunder://not valid base64')

@@ -476,6 +476,16 @@ describe('submitManualUris', () => {
     expect(call.options).toEqual({ dir: '/dl' })
   })
 
+  it('decodes Thunder links before submitting manual URI tasks', async () => {
+    const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+
+    await submitManualUris({ ...baseForm, uris: thunder }, { dir: '/dl' }, mockTaskStore)
+
+    const call = (mockTaskStore.addUri as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(call.uris).toEqual(['https://example.com/file.zip'])
+    expect(call.outs).toEqual([''])
+  })
+
   it('generates numbered outs for multi-URI with out specified', async () => {
     await submitManualUris(
       { ...baseForm, uris: 'http://a.com/1\nhttp://b.com/2', out: 'file.zip' },

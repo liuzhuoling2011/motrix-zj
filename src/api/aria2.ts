@@ -19,6 +19,7 @@ import type {
 import { logger } from '@shared/logger'
 import { resolveDownloadDir } from '@shared/utils/fileCategory'
 import { sanitizeAria2OutHint } from '@shared/utils/batchHelpers'
+import { decodeThunderLink } from '@shared/utils/resource'
 
 /**
  * Engine readiness state.
@@ -36,6 +37,14 @@ export function isEngineReady(): boolean {
 /** Marks the engine as ready/unready. */
 export function setEngineReady(ready: boolean): void {
   engineReady = ready
+}
+
+function normalizeUriForEngine(uri: string): string {
+  const decoded = decodeThunderLink(uri)
+  if (uri.trim().toLowerCase().startsWith('thunder://') && decoded === uri) {
+    throw new Error('Invalid Thunder link')
+  }
+  return decoded
 }
 
 /** Retrieves aria2 engine version and list of enabled features. */
@@ -110,10 +119,11 @@ export async function addUri(params: {
   fileCategory?: { enabled: boolean; categories: import('@shared/types').FileCategory[] }
 }): Promise<string[]> {
   const { uris, outs, options, fileCategory } = params
+  const normalizedUris = uris.map((uri) => normalizeUriForEngine(uri))
   const engineOptions = formatOptionsForEngine(options)
 
   // Each URI gets its own aria2 task with optional per-URI overrides
-  const tasks = uris.map(async (uri, index) => {
+  const tasks = normalizedUris.map(async (uri, index) => {
     const opts: Record<string, string> = { ...engineOptions }
     if (outs[index]) opts.out = outs[index]
 
@@ -140,8 +150,9 @@ export async function addUri(params: {
  */
 export async function addUriAtomic(params: { uris: string[]; options: Record<string, string> }): Promise<string> {
   const { uris, options } = params
+  const normalizedUris = uris.map((uri) => normalizeUriForEngine(uri))
   const engineOptions = formatOptionsForEngine(options)
-  const gid = await invoke<string>('aria2_add_uri', { uris, options: engineOptions })
+  const gid = await invoke<string>('aria2_add_uri', { uris: normalizedUris, options: engineOptions })
   logger.debug('aria2.addUriAtomic', `gid=${gid} mirrors=${uris.length}`)
   return gid
 }
