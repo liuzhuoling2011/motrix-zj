@@ -328,6 +328,7 @@ export default {
   'auto-submit-from-extension': 'Hopp over bekreftelse for utvidelsesnedlastinger',
   'silent-auto-submit-from-extension': 'Ikke fokuser hovedvinduet ved mottak av nedlastinger',
   'auto-select-all-files-from-extension': 'Last ned alle torrent- og magnetfiler som standard',
+  'auto-select-all-files-from-extension-hint': 'Når dette er aktivert, starter alle oppgaver stille.',
   'extension-api-port': 'Utvidelse API-port',
   'extension-api-secret-tip': 'Skriv inn denne nøkkelen i nettleserutvidelsens innstillinger for autentisering.',
   'extension-api-secret': 'API-nøkkel for utvidelse',

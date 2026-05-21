@@ -320,6 +320,7 @@ export default {
   'auto-submit-from-extension': '擴充下載略過確認',
   'silent-auto-submit-from-extension': '接收下載時不啟用主視窗',
   'auto-select-all-files-from-extension': '種子和磁力預設下載全部檔案',
+  'auto-select-all-files-from-extension-hint': '開啟後，所有任務將統一靜默開始下載。',
   'extension-api-port': '擴充 API 連接埠',
   'extension-api-secret-tip': '在瀏覽器擴充功能設定中輸入此金鑰以進行身份驗證。',
   'extension-api-secret': '擴充功能 API 金鑰',

@@ -331,6 +331,7 @@ export default {
   'auto-submit-from-extension': 'Uzantı indirmelerinde onayı atla',
   'silent-auto-submit-from-extension': 'İndirmeler alınırken ana pencereye odaklanma',
   'auto-select-all-files-from-extension': 'Torrent ve magnet dosyalarının tümünü varsayılan olarak indir',
+  'auto-select-all-files-from-extension-hint': 'Etkinleştirildiğinde tüm görevler sessizce başlar.',
   'extension-api-port': 'Uzantı API Portu',
   'extension-api-secret-tip': 'Kimlik doğrulaması için bu anahtarı tarayıcı eklentisi ayarlarına girin.',
   'extension-api-secret': 'Eklenti API Anahtarı',

@@ -332,6 +332,7 @@ export default {
   'auto-submit-from-extension': 'Bevestiging voor extensiedownloads overslaan',
   'silent-auto-submit-from-extension': 'Hoofdvenster niet focussen bij ontvangen downloads',
   'auto-select-all-files-from-extension': 'Alle torrent- en magnetbestanden standaard downloaden',
+  'auto-select-all-files-from-extension-hint': 'Wanneer ingeschakeld, starten alle taken stil.',
   'extension-api-port': 'Extensie API-poort',
   'extension-api-secret-tip': 'Voer deze sleutel in bij de instellingen van de browserextensie voor authenticatie.',
   'extension-api-secret': 'API-sleutel extensie',

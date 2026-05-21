@@ -333,6 +333,7 @@ export default {
   'auto-submit-from-extension': "Salta la conferma per i download dell'estensione",
   'silent-auto-submit-from-extension': 'Non attivare la finestra principale alla ricezione dei download',
   'auto-select-all-files-from-extension': 'Scarica tutti i file torrent e magnet per impostazione predefinita',
+  'auto-select-all-files-from-extension-hint': 'Se attivo, tutte le attività si avviano in silenzio.',
   'extension-api-port': 'Porta API estensione',
   'extension-api-secret-tip':
     "Inserisci questa chiave nelle impostazioni dell'estensione del browser per l'autenticazione.",

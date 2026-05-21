@@ -451,7 +451,13 @@ onMounted(async () => {
         <NFormItem :label="t('preferences.silent-auto-submit-from-extension')">
           <NSwitch v-model:value="form.silentAutoSubmitFromExtension" />
         </NFormItem>
-        <NFormItem :label="t('preferences.auto-select-all-files-from-extension')">
+        <NFormItem class="hinted-form-item">
+          <template #label>
+            <div class="form-label-with-hint">
+              <div>{{ t('preferences.auto-select-all-files-from-extension') }}</div>
+              <div class="info-text">{{ t('preferences.auto-select-all-files-from-extension-hint') }}</div>
+            </div>
+          </template>
           <NSwitch v-model:value="form.autoSelectAllFilesFromExtension" />
         </NFormItem>
       </NCollapseTransition>
@@ -744,6 +750,15 @@ onMounted(async () => {
   font-size: 12px;
   max-width: 520px;
   word-wrap: break-word;
+}
+.form-label-with-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.35;
+}
+.form-preference :deep(.hinted-form-item) {
+  margin-bottom: 18px;
 }
 .form-preference :deep(.collapse-indent) {
   position: relative;

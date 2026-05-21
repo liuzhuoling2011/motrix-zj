@@ -330,6 +330,7 @@ export default {
   'auto-submit-from-extension': 'Пропускати підтвердження для завантажень розширення',
   'silent-auto-submit-from-extension': 'Не фокусувати головне вікно під час отримання завантажень',
   'auto-select-all-files-from-extension': 'Типово завантажувати всі файли torrent і magnet',
+  'auto-select-all-files-from-extension-hint': 'Якщо ввімкнено, усі завдання запускатимуться тихо.',
   'extension-api-port': 'Порт API розширення',
   'extension-api-secret-tip': 'Введіть цей ключ у налаштуваннях розширення браузера для автентифікації.',
   'extension-api-secret': 'Секретний ключ API розширення',

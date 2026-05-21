@@ -328,6 +328,7 @@ export default {
   'auto-submit-from-extension': 'Bỏ qua xác nhận cho tải xuống từ tiện ích',
   'silent-auto-submit-from-extension': 'Không lấy tiêu điểm cửa sổ chính khi nhận tải xuống',
   'auto-select-all-files-from-extension': 'Mặc định tải xuống mọi tệp torrent và magnet',
+  'auto-select-all-files-from-extension-hint': 'Khi bật, mọi tác vụ sẽ bắt đầu âm thầm.',
   'extension-api-port': 'Cổng API tiện ích',
   'extension-api-secret-tip': 'Nhập khóa này vào cài đặt tiện ích mở rộng trình duyệt để xác thực.',
   'extension-api-secret': 'Khóa bí mật API tiện ích',

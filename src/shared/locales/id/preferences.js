@@ -331,6 +331,7 @@ export default {
   'auto-submit-from-extension': 'Lewati konfirmasi untuk unduhan ekstensi',
   'silent-auto-submit-from-extension': 'Jangan fokuskan jendela utama saat menerima unduhan',
   'auto-select-all-files-from-extension': 'Unduh semua file torrent dan magnet secara default',
+  'auto-select-all-files-from-extension-hint': 'Saat diaktifkan, semua tugas dimulai secara senyap.',
   'extension-api-port': 'Port API Ekstensi',
   'extension-api-secret-tip': 'Masukkan kunci ini di pengaturan ekstensi browser untuk autentikasi.',
   'extension-api-secret': 'Kunci API Ekstensi',

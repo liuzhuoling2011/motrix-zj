@@ -330,6 +330,7 @@ export default {
   'auto-submit-from-extension': '拡張機能からのダウンロード確認をスキップ',
   'silent-auto-submit-from-extension': 'ダウンロード受信時にメインウィンドウへフォーカスしない',
   'auto-select-all-files-from-extension': 'Torrent と Magnet の全ファイルを既定でダウンロード',
+  'auto-select-all-files-from-extension-hint': '有効にすると、すべてのタスクが静かに開始します。',
   'extension-api-port': '拡張機能 API ポート',
   'extension-api-secret-tip': '認証のためにブラウザ拡張機能の設定にこのシークレットを入力してください。',
   'extension-api-secret': '拡張機能 API シークレット',

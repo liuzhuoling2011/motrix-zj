@@ -327,6 +327,7 @@ export default {
   'auto-submit-from-extension': '확장 프로그램 다운로드 확인 건너뛰기',
   'silent-auto-submit-from-extension': '다운로드를 받을 때 기본 창에 포커스하지 않기',
   'auto-select-all-files-from-extension': '토렌트와 마그넷 파일을 기본적으로 모두 다운로드',
+  'auto-select-all-files-from-extension-hint': '켜면 모든 작업이 조용히 시작됩니다.',
   'extension-api-port': '확장 프로그램 API 포트',
   'extension-api-secret-tip': '인증을 위해 브라우저 확장 프로그램 설정에 이 비밀키를 입력하세요.',
   'extension-api-secret': '확장 프로그램 API 비밀키',

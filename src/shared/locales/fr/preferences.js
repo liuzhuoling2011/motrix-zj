@@ -336,6 +336,7 @@ export default {
   'auto-submit-from-extension': "Ignorer la confirmation pour les téléchargements de l'extension",
   'silent-auto-submit-from-extension': 'Ne pas activer la fenêtre principale à la réception de téléchargements',
   'auto-select-all-files-from-extension': 'Télécharger tous les fichiers torrent et magnet par défaut',
+  'auto-select-all-files-from-extension-hint': 'Une fois activé, toutes les tâches démarrent en silence.',
   'extension-api-port': "Port API de l'extension",
   'extension-api-secret-tip':
     "Saisissez cette clé dans les paramètres de l'extension du navigateur pour l'authentification.",

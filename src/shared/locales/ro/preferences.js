@@ -331,6 +331,7 @@ export default {
   'auto-submit-from-extension': 'Omite confirmarea pentru descărcările extensiei',
   'silent-auto-submit-from-extension': 'Nu focaliza fereastra principală la primirea descărcărilor',
   'auto-select-all-files-from-extension': 'Descarcă implicit toate fișierele torrent și magnet',
+  'auto-select-all-files-from-extension-hint': 'Când este activat, toate sarcinile pornesc silențios.',
   'extension-api-port': 'Port API extensie',
   'extension-api-secret-tip': 'Introduceți această cheie în setările extensiei browserului pentru autentificare.',
   'extension-api-secret': 'Cheie secretă API extensie',

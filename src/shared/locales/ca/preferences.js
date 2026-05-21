@@ -332,6 +332,7 @@ export default {
   'auto-submit-from-extension': "Omet la confirmació de baixades de l'extensió",
   'silent-auto-submit-from-extension': 'No activis la finestra principal en rebre una baixada',
   'auto-select-all-files-from-extension': 'Baixa tots els fitxers torrent i magnet per defecte',
+  'auto-select-all-files-from-extension-hint': 'Quan estigui activat, totes les tasques començaran en silenci.',
   'extension-api-port': "Port de l'API de l'extensió",
   'extension-api-secret-tip':
     "Introduïu aquesta clau a la configuració de l'extensió del navegador per autenticar-vos.",

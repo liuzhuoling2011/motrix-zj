@@ -329,6 +329,7 @@ export default {
   'auto-submit-from-extension': 'Skip confirmation for extension downloads',
   'silent-auto-submit-from-extension': 'Do not focus the main window when receiving downloads',
   'auto-select-all-files-from-extension': 'Download all torrent and magnet files by default',
+  'auto-select-all-files-from-extension-hint': 'When enabled, all tasks start silently.',
   'extension-api-port': 'Extension API Port',
   'extension-api-secret-tip': 'Enter this secret in the browser extension settings to authenticate.',
   'extension-api-secret': 'Extension API Secret',

@@ -320,6 +320,7 @@ export default {
   'auto-submit-from-extension': '扩展下载跳过确认',
   'silent-auto-submit-from-extension': '接收下载时不激活主窗口',
   'auto-select-all-files-from-extension': '种子和磁力默认下载全部文件',
+  'auto-select-all-files-from-extension-hint': '开启后，所有任务将统一静默开始下载。',
   'extension-api-port': '扩展 API 端口',
   'extension-api-secret-tip': '在浏览器扩展设置中输入此密钥以进行身份验证。',
   'extension-api-secret': '扩展 API 密钥',

@@ -329,6 +329,7 @@ export default {
   'auto-submit-from-extension': 'رد کردن تأیید دانلودهای افزونه',
   'silent-auto-submit-from-extension': 'هنگام دریافت دانلود، پنجره اصلی فعال نشود',
   'auto-select-all-files-from-extension': 'دانلود همه فایل‌های تورنت و مگنت به‌صورت پیش‌فرض',
+  'auto-select-all-files-from-extension-hint': 'با فعال بودن، همه وظایف بی‌صدا شروع می‌شوند.',
   'extension-api-port': 'پورت API افزونه',
   'extension-api-secret-tip': 'این کلید را در تنظیمات افزونه مرورگر برای احراز هویت وارد کنید.',
   'extension-api-secret': 'کلید API افزونه',

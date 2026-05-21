@@ -330,6 +330,7 @@ export default {
   'auto-submit-from-extension': 'Bővítményletöltések megerősítésének kihagyása',
   'silent-auto-submit-from-extension': 'Letöltések fogadásakor ne kerüljön fókuszba a főablak',
   'auto-select-all-files-from-extension': 'Minden torrent- és magnet-fájl letöltése alapértelmezés szerint',
+  'auto-select-all-files-from-extension-hint': 'Bekapcsolva minden feladat csendben indul.',
   'extension-api-port': 'Bővítmény API port',
   'extension-api-secret-tip': 'Adja meg ezt a kulcsot a böngészőbővítmény beállításaiban a hitelesítéshez.',
   'extension-api-secret': 'Bővítmény API kulcs',

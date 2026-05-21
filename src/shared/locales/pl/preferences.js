@@ -331,6 +331,7 @@ export default {
   'auto-submit-from-extension': 'Pomiń potwierdzenie pobrań z rozszerzenia',
   'silent-auto-submit-from-extension': 'Nie aktywuj głównego okna przy odbieraniu pobrań',
   'auto-select-all-files-from-extension': 'Domyślnie pobieraj wszystkie pliki torrent i magnet',
+  'auto-select-all-files-from-extension-hint': 'Po włączeniu wszystkie zadania uruchamiają się po cichu.',
   'extension-api-port': 'Port API rozszerzenia',
   'extension-api-secret-tip': 'Wprowadź ten klucz w ustawieniach rozszerzenia przeglądarki w celu uwierzytelnienia.',
   'extension-api-secret': 'Klucz API rozszerzenia',
