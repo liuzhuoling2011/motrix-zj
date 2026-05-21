@@ -46,18 +46,9 @@ jobs:
           echo "Resolved releases: $targets"
 
   sign:
-    name: Sign ${{ matrix.release.channel }} ${{ matrix.installer.arch }}
+    name: Sign Windows installers
     needs: resolve-releases
     runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        release: ${{ fromJSON(needs.resolve-releases.outputs.releases) }}
-        installer:
-          - arch: x64
-            asset_suffix: x64-setup.exe
-          - arch: arm64
-            asset_suffix: arm64-setup.exe
 
     steps:
       - uses: actions/checkout@v5
@@ -72,26 +63,67 @@ jobs:
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download unsigned installer
+      - name: Prepare signing bundle
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ matrix.release.tag }}
-          VERSION: ${{ matrix.release.version }}
-          ASSET_SUFFIX: ${{ matrix.installer.asset_suffix }}
+          RELEASES_JSON: ${{ needs.resolve-releases.outputs.releases }}
         run: |
           $ErrorActionPreference = "Stop"
-          $asset = "MotrixNext_${env:VERSION}_${env:ASSET_SUFFIX}"
-          gh release download $env:TAG -R $env:GITHUB_REPOSITORY -p $asset -D unsigned
-          New-Item -ItemType Directory -Path signpath-input | Out-Null
-          Copy-Item "unsigned/$asset" "signpath-input/$asset"
-          "INSTALLER_NAME=$asset" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Upload unsigned installer
+          New-Item -ItemType Directory -Force -Path signpath-input, unsigned | Out-Null
+          $releases = $env:RELEASES_JSON | ConvertFrom-Json
+          $installers = @(
+            @{ Arch = "x64"; Suffix = "x64-setup.exe" },
+            @{ Arch = "arm64"; Suffix = "arm64-setup.exe" }
+          )
+          $manifest = @()
+          $skipped = @()
+
+          foreach ($release in $releases) {
+            foreach ($installer in $installers) {
+              $asset = "MotrixNext_$($release.version)_$($installer.Suffix)"
+              $targetDir = Join-Path "unsigned" "$($release.channel)-$($installer.Arch)"
+              New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+
+              gh release download $release.tag -R $env:GITHUB_REPOSITORY -p $asset -D $targetDir 2>$null
+              if ($LASTEXITCODE -eq 0 -and (Test-Path (Join-Path $targetDir $asset))) {
+                Copy-Item (Join-Path $targetDir $asset) (Join-Path "signpath-input" $asset)
+                $manifest += [pscustomobject]@{
+                  tag = $release.tag
+                  version = $release.version
+                  channel = $release.channel
+                  arch = $installer.Arch
+                  asset = $asset
+                }
+              } else {
+                $skipped += [pscustomobject]@{
+                  tag = $release.tag
+                  channel = $release.channel
+                  arch = $installer.Arch
+                  asset = $asset
+                  reason = "release asset not found"
+                }
+              }
+            }
+          }
+
+          if ($manifest.Count -eq 0) {
+            throw "No Windows installer assets were found in the resolved releases."
+          }
+
+          $manifest | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 signing-manifest.json
+          $skipped | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 signing-skipped.json
+          "Prepared $($manifest.Count) installer(s) for one SignPath request."
+          if ($skipped.Count -gt 0) {
+            "Skipped $($skipped.Count) missing installer asset(s)."
+          }
+
+      - name: Upload unsigned installers
         id: unsigned-artifact
         uses: actions/upload-artifact@v6
         with:
-          name: signpath-${{ matrix.release.tag }}-${{ matrix.installer.arch }}-unsigned
+          name: signpath-windows-release-unsigned-${{ github.run_id }}-${{ github.run_attempt }}
           path: signpath-input/*.exe
           if-no-files-found: error
           retention-days: 1
@@ -110,57 +142,64 @@ jobs:
           wait-for-completion-timeout-in-seconds: 19800
           output-artifact-directory: signed
 
-      - name: Verify Authenticode signature
+      - name: Verify signed installers
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $signedFile = Get-ChildItem signed -Recurse -Filter $env:INSTALLER_NAME | Select-Object -First 1
-          if (-not $signedFile) {
-            throw "Signed installer not found."
+          $manifest = Get-Content signing-manifest.json -Raw | ConvertFrom-Json
+          New-Item -ItemType Directory -Force -Path signed-flat | Out-Null
+
+          foreach ($item in $manifest) {
+            $signedFile = Get-ChildItem signed -Recurse -Filter $item.asset | Select-Object -First 1
+            if (-not $signedFile) {
+              throw "Signed installer not found: $($item.asset)"
+            }
+
+            $signature = Get-AuthenticodeSignature -FilePath $signedFile.FullName
+            if (-not $signature.SignerCertificate) {
+              throw "Missing Authenticode signer certificate: $($item.asset)"
+            }
+
+            $expectedSubject = "CN=SignPath Foundation"
+            if (-not $signature.SignerCertificate.Subject.Contains($expectedSubject)) {
+              throw "Unexpected signer subject for $($item.asset): $($signature.SignerCertificate.Subject)"
+            }
+
+            Copy-Item $signedFile.FullName (Join-Path "signed-flat" $item.asset)
+            "Verified $($item.asset): $($signature.SignerCertificate.Subject)"
           }
 
-          $signature = Get-AuthenticodeSignature -FilePath $signedFile.FullName
-          if (-not $signature.SignerCertificate) {
-            throw "Missing Authenticode signer certificate."
-          }
-
-          $expectedSubject = "CN=SignPath Foundation"
-          if (-not $signature.SignerCertificate.Subject.Contains($expectedSubject)) {
-            throw "Unexpected signer subject: $($signature.SignerCertificate.Subject)"
-          }
-
-          Copy-Item $signedFile.FullName $env:INSTALLER_NAME
-          "Signed installer: $($signedFile.FullName)"
-          "Signature status: $($signature.Status)"
-          "Signer subject: $($signature.SignerCertificate.Subject)"
           "Signing request: ${{ steps.signpath.outputs.signing-request-web-url }}"
 
-      - name: Generate updater signature
+      - name: Generate updater signatures
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          pnpm --silent tauri signer sign "$INSTALLER_NAME" > "$INSTALLER_NAME.sig"
+          jq -r '.[].asset' signing-manifest.json | while IFS= read -r asset; do
+            cp "signed-flat/$asset" "$asset"
+            pnpm --silent tauri signer sign "$asset" > "$asset.sig"
+          done
 
       - name: Upload patched release assets
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ matrix.release.tag }}
         run: |
           set -euo pipefail
 
           upload_and_replace() {
-            local file="$1"
+            local tag="$1"
+            local file="$2"
             local tmp_name="$file.signed-tmp-${{ github.run_id }}-${{ github.run_attempt }}"
 
             cp "$file" "$tmp_name"
-            gh release upload "$TAG" "$tmp_name" -R "$GITHUB_REPOSITORY"
+            gh release upload "$tag" "$tmp_name" -R "$GITHUB_REPOSITORY"
 
             local release_id old_asset_id tmp_asset_id
-            release_id=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json databaseId -q .databaseId)
+            release_id=$(gh release view "$tag" -R "$GITHUB_REPOSITORY" --json databaseId -q .databaseId)
             old_asset_id=$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets" \
               --paginate \
               --jq ".[] | select(.name == \"$file\") | .id" | head -n 1)
@@ -181,21 +220,59 @@ jobs:
               --silent
           }
 
-          upload_and_replace "$INSTALLER_NAME"
-          upload_and_replace "$INSTALLER_NAME.sig"
+          jq -c '.[]' signing-manifest.json | while IFS= read -r item; do
+            tag=$(jq -r '.tag' <<< "$item")
+            asset=$(jq -r '.asset' <<< "$item")
+            upload_and_replace "$tag" "$asset"
+            upload_and_replace "$tag" "$asset.sig"
+          done
 
-  refresh-updater-json:
-    name: Refresh updater JSON
-    needs: [resolve-releases, sign]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        release: ${{ fromJSON(needs.resolve-releases.outputs.releases) }}
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Generate and upload channel-specific updater JSON
+      - name: Refresh updater JSON
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./scripts/refresh-updater-json.sh "${{ matrix.release.tag }}"
+          RELEASES_JSON: ${{ needs.resolve-releases.outputs.releases }}
+        run: |
+          set -euo pipefail
+          jq -r '.[].tag' <<< "$RELEASES_JSON" | while IFS= read -r tag; do
+            ./scripts/refresh-updater-json.sh "$tag"
+          done
+
+      - name: Write signing report
+        if: always()
+        shell: bash
+        env:
+          SIGNING_REQUEST_URL: ${{ steps.signpath.outputs.signing-request-web-url }}
+          RELEASES_JSON: ${{ needs.resolve-releases.outputs.releases }}
+        run: |
+          set -euo pipefail
+
+          {
+            echo "## SignPath Windows Release"
+            echo
+            echo "**Signing request:** ${SIGNING_REQUEST_URL:-not created}"
+            echo
+            echo "### Resolved releases"
+            echo
+            echo "| Channel | Tag |"
+            echo "| --- | --- |"
+            jq -r '.[] | "| \(.channel) | \(.tag) |"' <<< "$RELEASES_JSON"
+
+            if [ -f signing-manifest.json ]; then
+              echo
+              echo "### Signed assets"
+              echo
+              echo "| Channel | Tag | Architecture | Asset |"
+              echo "| --- | --- | --- | --- |"
+              jq -r '.[] | "| \(.channel) | \(.tag) | \(.arch) | `\(.asset)` |"' signing-manifest.json
+            fi
+
+            if [ -f signing-skipped.json ] && [ "$(jq 'length' signing-skipped.json)" -gt 0 ]; then
+              echo
+              echo "### Skipped assets"
+              echo
+              echo "| Channel | Tag | Architecture | Asset | Reason |"
+              echo "| --- | --- | --- | --- | --- |"
+              jq -r '.[] | "| \(.channel) | \(.tag) | \(.arch) | `\(.asset)` | \(.reason) |"' signing-skipped.json
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
