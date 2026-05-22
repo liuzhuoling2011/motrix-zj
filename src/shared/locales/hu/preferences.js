@@ -237,9 +237,9 @@ export default {
   'engine-section': 'Aria2 Next letöltőmotor',
   'hardware-rendering': 'GPU hardveres gyorsítás',
   'hardware-rendering-hint':
-    'A WebKitGTK DMA-BUF hardveres gyorsítás alapértelmezetten bekapcsolt a legjobb teljesítmény érdekében. Ha fehér képernyőt vagy összeomlást tapasztal az aktuális GPU-val, kapcsolja ki ezt a lehetőséget a szoftveres renderelésre váltáshoz.',
+    'A WebKitGTK DMA-BUF hardveres gyorsítás alapértelmezetten ki van kapcsolva a Linux és Wayland stabilitása érdekében. Bekapcsolható nagyobb renderelési teljesítményért, de egyes GPU-k, illesztőprogramok vagy asztali környezetek összeomolhatnak.',
   'hardware-rendering-restart-confirm':
-    'A WebKitGTK DMA-BUF hardveres gyorsítást a folyamat indítása előtt kell konfigurálni, ezért újraindítás szükséges. Egyes GPU-k (pl. NVIDIA tulajdonosi, Intel + Wayland, Raspberry Pi) esetleg nem kompatibilisek. Ha az alkalmazás összeomlik a bekapcsolás után, automatikusan kikapcsol.',
+    'A WebKitGTK DMA-BUF hardveres gyorsítás módosításához újra kell indítani az alkalmazást, mert a folyamat indulása előtt kell beállítani. Ha az alkalmazás bekapcsolás után összeomlik, indítsa el egyszer WEBKIT_DISABLE_DMABUF_RENDERER=1 értékkel, vagy kapcsolja ki kézzel a config.json fájlban.',
   'session-path': 'Feladat-gyorsítótár fájl',
   'clear-all-tasks': 'Összes feladat törlése',
   'clear-all-tasks-confirm':
@@ -287,7 +287,8 @@ export default {
   'color-scheme-sakura': 'Szakura',
   'color-scheme-switched': 'Színséma átváltva: {name}',
   'open-settings': 'Beállítások megnyitása',
-  'protocol-unregister-manual-required': 'Rendszerkorlátozás miatt ez a társítás nem távolítható el az alkalmazásban. Módosítsa kézzel.',
+  'protocol-unregister-manual-required':
+    'Rendszerkorlátozás miatt ez a társítás nem távolítható el az alkalmazásban. Módosítsa kézzel.',
   'protocol-macos-unregister-hint':
     'A macOS rendszeren a(z) {protocol}:// alapértelmezett programjának módosítása a Rendszerbeállítások → Alapértelmezett alkalmazások menüben szükséges',
   'default-programs': 'Alapértelmezett programok',

@@ -236,9 +236,9 @@ export default {
   'engine-section': 'Aria2 Next-nedlastingsmotor',
   'hardware-rendering': 'GPU maskinvareakselerasjon',
   'hardware-rendering-hint':
-    'WebKitGTK DMA-BUF maskinvareakselerasjon er aktivert som standard for best ytelse. Hvis du opplever hvit skjerm eller krasj med nåværende GPU, deaktiver dette alternativet for å falle tilbake til programvarerendering.',
+    'WebKitGTK DMA-BUF maskinvareakselerasjon er deaktivert som standard for bedre stabilitet på Linux og Wayland. Du kan aktivere den for høyere gjengivelsesytelse, men enkelte GPU-er, drivere eller skrivebordsmiljøer kan krasje.',
   'hardware-rendering-restart-confirm':
-    'WebKitGTK DMA-BUF maskinvareakselerasjon må konfigureres før prosessen starter og krever en omstart. Noen GPUer (f.eks. NVIDIA proprietær, Intel + Wayland, Raspberry Pi) er kanskje ikke kompatible. Hvis appen krasjer etter aktivering, deaktiveres dette automatisk.',
+    'Endring av WebKitGTK DMA-BUF maskinvareakselerasjon krever omstart av appen fordi den må settes før prosessen starter. Hvis appen krasjer etter aktivering, start den én gang med WEBKIT_DISABLE_DMABUF_RENDERER=1 eller deaktiver den manuelt i config.json.',
   'session-path': 'Hurtigbufferfil for oppgaver',
   'clear-all-tasks': 'Fjern alle oppgaver',
   'clear-all-tasks-confirm':
@@ -286,7 +286,8 @@ export default {
   'color-scheme-sakura': 'Sakura',
   'color-scheme-switched': 'Byttet til fargevalget {name}',
   'open-settings': 'Gå til innstillinger',
-  'protocol-unregister-manual-required': 'På grunn av systembegrensninger kan denne tilknytningen ikke fjernes i appen. Endre den manuelt.',
+  'protocol-unregister-manual-required':
+    'På grunn av systembegrensninger kan denne tilknytningen ikke fjernes i appen. Endre den manuelt.',
   'protocol-macos-unregister-hint':
     'macOS krever endring av standardprogrammet for {protocol}:// i Systeminnstillinger → Standardapper',
   'default-programs': 'Standardprogrammer',

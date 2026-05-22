@@ -235,9 +235,9 @@ export default {
   'engine-section': 'Công cụ tải xuống Aria2 Next',
   'hardware-rendering': 'Tăng tốc GPU',
   'hardware-rendering-hint':
-    'Tăng tốc phần cứng WebKitGTK DMA-BUF được bật mặc định để có hiệu suất kết xuất tốt nhất. Nếu gặp màn hình trắng hoặc sập với GPU hiện tại, hãy tắt tùy chọn này để chuyển về kết xuất phần mềm.',
+    'Tăng tốc phần cứng WebKitGTK DMA-BUF được tắt mặc định để cải thiện độ ổn định trên Linux và Wayland. Bạn có thể bật để tăng hiệu suất kết xuất, nhưng một số GPU, driver hoặc môi trường desktop có thể bị sập.',
   'hardware-rendering-restart-confirm':
-    'Tăng tốc phần cứng WebKitGTK DMA-BUF cần được cấu hình trước khi khởi động tiến trình và yêu cầu khởi động lại ứng dụng. Một số GPU (ví dụ: NVIDIA proprietary, Intel + Wayland, Raspberry Pi) có thể không tương thích. Nếu ứng dụng sập sau khi bật, tùy chọn này sẽ tự động tắt.',
+    'Thay đổi tăng tốc WebKitGTK DMA-BUF yêu cầu khởi động lại ứng dụng vì phải được đặt trước khi tiến trình khởi động. Nếu ứng dụng sập sau khi bật, hãy chạy một lần với WEBKIT_DISABLE_DMABUF_RENDERER=1 hoặc tắt thủ công trong config.json.',
   'session-path': 'Tập tin bộ nhớ đệm tác vụ',
   'clear-all-tasks': 'Xóa tất cả tác vụ',
   'clear-all-tasks-confirm':
@@ -285,7 +285,8 @@ export default {
   'color-scheme-sakura': 'Hoa anh đào',
   'color-scheme-switched': 'Đã chuyển sang bảng màu {name}',
   'open-settings': 'Đi đến Cài đặt',
-  'protocol-unregister-manual-required': 'Do giới hạn của hệ thống, không thể hủy liên kết này trong ứng dụng. Vui lòng thay đổi thủ công.',
+  'protocol-unregister-manual-required':
+    'Do giới hạn của hệ thống, không thể hủy liên kết này trong ứng dụng. Vui lòng thay đổi thủ công.',
   'protocol-macos-unregister-hint':
     'macOS yêu cầu thay đổi chương trình mặc định cho {protocol}:// trong Cài đặt Hệ thống → Ứng dụng Mặc định',
   'default-programs': 'Chương trình mặc định',

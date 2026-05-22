@@ -238,9 +238,9 @@ export default {
   'engine-section': 'Mesin Unduh Aria2 Next',
   'hardware-rendering': 'Akselerasi GPU',
   'hardware-rendering-hint':
-    'Akselerasi perangkat keras WebKitGTK DMA-BUF diaktifkan secara default untuk performa rendering terbaik. Jika Anda mengalami layar kosong atau crash dengan GPU saat ini, nonaktifkan opsi ini untuk beralih ke rendering perangkat lunak.',
+    'Akselerasi perangkat keras WebKitGTK DMA-BUF dinonaktifkan secara default untuk meningkatkan stabilitas Linux dan Wayland. Anda dapat mengaktifkannya untuk performa rendering lebih tinggi, tetapi beberapa GPU, driver, atau lingkungan desktop dapat crash.',
   'hardware-rendering-restart-confirm':
-    'Akselerasi perangkat keras WebKitGTK DMA-BUF harus dikonfigurasi sebelum proses dimulai dan memerlukan restart aplikasi. Beberapa GPU (mis. NVIDIA proprietary, Intel + Wayland, Raspberry Pi) mungkin tidak kompatibel. Jika aplikasi crash setelah diaktifkan, ini akan otomatis dinonaktifkan.',
+    'Mengubah akselerasi perangkat keras WebKitGTK DMA-BUF memerlukan restart aplikasi karena harus disetel sebelum proses dimulai. Jika aplikasi crash setelah diaktifkan, jalankan sekali dengan WEBKIT_DISABLE_DMABUF_RENDERER=1 atau nonaktifkan secara manual di config.json.',
   'session-path': 'File Cache Tugas',
   'clear-all-tasks': 'Hapus Semua Tugas',
   'clear-all-tasks-confirm':
@@ -288,7 +288,8 @@ export default {
   'color-scheme-sakura': 'Sakura',
   'color-scheme-switched': 'Beralih ke skema warna {name}',
   'open-settings': 'Buka Pengaturan',
-  'protocol-unregister-manual-required': 'Karena pembatasan sistem, asosiasi ini tidak dapat dibatalkan di aplikasi. Ubah secara manual.',
+  'protocol-unregister-manual-required':
+    'Karena pembatasan sistem, asosiasi ini tidak dapat dibatalkan di aplikasi. Ubah secara manual.',
   'protocol-macos-unregister-hint':
     'macOS memerlukan perubahan program default untuk {protocol}:// di Pengaturan Sistem → Aplikasi Default',
   'default-programs': 'Program Default',

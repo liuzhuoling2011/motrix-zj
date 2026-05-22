@@ -548,12 +548,6 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // ── GPU guard: mark successful startup ───────────────────────────
-    // If the user opted into hardware rendering, the sentinel file was
-    // written by gpu_guard::pre_flight(). Reaching this point proves
-    // that WebKitGTK's EGL init succeeded — safe to delete the sentinel.
-    gpu_guard::mark_healthy();
-
     // ── GeoIP: load bundled DB-IP Country Lite for peer country flags ─
     let geoip_state = commands::geoip::init_geoip(&app.handle().clone());
     app.manage(geoip_state);
@@ -717,8 +711,8 @@ pub fn run() {
     // - Default: hardware rendering OFF (software compositing).
     //   Safe for all GPUs, negligible perf difference for a download manager UI.
     // - Users can opt in via Advanced → "Hardware Rendering" toggle.
-    // - If opting in crashes the app, gpu_guard detects a leftover sentinel
-    //   file on the next launch and auto-reverts the preference to OFF.
+    // - If opting in crashes the app, launch once with
+    //   WEBKIT_DISABLE_DMABUF_RENDERER=1 or edit config.json to disable it.
     //
     // The `is_dmabuf_renderer_disabled()` command in fs.rs reads the same
     // env var at runtime, so the frontend's border-radius workaround

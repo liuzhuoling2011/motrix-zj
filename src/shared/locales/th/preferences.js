@@ -233,9 +233,9 @@ export default {
   'engine-section': 'เอนจินดาวน์โหลด Aria2 Next',
   'hardware-rendering': 'การเร่งความเร็ว GPU',
   'hardware-rendering-hint':
-    'การเร่งความเร็วฮาร์ดแวร์ WebKitGTK DMA-BUF เปิดใช้งานเป็นค่าเริ่มต้นเพื่อประสิทธิภาพการเรนเดอร์สูงสุด หากพบหน้าจอขาวหรือแครชกับ GPU ปัจจุบัน ให้ปิดตัวเลือกนี้เพื่อสลับไปใช้การเรนเดอร์ซอฟต์แวร์',
+    'การเร่งความเร็วฮาร์ดแวร์ WebKitGTK DMA-BUF ถูกปิดเป็นค่าเริ่มต้นเพื่อเพิ่มเสถียรภาพบน Linux และ Wayland คุณสามารถเปิดเพื่อเพิ่มประสิทธิภาพการเรนเดอร์ได้ แต่ GPU ไดรเวอร์ หรือเดสก์ท็อปบางแบบอาจแครช',
   'hardware-rendering-restart-confirm':
-    'การเร่งความเร็วฮาร์ดแวร์ WebKitGTK DMA-BUF ต้องกำหนดค่าก่อนเริ่มกระบวนการ จึงต้องรีสตาร์ทแอป GPU บางตัว (เช่น NVIDIA proprietary, Intel + Wayland, Raspberry Pi) อาจไม่เข้ากัน หากแอปแครชหลังเปิดใช้งาน จะถูกปิดอัตโนมัติ',
+    'การเปลี่ยนการเร่งความเร็ว WebKitGTK DMA-BUF ต้องรีสตาร์ทแอป เพราะต้องตั้งค่าก่อนเริ่มโปรเซส หากแอปแครชหลังเปิดใช้งาน ให้เปิดหนึ่งครั้งด้วย WEBKIT_DISABLE_DMABUF_RENDERER=1 หรือปิดเองใน config.json',
   'session-path': 'ไฟล์แคชงาน',
   'clear-all-tasks': 'ล้างงานทั้งหมด',
   'clear-all-tasks-confirm':
@@ -283,7 +283,8 @@ export default {
   'color-scheme-sakura': 'ซากุระ',
   'color-scheme-switched': 'เปลี่ยนเป็นชุดสี {name} แล้ว',
   'open-settings': 'ไปที่การตั้งค่า',
-  'protocol-unregister-manual-required': 'เนื่องจากข้อจำกัดของระบบ จึงไม่สามารถยกเลิกการเชื่อมโยงนี้ในแอปได้ โปรดเปลี่ยนด้วยตนเอง',
+  'protocol-unregister-manual-required':
+    'เนื่องจากข้อจำกัดของระบบ จึงไม่สามารถยกเลิกการเชื่อมโยงนี้ในแอปได้ โปรดเปลี่ยนด้วยตนเอง',
   'protocol-macos-unregister-hint':
     'macOS ต้องการเปลี่ยนโปรแกรมเริ่มต้นสำหรับ {protocol}:// ในการตั้งค่าระบบ → แอปเริ่มต้น',
   'default-programs': 'โปรแกรมเริ่มต้น',

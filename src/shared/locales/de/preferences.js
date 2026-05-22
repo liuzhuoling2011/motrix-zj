@@ -239,9 +239,9 @@ export default {
   'engine-section': 'Aria2 Next-Download-Engine',
   'hardware-rendering': 'GPU-Hardwarebeschleunigung',
   'hardware-rendering-hint':
-    'WebKitGTK DMA-BUF Hardwarebeschleunigung ist standardmäßig aktiviert für beste Leistung. Bei weißem Bildschirm oder Absturz mit Ihrer Grafikkarte können Sie diese Option deaktivieren, um auf Software-Rendering zurückzufallen.',
+    'WebKitGTK DMA-BUF-Hardwarebeschleunigung ist standardmäßig deaktiviert, um die Stabilität unter Linux und Wayland zu verbessern. Sie können sie für höhere Rendering-Leistung aktivieren, aber einige GPUs, Treiber oder Desktop-Umgebungen können abstürzen.',
   'hardware-rendering-restart-confirm':
-    'WebKitGTK DMA-BUF Hardwarebeschleunigung muss vor dem Prozessstart konfiguriert werden und erfordert einen Neustart. Einige Grafikkarten (z.B. NVIDIA proprietär, Intel + Wayland, Raspberry Pi) sind möglicherweise nicht kompatibel. Wenn die App nach der Aktivierung abstürzt, wird sie automatisch deaktiviert.',
+    'Das Ändern der WebKitGTK DMA-BUF-Hardwarebeschleunigung erfordert einen App-Neustart, da sie vor dem Prozessstart gesetzt werden muss. Wenn die App nach dem Aktivieren abstürzt, starten Sie sie einmal mit WEBKIT_DISABLE_DMABUF_RENDERER=1 oder deaktivieren Sie sie manuell in config.json.',
   'session-path': 'Aufgaben-Cache-Datei',
   'clear-all-tasks': 'Alle Aufgaben löschen',
   'clear-all-tasks-confirm':
@@ -289,7 +289,8 @@ export default {
   'color-scheme-sakura': 'Sakura',
   'color-scheme-switched': 'Farbschema auf {name} umgestellt',
   'open-settings': 'Zu den Einstellungen',
-  'protocol-unregister-manual-required': 'Aufgrund von Systembeschränkungen kann diese Zuordnung nicht in der App entfernt werden. Bitte manuell ändern.',
+  'protocol-unregister-manual-required':
+    'Aufgrund von Systembeschränkungen kann diese Zuordnung nicht in der App entfernt werden. Bitte manuell ändern.',
   'protocol-macos-unregister-hint':
     'macOS erfordert das Ändern des Standardprogramms für {protocol}:// in Systemeinstellungen → Standardapps',
   'default-programs': 'Standardprogramme',

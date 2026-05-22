@@ -262,9 +262,8 @@ export const DEFAULT_APP_CONFIG = {
   // ── Auto Update ───────────────────────────────────────────────
   autoCheckUpdate: true, // qBT checks every launch; security best practice
   autoCheckUpdateInterval: 0, // 0 means every frontend startup, including lightweight restores
-  /** Linux-only: DMA-BUF GPU rendering ON by default for best performance.
-   *  Crash sentinel in gpu_guard auto-reverts to software rendering on failure. */
-  hardwareRendering: true,
+  /** Linux-only: DMA-BUF GPU rendering is opt-in for Wayland/WebKitGTK stability. */
+  hardwareRendering: false,
   updateChannel: 'stable' as const,
   lastCheckUpdateTime: 0,
 

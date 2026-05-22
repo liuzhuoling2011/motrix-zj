@@ -315,9 +315,7 @@ export interface AppConfig {
   favoriteDirectories: string[]
   lastCheckUpdateTime: number
   lastSyncTrackerTime: number
-  /** Linux-only: opt into DMA-BUF GPU hardware rendering (default: false = software).
-   *  If enabling this causes a WebKitGTK crash, the Rust gpu_guard module
-   *  automatically reverts it to false on the next launch. */
+  /** Linux-only: opt into DMA-BUF GPU hardware rendering (default: false = software). */
   hardwareRendering: boolean
   updateChannel: UpdateChannel
   runMode: string

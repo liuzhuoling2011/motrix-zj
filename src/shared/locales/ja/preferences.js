@@ -236,9 +236,9 @@ export default {
   'engine-section': 'Aria2 Next ダウンロードエンジン',
   'hardware-rendering': 'GPU ハードウェアアクセラレーション',
   'hardware-rendering-hint':
-    'WebKitGTK DMA-BUF ハードウェアアクセラレーションは最適なレンダリング性能のためデフォルトで有効です。使用中の GPU で白画面やクラッシュが発生する場合は、このオプションを無効にしてソフトウェアレンダリングに切り替えてください。',
+    'WebKitGTK DMA-BUF ハードウェアアクセラレーションは、Linux と Wayland の安定性を高めるためデフォルトで無効です。描画性能を高めたい場合は有効にできますが、一部の GPU、ドライバー、デスクトップ環境ではクラッシュする可能性があります。',
   'hardware-rendering-restart-confirm':
-    'WebKitGTK DMA-BUF ハードウェアアクセラレーションはプロセス起動前に設定する必要があるため、アプリの再起動が必要です。一部の GPU（NVIDIA プロプライエタリ、Intel + Wayland、Raspberry Pi など）は互換性がない場合があります。有効化後にアプリがクラッシュした場合、次回起動時に自動的に無効になります。',
+    'WebKitGTK DMA-BUF ハードウェアアクセラレーションの変更には、プロセス起動前に設定する必要があるためアプリの再起動が必要です。有効化後にアプリがクラッシュする場合は、WEBKIT_DISABLE_DMABUF_RENDERER=1 を付けて一度起動するか、config.json で手動で無効にしてください。',
   'session-path': 'タスクキャッシュファイル',
   'clear-all-tasks': 'すべてのタスクを消去',
   'clear-all-tasks-confirm':
@@ -286,7 +286,8 @@ export default {
   'color-scheme-sakura': 'サクラ',
   'color-scheme-switched': 'カラースキームを {name} に変更しました',
   'open-settings': '設定を開く',
-  'protocol-unregister-manual-required': 'システムの制限により、この関連付けはアプリ内で解除できません。手動で変更してください。',
+  'protocol-unregister-manual-required':
+    'システムの制限により、この関連付けはアプリ内で解除できません。手動で変更してください。',
   'protocol-macos-unregister-hint':
     '{protocol}:// のデフォルトプログラムは macOS のシステム設定 → デフォルトのアプリで変更してください',
   'default-programs': '既定のプログラム',

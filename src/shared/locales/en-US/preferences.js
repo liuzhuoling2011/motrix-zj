@@ -236,9 +236,9 @@ export default {
   'engine-section': 'Aria2 Next Download Engine',
   'hardware-rendering': 'GPU Hardware Acceleration',
   'hardware-rendering-hint':
-    'WebKitGTK DMA-BUF hardware acceleration is enabled by default for optimal rendering performance. If you experience a blank screen or crash with your current GPU, disable this option to fall back to software rendering.',
+    'WebKitGTK DMA-BUF hardware acceleration is disabled by default to improve Linux and Wayland stability. You can enable it for higher rendering performance, but some GPUs, drivers, or desktop environments may crash.',
   'hardware-rendering-restart-confirm':
-    'WebKitGTK DMA-BUF hardware acceleration must be configured before process startup and requires an app restart. Some GPUs (e.g. NVIDIA proprietary, Intel + Wayland, Raspberry Pi) may be incompatible. If the app crashes after enabling, this will be automatically disabled on next launch.',
+    'Changing WebKitGTK DMA-BUF hardware acceleration requires an app restart because it must be set before process startup. If the app crashes after enabling it, launch once with WEBKIT_DISABLE_DMABUF_RENDERER=1 or disable it manually in config.json.',
   'session-path': 'Task Cache File',
   'clear-all-tasks': 'Clear All Tasks',
   'clear-all-tasks-confirm':
@@ -286,7 +286,8 @@ export default {
   'color-scheme-sakura': 'Sakura',
   'color-scheme-switched': 'Switched to {name}',
   'open-settings': 'Go to Settings',
-  'protocol-unregister-manual-required': 'Due to system restrictions, this association cannot be removed in the app. Please change it manually.',
+  'protocol-unregister-manual-required':
+    'Due to system restrictions, this association cannot be removed in the app. Please change it manually.',
   'protocol-macos-unregister-hint':
     '{protocol}:// requires changing the default in macOS System Settings → Default Apps',
   'default-programs': 'Default Programs',

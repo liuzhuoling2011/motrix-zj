@@ -235,9 +235,9 @@ export default {
   'engine-section': 'Aria2 Next 다운로드 엔진',
   'hardware-rendering': 'GPU 하드웨어 가속',
   'hardware-rendering-hint':
-    '최적의 렌더링 성능을 위해 WebKitGTK DMA-BUF 하드웨어 가속이 기본적으로 활성화되어 있습니다. 현재 GPU에서 흰 화면이나 충돌이 발생하면 이 옵션을 비활성화하여 소프트웨어 렌더링으로 전환하세요.',
+    'WebKitGTK DMA-BUF 하드웨어 가속은 Linux 및 Wayland 안정성을 높이기 위해 기본적으로 비활성화되어 있습니다. 더 높은 렌더링 성능을 원하면 활성화할 수 있지만 일부 GPU, 드라이버 또는 데스크톱 환경에서는 충돌할 수 있습니다.',
   'hardware-rendering-restart-confirm':
-    'WebKitGTK DMA-BUF 하드웨어 가속은 프로세스 시작 전에 구성해야 하므로 앱 재시작이 필요합니다. 일부 GPU(예: NVIDIA 독점 드라이버, Intel + Wayland, Raspberry Pi)는 호환되지 않을 수 있습니다. 활성화 후 앱이 충돌하면 다음 실행 시 자동으로 비활성화됩니다.',
+    'WebKitGTK DMA-BUF 하드웨어 가속 변경은 프로세스 시작 전에 설정해야 하므로 앱 재시작이 필요합니다. 활성화 후 앱이 충돌하면 WEBKIT_DISABLE_DMABUF_RENDERER=1로 한 번 실행하거나 config.json에서 수동으로 비활성화하세요.',
   'session-path': '작업 캐시 파일',
   'clear-all-tasks': '모든 작업 삭제',
   'clear-all-tasks-confirm':

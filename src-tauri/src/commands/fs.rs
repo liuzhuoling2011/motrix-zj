@@ -662,8 +662,7 @@ pub fn remove_file(path: String) -> Result<(), AppError> {
 /// WebKitGTK's DMA-BUF renderer crashes on various GPU/driver/compositor
 /// combinations (NVIDIA, Intel UHD + Wayland, Broadcom on RPi, VM guests).
 /// By default, hardware rendering is OFF (`WEBKIT_DISABLE_DMABUF_RENDERER=1`).
-/// Users can opt in via Advanced → "Hardware Rendering"; if it crashes, the
-/// `gpu_guard` module automatically reverts the preference on next launch.
+/// Users can opt in via Advanced → "Hardware Rendering".
 ///
 /// The frontend uses this flag to decide:
 /// - `false` → safe to remove border-radius on maximize (normal behavior)

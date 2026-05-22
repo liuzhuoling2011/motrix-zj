@@ -238,9 +238,9 @@ export default {
   'engine-section': 'Silnik pobierania Aria2 Next',
   'hardware-rendering': 'Akceleracja GPU',
   'hardware-rendering-hint':
-    'Akceleracja sprzętowa WebKitGTK DMA-BUF jest domyślnie włączona dla najlepszej wydajności. Jeśli na obecnym GPU występuje biały ekran lub awaria, wyłącz tę opcję, aby przejść na renderowanie programowe.',
+    'Akceleracja sprzętowa WebKitGTK DMA-BUF jest domyślnie wyłączona, aby poprawić stabilność w Linux i Wayland. Możesz ją włączyć dla wyższej wydajności renderowania, ale niektóre GPU, sterowniki lub środowiska graficzne mogą powodować awarie.',
   'hardware-rendering-restart-confirm':
-    'Akceleracja sprzętowa WebKitGTK DMA-BUF musi być skonfigurowana przed uruchomieniem procesu i wymaga ponownego uruchomienia aplikacji. Niektóre GPU (np. NVIDIA proprietary, Intel + Wayland, Raspberry Pi) mogą być niekompatybilne. Jeśli aplikacja ulegnie awarii po włączeniu, zostanie automatycznie wyłączone.',
+    'Zmiana akceleracji WebKitGTK DMA-BUF wymaga ponownego uruchomienia aplikacji, ponieważ musi zostać ustawiona przed startem procesu. Jeśli aplikacja ulegnie awarii po włączeniu, uruchom ją raz z WEBKIT_DISABLE_DMABUF_RENDERER=1 albo wyłącz ręcznie w config.json.',
   'session-path': 'Plik pamięci podręcznej zadań',
   'clear-all-tasks': 'Usuń wszystkie zadania',
   'clear-all-tasks-confirm':
@@ -288,7 +288,8 @@ export default {
   'color-scheme-sakura': 'Sakura',
   'color-scheme-switched': 'Przełączono na schemat kolorów {name}',
   'open-settings': 'Przejdź do ustawień',
-  'protocol-unregister-manual-required': 'Ze względu na ograniczenia systemowe tego skojarzenia nie można usunąć w aplikacji. Zmień je ręcznie.',
+  'protocol-unregister-manual-required':
+    'Ze względu na ograniczenia systemowe tego skojarzenia nie można usunąć w aplikacji. Zmień je ręcznie.',
   'protocol-macos-unregister-hint':
     'macOS wymaga zmiany domyślnego programu dla {protocol}:// w Ustawienia systemowe → Domyślne aplikacje',
   'default-programs': 'Programy domyślne',

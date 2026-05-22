@@ -234,9 +234,9 @@ export default {
   'engine-section': 'محرك التنزيل Aria2 Next',
   'hardware-rendering': 'تسريع GPU',
   'hardware-rendering-hint':
-    'تسريع WebKitGTK DMA-BUF مفعّل افتراضيًا لأفضل أداء عرض. إذا ظهرت شاشة بيضاء أو توقف مفاجئ مع بطاقتك الحالية، يمكنك إيقاف هذا الخيار للعودة إلى العرض البرمجي.',
+    'يتم إيقاف تسريع WebKitGTK DMA-BUF افتراضيًا لتحسين الاستقرار على Linux وWayland. يمكنك تفعيله إذا أردت أداء عرض أعلى، لكن بعض البطاقات أو التعريفات أو بيئات سطح المكتب قد تتعطل.',
   'hardware-rendering-restart-confirm':
-    'تسريع WebKitGTK DMA-BUF يحتاج إعداد قبل بدء العملية، لذا يجب إعادة تشغيل التطبيق بعد التغيير. بعض البطاقات (مثل تعريفات NVIDIA المغلقة، Intel + Wayland، Raspberry Pi) قد تكون غير متوافقة. إذا تعطل التطبيق بعد التفعيل، سيتم إيقافه تلقائيًا في التشغيل التالي.',
+    'يتطلب تغيير تسريع WebKitGTK DMA-BUF إعادة تشغيل التطبيق لأنه يجب ضبطه قبل بدء العملية. إذا تعطل التطبيق بعد تفعيله، شغّله مرة واحدة مع WEBKIT_DISABLE_DMABUF_RENDERER=1 أو عطّله يدويًا في config.json.',
   'session-path': 'ملف ذاكرة التخزين المؤقت للمهام',
   'clear-all-tasks': 'مسح جميع المهام',
   'clear-all-tasks-confirm':
@@ -284,7 +284,8 @@ export default {
   'color-scheme-sakura': 'أزهار الكرز',
   'color-scheme-switched': 'تم التبديل إلى نظام ألوان {name}',
   'open-settings': 'الانتقال إلى الإعدادات',
-  'protocol-unregister-manual-required': 'بسبب قيود النظام، لا يمكن إلغاء هذا الارتباط داخل التطبيق. يرجى تغييره يدوياً.',
+  'protocol-unregister-manual-required':
+    'بسبب قيود النظام، لا يمكن إلغاء هذا الارتباط داخل التطبيق. يرجى تغييره يدوياً.',
   'protocol-macos-unregister-hint':
     'يتطلب macOS تغيير البرنامج الافتراضي لـ {protocol}:// في إعدادات النظام ← التطبيقات الافتراضية',
   'default-programs': 'البرامج الافتراضية',

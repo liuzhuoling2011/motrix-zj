@@ -238,9 +238,9 @@ export default {
   'engine-section': 'Motor de descărcare Aria2 Next',
   'hardware-rendering': 'Accelerare GPU',
   'hardware-rendering-hint':
-    'Accelerarea hardware WebKitGTK DMA-BUF este activată implicit pentru performanță optimă. Dacă întâmpinați ecran alb sau blocare cu GPU-ul actual, dezactivați această opțiune pentru a reveni la redarea software.',
+    'Accelerarea hardware WebKitGTK DMA-BUF este dezactivată implicit pentru stabilitate mai bună pe Linux și Wayland. O puteți activa pentru performanță de randare mai mare, dar unele GPU-uri, drivere sau medii desktop se pot bloca.',
   'hardware-rendering-restart-confirm':
-    'Accelerarea hardware WebKitGTK DMA-BUF trebuie configurată înainte de pornirea procesului și necesită repornirea aplicației. Unele GPU-uri (ex. NVIDIA proprietar, Intel + Wayland, Raspberry Pi) pot fi incompatibile. Dacă aplicația se blochează după activare, va fi dezactivată automat.',
+    'Schimbarea accelerării WebKitGTK DMA-BUF necesită repornirea aplicației, deoarece trebuie setată înainte de pornirea procesului. Dacă aplicația se blochează după activare, porniți-o o dată cu WEBKIT_DISABLE_DMABUF_RENDERER=1 sau dezactivați-o manual în config.json.',
   'session-path': 'Fișier cache sarcini',
   'clear-all-tasks': 'Șterge toate sarcinile',
   'clear-all-tasks-confirm':
@@ -288,7 +288,8 @@ export default {
   'color-scheme-sakura': 'Sakura',
   'color-scheme-switched': 'Schema de culori schimbată la {name}',
   'open-settings': 'Mergi la Setări',
-  'protocol-unregister-manual-required': 'Din cauza restricțiilor sistemului, această asociere nu poate fi eliminată din aplicație. Modificați-o manual.',
+  'protocol-unregister-manual-required':
+    'Din cauza restricțiilor sistemului, această asociere nu poate fi eliminată din aplicație. Modificați-o manual.',
   'protocol-macos-unregister-hint':
     'macOS necesită schimbarea programului implicit pentru {protocol}:// în Setări de sistem → Aplicații implicite',
   'default-programs': 'Programe implicite',

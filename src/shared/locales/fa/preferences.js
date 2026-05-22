@@ -236,9 +236,9 @@ export default {
   'engine-section': 'موتور دانلود Aria2 Next',
   'hardware-rendering': 'شتاب‌دهی GPU',
   'hardware-rendering-hint':
-    'شتاب‌دهی سخت‌افزاری WebKitGTK DMA-BUF به‌طور پیش‌فرض برای بهترین عملکرد فعال است. اگر صفحه سفید یا خرابی با GPU فعلی تجربه می‌کنید، این گزینه را غیرفعال کنید تا به رندر نرم‌افزاری برگردید.',
+    'شتاب‌دهی سخت‌افزاری WebKitGTK DMA-BUF برای پایداری بهتر در Linux و Wayland به‌طور پیش‌فرض غیرفعال است. می‌توانید آن را برای عملکرد رندر بالاتر فعال کنید، اما برخی GPUها، درایورها یا محیط‌های دسکتاپ ممکن است باعث خرابی شوند.',
   'hardware-rendering-restart-confirm':
-    'شتاب‌دهی سخت‌افزاری WebKitGTK DMA-BUF باید قبل از شروع فرآیند پیکربندی شود و نیاز به راه‌اندازی مجدد دارد. برخی GPU‌ها (مانند NVIDIA اختصاصی، Intel + Wayland، Raspberry Pi) ممکن است سازگار نباشند. اگر برنامه پس از فعال‌سازی خراب شود، خودکار غیرفعال خواهد شد.',
+    'تغییر شتاب‌دهی سخت‌افزاری WebKitGTK DMA-BUF نیازمند راه‌اندازی مجدد برنامه است، چون باید پیش از شروع فرایند تنظیم شود. اگر برنامه پس از فعال‌سازی خراب شد، یک‌بار با WEBKIT_DISABLE_DMABUF_RENDERER=1 اجرا کنید یا آن را دستی در config.json غیرفعال کنید.',
   'session-path': 'فایل حافظه پنهان وظایف',
   'clear-all-tasks': 'پاک کردن همه وظایف',
   'clear-all-tasks-confirm':
@@ -286,7 +286,8 @@ export default {
   'color-scheme-sakura': 'ساکورا',
   'color-scheme-switched': 'طرح رنگ به {name} تغییر کرد',
   'open-settings': 'رفتن به تنظیمات',
-  'protocol-unregister-manual-required': 'به دلیل محدودیت سیستم، این ارتباط را نمی‌توان در برنامه لغو کرد. لطفاً آن را دستی تغییر دهید.',
+  'protocol-unregister-manual-required':
+    'به دلیل محدودیت سیستم، این ارتباط را نمی‌توان در برنامه لغو کرد. لطفاً آن را دستی تغییر دهید.',
   'protocol-macos-unregister-hint':
     'macOS نیاز به تغییر برنامه پیش‌فرض برای {protocol}:// در تنظیمات سیستم ← برنامه‌های پیش‌فرض دارد',
   'default-programs': 'برنامه‌های پیش‌فرض',

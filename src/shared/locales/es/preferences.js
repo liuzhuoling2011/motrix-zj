@@ -241,9 +241,9 @@ export default {
   'engine-section': 'Motor de descarga Aria2 Next',
   'hardware-rendering': 'Aceleración GPU',
   'hardware-rendering-hint':
-    'La aceleración WebKitGTK DMA-BUF está activada por defecto para el mejor rendimiento. Si experimenta pantalla en blanco o cierres con su tarjeta gráfica actual, desactive esta opción para volver al renderizado por software.',
+    'La aceleración WebKitGTK DMA-BUF está desactivada por defecto para mejorar la estabilidad en Linux y Wayland. Puede activarla para obtener mayor rendimiento de renderizado, pero algunas GPU, controladores o entornos de escritorio pueden fallar.',
   'hardware-rendering-restart-confirm':
-    'La aceleración WebKitGTK DMA-BUF debe configurarse antes del inicio del proceso y requiere reiniciar la aplicación. Algunas tarjetas gráficas (ej. NVIDIA propietario, Intel + Wayland, Raspberry Pi) pueden no ser compatibles. Si la aplicación se cierra tras activar, se desactivará automáticamente.',
+    'Cambiar la aceleración WebKitGTK DMA-BUF requiere reiniciar la aplicación porque debe configurarse antes de iniciar el proceso. Si la aplicación falla tras activarla, iníciela una vez con WEBKIT_DISABLE_DMABUF_RENDERER=1 o desactívela manualmente en config.json.',
   'session-path': 'Archivo de caché de tareas',
   'clear-all-tasks': 'Borrar todas las tareas',
   'clear-all-tasks-confirm':
@@ -292,7 +292,8 @@ export default {
   'color-scheme-sakura': 'Sakura',
   'color-scheme-switched': 'Cambiado al esquema de colores {name}',
   'open-settings': 'Ir a Configuración',
-  'protocol-unregister-manual-required': 'Por restricciones del sistema, esta asociación no se puede cancelar en la app. Cámbiala manualmente.',
+  'protocol-unregister-manual-required':
+    'Por restricciones del sistema, esta asociación no se puede cancelar en la app. Cámbiala manualmente.',
   'protocol-macos-unregister-hint':
     'macOS requiere cambiar el programa predeterminado para {protocol}:// en Ajustes del sistema → Apps por defecto',
   'default-programs': 'Programas predeterminados',

@@ -239,9 +239,9 @@ export default {
   'engine-section': 'Motor de download Aria2 Next',
   'hardware-rendering': 'Aceleração GPU',
   'hardware-rendering-hint':
-    'A aceleração de hardware WebKitGTK DMA-BUF está ativada por padrão para melhor desempenho. Se ocorrer tela em branco ou travamento com sua GPU atual, desative esta opção para voltar à renderização por software.',
+    'A aceleração de hardware WebKitGTK DMA-BUF fica desativada por padrão para melhorar a estabilidade no Linux e Wayland. Você pode ativá-la para maior desempenho de renderização, mas algumas GPUs, drivers ou ambientes de desktop podem travar.',
   'hardware-rendering-restart-confirm':
-    'A aceleração de hardware WebKitGTK DMA-BUF precisa ser configurada antes da inicialização do processo e requer reinicialização do aplicativo. Algumas GPUs (ex.: NVIDIA proprietário, Intel + Wayland, Raspberry Pi) podem não ser compatíveis. Se o aplicativo travar após a ativação, será automaticamente desativado.',
+    'Alterar a aceleração WebKitGTK DMA-BUF exige reiniciar o aplicativo porque ela precisa ser definida antes da inicialização do processo. Se o app travar após ativá-la, inicie uma vez com WEBKIT_DISABLE_DMABUF_RENDERER=1 ou desative manualmente em config.json.',
   'session-path': 'Arquivo de cache de tarefas',
   'clear-all-tasks': 'Limpar todas as tarefas',
   'clear-all-tasks-confirm':
@@ -289,7 +289,8 @@ export default {
   'color-scheme-sakura': 'Sakura',
   'color-scheme-switched': 'Esquema de cores alterado para {name}',
   'open-settings': 'Ir para Configurações',
-  'protocol-unregister-manual-required': 'Devido a restrições do sistema, esta associação não pode ser removida no app. Altere-a manualmente.',
+  'protocol-unregister-manual-required':
+    'Devido a restrições do sistema, esta associação não pode ser removida no app. Altere-a manualmente.',
   'protocol-macos-unregister-hint':
     'O macOS requer alterar o programa padrão para {protocol}:// em Ajustes do Sistema → Apps Padrão',
   'default-programs': 'Programas padrão',

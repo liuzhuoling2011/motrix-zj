@@ -239,7 +239,7 @@ export default {
   'engine-section': 'Aria2 Next-downloadengine',
   'hardware-rendering': 'GPU-hardwareversnelling',
   'hardware-rendering-hint':
-    'WebKitGTK DMA-BUF hardwareversnelling is standaard ingeschakeld voor de beste prestaties. Bij een wit scherm of crash met uw huidige GPU kunt u deze optie uitschakelen om terug te vallen op softwarerendering.',
+    'WebKitGTK DMA-BUF hardwareversnelling is standaard uitgeschakeld voor betere stabiliteit op Linux en Wayland. U kunt dit inschakelen voor hogere renderprestaties, maar sommige GPU’s, drivers of desktopomgevingen kunnen crashen.',
   'hardware-rendering-restart-confirm':
     "WebKitGTK DMA-BUF hardwareversnelling moet worden geconfigureerd vóór het starten van het proces en vereist een herstart. Sommige GPU's (bijv. NVIDIA proprietary, Intel + Wayland, Raspberry Pi) zijn mogelijk niet compatibel. Als de app crasht na inschakeling, wordt dit automatisch uitgeschakeld.",
   'session-path': 'Taakcachebestand',
@@ -289,7 +289,8 @@ export default {
   'color-scheme-sakura': 'Sakura',
   'color-scheme-switched': 'Kleurenschema gewijzigd naar {name}',
   'open-settings': 'Ga naar instellingen',
-  'protocol-unregister-manual-required': 'Door systeembeperkingen kan deze koppeling niet in de app worden verwijderd. Wijzig dit handmatig.',
+  'protocol-unregister-manual-required':
+    'Door systeembeperkingen kan deze koppeling niet in de app worden verwijderd. Wijzig dit handmatig.',
   'protocol-macos-unregister-hint':
     'macOS vereist het wijzigen van het standaardprogramma voor {protocol}:// in Systeeminstellingen → Standaardapps',
   'default-programs': "Standaardprogramma's",
