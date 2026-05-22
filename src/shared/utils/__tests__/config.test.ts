@@ -32,6 +32,13 @@ describe('changeKeysToKebabCase', () => {
   it('converts camelCase keys to kebab-case', () => {
     expect(changeKeysToKebabCase({ maxSpeed: 100 })).toEqual({ 'max-speed': 100 })
   })
+
+  it('keeps ED2K as one aria2 option prefix', () => {
+    expect(changeKeysToKebabCase({ ed2kListenPort: 4663, ed2kShareFiles: ['/tmp/shared.bin'] })).toEqual({
+      'ed2k-listen-port': 4663,
+      'ed2k-share-files': ['/tmp/shared.bin'],
+    })
+  })
 })
 
 describe('changeKeysCase', () => {
@@ -127,6 +134,17 @@ describe('checkIsNeedRestart', () => {
   it('returns true for dhtListenPort', () => {
     expect(checkIsNeedRestart({ dhtListenPort: 26702 })).toBe(true)
   })
+  it('returns true for asyncDns', () => {
+    expect(checkIsNeedRestart({ asyncDns: false })).toBe(true)
+  })
+  it('returns true for ED2K restart keys from AppConfig camelCase fields', () => {
+    expect(checkIsNeedRestart({ ed2kListenPort: 4663 })).toBe(true)
+    expect(checkIsNeedRestart({ ed2kServer: 'server.example:4661' })).toBe(true)
+    expect(checkIsNeedRestart({ ed2kServerList: '/tmp/server.met' })).toBe(true)
+    expect(checkIsNeedRestart({ ed2kNodeList: '/tmp/nodes.dat' })).toBe(true)
+    expect(checkIsNeedRestart({ ed2kUploadSlots: 4 })).toBe(true)
+    expect(checkIsNeedRestart({ ed2kShareFiles: ['/tmp/shared.bin'] })).toBe(true)
+  })
   it('returns false for non-restart keys', () => {
     expect(checkIsNeedRestart({ theme: 'dark' })).toBe(false)
   })
@@ -171,6 +189,10 @@ describe('formatOptionsForEngine', () => {
   it('converts keys to kebab-case', () => {
     const result = formatOptionsForEngine({ maxSpeed: '100' })
     expect(result).toHaveProperty('max-speed')
+  })
+  it('formats ED2K option keys with the aria2 ED2K prefix', () => {
+    const result = formatOptionsForEngine({ ed2kListenPort: 4663, ed2kServerList: '/tmp/server.met' })
+    expect(result).toEqual({ 'ed2k-listen-port': '4663', 'ed2k-server-list': '/tmp/server.met' })
   })
   it('joins arrays with newline', () => {
     const result = formatOptionsForEngine({ trackerSource: ['a', 'b'] })
@@ -245,6 +267,7 @@ describe('filterHotReloadableKeys', () => {
       'listen-port': '21301',
       'dht-listen-port': '26701',
       'async-dns': 'false',
+      'enable-dht': 'true',
     }
     expect(filterHotReloadableKeys(config)).toEqual({})
   })

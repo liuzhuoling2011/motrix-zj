@@ -209,6 +209,7 @@ const needRestartKeys = [
   'ed2k-server',
   'ed2k-server-list',
   'ed2k-share-file',
+  'ed2k-share-files',
   'ed2k-upload-slots',
   'async-dns',
   'listen-port',

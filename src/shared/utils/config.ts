@@ -22,7 +22,7 @@ export const changeKeysToCamelCase = (obj: Record<string, unknown> = {}): Record
 }
 
 export const changeKeysToKebabCase = (obj: Record<string, unknown> = {}): Record<string, unknown> => {
-  return changeKeysCase(obj, kebabCase)
+  return changeKeysCase(obj, (key) => kebabCase(key).replace(/^ed-2-k-/, 'ed2k-'))
 }
 
 export const validateNumber = (n: unknown): boolean => {
@@ -94,11 +94,12 @@ export const formatOptionsForEngine = (
   Object.keys(options).forEach((key) => {
     const val = options[key]
     if (val === undefined || val === null) return
-    const kebabCaseKey = kebabCase(key)
+    const kebabCaseKey = changeKeysToKebabCase({ [key]: val })
+    const [engineKey] = Object.keys(kebabCaseKey)
     if (Array.isArray(val)) {
-      result[kebabCaseKey] = (val as string[]).join('\n')
+      result[engineKey] = (val as string[]).join('\n')
     } else {
-      result[kebabCaseKey] = `${val}`
+      result[engineKey] = `${val}`
     }
   })
   return result
@@ -140,6 +141,7 @@ const NON_HOT_RELOADABLE = new Set([
   'pause',
   'select-file',
   'rpc-save-upload-metadata',
+  'enable-dht',
   'log-level',
 ])
 

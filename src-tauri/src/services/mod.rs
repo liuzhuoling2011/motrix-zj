@@ -43,6 +43,7 @@ const NON_HOT_RELOADABLE: &[&str] = &[
     "ed2k-server-list",
     "ed2k-share-file",
     "ed2k-upload-slots",
+    "async-dns",
     "listen-port",
     "rpc-listen-port",
     "rpc-secret",
@@ -53,6 +54,7 @@ const NON_HOT_RELOADABLE: &[&str] = &[
     "pause",
     "select-file",
     "rpc-save-upload-metadata",
+    "enable-dht",
     // Needs full app relaunch (tauri-plugin-log init)
     "log-level",
 ];
@@ -477,11 +479,17 @@ mod tests {
         assert!(NON_HOT_RELOADABLE.contains(&"rpc-secret"));
         assert!(NON_HOT_RELOADABLE.contains(&"listen-port"));
         assert!(NON_HOT_RELOADABLE.contains(&"dht-listen-port"));
+        assert!(NON_HOT_RELOADABLE.contains(&"async-dns"));
     }
 
     #[test]
     fn non_hot_reloadable_contains_log_level() {
         assert!(NON_HOT_RELOADABLE.contains(&"log-level"));
+    }
+
+    #[test]
+    fn non_hot_reloadable_contains_startup_only_keys() {
+        assert!(NON_HOT_RELOADABLE.contains(&"enable-dht"));
     }
 
     #[test]
