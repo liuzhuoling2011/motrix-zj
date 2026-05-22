@@ -26,7 +26,7 @@ const baseForm: Ed2kForm = {
   ed2kNodeList: '',
   ed2kUploadSlots: 3,
   ed2kShareFiles: '',
-  ed2kSearchTimeout: 90,
+  ed2kSearchTimeout: 20,
 }
 
 describe('buildEd2kForm', () => {
@@ -39,7 +39,7 @@ describe('buildEd2kForm', () => {
     expect(form.ed2kNodeList).toBe('')
     expect(form.ed2kUploadSlots).toBe(3)
     expect(form.ed2kShareFiles).toBe('')
-    expect(form.ed2kSearchTimeout).toBe(90)
+    expect(form.ed2kSearchTimeout).toBe(20)
   })
 
   it('renders persisted server and shared file lists as one item per line', () => {

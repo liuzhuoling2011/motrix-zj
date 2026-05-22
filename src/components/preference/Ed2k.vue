@@ -66,7 +66,7 @@ const searchActive = computed(() => searchState.value !== 'idle')
 const searchButtonText = computed(() =>
   searchActive.value ? t('preferences.ed2k-search-cancel') : t('preferences.ed2k-search-submit'),
 )
-const searchMaxDurationMs = computed(() => Math.max(1, Number(form.value.ed2kSearchTimeout || 90)) * 1000)
+const searchMaxDurationMs = computed(() => Math.max(1, Number(form.value.ed2kSearchTimeout || 20)) * 1000)
 const searchElapsedSeconds = computed(() => Math.floor(searchElapsedMs.value / 1000))
 const searchStatusText = computed(() =>
   searchActive.value
@@ -469,7 +469,7 @@ onMounted(() => {
             </Transition>
           </NButton>
           <Transition name="ed2k-search-status" mode="out-in">
-            <NText :key="searchStatusText" depth="3" class="ed2k-search-status">{{ searchStatusText }}</NText>
+            <NText :key="searchState" depth="3" class="ed2k-search-status">{{ searchStatusText }}</NText>
           </Transition>
         </div>
       </NFormItem>
@@ -576,9 +576,7 @@ onMounted(() => {
 }
 .ed2k-search-status-enter-active,
 .ed2k-search-status-leave-active {
-  transition:
-    opacity 0.22s cubic-bezier(0.2, 0, 0, 1),
-    transform 0.22s cubic-bezier(0.2, 0, 0, 1);
+  transition: opacity 0.22s cubic-bezier(0.2, 0, 0, 1);
 }
 .ed2k-search-label-enter-from {
   opacity: 0;
@@ -591,7 +589,6 @@ onMounted(() => {
 .ed2k-search-status-enter-from,
 .ed2k-search-status-leave-to {
   opacity: 0;
-  transform: translateX(-6px);
 }
 @keyframes ed2k-search-spin {
   from {
