@@ -64,7 +64,7 @@ describe('renderCompletionToast', () => {
     expect(typeof vnode).toBe('object')
   })
 
-  it('keeps completion toast actions visible while truncating the message body', () => {
+  it('keeps completion toast width content-driven and preserves right-side actions', () => {
     const onOpenFile = vi.fn()
     const onShowInFolder = vi.fn()
     const result = renderCompletionToast({
@@ -81,19 +81,21 @@ describe('renderCompletionToast', () => {
     const actions = children[1]
 
     expect(vnode.props?.style).toMatchObject({
-      maxWidth: '720px',
+      maxWidth: '100%',
       minWidth: '0',
     })
+    expect(vnode.props?.style?.width).toBeUndefined()
+    expect(vnode.props?.style?.gridTemplateColumns).toBe('minmax(0, 1fr) max-content')
     expect(body.props?.style).toMatchObject({
-      flex: '1 1 auto',
       minWidth: '0',
       overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
+      display: '-webkit-box',
+      WebkitLineClamp: '2',
+      WebkitBoxOrient: 'vertical',
+      whiteSpace: 'normal',
     })
     expect(actions.props?.style).toMatchObject({
       display: 'inline-flex',
-      flex: '0 0 auto',
       flexWrap: 'nowrap',
       whiteSpace: 'nowrap',
     })
