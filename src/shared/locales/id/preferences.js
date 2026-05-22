@@ -288,7 +288,7 @@ export default {
   'color-scheme-sakura': 'Sakura',
   'color-scheme-switched': 'Beralih ke skema warna {name}',
   'open-settings': 'Buka Pengaturan',
-  'protocol-unregister-manual-required': 'Dibatasi oleh sistem, ubah secara manual.',
+  'protocol-unregister-manual-required': 'Karena pembatasan sistem, asosiasi ini tidak dapat dibatalkan di aplikasi. Ubah secara manual.',
   'protocol-macos-unregister-hint':
     'macOS memerlukan perubahan program default untuk {protocol}:// di Pengaturan Sistem → Aplikasi Default',
   'default-programs': 'Program Default',

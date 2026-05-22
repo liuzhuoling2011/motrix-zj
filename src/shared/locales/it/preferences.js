@@ -290,7 +290,7 @@ export default {
   'color-scheme-sakura': 'Sakura',
   'color-scheme-switched': 'Combinazione colori cambiata in {name}',
   'open-settings': 'Vai alle impostazioni',
-  'protocol-unregister-manual-required': 'Limitato dal sistema, modificalo manualmente.',
+  'protocol-unregister-manual-required': 'A causa delle restrizioni di sistema, questa associazione non può essere rimossa nell’app. Modificala manualmente.',
   'protocol-macos-unregister-hint':
     'macOS richiede la modifica del programma predefinito per {protocol}:// in Impostazioni di Sistema → App predefinite',
   'default-programs': 'Programmi predefiniti',

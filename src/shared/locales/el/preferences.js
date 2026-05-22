@@ -290,7 +290,7 @@ export default {
   'color-scheme-sakura': 'Σακούρα',
   'color-scheme-switched': 'Εναλλαγή σε χρωματικό σχήμα {name}',
   'open-settings': 'Μετάβαση στις ρυθμίσεις',
-  'protocol-unregister-manual-required': 'Περιορίζεται από το σύστημα, αλλάξτε το χειροκίνητα.',
+  'protocol-unregister-manual-required': 'Λόγω περιορισμών του συστήματος, αυτή η συσχέτιση δεν μπορεί να ακυρωθεί μέσα στην εφαρμογή. Αλλάξτε τη χειροκίνητα.',
   'protocol-macos-unregister-hint':
     'Το macOS απαιτεί αλλαγή του προεπιλεγμένου προγράμματος για {protocol}:// στις Ρυθμίσεις Συστήματος → Προεπιλεγμένες Εφαρμογές',
   'default-programs': 'Προεπιλεγμένα προγράμματα',

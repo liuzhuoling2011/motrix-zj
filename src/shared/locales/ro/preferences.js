@@ -288,7 +288,7 @@ export default {
   'color-scheme-sakura': 'Sakura',
   'color-scheme-switched': 'Schema de culori schimbată la {name}',
   'open-settings': 'Mergi la Setări',
-  'protocol-unregister-manual-required': 'Restricționat de sistem, modificați manual.',
+  'protocol-unregister-manual-required': 'Din cauza restricțiilor sistemului, această asociere nu poate fi eliminată din aplicație. Modificați-o manual.',
   'protocol-macos-unregister-hint':
     'macOS necesită schimbarea programului implicit pentru {protocol}:// în Setări de sistem → Aplicații implicite',
   'default-programs': 'Programe implicite',
