@@ -78,6 +78,7 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
 
 <style scoped>
 .task-list {
+  --task-list-bottom-safety: 54px;
   padding: 16px 36px 16px;
   min-height: 100%;
   box-sizing: border-box;
@@ -85,14 +86,15 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
   flex-direction: column;
 }
 /*
- * Speedometer clearance spacer — only when cards are present.
+ * Speedometer bottom safety area — only when cards are present.
  * A ::after pseudo-element participates in flex layout, reliably
- * reserving space above the fixed Speedometer widget.
+ * letting the final card scroll above the fixed Speedometer widget without
+ * forcing short lists to show a scrollbar.
  */
 .task-list-inner:not(:empty)::after {
   content: '';
   display: block;
-  flex: 0 0 48px;
+  height: var(--task-list-bottom-safety);
 }
 
 /* ── Task card layer ─────────────────────────────────────────────────── */
