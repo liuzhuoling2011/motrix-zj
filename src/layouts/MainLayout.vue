@@ -347,10 +347,8 @@ async function handleMagnetConfirm(selectedIndices: number[]) {
     const selectFile = buildSelectFileOption(selectedIndices)
     const task = await taskStore.fetchTaskStatus(gid)
     const action = buildStatusAwareConfirmAction(task.status)
-
-    // aria2 requires task to be paused before changing select-file on active tasks
-    if (action.needsPause) {
-      await taskStore.pauseTask(task)
+    if (task.status === TASK_STATUS.ACTIVE) {
+      throw new Error('Magnet content task started before file selection')
     }
 
     await taskStore.changeTaskOption({ gid, options: { 'select-file': selectFile } })

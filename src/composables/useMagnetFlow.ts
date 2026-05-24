@@ -67,8 +67,6 @@ export function shouldShowFileSelection(config: { pauseMetadata?: boolean | stri
 
 /** Actions needed to apply file selection to a download based on its current status. */
 export interface ConfirmAction {
-  /** Whether the task must be paused first (required for active tasks). */
-  needsPause: boolean
   /** Whether the task must be resumed after applying options. */
   needsResume: boolean
 }
@@ -78,23 +76,22 @@ export interface ConfirmAction {
  * to a magnet download based on its current aria2 task status.
  *
  * - paused:   standard case with pause-metadata=true — just resume
- * - active:   defensive case — must pause first, then change options, then resume
  * - waiting:  queued task — just resume
+ * - active:   engine failed to honor pause-metadata — do not race pause/unpause
  * - complete/removed/error: terminal states — no action needed
  * - undefined: safe fallback — treat as resumable
  */
 export function buildStatusAwareConfirmAction(status: string | undefined): ConfirmAction {
   switch (status) {
-    case 'active':
-      return { needsPause: true, needsResume: true }
     case 'paused':
     case 'waiting':
     case undefined:
-      return { needsPause: false, needsResume: true }
+      return { needsResume: true }
+    case 'active':
     case 'complete':
     case 'removed':
     case 'error':
     default:
-      return { needsPause: false, needsResume: false }
+      return { needsResume: false }
   }
 }

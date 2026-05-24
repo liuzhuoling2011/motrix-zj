@@ -7,7 +7,7 @@ import { logger } from '@shared/logger'
 import type { Aria2Task, Aria2File, Aria2Peer, Aria2EngineOptions, TaskApi } from '@shared/types'
 
 import { historyRecordToTask, mergeHistoryIntoTasks, isMetadataTask } from '@/composables/useTaskLifecycle'
-import { shouldShowFileSelection } from '@/composables/useMagnetFlow'
+import { buildMetadataOnlyOptions, shouldShowFileSelection } from '@/composables/useMagnetFlow'
 import {
   registerAddedAt,
   getAddedAt,
@@ -246,10 +246,20 @@ export const useTaskStore = defineStore('task', () => {
    * Directly registers the GID for monitoring to avoid caller-chain breaks.
    */
   async function addMagnetUri(data: { uri: string; options: Aria2EngineOptions }): Promise<string> {
+    const { usePreferenceStore } = await import('@/stores/preference')
+    const preferenceStore = usePreferenceStore()
+    const pauseMetadataOption = data.options['pause-metadata']
+    const pauseMetadata =
+      typeof pauseMetadataOption === 'string' ? pauseMetadataOption : preferenceStore.config.pauseMetadata
+    const showFileSelection = shouldShowFileSelection({ pauseMetadata })
+    const options = showFileSelection
+      ? buildMetadataOnlyOptions(data.options)
+      : { ...data.options, 'pause-metadata': 'false' }
+
     const gids = await api.addUri({
       uris: [data.uri],
       outs: [],
-      options: data.options,
+      options,
     })
     const gid = gids[0]
 
@@ -262,12 +272,7 @@ export const useTaskStore = defineStore('task', () => {
     // Only register for file selection polling when pause-metadata is enabled.
     // When btAutoDownloadContent=true (pauseMetadata=false), aria2 starts the
     // follow-up download immediately — file selection is not needed.
-    const { usePreferenceStore } = await import('@/stores/preference')
-    const preferenceStore = usePreferenceStore()
-    const pauseMetadataOption = data.options['pause-metadata']
-    const pauseMetadata =
-      typeof pauseMetadataOption === 'string' ? pauseMetadataOption : preferenceStore.config.pauseMetadata
-    if (shouldShowFileSelection({ pauseMetadata })) {
+    if (showFileSelection) {
       const { useAppStore } = await import('@/stores/app')
       const appStore = useAppStore()
       appStore.pendingMagnetGids = [...appStore.pendingMagnetGids, gid]

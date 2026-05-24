@@ -185,37 +185,37 @@ describe('useMagnetFlow', () => {
   describe('buildStatusAwareConfirmAction', () => {
     it('returns resume-only for a paused task (standard pause-metadata flow)', () => {
       const action = buildStatusAwareConfirmAction('paused')
-      expect(action).toEqual({ needsPause: false, needsResume: true })
+      expect(action).toEqual({ needsResume: true })
     })
 
-    it('returns pause-then-resume for an active task (defensive handling)', () => {
+    it('returns no-op for an active task (engine should have paused metadata follow-up)', () => {
       const action = buildStatusAwareConfirmAction('active')
-      expect(action).toEqual({ needsPause: true, needsResume: true })
+      expect(action).toEqual({ needsResume: false })
     })
 
     it('returns resume-only for a waiting task', () => {
       const action = buildStatusAwareConfirmAction('waiting')
-      expect(action).toEqual({ needsPause: false, needsResume: true })
+      expect(action).toEqual({ needsResume: true })
     })
 
     it('returns no-op for a complete task', () => {
       const action = buildStatusAwareConfirmAction('complete')
-      expect(action).toEqual({ needsPause: false, needsResume: false })
+      expect(action).toEqual({ needsResume: false })
     })
 
     it('returns no-op for a removed task', () => {
       const action = buildStatusAwareConfirmAction('removed')
-      expect(action).toEqual({ needsPause: false, needsResume: false })
+      expect(action).toEqual({ needsResume: false })
     })
 
     it('returns no-op for an error task', () => {
       const action = buildStatusAwareConfirmAction('error')
-      expect(action).toEqual({ needsPause: false, needsResume: false })
+      expect(action).toEqual({ needsResume: false })
     })
 
     it('returns resume-only for undefined status (safe fallback)', () => {
       const action = buildStatusAwareConfirmAction(undefined)
-      expect(action).toEqual({ needsPause: false, needsResume: true })
+      expect(action).toEqual({ needsResume: true })
     })
   })
 })
