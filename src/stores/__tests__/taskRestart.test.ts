@@ -226,8 +226,6 @@ describe('restartTask', () => {
     api.getOption.mockResolvedValue({
       dir: '/dl',
       'max-download-limit': '1M',
-      followTorrent: 'true',
-      followMetalink: 'true',
       pauseMetadata: 'true',
       gid: 'old-gid',
       header: 'X-Custom: value',

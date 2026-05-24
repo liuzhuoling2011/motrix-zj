@@ -192,7 +192,6 @@ function buildChangedOptions(
     const username = sanitizeHeaderValue(form.httpAuthUsername)
     options['http-user'] = username
     options['http-passwd'] = sanitizeHeaderValue(form.httpAuthPassword)
-    options['http-auth-challenge'] = username ? 'true' : 'false'
   }
   if (form.proxyMode !== loaded.proxyMode || form.customProxy !== loaded.customProxy) {
     options['all-proxy'] = resolvedProxy

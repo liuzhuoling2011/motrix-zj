@@ -27,7 +27,7 @@ export interface RestartHistoryApi {
 }
 
 /** Keys that aria2 rejects on addUri — read-only or non-portable. */
-const NON_PORTABLE_KEYS = new Set(['followTorrent', 'followMetalink', 'pauseMetadata', 'gid'])
+const NON_PORTABLE_KEYS = new Set(['pauseMetadata', 'gid'])
 
 /**
  * Restarts a stopped/errored/completed task by re-submitting its URI(s).

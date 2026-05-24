@@ -104,7 +104,7 @@ export async function resolveUnresolvedItems(batch: BatchItem[], t: (key: string
 }
 
 /**
- * Opens a native file dialog for torrent/metalink selection, deduplicates
+ * Opens a native file dialog for torrent selection, deduplicates
  * against existing batch items, resolves the files, and appends to batch.
  */
 export async function chooseTorrentFile(deps: FileOpsDeps) {
@@ -113,7 +113,7 @@ export async function chooseTorrentFile(deps: FileOpsDeps) {
   try {
     const selected = await openDialog({
       multiple: true,
-      filters: [{ name: 'Torrent / Metalink', extensions: ['torrent', 'metalink', 'meta4'] }],
+      filters: [{ name: 'Torrent', extensions: ['torrent'] }],
     })
     const paths = typeof selected === 'string' ? [selected] : Array.isArray(selected) ? selected : []
     if (paths.length === 0) return

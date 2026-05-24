@@ -30,6 +30,9 @@ const STOPPED_SLICE_LIMIT: i64 = 50;
 /// Default polling interval in milliseconds.
 const DEFAULT_INTERVAL_MS: u64 = 2000;
 
+/// aria2 may hydrate restored BT fields across more than one poll after startup.
+const BT_RESTORE_SCAN_GRACE: u8 = 2;
+
 /// Events emitted to the frontend.
 pub mod events {
     pub const TASK_ERROR: &str = "task-monitor:error";
@@ -302,7 +305,8 @@ pub struct TaskNotifier {
     notified_errors: HashSet<String>,
     notified_completes: HashSet<String>,
     notified_bt_completes: HashSet<String>,
-    initial_scan_done: bool,
+    restored_bt_completes: HashSet<String>,
+    scan_count: u8,
 }
 
 impl TaskNotifier {
@@ -311,8 +315,17 @@ impl TaskNotifier {
             notified_errors: HashSet::new(),
             notified_completes: HashSet::new(),
             notified_bt_completes: HashSet::new(),
-            initial_scan_done: false,
+            restored_bt_completes: HashSet::new(),
+            scan_count: 0,
         }
+    }
+
+    fn initial_scan_done(&self) -> bool {
+        self.scan_count > 0
+    }
+
+    fn in_bt_restore_grace(&self) -> bool {
+        self.scan_count < BT_RESTORE_SCAN_GRACE
     }
 
     /// Scan tasks and return events that should be emitted.
@@ -332,7 +345,7 @@ impl TaskNotifier {
                 if let Some(code) = &task.error_code {
                     if code != "0" && !self.notified_errors.contains(&task.gid) {
                         self.notified_errors.insert(task.gid.clone());
-                        if self.initial_scan_done {
+                        if self.initial_scan_done() {
                             emit.push((
                                 events::TASK_ERROR.to_string(),
                                 TaskEvent::from_aria2(task),
@@ -345,7 +358,7 @@ impl TaskNotifier {
             // Completion detection
             if task.status == "complete" && !self.notified_completes.contains(&task.gid) {
                 self.notified_completes.insert(task.gid.clone());
-                if self.initial_scan_done {
+                if self.initial_scan_done() {
                     emit.push((
                         events::TASK_COMPLETE.to_string(),
                         TaskEvent::from_aria2(task),
@@ -353,29 +366,58 @@ impl TaskNotifier {
                 }
             }
 
+            if self.in_bt_restore_grace()
+                && is_completed_bt(task)
+                && (self.scan_count == 0 || task.seeder.as_deref() != Some("true"))
+            {
+                self.restored_bt_completes.insert(bt_completion_key(task));
+            }
+
             // BT seeding detection (active + seeder == "true" + has bittorrent)
             if task.bittorrent.is_some()
                 && task.seeder.as_deref() == Some("true")
                 && task.status == "active"
-                && !self.notified_bt_completes.contains(&task.gid)
             {
-                self.notified_bt_completes.insert(task.gid.clone());
-                if self.initial_scan_done {
-                    emit.push((events::BT_COMPLETE.to_string(), TaskEvent::from_aria2(task)));
+                let key = bt_completion_key(task);
+                if !self.notified_bt_completes.contains(&key) {
+                    self.notified_bt_completes.insert(key.clone());
+                    if self.initial_scan_done() && !self.restored_bt_completes.contains(&key) {
+                        emit.push((events::BT_COMPLETE.to_string(), TaskEvent::from_aria2(task)));
+                    }
                 }
             }
         }
 
-        if !self.initial_scan_done {
+        if !self.initial_scan_done() {
             log::debug!(
                 "task_monitor: initial scan suppressed {} pre-existing tasks",
                 tasks.len()
             );
         }
-        self.initial_scan_done = true;
+        self.scan_count = self.scan_count.saturating_add(1);
 
         emit
     }
+}
+
+fn bt_completion_key(task: &Aria2Task) -> String {
+    task.info_hash
+        .as_deref()
+        .filter(|hash| !hash.is_empty())
+        .unwrap_or(&task.gid)
+        .to_string()
+}
+
+fn is_completed_bt(task: &Aria2Task) -> bool {
+    if task.bittorrent.is_none() {
+        return false;
+    }
+
+    if task.seeder.as_deref() == Some("true") {
+        return true;
+    }
+
+    task.total_length != "0" && task.completed_length == task.total_length
 }
 
 /// Handle for controlling the background monitor task.
@@ -685,6 +727,12 @@ mod tests {
         task
     }
 
+    fn make_bt_task_with_hash(gid: &str, status: &str, seeder: bool, info_hash: &str) -> Aria2Task {
+        let mut task = make_bt_task(gid, status, seeder);
+        task.info_hash = Some(info_hash.to_string());
+        task
+    }
+
     /// Multi-file BT task — the scenario that triggered the bug.
     /// BT downloads with multiple files need a `files` snapshot in meta
     /// for correct deletion (single trash call) and folder-opening.
@@ -783,7 +831,7 @@ mod tests {
 
         let events = notifier.scan(&tasks);
         assert!(events.is_empty(), "initial scan should suppress all events");
-        assert!(notifier.initial_scan_done);
+        assert!(notifier.initial_scan_done());
     }
 
     #[test]
@@ -900,6 +948,67 @@ mod tests {
     }
 
     #[test]
+    fn restored_bt_complete_that_reports_seeder_later_does_not_emit() {
+        let mut notifier = TaskNotifier::new();
+        notifier.scan(&[make_bt_task("g1", "active", false)]);
+
+        let events = notifier.scan(&[make_bt_task("g2", "active", true)]);
+
+        assert!(
+            events.is_empty(),
+            "restored complete BT tasks must not emit when seeder becomes true later"
+        );
+    }
+
+    #[test]
+    fn restored_bt_complete_is_matched_by_info_hash_across_gid_changes() {
+        let mut notifier = TaskNotifier::new();
+        notifier.scan(&[make_bt_task_with_hash(
+            "old-gid",
+            "active",
+            false,
+            "same-info-hash",
+        )]);
+
+        let events = notifier.scan(&[make_bt_task_with_hash(
+            "new-gid",
+            "active",
+            true,
+            "same-info-hash",
+        )]);
+
+        assert!(
+            events.is_empty(),
+            "restored BT completion baseline should use infoHash before gid"
+        );
+    }
+
+    #[test]
+    fn bt_seeding_after_initial_restore_window_emits() {
+        let mut notifier = TaskNotifier::new();
+        let mut downloading = make_bt_task("g1", "active", false);
+        downloading.completed_length = "512".to_string();
+
+        notifier.scan(&[downloading.clone()]);
+        notifier.scan(&[downloading]);
+
+        let events = notifier.scan(&[make_bt_task("g1", "active", true)]);
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].0, events::BT_COMPLETE);
+    }
+
+    #[test]
+    fn existing_seeder_first_scan_never_reemits() {
+        let mut notifier = TaskNotifier::new();
+        notifier.scan(&[make_bt_task("g1", "active", true)]);
+
+        let events = notifier.scan(&[make_bt_task("g1", "active", true)]);
+
+        assert!(events.is_empty());
+    }
+
+    #[test]
     fn bt_not_seeding_is_not_emitted() {
         let mut notifier = TaskNotifier::new();
         notifier.scan(&[]);
@@ -923,11 +1032,11 @@ mod tests {
     fn fresh_notifier_has_clean_state() {
         let mut notifier = TaskNotifier::new();
         notifier.scan(&[make_task("g1", "complete")]);
-        assert!(notifier.initial_scan_done);
+        assert!(notifier.initial_scan_done());
 
         // On restart, a new notifier is created — verify it starts clean
         let fresh = TaskNotifier::new();
-        assert!(!fresh.initial_scan_done);
+        assert!(!fresh.initial_scan_done());
         assert!(fresh.notified_completes.is_empty());
         assert!(fresh.notified_errors.is_empty());
         assert!(fresh.notified_bt_completes.is_empty());

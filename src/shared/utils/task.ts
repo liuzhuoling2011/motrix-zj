@@ -63,7 +63,7 @@ export const getTaskName = (task: Aria2Task | null, options: { defaultName?: str
     const name = getFileNameFromFile(files[0])
     result = name || result
   } else {
-    // Multi-file HTTP/Metalink: use first non-empty filename
+    // Multi-file HTTP: use first non-empty filename
     const firstName = files.map((f) => getFileNameFromFile(f)).find((n) => !!n)
     result = firstName || result
   }

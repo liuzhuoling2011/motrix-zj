@@ -11,7 +11,6 @@
  * - addUri creates one invoke per URI with per-URI output filename override
  * - addUriAtomic creates exactly one invoke with all URIs as mirrors
  * - Batch operations use batch invoke commands
- * - force-save injection for BT/metalink but not HTTP
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -41,7 +40,6 @@ import {
   addUri,
   addUriAtomic,
   addTorrent,
-  addMetalink,
   removeTask,
   pauseTask,
   resumeTask,
@@ -395,42 +393,18 @@ describe('aria2 API (invoke transport)', () => {
       expect(result).toBe('gid-torrent')
       expect(mockInvoke).toHaveBeenCalledWith('aria2_add_torrent', {
         torrent: 'base64data',
-        options: expect.objectContaining({ 'force-save': 'true' }),
+        options: {},
       })
     })
 
-    it('addMetalink passes base64 metalink data', async () => {
-      mockInvoke.mockResolvedValueOnce(['gid-ml1'])
-      const result = await addMetalink({ metalink: 'base64ml', options: {} })
-      expect(result).toEqual(['gid-ml1'])
-      expect(mockInvoke).toHaveBeenCalledWith('aria2_add_metalink', {
-        metalink: 'base64ml',
-        options: expect.objectContaining({ 'force-save': 'true' }),
-      })
-    })
-
-    it('addTorrent injects force-save=true into per-download options', async () => {
-      mockInvoke.mockResolvedValueOnce('gid-torrent')
-      await addTorrent({ torrent: 'base64data', options: {} })
-      const callArgs = mockInvoke.mock.calls[0][1] as Record<string, unknown>
-      expect((callArgs.options as Record<string, string>)['force-save']).toBe('true')
-    })
-
-    it('addTorrent preserves caller-supplied options alongside force-save', async () => {
+    it('addTorrent preserves caller-supplied options', async () => {
       mockInvoke.mockResolvedValueOnce('gid-torrent')
       await addTorrent({ torrent: 'data', options: { dir: '/custom', split: '4' } })
       const callArgs = mockInvoke.mock.calls[0][1] as Record<string, unknown>
       const options = callArgs.options as Record<string, string>
-      expect(options['force-save']).toBe('true')
+      expect(options['force-save']).toBeUndefined()
       expect(options.dir).toBe('/custom')
       expect(options.split).toBe('4')
-    })
-
-    it('addMetalink injects force-save=true', async () => {
-      mockInvoke.mockResolvedValueOnce(['gid-ml1'])
-      await addMetalink({ metalink: 'base64ml', options: {} })
-      const callArgs = mockInvoke.mock.calls[0][1] as Record<string, unknown>
-      expect((callArgs.options as Record<string, string>)['force-save']).toBe('true')
     })
 
     it('addUri does NOT inject force-save (HTTP downloads must not persist)', async () => {

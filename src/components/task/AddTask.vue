@@ -540,8 +540,6 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
   switch (kind) {
     case 'torrent':
       return 'info'
-    case 'metalink':
-      return 'success'
     default:
       return 'warning'
   }
@@ -612,9 +610,7 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
                     <div class="batch-item-main">
                       <NEllipsis :style="{ maxWidth: '400px', flex: 1 }">{{ item.displayName }}</NEllipsis>
                       <NSpace :size="4" align="center" :wrap="false">
-                        <NTag :type="kindTagType(item.kind)" size="small" :bordered="false">
-                          {{ item.kind === 'metalink' ? 'Metalink' : 'Torrent' }}
-                        </NTag>
+                        <NTag :type="kindTagType(item.kind)" size="small" :bordered="false"> Torrent </NTag>
                         <NButton quaternary size="tiny" @click.stop="removeBatchItem(item)">✕</NButton>
                       </NSpace>
                     </div>

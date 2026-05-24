@@ -47,7 +47,6 @@ export function detectKind(source: string): BatchItemKind {
     try {
       const pathname = new URL(source).pathname.toLowerCase()
       if (pathname.endsWith('.torrent')) return 'torrent'
-      if (pathname.endsWith('.metalink') || pathname.endsWith('.meta4')) return 'metalink'
     } catch {
       // Malformed URL — fall through to 'uri'
     }
@@ -56,7 +55,6 @@ export function detectKind(source: string): BatchItemKind {
 
   // ── 3. Local file paths: extension suffix match ───────────────────
   if (lower.endsWith('.torrent')) return 'torrent'
-  if (lower.endsWith('.metalink') || lower.endsWith('.meta4')) return 'metalink'
 
   // ── 4. Fallback ───────────────────────────────────────────────────
   return 'uri'

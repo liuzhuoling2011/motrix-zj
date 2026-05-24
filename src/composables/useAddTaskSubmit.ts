@@ -3,7 +3,7 @@
  *
  * Extracted from AddTask.vue to make the complex branching testable:
  * - Options building (headers, proxy, user-agent, etc.)
- * - Batch submission routing (torrent vs metalink)
+ * - Batch submission routing for torrent files
  * - Manual URI submission with multi-URI rename
  * - Error classification (engine-not-ready, duplicate, generic)
  */
@@ -101,7 +101,6 @@ export function buildEngineOptions(form: AddTaskForm): Aria2EngineOptions {
   if (httpAuthUsername) {
     options['http-user'] = httpAuthUsername
     options['http-passwd'] = httpAuthPassword
-    options['http-auth-challenge'] = 'true'
   }
 
   // Always set all-proxy — empty string clears any inherited global proxy.
@@ -161,7 +160,7 @@ export function classifySubmitError(err: unknown): 'engine-not-ready' | 'duplica
 }
 
 /**
- * Submits file-based batch items (torrent/metalink) to the engine.
+ * Submits file-based torrent batch items to the engine.
  * Mutates item.status in place; returns count of failures.
  */
 export async function submitBatchItems(
@@ -191,10 +190,6 @@ export async function submitBatchItems(
           taskStore.registerTorrentSource(item.torrentMeta.infoHash, item.source)
         }
         await taskStore.addTorrent({ torrent: item.payload, options: opts })
-      } else if (item.kind === 'metalink') {
-        const opts: Aria2EngineOptions = { ...options }
-        delete opts.out
-        await taskStore.addMetalink({ metalink: item.payload, options: opts })
       }
       item.status = 'submitted'
       logger.info('submitBatchItems', `${item.kind} submitted: ${item.displayName}`)

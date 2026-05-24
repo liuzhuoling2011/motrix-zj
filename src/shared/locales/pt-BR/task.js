@@ -108,7 +108,6 @@ export default {
   'error-io': 'File I/O error',
   'error-dir-create': 'Cannot create directory',
   'error-dns': 'DNS resolution failed',
-  'error-metalink-parse': 'Metalink parse error',
   'error-ftp': 'FTP command failed',
   'error-http-response': 'Bad HTTP response',
   'error-too-many-redirects': 'Too many redirects',

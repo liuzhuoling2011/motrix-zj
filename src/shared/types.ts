@@ -302,7 +302,7 @@ export interface AppConfig {
   clipboard: ClipboardConfig
   /** When true, extension-intercepted URI downloads bypass the AddTask dialog. */
   autoSubmitFromExtension: boolean
-  /** When true, extension-intercepted torrent, metalink, and magnet tasks
+  /** When true, extension-intercepted torrent and magnet tasks
    *  skip file selection and download every file. */
   autoSelectAllFilesFromExtension: boolean
   /** When true, auto-submitted extension downloads are handled in the
@@ -344,11 +344,7 @@ export interface AppConfig {
   ed2kSearchTimeout: number
   btTracker: string
   forceSave: boolean
-  btSaveMetadata: boolean
-  btLoadSavedMetadata: boolean
   btForceEncryption: boolean
-  followTorrent: boolean
-  followMetalink: boolean
   pauseMetadata: boolean
   continue: boolean
   /** When true, aria2 applies the remote server's Last-Modified timestamp
@@ -376,8 +372,6 @@ export interface AppConfig {
   /** Disk space pre-allocation method. Maps to aria2 --file-allocation.
    *  Values: 'none' | 'trunc' | 'prealloc' | 'falloc' */
   fileAllocation: string
-  /** Whether Aria2 Next uses its async DNS resolver. Maps to aria2 --async-dns. */
-  asyncDns: boolean
   /** Per-tab sort configuration (field + direction), persisted independently per tab. */
   taskSort: import('@/composables/useTaskSort').TaskSortConfig
   [key: string]: unknown
@@ -420,12 +414,6 @@ export interface AddTorrentParams {
   options: Aria2EngineOptions
 }
 
-/** Parameters for adding a metalink-based download task. */
-export interface AddMetalinkParams {
-  metalink: string
-  options: Aria2EngineOptions
-}
-
 /** Parameters for changing options on an existing task. */
 export interface TaskOptionParams {
   gid: string
@@ -448,7 +436,7 @@ export interface TauriUpdate {
 
 // ── Batch Add Task ──────────────────────────────────────────────────
 
-export type BatchItemKind = 'uri' | 'torrent' | 'metalink'
+export type BatchItemKind = 'uri' | 'torrent'
 export type BatchItemStatus = 'pending' | 'submitted' | 'failed'
 
 /** A single item in the add-task batch queue. */
@@ -460,7 +448,7 @@ export interface BatchItem {
   source: string
   /** Human-readable display name (filename or truncated URI). */
   displayName: string
-  /** URI text (for uri kind) or base64-encoded file content (for torrent/metalink). */
+  /** URI text (for uri kind) or base64-encoded file content (for torrent). */
   payload: string
   /** Parsed torrent metadata — only present for torrent items. */
   torrentMeta?: { infoHash: string; files: { idx: number; path: string; length: number }[] }
@@ -474,7 +462,7 @@ export interface BatchItem {
 /** Per-file snapshot stored in HistoryMeta.files for multi-file task reconstruction.
  *
  * Captures all data needed to fully restore restart, delete, and stale-cleanup
- * semantics for each individual file within a multi-file download (metalink, etc.). */
+ * semantics for each individual file within a multi-file download. */
 export interface HistoryFileSnapshot {
   /** Full local file path. */
   path: string
@@ -518,7 +506,7 @@ export interface HistoryRecord {
   total_length?: number
   /** Terminal status: 'complete', 'error', or 'removed'. */
   status: string
-  /** Download type: 'uri', 'torrent', or 'metalink'. */
+  /** Download type: 'uri' or 'torrent'. */
   task_type?: string
   /** ISO 8601 timestamp when the task was first added to the download queue.
    *  Once set, never changes — used for position-stable ordering across all tabs. */
@@ -540,7 +528,6 @@ export interface TaskApi {
   addUri: (params: AddUriParams) => Promise<string[]>
   addUriAtomic: (params: { uris: string[]; options: Record<string, string> }) => Promise<string>
   addTorrent: (params: AddTorrentParams) => Promise<string>
-  addMetalink: (params: AddMetalinkParams) => Promise<string[]>
   getOption: (params: { gid: string }) => Promise<Record<string, string>>
   changeOption: (params: TaskOptionParams) => Promise<void>
   getFiles: (params: { gid: string }) => Promise<Aria2File[]>

@@ -63,8 +63,6 @@ pub fn filter_external_input_args(args: &[String]) -> Vec<String> {
                 || lower.starts_with("magnet:")
                 || lower.starts_with("ed2k://")
                 || lower.ends_with(".torrent")
-                || lower.ends_with(".metalink")
-                || lower.ends_with(".meta4")
         })
         .cloned()
         .collect()
@@ -297,7 +295,7 @@ mod tests {
                 "file:///Users/example/ubuntu.torrent".to_string(),
                 "magnet:?xt=urn:btih:abc".to_string(),
                 "magnet:?xt=urn:btih:abc".to_string(),
-                "/Users/example/Fedora.meta4".to_string(),
+                "/Users/example/Fedora.torrent".to_string(),
             ],
         );
 
@@ -307,7 +305,7 @@ mod tests {
             vec![
                 "file:///Users/example/ubuntu.torrent".to_string(),
                 "magnet:?xt=urn:btih:abc".to_string(),
-                "/Users/example/Fedora.meta4".to_string(),
+                "/Users/example/Fedora.torrent".to_string(),
             ]
         );
     }

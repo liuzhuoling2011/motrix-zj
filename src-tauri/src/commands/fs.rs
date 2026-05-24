@@ -635,8 +635,7 @@ pub fn move_file(source: String, target_dir: String) -> Result<String, AppError>
 ///
 /// Used for internal aria2 metadata files that have no user value:
 /// - `.aria2` control files (piece bitmap + checksums)
-/// - hex40-named `.torrent` metadata (`bt-save-metadata` / `rpc-save-upload-metadata`)
-/// - hex40-named `.meta4` metadata (`rpc-save-upload-metadata` for metalink)
+/// - hex40-named `.torrent` metadata (`rpc-save-upload-metadata`)
 ///
 /// This replicates what aria2's native `removeControlFile()` does (`std::remove`).
 /// The frontend MUST only call this for files it has verified are internal

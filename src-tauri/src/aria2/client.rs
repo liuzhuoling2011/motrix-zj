@@ -179,15 +179,6 @@ impl Aria2Client {
         .await
     }
 
-    /// Adds a metalink download from base64-encoded .metalink content.
-    pub async fn add_metalink(
-        &self,
-        base64: &str,
-        opts: serde_json::Value,
-    ) -> Result<Vec<String>, AppError> {
-        self.call("addMetalink", vec![base64.into(), opts]).await
-    }
-
     /// Returns file descriptors for a task.
     pub async fn get_files(&self, gid: &str) -> Result<Vec<Aria2File>, AppError> {
         self.call("getFiles", vec![gid.into()]).await

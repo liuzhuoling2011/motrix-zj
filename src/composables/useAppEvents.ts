@@ -406,7 +406,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       case 'open-torrent': {
         const selected = await openDialog({
           multiple: true,
-          filters: [{ name: 'Torrent / Metalink', extensions: ['torrent', 'metalink', 'meta4'] }],
+          filters: [{ name: 'Torrent', extensions: ['torrent'] }],
         })
         if (typeof selected === 'string') {
           const skipped = appStore.enqueueBatch([createBatchItem(detectKind(selected), selected)])
@@ -514,16 +514,14 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
     }
   }
 
-  // ─── Drag & drop .torrent / .metalink files ──────────────────────
+  // ─── Drag & drop .torrent files ──────────────────────────────────
   async function setupDragDropListener() {
     const webview = getCurrentWebview()
     return registerCleanup(
       await webview.onDragDropEvent((event) => {
         if (event.payload.type === 'drop') {
           const paths = event.payload.paths
-          const validPaths =
-            paths?.filter((p: string) => p.endsWith('.torrent') || p.endsWith('.metalink') || p.endsWith('.meta4')) ||
-            []
+          const validPaths = paths?.filter((p: string) => p.endsWith('.torrent')) || []
           if (validPaths.length > 0) {
             logger.info('DragDrop', `dropped ${validPaths.length} file(s): [${validPaths.join(', ')}]`)
             const items = validPaths.map((p: string) => createBatchItem(detectKind(p), p))
@@ -656,9 +654,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
             (lower.includes('://') ||
               lower.startsWith('magnet:') ||
               lower.startsWith('ed2k://') ||
-              lower.endsWith('.torrent') ||
-              lower.endsWith('.metalink') ||
-              lower.endsWith('.meta4'))
+              lower.endsWith('.torrent'))
           )
         })
         if (urls.length > 0) {

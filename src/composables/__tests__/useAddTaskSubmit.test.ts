@@ -4,7 +4,7 @@
  * Tests REAL pure functions without mocking them:
  * - buildEngineOptions: form → aria2 options conversion
  * - classifySubmitError: error categorization
- * - submitBatchItems: batch routing to torrent/metalink stores
+ * - submitBatchItems: batch routing to torrent store
  * - submitManualUris: multi-URI handling with rename
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -49,7 +49,6 @@ const mockTaskStoreForHook = {
   addUri: vi.fn().mockResolvedValue(['gid1']),
   addMagnetUri: vi.fn().mockResolvedValue('magnet-gid'),
   addTorrent: vi.fn(),
-  addMetalink: vi.fn(),
   registerTorrentSource: vi.fn(),
 }
 
@@ -170,7 +169,7 @@ describe('buildEngineOptions', () => {
     })
     expect(opts['http-user']).toBe('demo')
     expect(opts['http-passwd']).toBe('secret')
-    expect(opts['http-auth-challenge']).toBe('true')
+    expect(opts).not.toHaveProperty('http-auth-challenge')
   })
 
   it('sanitizes every HTTP header value before building aria2 options', () => {
@@ -308,7 +307,6 @@ describe('classifySubmitError', () => {
 describe('submitBatchItems', () => {
   const mockTaskStore = {
     addTorrent: vi.fn().mockResolvedValue('gid1'),
-    addMetalink: vi.fn().mockResolvedValue(['gid2']),
     registerTorrentSource: vi.fn(),
   } as unknown as ReturnType<typeof import('@/stores/task').useTaskStore>
 
@@ -332,20 +330,6 @@ describe('submitBatchItems', () => {
     expect(items[0].status).toBe('submitted')
   })
 
-  it('submits metalink items via addMetalink', async () => {
-    const items: BatchItem[] = [
-      { id: 2, kind: 'metalink', source: 'b.meta4', payload: 'mlData', status: 'pending' } as unknown as BatchItem,
-    ]
-
-    await submitBatchItems(items, baseOptions, mockTaskStore)
-
-    expect(mockTaskStore.addMetalink).toHaveBeenCalledWith({
-      metalink: 'mlData',
-      options: expect.objectContaining({ dir: '/dl' }),
-    })
-    expect(items[0].status).toBe('submitted')
-  })
-
   it('skips URI items (handled separately)', async () => {
     const items: BatchItem[] = [
       {
@@ -360,10 +344,9 @@ describe('submitBatchItems', () => {
     await submitBatchItems(items, baseOptions, mockTaskStore)
 
     expect(mockTaskStore.addTorrent).not.toHaveBeenCalled()
-    expect(mockTaskStore.addMetalink).not.toHaveBeenCalled()
   })
 
-  it('removes out option for torrent/metalink items', async () => {
+  it('removes out option for torrent items', async () => {
     const items: BatchItem[] = [
       { id: 4, kind: 'torrent', source: 'c.torrent', payload: 'b64', status: 'pending' } as unknown as BatchItem,
     ]

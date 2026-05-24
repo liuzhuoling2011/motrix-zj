@@ -27,7 +27,6 @@ export const ARIA2_ERROR_CODES: Record<string, string> = {
   '17': 'task.error-io',
   '18': 'task.error-dir-create',
   '19': 'task.error-dns',
-  '20': 'task.error-metalink-parse',
   '21': 'task.error-ftp',
   '22': 'task.error-http-response',
   '23': 'task.error-too-many-redirects',

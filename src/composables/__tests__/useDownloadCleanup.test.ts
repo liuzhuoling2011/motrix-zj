@@ -332,12 +332,6 @@ describe('useDownloadCleanup', () => {
     })
   })
 
-  // ── cleanupAria2MetadataFiles ──────────────────────────────────────
-  // Renamed function that replaces cleanupTorrentMetadataFiles with:
-  // - Extended regex to also match .meta4 files
-  // - Uses removePath (permanent delete) instead of trashPath
-  // - Backward compatible export alias
-
   describe('cleanupAria2MetadataFiles', () => {
     const fileEntry = (name: string) => ({ name, isFile: true, isDirectory: false, isSymlink: false })
 
@@ -358,17 +352,7 @@ describe('useDownloadCleanup', () => {
       expect(mockTrashFile).not.toHaveBeenCalled()
     })
 
-    it('matches and removes hex40 .meta4 files', async () => {
-      const hexName = 'abcdef1234567890abcdef1234567890abcdef12'
-      mockReadDir.mockResolvedValue([fileEntry(hexName + '.meta4')])
-
-      await cleanupAria2MetadataFiles('/dl', 'any_hash')
-
-      // .meta4 files are always removed (no infoHash inside to parse)
-      expect(mockRemoveFile).toHaveBeenCalledWith({ path: '/dl/' + hexName + '.meta4' })
-    })
-
-    it('processes both .torrent and .meta4 candidates in same directory', async () => {
+    it('ignores hex40 .meta4 files', async () => {
       const hex1 = '1111111111111111111111111111111111111111'
       const hex2 = '2222222222222222222222222222222222222222'
       mockReadDir.mockResolvedValue([fileEntry(hex1 + '.meta4'), fileEntry(hex2 + '.torrent')])
@@ -376,21 +360,8 @@ describe('useDownloadCleanup', () => {
 
       await cleanupAria2MetadataFiles('/dl', 'target_hash', extractor)
 
-      // .meta4 removed unconditionally
-      expect(mockRemoveFile).toHaveBeenCalledWith({ path: '/dl/' + hex1 + '.meta4' })
-      // .torrent removed because infoHash matched
+      expect(mockRemoveFile).not.toHaveBeenCalledWith({ path: '/dl/' + hex1 + '.meta4' })
       expect(mockRemoveFile).toHaveBeenCalledWith({ path: '/dl/' + hex2 + '.torrent' })
-    })
-
-    it('does NOT match non-hex40 .meta4 files', async () => {
-      mockReadDir.mockResolvedValue([
-        fileEntry('my-download.meta4'), // user file
-        fileEntry('short.meta4'),
-      ])
-
-      await cleanupAria2MetadataFiles('/dl', 'hash')
-
-      expect(mockRemoveFile).not.toHaveBeenCalled()
     })
 
     it('is backward-compatible with cleanupTorrentMetadataFiles alias', () => {

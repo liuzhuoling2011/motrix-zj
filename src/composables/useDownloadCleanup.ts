@@ -84,8 +84,8 @@ export function shouldDeleteTorrent(config: Partial<{ deleteTorrentAfterComplete
   return config.deleteTorrentAfterComplete === true
 }
 
-/** Regex matching aria2's auto-saved metadata filenames: 40-char lowercase hex + .torrent or .meta4 */
-const HEX40_METADATA_RE = /^[0-9a-f]{40}\.(torrent|meta4)$/
+/** Regex matching aria2's auto-saved torrent metadata filenames. */
+const HEX40_TORRENT_METADATA_RE = /^[0-9a-f]{40}\.torrent$/
 
 /**
  * Default hash extractor: reads a .torrent file and delegates metainfo
@@ -104,19 +104,15 @@ export type HashExtractor = (filePath: string) => Promise<string | null>
  * Scan the download directory for aria2-saved metadata files and
  * clean up those associated with the given torrent.
  *
- * Handles two file types:
- * - **hex40 `.torrent`**: aria2 names these as `{SHA1(content)}.torrent` (rpc-save-upload-metadata)
- *   or `{infoHash}.torrent` (bt-save-metadata).  We parse each candidate and match by infoHash.
- * - **hex40 `.meta4`**: aria2 names these as `{SHA1(content)}.meta4` (rpc-save-upload-metadata
- *   for metalink).  These can't be parsed for infoHash, so they are removed unconditionally
- *   since only aria2-generated files match the hex40 pattern.
+ * Handles hex40 `.torrent` metadata created by `rpc-save-upload-metadata`.
+ * We parse each candidate and match by infoHash before removing it.
  *
  * Uses `removePath()` (permanent delete) instead of `trashPath()` because these are
  * internal aria2 engine artifacts — not user content.
  *
  * Safety guarantees:
- * - Only files matching `/^[0-9a-f]{40}\.(torrent|meta4)$/` are considered (user files safe)
- * - `.torrent` candidates: parsed infoHash must exactly match the target (no accidental deletion)
+ * - Only files matching `/^[0-9a-f]{40}\.torrent$/` are considered (user files safe)
+ * - Parsed infoHash must exactly match the target (no accidental deletion)
  * - All errors are caught and logged (never throws)
  *
  * @param dir       Download directory to scan
@@ -133,23 +129,13 @@ export async function cleanupAria2MetadataFiles(
 
   try {
     const entries = await invoke<string[]>('list_dir_files', { path: dir })
-    const candidates = entries.filter((name) => HEX40_METADATA_RE.test(name))
+    const candidates = entries.filter((name) => HEX40_TORRENT_METADATA_RE.test(name))
 
     let torrentMatched = false
 
     for (const name of candidates) {
       const filePath = await join(dir, name)
       try {
-        if (name.endsWith('.meta4')) {
-          // .meta4 files can't be parsed for infoHash — they use SHA1(content) naming.
-          // Since the only .meta4 files matching hex40 pattern are aria2-generated,
-          // we clean all of them for the given dir.
-          const removed = await removePath(filePath)
-          if (removed) logger.debug('cleanupAria2Metadata', `removed ${name}`)
-          continue
-        }
-
-        // .torrent: parse and match infoHash
         const hash = await extractHash(filePath)
         if (hash === infoHash) {
           const removed = await removePath(filePath)

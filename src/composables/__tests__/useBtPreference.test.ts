@@ -3,7 +3,7 @@
  *
  * The BT tab manages BitTorrent-specific config: auto-download, encryption,
  * seeding, max peers, and tracker management. Key business logic:
- * - btAutoDownloadContent ↔ followTorrent/followMetalink/pauseMetadata mapping
+ * - btAutoDownloadContent ↔ pauseMetadata mapping
  * - Tracker comma ↔ newline conversion
  * - force-save must NOT appear in global config (per-download only)
  */
@@ -24,38 +24,16 @@ describe('buildBtForm', () => {
     expect(form.btAutoDownloadContent).toBe(false)
   })
 
-  it('sets btAutoDownloadContent=true when follow=true and pause=false', () => {
+  it('sets btAutoDownloadContent=true when pauseMetadata=false', () => {
     const form = buildBtForm({
-      followTorrent: true,
-      followMetalink: true,
       pauseMetadata: false,
     } as unknown as AppConfig)
     expect(form.btAutoDownloadContent).toBe(true)
   })
 
-  it('sets btAutoDownloadContent=false when followTorrent=false', () => {
-    const form = buildBtForm({
-      followTorrent: false,
-      followMetalink: true,
-      pauseMetadata: false,
-    } as unknown as AppConfig)
-    expect(form.btAutoDownloadContent).toBe(false)
-  })
-
   it('sets btAutoDownloadContent=false when pauseMetadata=true', () => {
     const form = buildBtForm({
-      followTorrent: true,
-      followMetalink: true,
       pauseMetadata: true,
-    } as unknown as AppConfig)
-    expect(form.btAutoDownloadContent).toBe(false)
-  })
-
-  it('sets btAutoDownloadContent=false when followMetalink=false', () => {
-    const form = buildBtForm({
-      followTorrent: true,
-      followMetalink: false,
-      pauseMetadata: false,
     } as unknown as AppConfig)
     expect(form.btAutoDownloadContent).toBe(false)
   })
@@ -183,23 +161,13 @@ describe('buildBtSystemConfig', () => {
     expect(config['keep-seeding']).toBe('true')
   })
 
-  it('always includes bt-save-metadata=true and bt-load-saved-metadata=true', () => {
-    const config = buildBtSystemConfig(baseForm)
-    expect(config['bt-save-metadata']).toBe('true')
-    expect(config['bt-load-saved-metadata']).toBe('true')
-  })
-
-  it('sets follow-torrent=true and pause-metadata=false when auto-content ON', () => {
+  it('sets pause-metadata=false when auto-content ON', () => {
     const config = buildBtSystemConfig({ ...baseForm, btAutoDownloadContent: true })
-    expect(config['follow-torrent']).toBe('true')
-    expect(config['follow-metalink']).toBe('true')
     expect(config['pause-metadata']).toBe('false')
   })
 
-  it('sets follow-torrent=false and pause-metadata=true when auto-content OFF', () => {
+  it('sets pause-metadata=true when auto-content OFF', () => {
     const config = buildBtSystemConfig({ ...baseForm, btAutoDownloadContent: false })
-    expect(config['follow-torrent']).toBe('false')
-    expect(config['follow-metalink']).toBe('false')
     expect(config['pause-metadata']).toBe('true')
   })
 
@@ -253,18 +221,14 @@ describe('transformBtForStore', () => {
     lastSyncTrackerTime: 0,
   }
 
-  it('expands btAutoDownloadContent=true into follow+resume', () => {
+  it('expands btAutoDownloadContent=true into pauseMetadata=false', () => {
     const result = transformBtForStore({ ...baseForm, btAutoDownloadContent: true })
-    expect(result.followTorrent).toBe(true)
-    expect(result.followMetalink).toBe(true)
     expect(result.pauseMetadata).toBe(false)
     expect((result as Record<string, unknown>).btAutoDownloadContent).toBeUndefined()
   })
 
-  it('expands btAutoDownloadContent=false into stop+pause', () => {
+  it('expands btAutoDownloadContent=false into pauseMetadata=true', () => {
     const result = transformBtForStore({ ...baseForm, btAutoDownloadContent: false })
-    expect(result.followTorrent).toBe(false)
-    expect(result.followMetalink).toBe(false)
     expect(result.pauseMetadata).toBe(true)
     expect((result as Record<string, unknown>).btAutoDownloadContent).toBeUndefined()
   })

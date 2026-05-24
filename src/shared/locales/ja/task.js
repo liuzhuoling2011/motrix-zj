@@ -108,7 +108,6 @@ export default {
   'error-io': 'ファイル I/O エラー',
   'error-dir-create': 'ディレクトリを作成できません',
   'error-dns': 'DNS 解決に失敗しました',
-  'error-metalink-parse': 'Metalink 解析エラー',
   'error-ftp': 'FTP コマンドが失敗しました',
   'error-http-response': 'HTTP レスポンスが不正です',
   'error-too-many-redirects': 'リダイレクトが多すぎます',

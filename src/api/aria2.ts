@@ -160,19 +160,9 @@ export async function addUriAtomic(params: { uris: string[]; options: Record<str
 /** Adds a torrent download from a base64-encoded .torrent file. */
 export async function addTorrent(params: { torrent: string; options: Aria2EngineOptions }): Promise<string> {
   const engineOptions = formatOptionsForEngine(params.options)
-  engineOptions['force-save'] = 'true'
   const gid = await invoke<string>('aria2_add_torrent', { torrent: params.torrent, options: engineOptions })
   logger.info('aria2.addTorrent', `gid=${gid}`)
   return gid
-}
-
-/** Adds a metalink download from a base64-encoded .metalink file. */
-export async function addMetalink(params: { metalink: string; options: Aria2EngineOptions }): Promise<string[]> {
-  const engineOptions = formatOptionsForEngine(params.options)
-  engineOptions['force-save'] = 'true'
-  const gids = await invoke<string[]>('aria2_add_metalink', { metalink: params.metalink, options: engineOptions })
-  logger.info('aria2.addMetalink', `added ${gids.length} task(s) gids=[${gids.join(',')}]`)
-  return gids
 }
 
 /** Starts an ED2K search and returns the search GID. */
@@ -278,7 +268,6 @@ const api = {
   addUri,
   addUriAtomic,
   addTorrent,
-  addMetalink,
   ed2kSearch,
   getEd2kSearchResults,
   cleanupEd2kSearch,

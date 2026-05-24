@@ -732,7 +732,7 @@ onMounted(async () => {
       // (seed-ratio or seed-time threshold reached). Best-effort, never throws.
       if (task.bittorrent) {
         cleanupAria2ControlFile(task).catch((e) => logger.debug('Lifecycle.aria2ControlCleanup', e))
-        // Also clean hex40 .torrent/.meta4 metadata. Covers session-restore case
+        // Also clean hex40 .torrent metadata. Covers session-restore case
         // where onBtComplete was suppressed by initialScanDone — the metadata
         // wasn't deleted at download-complete time, so we catch it here.
         if (task.dir && task.infoHash) {

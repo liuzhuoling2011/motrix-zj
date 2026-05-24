@@ -4,7 +4,7 @@ import { ref } from 'vue'
 import { EMPTY_STRING } from '@shared/constants'
 import { checkTaskIsEd2kSearch, intersection } from '@shared/utils'
 import { logger } from '@shared/logger'
-import type { Aria2Task, Aria2File, Aria2Peer, Aria2EngineOptions, AddMetalinkParams, TaskApi } from '@shared/types'
+import type { Aria2Task, Aria2File, Aria2Peer, Aria2EngineOptions, TaskApi } from '@shared/types'
 
 import { historyRecordToTask, mergeHistoryIntoTasks, isMetadataTask } from '@/composables/useTaskLifecycle'
 import { shouldShowFileSelection } from '@/composables/useMagnetFlow'
@@ -231,7 +231,6 @@ export const useTaskStore = defineStore('task', () => {
       ...options,
       'http-user': credential.username,
       'http-passwd': credential.password,
-      'http-auth-challenge': 'true',
     }
   }
 
@@ -247,13 +246,10 @@ export const useTaskStore = defineStore('task', () => {
    * Directly registers the GID for monitoring to avoid caller-chain breaks.
    */
   async function addMagnetUri(data: { uri: string; options: Aria2EngineOptions }): Promise<string> {
-    // Magnet URIs are BT downloads — need force-save=true for session
-    // persistence (seeding resumption). HTTP downloads must NOT have this.
-    const magnetOptions: Aria2EngineOptions = { ...data.options, 'force-save': 'true' }
     const gids = await api.addUri({
       uris: [data.uri],
       outs: [],
-      options: magnetOptions,
+      options: data.options,
     })
     const gid = gids[0]
 
@@ -268,7 +264,7 @@ export const useTaskStore = defineStore('task', () => {
     // follow-up download immediately — file selection is not needed.
     const { usePreferenceStore } = await import('@/stores/preference')
     const preferenceStore = usePreferenceStore()
-    const pauseMetadataOption = magnetOptions['pause-metadata']
+    const pauseMetadataOption = data.options['pause-metadata']
     const pauseMetadata =
       typeof pauseMetadataOption === 'string' ? pauseMetadataOption : preferenceStore.config.pauseMetadata
     if (shouldShowFileSelection({ pauseMetadata })) {
@@ -299,17 +295,6 @@ export const useTaskStore = defineStore('task', () => {
     historyStore.recordTaskBirth(gid, now).catch((e) => logger.debug('taskBirth.write', e))
     await fetchList()
     return gid
-  }
-
-  async function addMetalink(data: AddMetalinkParams) {
-    const gids = await api.addMetalink(data)
-    const now = new Date().toISOString()
-    const historyStore = useHistoryStore()
-    for (const gid of gids) {
-      registerAddedAt(gid, now)
-      historyStore.recordTaskBirth(gid, now).catch((e) => logger.debug('taskBirth.write', e))
-    }
-    await fetchList()
   }
 
   async function getTaskOption(gid: string) {
@@ -373,7 +358,6 @@ export const useTaskStore = defineStore('task', () => {
     updateCurrentTaskItem,
     addUri,
     addTorrent,
-    addMetalink,
     addMagnetUri,
     getFiles,
     fetchTaskStatus,

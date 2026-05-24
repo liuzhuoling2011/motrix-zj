@@ -311,7 +311,7 @@ describe('v3 migration — flatten autoSubmitFromExtension', () => {
   it('flattens object with enable=true to boolean true', () => {
     const config = {
       configVersion: 2,
-      autoSubmitFromExtension: { enable: true, http: true, magnet: true, torrent: false, metalink: false },
+      autoSubmitFromExtension: { enable: true, http: true, magnet: true, torrent: false },
     } as unknown as Partial<AppConfig>
     runMigrations(config)
     expect(config.autoSubmitFromExtension).toBe(true)
@@ -320,7 +320,7 @@ describe('v3 migration — flatten autoSubmitFromExtension', () => {
   it('flattens object with enable=false to boolean false', () => {
     const config = {
       configVersion: 2,
-      autoSubmitFromExtension: { enable: false, http: true, magnet: true, torrent: true, metalink: true },
+      autoSubmitFromExtension: { enable: false, http: true, magnet: true, torrent: true },
     } as unknown as Partial<AppConfig>
     runMigrations(config)
     expect(config.autoSubmitFromExtension).toBe(false)
@@ -345,7 +345,7 @@ describe('v3 migration — flatten autoSubmitFromExtension', () => {
   it('stamps configVersion to 3 after migration', () => {
     const config = {
       configVersion: 2,
-      autoSubmitFromExtension: { enable: false, http: true, magnet: true, torrent: false, metalink: false },
+      autoSubmitFromExtension: { enable: false, http: true, magnet: true, torrent: false },
     } as unknown as Partial<AppConfig>
     runMigrations(config)
     expect(config.configVersion).toBe(CONFIG_VERSION)
@@ -500,7 +500,7 @@ describe('v0 → v5 full migration path', () => {
       engineMaxConnectionPerServer: 64,
       split: 64,
       maxConnectionPerServer: 64,
-      autoSubmitFromExtension: { enable: true, http: true, magnet: true, torrent: false, metalink: false },
+      autoSubmitFromExtension: { enable: true, http: true, magnet: true, torrent: false },
       dir: 'C:\\Users\\test\\Downloads',
       fileCategoryEnabled: true,
       fileCategories: [],

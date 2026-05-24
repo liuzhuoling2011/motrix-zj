@@ -47,10 +47,9 @@ describe('useMagnetFlow', () => {
   // ── buildMetadataOnlyOptions ────────────────────────────────────
 
   describe('buildMetadataOnlyOptions', () => {
-    it('sets bt-metadata-only and follow-torrent to true', () => {
+    it('sets pause-metadata for magnet file selection', () => {
       const options = buildMetadataOnlyOptions({ dir: '/downloads', split: '8' })
-      expect(options['bt-metadata-only']).toBe('true')
-      expect(options['follow-torrent']).toBe('false')
+      expect(options['pause-metadata']).toBe('true')
     })
 
     it('preserves existing options', () => {

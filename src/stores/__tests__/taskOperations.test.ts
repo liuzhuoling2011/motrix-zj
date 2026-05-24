@@ -70,7 +70,6 @@ function createMockApi(): TaskApi {
     addUri: vi.fn().mockResolvedValue([]),
     addUriAtomic: vi.fn().mockResolvedValue(''),
     addTorrent: vi.fn().mockResolvedValue(''),
-    addMetalink: vi.fn().mockResolvedValue([]),
     getOption: vi.fn().mockResolvedValue({}),
     changeOption: vi.fn().mockResolvedValue(undefined),
     getFiles: vi.fn().mockResolvedValue([]),

@@ -3,7 +3,7 @@
  *
  * Manages BT-specific config: auto-download content, encryption, seeding,
  * max peers, and tracker management. Key business logic:
- * - btAutoDownloadContent ↔ followTorrent/followMetalink/pauseMetadata
+ * - btAutoDownloadContent ↔ pauseMetadata
  * - Tracker comma ↔ newline format conversion
  *
  * Tracker source URL validation (isValidTrackerSourceUrl) is co-located
@@ -52,13 +52,11 @@ export interface BtForm {
 
 /**
  * Builds the BT form state from the preference store config.
- * Merges followTorrent/followMetalink/pauseMetadata into btAutoDownloadContent.
+ * Maps pauseMetadata into btAutoDownloadContent.
  */
 export function buildBtForm(config: AppConfig): BtForm {
-  const followTorrent = config.followTorrent ?? D.followTorrent
-  const followMetalink = config.followMetalink ?? D.followMetalink
   const pauseMetadata = config.pauseMetadata ?? D.pauseMetadata
-  const btAutoDownloadContent = followTorrent && followMetalink && !pauseMetadata
+  const btAutoDownloadContent = !pauseMetadata
 
   return {
     btAutoDownloadContent,
@@ -77,7 +75,7 @@ export function buildBtForm(config: AppConfig): BtForm {
 
 /**
  * Converts the BT form into aria2 system config key-value pairs.
- * Handles btAutoDownloadContent → follow-torrent/follow-metalink/pause-metadata.
+ * Handles btAutoDownloadContent → pause-metadata.
  *
  * IMPORTANT: force-save is intentionally excluded from global config.
  * It must only be set per-download on BT tasks to prevent aria2 from
@@ -87,14 +85,10 @@ export function buildBtSystemConfig(f: BtForm): Record<string, string> {
   const autoContent = !!f.btAutoDownloadContent
   return {
     'bt-max-peers': String(f.btMaxPeers),
-    'bt-save-metadata': 'true',
-    'bt-load-saved-metadata': 'true',
     'bt-force-encryption': String(!!f.btForceEncryption),
     'seed-ratio': String(f.seedRatio),
     'seed-time': String(f.seedTime),
     'keep-seeding': String(!!f.keepSeeding),
-    'follow-torrent': String(autoContent),
-    'follow-metalink': String(autoContent),
     'pause-metadata': String(!autoContent),
     'bt-tracker': convertLineToComma(f.btTracker),
   }
@@ -102,7 +96,7 @@ export function buildBtSystemConfig(f: BtForm): Record<string, string> {
 
 /**
  * Transforms the BT form for store persistence.
- * Expands btAutoDownloadContent back into followTorrent/followMetalink/pauseMetadata.
+ * Expands btAutoDownloadContent back into pauseMetadata.
  * Converts tracker newline format back to comma-separated for storage.
  */
 export function transformBtForStore(f: BtForm): Partial<AppConfig> {
@@ -111,12 +105,8 @@ export function transformBtForStore(f: BtForm): Partial<AppConfig> {
   delete data.btAutoDownloadContent
 
   if (f.btAutoDownloadContent) {
-    data.followTorrent = true
-    data.followMetalink = true
     data.pauseMetadata = false
   } else {
-    data.followTorrent = false
-    data.followMetalink = false
     data.pauseMetadata = true
   }
 

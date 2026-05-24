@@ -351,15 +351,6 @@ onMounted(() => {
 
       <!-- Timeout & Disk -->
       <NDivider title-placement="left">{{ t('preferences.transfer-params') }}</NDivider>
-      <NFormItem class="hinted-form-item">
-        <template #label>
-          <div class="form-label-with-hint">
-            <div>{{ t('preferences.async-dns') }}</div>
-            <div class="info-text">{{ t('preferences.async-dns-hint') }}</div>
-          </div>
-        </template>
-        <NSwitch v-model:value="form.asyncDns" />
-      </NFormItem>
       <NFormItem :label="t('preferences.connect-timeout')">
         <NInputNumber v-model:value="form.connectTimeout" :min="1" :max="600" style="width: 120px" />
         <NText depth="3" style="font-size: 12px; margin-left: 8px">{{ t('preferences.unit-seconds') }}</NText>

@@ -56,16 +56,6 @@
         "mimeType": "application/x-bittorrent",
         "description": "BitTorrent File",
         "role": "Viewer"
-      },
-      {
-        "ext": [
-          "metalink",
-          "meta4"
-        ],
-        "name": "Metalink",
-        "mimeType": "application/metalink+xml",
-        "description": "Metalink File",
-        "role": "Viewer"
       }
     ],
     "windows": {

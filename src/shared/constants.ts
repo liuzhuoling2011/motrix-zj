@@ -231,11 +231,7 @@ export const DEFAULT_APP_CONFIG = {
   seedTime: 2880, // old Motrix=2880 (48h); generous default for healthy swarm contribution
   keepSeeding: false, // qBT stops at ratio; safer default for new users
   forceSave: true, // persist completed/seeding BT tasks in session file (aria2 skips FINISHED tasks without this)
-  btSaveMetadata: true, // always save .torrent after metadata resolves for fast session restore
-  btLoadSavedMetadata: true, // load cached .torrent on restart, skip DHT re-download
   btForceEncryption: false, // qBT default "Allow", not "Force"; forcing reduces peers
-  followTorrent: true, // aria2 default=true
-  followMetalink: true, // aria2 default=true
   pauseMetadata: true, // pause follow-up download after metadata — let user select files first
   continue: true, // aria2 default=true; resume incomplete downloads
   remoteTime: false, // aria2 default=false; file timestamp = download completion time
@@ -337,7 +333,6 @@ export const DEFAULT_APP_CONFIG = {
   connectTimeout: 10, // seconds to establish connection
   timeout: 10, // seconds for data transfer after connection
   fileAllocation: 'none', // 'none' | 'trunc' | 'prealloc' | 'falloc'
-  asyncDns: false, // default OFF for compatibility; can improve DNS performance when enabled
 
   // ── Task Sorting ─────────────────────────────────────────────
   taskSort: DEFAULT_TASK_SORT,

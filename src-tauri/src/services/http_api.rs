@@ -199,7 +199,7 @@ async fn handle_add(
     // or auto-submit silently (autoSubmit=ON) based on the user's preference.
     // Rust's only job: ensure the window exists, then emit.
     //
-    // This unified path handles all URL types (HTTP, magnet, torrent, metalink)
+    // This unified path handles supported URL types (HTTP, magnet, torrent)
     // and all window states (normal, hidden, destroyed in lightweight mode).
     route_to_frontend(&ctx.app, &body);
     Ok(Json(AddResponse {
@@ -405,7 +405,7 @@ fn is_file_selection_url(raw_url: &str) -> bool {
     let path = url::Url::parse(raw_url)
         .map(|url| url.path().to_ascii_lowercase())
         .unwrap_or_else(|_| raw_url.to_ascii_lowercase());
-    path.ends_with(".torrent") || path.ends_with(".metalink") || path.ends_with(".meta4")
+    path.ends_with(".torrent")
 }
 
 /// Build a `motrixnext://new?url=X&referer=Y&cookie=Z` deep-link URL.

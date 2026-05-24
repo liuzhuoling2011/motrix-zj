@@ -108,7 +108,6 @@ export default {
   'error-io': '文件 I/O 错误',
   'error-dir-create': '无法创建目录',
   'error-dns': 'DNS 解析失败',
-  'error-metalink-parse': 'Metalink 解析错误',
   'error-ftp': 'FTP 命令失败',
   'error-http-response': 'HTTP 响应异常',
   'error-too-many-redirects': '重定向次数过多',

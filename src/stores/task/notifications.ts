@@ -15,6 +15,8 @@ import { checkTaskIsSeeder } from '@shared/utils'
 import { logger } from '@shared/logger'
 import type { Aria2Task } from '@shared/types'
 
+const BT_RESTORE_SCAN_GRACE = 2
+
 interface ScanCallbacks {
   onTaskError?: ((task: Aria2Task) => void) | null
   onTaskComplete?: ((task: Aria2Task) => void) | null
@@ -40,7 +42,26 @@ export function createTaskNotifier(): TaskNotifier {
   const notifiedErrorGids = new Set<string>()
   const notifiedCompleteGids = new Set<string>()
   const notifiedBtCompleteGids = new Set<string>()
-  let initialScanDone = false
+  const restoredBtCompleteKeys = new Set<string>()
+  let scanCount = 0
+
+  function initialScanDone(): boolean {
+    return scanCount > 0
+  }
+
+  function inBtRestoreGrace(): boolean {
+    return scanCount < BT_RESTORE_SCAN_GRACE
+  }
+
+  function btCompletionKey(task: Aria2Task): string {
+    return task.infoHash || task.gid
+  }
+
+  function isCompletedBt(task: Aria2Task): boolean {
+    if (!task.bittorrent) return false
+    if (task.seeder === 'true') return true
+    return task.totalLength !== '0' && task.completedLength === task.totalLength
+  }
 
   function scanTasks(tasks: Aria2Task[], callbacks: ScanCallbacks): void {
     const { onTaskError, onTaskComplete, onBtComplete } = callbacks
@@ -55,7 +76,7 @@ export function createTaskNotifier(): TaskNotifier {
           !notifiedErrorGids.has(task.gid)
         ) {
           notifiedErrorGids.add(task.gid)
-          if (initialScanDone) {
+          if (initialScanDone()) {
             onTaskError(task)
           }
         }
@@ -67,7 +88,7 @@ export function createTaskNotifier(): TaskNotifier {
       for (const task of tasks) {
         if (task.status === 'complete' && !notifiedCompleteGids.has(task.gid)) {
           notifiedCompleteGids.add(task.gid)
-          if (initialScanDone) {
+          if (initialScanDone()) {
             onTaskComplete(task)
           }
         }
@@ -77,27 +98,35 @@ export function createTaskNotifier(): TaskNotifier {
     // Detect BT tasks entering seeding state (download phase complete)
     if (onBtComplete) {
       for (const task of tasks) {
-        if (checkTaskIsSeeder(task) && !notifiedBtCompleteGids.has(task.gid)) {
-          notifiedBtCompleteGids.add(task.gid)
-          if (initialScanDone) {
-            onBtComplete(task)
+        if (inBtRestoreGrace() && isCompletedBt(task) && (scanCount === 0 || task.seeder !== 'true')) {
+          restoredBtCompleteKeys.add(btCompletionKey(task))
+        }
+
+        if (checkTaskIsSeeder(task)) {
+          const key = btCompletionKey(task)
+          if (!notifiedBtCompleteGids.has(key)) {
+            notifiedBtCompleteGids.add(key)
+            if (initialScanDone() && !restoredBtCompleteKeys.has(key)) {
+              onBtComplete(task)
+            }
           }
         }
       }
     }
 
     // Mark initial scan as done AFTER all callbacks — unconditionally.
-    if (!initialScanDone) {
+    if (!initialScanDone()) {
       logger.debug('TaskNotifier.initialScan', `suppressed notifications for ${tasks.length} pre-existing task(s)`)
     }
-    initialScanDone = true
+    scanCount = Math.min(scanCount + 1, Number.MAX_SAFE_INTEGER)
   }
 
   function reset(): void {
     notifiedErrorGids.clear()
     notifiedCompleteGids.clear()
     notifiedBtCompleteGids.clear()
-    initialScanDone = false
+    restoredBtCompleteKeys.clear()
+    scanCount = 0
   }
 
   return { scanTasks, reset }

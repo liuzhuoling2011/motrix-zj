@@ -65,7 +65,6 @@ function createMockApi() {
     addUri: vi.fn().mockResolvedValue(['gid3']),
     addUriAtomic: vi.fn().mockResolvedValue('gid3'),
     addTorrent: vi.fn().mockResolvedValue('gid4'),
-    addMetalink: vi.fn().mockResolvedValue(['gid5']),
     getOption: vi.fn().mockResolvedValue({}),
     changeOption: vi.fn().mockResolvedValue(undefined),
     getFiles: vi.fn().mockResolvedValue([]),
@@ -417,7 +416,7 @@ describe('TaskStore', () => {
     expect(store.selectedGidList).toEqual(['a', 'b', 'c'])
   })
 
-  // ─── addUri / addTorrent / addMetalink ──────────────────
+  // ─── addUri / addTorrent ────────────────────────────────
 
   it('addUri calls API and refreshes list', async () => {
     await store.addUri({ uris: ['http://example.com/file.zip'], outs: [], options: {} })
@@ -444,7 +443,6 @@ describe('TaskStore', () => {
       options: expect.objectContaining({
         'http-user': 'demo',
         'http-passwd': 'secret',
-        'http-auth-challenge': 'true',
       }),
       fileCategory: undefined,
     })
@@ -455,12 +453,6 @@ describe('TaskStore', () => {
     const gid = await store.addTorrent({ torrent: 'base64data', options: {} })
     expect(mockApi.addTorrent).toHaveBeenCalledWith({ torrent: 'base64data', options: {} })
     expect(gid).toBe('gid4')
-    expect(mockApi.fetchTaskList).toHaveBeenCalled()
-  })
-
-  it('addMetalink calls API and refreshes list', async () => {
-    await store.addMetalink({ metalink: 'base64data', options: {} })
-    expect(mockApi.addMetalink).toHaveBeenCalled()
     expect(mockApi.fetchTaskList).toHaveBeenCalled()
   })
 

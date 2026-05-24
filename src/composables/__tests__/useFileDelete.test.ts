@@ -112,6 +112,7 @@ describe('deleteTaskFiles', () => {
     // Folder + external .aria2
     expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/My Torrent' })
     expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/My Torrent.aria2' })
+    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/abcdef1234567890abcdef1234567890abcdef12.aria2' })
     // .torrent metadata cleanup triggered
     expect(mockCleanupTorrentMetadata).toHaveBeenCalledWith('/downloads', 'abcdef1234567890abcdef1234567890abcdef12')
   })
@@ -166,6 +167,7 @@ describe('deleteTaskFiles', () => {
 
     expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/movie.mkv' })
     expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/movie.mkv.aria2' })
+    expect(mockTrashFile).toHaveBeenCalledWith({ path: '/downloads/deadbeefdeadbeefdeadbeefdeadbeefdeadbeef.aria2' })
     expect(mockCleanupTorrentMetadata).toHaveBeenCalledWith('/downloads', 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef')
   })
 
@@ -335,7 +337,7 @@ describe('cleanupAria2ControlFile', () => {
     mockRemoveFile.mockResolvedValue(undefined)
   })
 
-  it('removes .aria2 for single-file BT task via resolveOpenTarget', async () => {
+  it('removes infohash .aria2 for single-file BT task', async () => {
     const task = makeTask({
       bittorrent: { info: { name: 'movie.mkv' } },
       infoHash: 'deadbeef'.repeat(5),
@@ -354,12 +356,13 @@ describe('cleanupAria2ControlFile', () => {
 
     await cleanupAria2ControlFile(task)
 
+    expect(mockRemoveFile).toHaveBeenCalledWith({ path: `/downloads/${task.infoHash}.aria2` })
     expect(mockRemoveFile).toHaveBeenCalledWith({ path: '/downloads/movie.mkv.aria2' })
     // Must use remove_file, not trash_file
     expect(mockTrashFile).not.toHaveBeenCalled()
   })
 
-  it('removes .aria2 for folder BT task', async () => {
+  it('removes infohash .aria2 for folder BT task', async () => {
     const task = makeTask({
       bittorrent: { info: { name: 'My Torrent' } },
       infoHash: 'abcdef12'.repeat(5),
@@ -386,6 +389,7 @@ describe('cleanupAria2ControlFile', () => {
 
     await cleanupAria2ControlFile(task)
 
+    expect(mockRemoveFile).toHaveBeenCalledWith({ path: `/downloads/${task.infoHash}.aria2` })
     expect(mockRemoveFile).toHaveBeenCalledWith({ path: '/downloads/My Torrent.aria2' })
   })
 
@@ -413,6 +417,7 @@ describe('cleanupAria2ControlFile', () => {
     const task = makeTask({
       bittorrent: { info: { name: 'Task' } },
       dir: '/downloads',
+      infoHash: 'deadbeef'.repeat(5),
       files: [
         { index: '1', path: '/downloads/file1.mp4', length: '500', completedLength: '500', selected: 'true', uris: [] },
         { index: '2', path: '/downloads/file2.mp4', length: '500', completedLength: '500', selected: 'true', uris: [] },
@@ -422,6 +427,7 @@ describe('cleanupAria2ControlFile', () => {
 
     await cleanupAria2ControlFile(task)
 
+    expect(mockRemoveFile).toHaveBeenCalledWith({ path: '/downloads/deadbeefdeadbeefdeadbeefdeadbeefdeadbeef.aria2' })
     expect(mockRemoveFile).toHaveBeenCalledWith({ path: '/downloads/file1.mp4.aria2' })
     expect(mockRemoveFile).toHaveBeenCalledWith({ path: '/downloads/file2.mp4.aria2' })
   })

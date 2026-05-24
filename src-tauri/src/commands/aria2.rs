@@ -226,17 +226,6 @@ pub async fn aria2_add_torrent(
     state.0.add_torrent(&torrent, options).await
 }
 
-/// Add a metalink download from base64-encoded content.
-#[tauri::command]
-pub async fn aria2_add_metalink(
-    state: State<'_, Aria2State>,
-    metalink: String,
-    options: serde_json::Value,
-) -> Result<Vec<String>, AppError> {
-    log::info!("aria2:add-metalink");
-    state.0.add_metalink(&metalink, options).await
-}
-
 /// Start an ED2K search and return the search GID.
 #[tauri::command]
 pub async fn aria2_ed2k_search(

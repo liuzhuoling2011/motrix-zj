@@ -416,7 +416,6 @@ describe('useTaskDetailOptions', () => {
         options: expect.objectContaining({
           'http-user': 'demo',
           'http-passwd': 'secret',
-          'http-auth-challenge': 'true',
         }),
       })
     })

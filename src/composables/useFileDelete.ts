@@ -13,12 +13,10 @@
  * `removePath()` permanently deletes files via the Rust `remove_file` command.
  * Used exclusively for internal aria2 metadata that has no user value:
  * - `.aria2` control files (piece bitmap + checksums)
- * - hex40-named `.torrent` metadata (bt-save-metadata / rpc-save-upload-metadata)
- * - hex40-named `.meta4` metadata (rpc-save-upload-metadata for metalink)
+ * - hex40-named `.torrent` metadata (rpc-save-upload-metadata)
  *
- * This replicates what aria2's native `removeControlFile()` does (`std::remove`),
- * which is prevented from running by the `force-save=true` configuration needed
- * for seeding resumption after app restart.
+ * This mirrors aria2's native `removeControlFile()` behavior for stale
+ * metadata cleanup.
  *
  * Folder detection reuses the existing `resolveOpenTarget` + `check_path_is_dir`
  * infrastructure so folder downloads are trashed in a single OS call (one sound).
@@ -53,8 +51,7 @@ export async function trashPath(path: string): Promise<boolean> {
  *
  * Used exclusively for internal aria2 metadata files:
  * - `.aria2` control files (piece bitmap + checksum — no user value)
- * - hex40-named `.torrent` metadata (aria2 bt-save-metadata cache)
- * - hex40-named `.meta4` metadata (aria2 rpc-save-upload-metadata for metalink)
+ * - hex40-named `.torrent` metadata (aria2 rpc-save-upload-metadata cache)
  *
  * Silent no-op when the path is empty, doesn't exist, or fails.
  * Returns `true` if the file was successfully removed.
@@ -77,9 +74,9 @@ export async function removePath(path: string): Promise<boolean> {
 /**
  * Clean up the `.aria2` control file for a completed/stopped BT task.
  *
- * aria2 keeps `.aria2` files alive when `force-save=true` (required for
- * seeding resumption). This function replicates what aria2's native
- * `removeControlFile()` would have done — permanent deletion.
+ * New aria2-next BT control files are named by infohash and live in the
+ * download directory. Older companion control files are also removed as
+ * best-effort cleanup.
  *
  * Path resolution mirrors `deleteTaskFiles()` for consistency.
  *
@@ -91,6 +88,10 @@ export async function cleanupAria2ControlFile(task: Aria2Task): Promise<void> {
   if (!task.bittorrent) return
 
   try {
+    if (task.dir && task.infoHash) {
+      await removePath(`${task.dir}/${task.infoHash}.aria2`)
+    }
+
     const target = await resolveOpenTarget(task)
 
     if (!target || target === task.dir) {
@@ -123,8 +124,7 @@ export async function cleanupAria2ControlFile(task: Aria2Task): Promise<void> {
  *
  * - **Fallback** (no resolvable target): trashes files individually.
  *
- * For BT tasks, also cleans up the hex40-named `.torrent` metadata file that
- * aria2 saves via `rpc-save-upload-metadata` / `bt-save-metadata`.
+ * For BT tasks, also cleans up hex40-named `.torrent` metadata files.
  *
  * Safety: the download directory itself is NEVER trashed — `resolveOpenTarget`
  * returns `dir` only as a fallback, and that case delegates to per-file trash.
@@ -153,6 +153,7 @@ export async function deleteTaskFiles(task: Aria2Task): Promise<void> {
 
   // BT tasks: clean up the hex40-named .torrent metadata file in the download dir
   if (task.dir && task.infoHash) {
+    await trashPath(`${task.dir}/${task.infoHash}.aria2`)
     await cleanupTorrentMetadataFiles(task.dir, task.infoHash)
   }
 }

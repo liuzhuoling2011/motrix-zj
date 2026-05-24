@@ -258,7 +258,7 @@ export const useAppStore = defineStore('app', () => {
     if (!urls || urls.length === 0) return result
 
     const items: BatchItem[] = []
-    const FILE_EXTS = ['.torrent', '.metalink', '.meta4']
+    const FILE_EXTS = ['.torrent']
 
     for (const url of urls) {
       const lower = url.toLowerCase()
@@ -303,7 +303,7 @@ export const useAppStore = defineStore('app', () => {
           } else if (autoSubmit && kind === 'uri') {
             result.autoSubmitted += 1
             void autoSubmitExtensionUrl(downloadUrl, motrixDeepLink.referer, motrixDeepLink.cookie, resolvedHint)
-          } else if (autoSubmit && autoSelectAll && (kind === 'torrent' || kind === 'metalink')) {
+          } else if (autoSubmit && autoSelectAll && kind === 'torrent') {
             result.autoSubmitted += 1
             void autoSubmitExtensionFile(downloadUrl, kind, motrixDeepLink.referer, motrixDeepLink.cookie)
           } else {
@@ -358,7 +358,7 @@ export const useAppStore = defineStore('app', () => {
       } else if (lower.startsWith('thunder://')) {
         items.push(createBatchItem('uri', decodeThunderLink(url)))
       } else if (isRemoteUri && hasFileExt) {
-        // Remote .torrent/.metalink URLs — detect kind for proper handling
+        // Remote .torrent URLs — detect kind for proper handling
         items.push(createBatchItem(detectKind(url), url))
       } else if (isRemoteUri) {
         items.push(createBatchItem('uri', url))
@@ -443,12 +443,7 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  async function autoSubmitExtensionFile(
-    url: string,
-    kind: 'torrent' | 'metalink',
-    referer: string,
-    cookie: string,
-  ): Promise<void> {
+  async function autoSubmitExtensionFile(url: string, kind: 'torrent', referer: string, cookie: string): Promise<void> {
     const preferenceStore = usePreferenceStore()
     const taskStore = useTaskStore()
     const form = buildExtensionSubmitForm(url, preferenceStore, referer, cookie, '')

@@ -33,7 +33,6 @@ export interface NetworkForm {
   connectTimeout: number
   timeout: number
   fileAllocation: string
-  asyncDns: boolean
   userAgent: string
 }
 
@@ -75,7 +74,6 @@ export function buildNetworkForm(config: AppConfig): NetworkForm {
     connectTimeout: config.connectTimeout ?? D.connectTimeout,
     timeout: config.timeout ?? D.timeout,
     fileAllocation: config.fileAllocation ?? D.fileAllocation,
-    asyncDns: config.asyncDns ?? D.asyncDns,
     userAgent: config.userAgent ?? D.userAgent,
   }
 }
@@ -96,7 +94,6 @@ export function buildNetworkSystemConfig(f: NetworkForm): Record<string, string>
     'connect-timeout': String(f.connectTimeout),
     timeout: String(f.timeout),
     'file-allocation': f.fileAllocation || 'none',
-    'async-dns': String(f.asyncDns),
     'all-proxy': proxyForDownloads ? f.proxy.server : '',
     'no-proxy': proxyForDownloads ? f.proxy.bypass || '' : '',
   }

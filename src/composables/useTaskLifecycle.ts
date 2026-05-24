@@ -11,9 +11,9 @@ import { logger } from '@shared/logger'
 
 /** Detect BT metadata-only downloads (the intermediate magnet resolution phase).
  *
- * These tasks have `[METADATA]` in the first file path (aria2 convention when
- * bt-save-metadata is enabled) or a `followedBy` field pointing to the real
- * download. They should NOT be persisted as history records. */
+ * These tasks have `[METADATA]` in the first file path or a `followedBy`
+ * field pointing to the real download. They should NOT be persisted as
+ * history records. */
 export function isMetadataTask(task: Aria2Task): boolean {
   if (task.followedBy && task.followedBy.length > 0) return true
   const firstPath = task.files?.[0]?.path ?? ''

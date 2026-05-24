@@ -195,17 +195,6 @@ describe('buildNetworkForm', () => {
     expect(form.fileAllocation).toBe('none')
   })
 
-  it('defaults asyncDns to false', () => {
-    const form = buildNetworkForm(emptyConfig)
-    expect(form.asyncDns).toBe(false)
-  })
-
-  it('reads asyncDns from config', () => {
-    const config = { asyncDns: true } as unknown as AppConfig
-    const form = buildNetworkForm(config)
-    expect(form.asyncDns).toBe(true)
-  })
-
   it('reads fileAllocation from config', () => {
     const config = { fileAllocation: 'prealloc' } as unknown as AppConfig
     const form = buildNetworkForm(config)
@@ -238,7 +227,7 @@ describe('buildNetworkForm', () => {
     expect(form).toHaveProperty('connectTimeout')
     expect(form).toHaveProperty('timeout')
     expect(form).toHaveProperty('fileAllocation')
-    expect(form).toHaveProperty('asyncDns')
+    expect(form).not.toHaveProperty('asyncDns')
     expect(form).toHaveProperty('userAgent')
   })
 
@@ -275,7 +264,6 @@ describe('buildNetworkSystemConfig', () => {
     connectTimeout: 10,
     timeout: 10,
     fileAllocation: 'none',
-    asyncDns: false,
     userAgent: '',
   }
 
@@ -292,7 +280,7 @@ describe('buildNetworkSystemConfig', () => {
     expect(config['connect-timeout']).toBe('10')
     expect(config['timeout']).toBe('10')
     expect(config['file-allocation']).toBe('none')
-    expect(config['async-dns']).toBe('false')
+    expect(config).not.toHaveProperty('async-dns')
   })
 
   it('emits custom connect-timeout and timeout values', () => {
@@ -304,11 +292,6 @@ describe('buildNetworkSystemConfig', () => {
   it('emits custom file-allocation value', () => {
     const config = buildNetworkSystemConfig({ ...baseForm, fileAllocation: 'prealloc' })
     expect(config['file-allocation']).toBe('prealloc')
-  })
-
-  it('emits async-dns=true when enabled', () => {
-    const config = buildNetworkSystemConfig({ ...baseForm, asyncDns: true })
-    expect(config['async-dns']).toBe('true')
   })
 
   it('maps user-agent to aria2 config', () => {
@@ -394,7 +377,6 @@ describe('transformNetworkForStore', () => {
     connectTimeout: 10,
     timeout: 10,
     fileAllocation: 'none',
-    asyncDns: false,
     userAgent: '',
   }
 
@@ -438,11 +420,6 @@ describe('transformNetworkForStore', () => {
     const result = transformNetworkForStore({ ...baseForm, fileAllocation: 'prealloc' })
     expect(result.fileAllocation).toBe('prealloc')
   })
-
-  it('preserves asyncDns through transform', () => {
-    const result = transformNetworkForStore({ ...baseForm, asyncDns: true })
-    expect(result.asyncDns).toBe(true)
-  })
 })
 
 // ── validateNetworkForm ─────────────────────────────────────────────
@@ -458,7 +435,6 @@ describe('validateNetworkForm', () => {
     connectTimeout: 10,
     timeout: 10,
     fileAllocation: 'none',
-    asyncDns: false,
     userAgent: '',
   }
 

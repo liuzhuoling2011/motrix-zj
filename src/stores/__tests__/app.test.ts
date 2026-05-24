@@ -399,26 +399,19 @@ describe('useAppStore', () => {
       usePreferenceStore().config.autoSubmitFromExtension = false
     })
 
-    it('detects remote .torrent and .metalink URLs with correct kind', () => {
+    it('detects remote .torrent URLs with correct kind', () => {
       const store = useAppStore()
-      store.handleDeepLinkUrls([
-        'https://example.com/linux.torrent',
-        'https://example.com/bundle.meta4',
-        'ftp://example.com/archive.metalink',
-      ])
+      store.handleDeepLinkUrls(['https://example.com/linux.torrent'])
       expect(store.pendingBatch.map((i) => ({ kind: i.kind, source: i.source }))).toEqual([
         { kind: 'torrent', source: 'https://example.com/linux.torrent' },
-        { kind: 'metalink', source: 'https://example.com/bundle.meta4' },
-        { kind: 'metalink', source: 'ftp://example.com/archive.metalink' },
       ])
     })
 
-    it('keeps local file:// torrent and metalink references as file items', () => {
+    it('keeps local file:// torrent references as file items', () => {
       const store = useAppStore()
-      store.handleDeepLinkUrls(['file:///Users/test/Downloads/a.torrent', 'file:///Users/test/Downloads/b.meta4'])
+      store.handleDeepLinkUrls(['file:///Users/test/Downloads/a.torrent'])
       expect(store.pendingBatch.map((i) => ({ kind: i.kind, source: i.source }))).toEqual([
         { kind: 'torrent', source: '/Users/test/Downloads/a.torrent' },
-        { kind: 'metalink', source: '/Users/test/Downloads/b.meta4' },
       ])
     })
 
@@ -725,20 +718,6 @@ describe('useAppStore', () => {
 
       expect(store.pendingBatch).toHaveLength(1)
       expect(store.pendingBatch[0].kind).toBe('torrent')
-      expect(store.addTaskVisible).toBe(true)
-    })
-
-    it('shows dialog for .metalink URLs when file auto-select is disabled', async () => {
-      const store = useAppStore()
-      const { usePreferenceStore } = await import('@/stores/preference')
-      const prefStore = usePreferenceStore()
-      prefStore.config.autoSubmitFromExtension = true
-      prefStore.config.autoSelectAllFilesFromExtension = false
-
-      store.handleDeepLinkUrls([buildDeepLink('https://example.com/bundle.meta4')])
-
-      expect(store.pendingBatch).toHaveLength(1)
-      expect(store.pendingBatch[0].kind).toBe('metalink')
       expect(store.addTaskVisible).toBe(true)
     })
 

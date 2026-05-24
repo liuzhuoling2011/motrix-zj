@@ -134,9 +134,6 @@ describe('checkIsNeedRestart', () => {
   it('returns true for dhtListenPort', () => {
     expect(checkIsNeedRestart({ dhtListenPort: 26702 })).toBe(true)
   })
-  it('returns true for asyncDns', () => {
-    expect(checkIsNeedRestart({ asyncDns: false })).toBe(true)
-  })
   it('returns true for ED2K restart keys from AppConfig camelCase fields', () => {
     expect(checkIsNeedRestart({ ed2kListenPort: 4663 })).toBe(true)
     expect(checkIsNeedRestart({ ed2kServer: 'server.example:4661' })).toBe(true)
@@ -266,7 +263,6 @@ describe('filterHotReloadableKeys', () => {
       'rpc-secret': 'abc',
       'listen-port': '21301',
       'dht-listen-port': '26701',
-      'async-dns': 'false',
       'enable-dht': 'true',
     }
     expect(filterHotReloadableKeys(config)).toEqual({})
@@ -286,6 +282,18 @@ describe('filterHotReloadableKeys', () => {
 
   it('strips log-level (needs app relaunch, not engine restart)', () => {
     expect(filterHotReloadableKeys({ 'log-level': 'debug' })).toEqual({})
+  })
+
+  it('strips engine options removed by Aria2 Next', () => {
+    const config = {
+      'bt-save-metadata': 'true',
+      'bt-seed-unverified': 'false',
+      'http-auth-challenge': 'true',
+      'max-overall-download-limit': '1M',
+    }
+    expect(filterHotReloadableKeys(config)).toEqual({
+      'max-overall-download-limit': '1M',
+    })
   })
 
   it('returns empty for empty input', () => {

@@ -17,8 +17,7 @@ export function isMagnetUri(uri: string): boolean {
 export function buildMetadataOnlyOptions(baseOptions: Aria2EngineOptions): Aria2EngineOptions {
   return {
     ...baseOptions,
-    'bt-metadata-only': 'true',
-    'follow-torrent': 'false',
+    'pause-metadata': 'true',
   }
 }
 

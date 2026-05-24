@@ -2,8 +2,7 @@
 ///
 /// Whitelists only valid aria2c options from the config object and handles
 /// the `keep-seeding` app-level flag. Options managed exclusively by
-/// `aria2.conf` (e.g., `bt-save-metadata`) are excluded
-/// from the whitelist to prevent store overrides.
+/// `aria2.conf` are excluded from the whitelist to prevent store overrides.
 pub(crate) fn build_start_args(
     config: &serde_json::Value,
     conf_path: Option<&str>,
@@ -31,26 +30,18 @@ pub(crate) fn build_start_args(
         "allow-overwrite",
         "allow-piece-length-change",
         "always-resume",
-        "async-dns",
         "auto-file-renaming",
         "bt-enable-hook-after-hash-check",
         "bt-enable-lpd",
         "bt-exclude-tracker",
         "bt-external-ip",
         "bt-force-encryption",
-        "bt-hash-check-seed",
         "bt-max-peers",
-        "bt-metadata-only",
         "bt-min-crypto-level",
-        "bt-prioritize-piece",
-        "bt-remove-unselected-file",
         "bt-request-peer-speed-limit",
         "bt-require-crypto",
-        "bt-seed-unverified",
         "bt-stop-timeout",
-        "bt-tracker-connect-timeout",
         "bt-tracker-interval",
-        "bt-tracker-timeout",
         "bt-tracker",
         "check-integrity",
         "checksum",
@@ -75,22 +66,18 @@ pub(crate) fn build_start_args(
         "enable-mmap",
         "enable-peer-exchange",
         "file-allocation",
-        "follow-metalink",
-        "follow-torrent",
         "force-sequential",
         "ftp-passwd",
         "ftp-pasv",
         "ftp-proxy-passwd",
         "ftp-proxy-user",
         "ftp-proxy",
-        "ftp-reuse-connection",
         "ftp-type",
         "ftp-user",
         "gid",
         "hash-check-only",
         "header",
         "http-accept-gzip",
-        "http-auth-challenge",
         "http-no-cache",
         "http-passwd",
         "http-proxy-passwd",
@@ -138,7 +125,6 @@ pub(crate) fn build_start_args(
         "seed-time",
         "select-file",
         "split",
-        "ssh-host-key-md",
         "stream-piece-selector",
         "timeout",
         "uri-selector",
@@ -234,16 +220,16 @@ mod tests {
     }
 
     #[test]
-    fn build_args_excludes_conf_only_keys() {
-        // bt-save-metadata and bt-load-saved-metadata are set in aria2.conf,
-        // not in the CLI whitelist — store values must never override them
+    fn build_args_excludes_removed_engine_keys() {
         let config = json!({
             "bt-save-metadata": "false",
-            "bt-load-saved-metadata": "false"
+            "bt-load-saved-metadata": "false",
+            "bt-seed-unverified": "false"
         });
         let args = build_start_args(&config, None, "/tmp/s.session", false);
         assert!(!args.iter().any(|a| a.contains("bt-save-metadata")));
         assert!(!args.iter().any(|a| a.contains("bt-load-saved-metadata")));
+        assert!(!args.iter().any(|a| a.contains("bt-seed-unverified")));
     }
 
     #[test]
@@ -300,13 +286,6 @@ mod tests {
         const BUNDLED_CONF: &str = include_str!("../../binaries/aria2.conf");
         assert!(BUNDLED_CONF.contains("rpc-listen-all=true"));
         assert!(BUNDLED_CONF.contains("rpc-allow-origin-all=true"));
-    }
-
-    #[test]
-    fn bundled_conf_does_not_seed_unverified_bt_files() {
-        const BUNDLED_CONF: &str = include_str!("../../binaries/aria2.conf");
-        assert!(BUNDLED_CONF.contains("bt-seed-unverified=false"));
-        assert!(!BUNDLED_CONF.contains("bt-seed-unverified=true"));
     }
 
     #[test]
@@ -379,7 +358,7 @@ mod tests {
 
     #[test]
     fn build_args_force_save_rejected_from_cli() {
-        // force-save is now per-download only (set via RPC addTorrent/addMetalink).
+        // force-save is now per-download only (set via RPC addTorrent).
         // It must NOT be passed as a CLI arg — doing so makes it the global
         // default for ALL downloads, causing completed HTTP tasks to persist
         // in the session file and re-download on restart.

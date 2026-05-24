@@ -64,8 +64,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
     if (task.gid === currentTaskGid.value) hideTaskDetail()
     try {
       await api.removeTask({ gid: task.gid })
-      // Purge from aria2's stopped-result list so force-save=true (BT/magnet)
-      // won't persist the entry in the session file on exit.
+      // Purge from aria2's stopped-result list so it is not saved again.
       try {
         await api.removeTaskRecord({ gid: task.gid })
       } catch (e) {
@@ -218,8 +217,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
     try {
       await api.forcePauseTask({ gid })
       await api.removeTask({ gid })
-      // Purge from aria2's stopped list so force-save=true won't persist it
-      // in the session file and reload the stopped BT task on restart.
+      // Purge from aria2's stopped list so it is not restored on restart.
       try {
         await api.removeTaskRecord({ gid })
       } catch (e) {
@@ -244,16 +242,14 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
         await historyStore.removeByInfoHash(task.infoHash, task.gid)
       }
       await historyStore.addRecord(record)
-      // Clean up .aria2 control file left behind by force-save=true.
-      // Best-effort: must never prevent fetchList/saveSession from running.
+      // Best-effort metadata cleanup must never block fetchList/saveSession.
       try {
         await cleanupAria2ControlFile(task)
       } catch (e) {
         logger.debug('TaskOps.stopSeeding', `cleanupControlFile gid=${gid} skipped: ${e}`)
       }
-      // Clean up hex40-named .torrent / .meta4 metadata left by bt-save-metadata
-      // and rpc-save-upload-metadata. Covers session-restore case where onBtComplete
-      // was suppressed by initialScanDone.
+      // Clean up hex40-named .torrent metadata left by rpc-save-upload-metadata.
+      // Covers session-restore case where onBtComplete was suppressed by initialScanDone.
       if (task.dir && task.infoHash) {
         try {
           await cleanupAria2MetadataFiles(task.dir, task.infoHash)
@@ -307,8 +303,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
   async function batchRemoveTask(gids: string[]) {
     try {
       await api.batchRemoveTask({ gids })
-      // Purge each gid from aria2's stopped-result list so force-save=true
-      // (BT/magnet) won't persist entries in the session file on exit.
+      // Purge each gid from aria2's stopped-result list so it is not saved again.
       for (const gid of gids) {
         try {
           await api.removeTaskRecord({ gid })

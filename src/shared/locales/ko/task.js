@@ -108,7 +108,6 @@ export default {
   'error-io': '파일 I/O 오류',
   'error-dir-create': '디렉토리를 생성할 수 없음',
   'error-dns': 'DNS 해석 실패',
-  'error-metalink-parse': 'Metalink 분석 오류',
   'error-ftp': 'FTP 명령 실패',
   'error-http-response': 'HTTP 응답 오류',
   'error-too-many-redirects': '리디렉션이 너무 많음',

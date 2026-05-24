@@ -203,14 +203,6 @@ describe('detectKind', () => {
     expect(detectKind('https://example.com/file.torrent?token=abc&v=2')).toBe('torrent')
   })
 
-  it('classifies remote .metalink URLs as metalink', () => {
-    expect(detectKind('https://example.com/file.metalink')).toBe('metalink')
-  })
-
-  it('classifies remote .meta4 URLs as metalink', () => {
-    expect(detectKind('https://example.com/file.meta4')).toBe('metalink')
-  })
-
   it('classifies remote URLs with .torrent in hostname but not pathname as uri', () => {
     expect(detectKind('https://tracker.torrent.eu.org/announce')).toBe('uri')
   })
@@ -231,14 +223,6 @@ describe('detectKind', () => {
 
   it('classifies local .torrent paths as torrent', () => {
     expect(detectKind('/Users/me/Downloads/ubuntu.torrent')).toBe('torrent')
-  })
-
-  it('classifies local .metalink paths as metalink', () => {
-    expect(detectKind('/Users/me/Downloads/file.metalink')).toBe('metalink')
-  })
-
-  it('classifies local .meta4 paths as metalink', () => {
-    expect(detectKind('C:\\Users\\me\\Downloads\\file.meta4')).toBe('metalink')
   })
 
   // ── 4. Fallback ───────────────────────────────────────────────────

@@ -43,7 +43,6 @@ vi.mock('@shared/logger', () => ({
 vi.mock('@shared/utils/batchHelpers', () => ({
   detectKind: (path: string) => {
     if (path.endsWith('.torrent')) return 'torrent'
-    if (path.endsWith('.metalink') || path.endsWith('.meta4')) return 'metalink'
     return 'uri'
   },
   createBatchItem: (kind: string, source: string) => ({
@@ -130,14 +129,6 @@ describe('resolveFileItem', () => {
     expect(item.selectedFileIndices).toEqual([0, 1, 2])
   })
 
-  it('does NOT parse torrent metadata for metalink files', async () => {
-    const item = makeBatchItem({ kind: 'metalink', source: '/test.metalink' })
-    await resolveFileItem(item, mockT)
-
-    expect(mockParseTorrentBuffer).not.toHaveBeenCalled()
-    expect(item.payload).toBe('base64data')
-  })
-
   it('marks item as failed when readFile throws', async () => {
     mockReadFile.mockRejectedValueOnce(new Error('Permission denied'))
 
@@ -164,7 +155,7 @@ describe('resolveFileItem', () => {
     // Some implementations return ArrayBuffer instead of Uint8Array
     mockReadFile.mockResolvedValue(new ArrayBuffer(4))
 
-    const item = makeBatchItem({ kind: 'metalink' })
+    const item = makeBatchItem({ kind: 'torrent' })
     await resolveFileItem(item, mockT)
 
     expect(mockUint8ToBase64).toHaveBeenCalled()
@@ -263,12 +254,12 @@ describe('chooseTorrentFile', () => {
     mockParseTorrentBuffer.mockResolvedValue(null)
   })
 
-  it('displays dialog with torrent/metalink filter', async () => {
+  it('displays dialog with torrent filter', async () => {
     mockOpenDialog.mockResolvedValueOnce(null)
     await chooseTorrentFile(makeDeps())
     expect(mockOpenDialog).toHaveBeenCalledWith({
       multiple: true,
-      filters: [{ name: 'Torrent / Metalink', extensions: ['torrent', 'metalink', 'meta4'] }],
+      filters: [{ name: 'Torrent', extensions: ['torrent'] }],
     })
   })
 
@@ -324,13 +315,13 @@ describe('chooseTorrentFile', () => {
   })
 
   it('resolves each new file before appending to batch', async () => {
-    mockOpenDialog.mockResolvedValueOnce(['/a.torrent', '/b.metalink'])
+    mockOpenDialog.mockResolvedValueOnce(['/a.torrent', '/b.torrent'])
     const deps = makeDeps()
     await chooseTorrentFile(deps)
 
     expect(mockReadFile).toHaveBeenCalledTimes(2)
     expect(mockReadFile).toHaveBeenCalledWith('/a.torrent')
-    expect(mockReadFile).toHaveBeenCalledWith('/b.metalink')
+    expect(mockReadFile).toHaveBeenCalledWith('/b.torrent')
   })
 
   it('does not throw when openDialog throws', async () => {
