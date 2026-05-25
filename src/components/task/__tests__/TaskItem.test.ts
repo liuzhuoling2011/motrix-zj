@@ -143,21 +143,24 @@ describe('TaskItem', () => {
   })
 
   it('shows a metadata resolving tag for magnet metadata tasks', () => {
-    const task = createTask('/downloads/[METADATA]KNOPPIX')
+    const task = createTask('/downloads/KNOPPIX_V9.1CD-2021-01-25-EN.iso')
     task.status = 'active'
     task.totalLength = '0'
     task.completedLength = '0'
     task.files = [
       {
         index: '1',
-        path: '[METADATA]KNOPPIX_V9.1CD-2021-01-25-EN',
+        path: '/downloads/KNOPPIX_V9.1CD-2021-01-25-EN.iso',
         length: '0',
         completedLength: '0',
         selected: 'true',
         uris: [],
       },
     ]
-    task.bittorrent = {}
+    task.bittorrent = {
+      info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' },
+      metadata: { state: 'downloading', hasMetadata: false },
+    }
 
     const wrapper = mount(TaskItem, {
       props: { task },

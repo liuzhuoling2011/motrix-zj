@@ -304,33 +304,32 @@ describe('buildBtCompletionRecord', () => {
 // ── isMetadataTask ───────────────────────────────────────────────────
 
 describe('isMetadataTask', () => {
-  it('recognizes metadata tasks by the basename of the first file path', () => {
+  it('recognizes aria2-next metadata downloading tasks', () => {
     const task = makeTask({
-      files: [
-        {
-          index: '1',
-          path: '/downloads/[METADATA]KNOPPIX_V9.1CD-2021-01-25-EN',
-          length: '27373',
-          completedLength: '27373',
-          selected: 'true',
-          uris: [],
+      bittorrent: {
+        info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' },
+        metadata: {
+          state: 'downloading',
+          hasMetadata: false,
         },
-      ],
+      },
     })
 
     expect(isMetadataTask(task)).toBe(true)
   })
 
-  it('recognizes DB-rehydrated metadata records by bittorrent info name', () => {
-    const task = historyRecordToTask(
-      makeRecord({
-        name: '[METADATA]KNOPPIX_V9.1CD-2021-01-25-EN',
-        task_type: 'bt',
-        meta: JSON.stringify({ infoHash: 'abcdef1234567890abcdef1234567890abcdef12' }),
-      }),
-    )
+  it('returns false when aria2-next metadata is ready', () => {
+    const task = makeTask({
+      bittorrent: {
+        info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' },
+        metadata: {
+          state: 'ready',
+          hasMetadata: true,
+        },
+      },
+    })
 
-    expect(isMetadataTask(task)).toBe(true)
+    expect(isMetadataTask(task)).toBe(false)
   })
 })
 

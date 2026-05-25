@@ -280,10 +280,9 @@ function stopStatListener() {
 /**
  * Poll pending magnet tasks for metadata completion.
  *
- * aria2 creates a NEW GID (via followedBy) for the actual download after
- * magnet metadata resolves. With pause-metadata=true, this follow-up task
- * starts paused. We poll the metadata GID for followedBy, then call getFiles
- * on the follow-up GID to show the file selection dialog.
+ * aria2-next's libtorrent backend keeps the magnet and content download on
+ * the same GID. With pause-metadata=true, metadata resolves first, files become
+ * visible through RPC, and the task stays paused until file selection resumes it.
  *
  * When multiple magnets are added concurrently, only one dialog is shown at
  * a time. The poll pauses while a dialog is open and resumes after the user
@@ -310,20 +309,15 @@ function startMagnetPoll() {
     for (const gid of [...gids]) {
       try {
         const task = await taskStore.fetchTaskStatus(gid)
-
-        // Use followedBy GID if available (magnet follow-up), else same GID
-        const targetGid = task.followedBy?.[0] ?? gid
-
-        const files = await taskStore.getFiles(targetGid)
-        // Filter real content files (length > 0) and skip [METADATA] entries
-        const realFiles = files.filter((f) => Number(f.length) > 0 && !f.path.startsWith('[METADATA]'))
+        const files = await taskStore.getFiles(gid)
+        const realFiles = files.filter((f) => Number(f.length) > 0)
         if (realFiles.length === 0) continue
 
         // Metadata resolved — show file selection dialog
         appStore.pendingMagnetGids = appStore.pendingMagnetGids.filter((g) => g !== gid)
         const parsed = parseFilesForSelection(realFiles)
         magnetSelectFiles.value = parsed
-        magnetSelectionSession.value = { metadataGid: gid, downloadGid: targetGid }
+        magnetSelectionSession.value = { metadataGid: gid, downloadGid: gid }
         magnetSelectName.value = task.bittorrent?.info?.name || parsed[0]?.name || t('task.magnet-task')
         magnetSelectVisible.value = true
         return // Process one magnet at a time

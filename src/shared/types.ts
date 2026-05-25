@@ -23,6 +23,10 @@ export interface Aria2File {
 /** BitTorrent metadata attached to a task when the download is a torrent. */
 export interface Aria2BtInfo {
   info?: { name: string }
+  metadata?: {
+    state?: 'downloading' | 'ready' | string
+    hasMetadata?: boolean
+  }
   announceList?: string[][]
   creationDate?: number
   comment?: string

@@ -15,7 +15,6 @@ import type { HistoryRecord } from '@shared/types'
 import { logger } from '@shared/logger'
 
 const DB_NAME = 'sqlite:history.db'
-const METADATA_RECORD_NAME_PATTERN = '[METADATA]%'
 
 /** Callbacks for database health events — allows UI layer to show toasts
  *  without coupling the store to any specific UI framework. */
@@ -36,18 +35,6 @@ export const useHistoryStore = defineStore('history', () => {
     await conn.execute('PRAGMA synchronous = NORMAL', [])
     await conn.execute('PRAGMA busy_timeout = 5000', [])
     await conn.execute('PRAGMA foreign_keys = ON', [])
-  }
-
-  /** Remove legacy BT metadata rows from the provided connection. */
-  async function removeMetadataRecordsFrom(conn: NonNullable<typeof db>): Promise<void> {
-    await conn.execute(
-      `DELETE FROM task_birth
-       WHERE gid IN (
-         SELECT gid FROM download_history WHERE name LIKE $1
-       )`,
-      [METADATA_RECORD_NAME_PATTERN],
-    )
-    await conn.execute('DELETE FROM download_history WHERE name LIKE $1', [METADATA_RECORD_NAME_PATTERN])
   }
 
   /** Delete the database files from disk (db + WAL + SHM). */
@@ -109,8 +96,6 @@ export const useHistoryStore = defineStore('history', () => {
             logger.warn('HistoryDB', `Integrity check failed: ${status}`)
             callbacks?.onCorrupt?.()
             await rebuildDatabase(callbacks)
-          } else if (db) {
-            await removeMetadataRecordsFrom(db)
           }
         } catch (e) {
           logger.warn('HistoryDB', `Init failed: ${e}`)
@@ -199,11 +184,6 @@ export const useHistoryStore = defineStore('history', () => {
     if (gids.length === 0) return
     const placeholders = gids.map((_, i) => `$${i + 1}`).join(', ')
     await (await getDb()).execute(`DELETE FROM task_birth WHERE gid IN (${placeholders})`, gids)
-  }
-
-  /** Remove legacy BT metadata rows that were accidentally persisted as history. */
-  async function removeMetadataRecords(): Promise<void> {
-    await removeMetadataRecordsFrom(await getDb())
   }
 
   /** Remove all records, optionally filtered by status. Full reset also VACUUMs. */
@@ -301,7 +281,6 @@ export const useHistoryStore = defineStore('history', () => {
     getRecordByGid,
     removeRecord,
     removeBirthRecords,
-    removeMetadataRecords,
     clearRecords,
     removeStaleRecords,
     removeByInfoHash,

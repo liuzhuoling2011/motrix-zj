@@ -387,27 +387,35 @@ describe('isMagnetTask', () => {
 })
 
 describe('isBtMetadataTask', () => {
-  it('returns true for active magnet metadata task with metadata file name', () => {
+  it('returns true when aria2-next reports BitTorrent metadata is downloading', () => {
     const task = createMockTask({
-      bittorrent: {},
-      files: [createMockFile({ path: '[METADATA]KNOPPIX_V9.1CD-2021-01-25-EN' })],
+      bittorrent: {
+        info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' },
+        metadata: { state: 'downloading', hasMetadata: false },
+      },
+      files: [createMockFile({ path: '/downloads/KNOPPIX_V9.1CD-2021-01-25-EN.iso' })],
     })
 
     expect(isBtMetadataTask(task)).toBe(true)
   })
 
-  it('returns true when aria2 reports a metadata parent with followedBy', () => {
+  it('returns true when aria2-next reports BitTorrent metadata is missing', () => {
     const task = createMockTask({
-      followedBy: ['real-download-gid'],
-      bittorrent: { info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' } },
+      bittorrent: {
+        info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' },
+        metadata: { state: 'ready', hasMetadata: false },
+      },
     })
 
     expect(isBtMetadataTask(task)).toBe(true)
   })
 
-  it('returns false for resolved BitTorrent content task', () => {
+  it('returns false when aria2-next reports BitTorrent metadata is ready', () => {
     const task = createMockTask({
-      bittorrent: { info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' } },
+      bittorrent: {
+        info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' },
+        metadata: { state: 'ready', hasMetadata: true },
+      },
       files: [createMockFile({ path: '/downloads/KNOPPIX.iso' })],
     })
 

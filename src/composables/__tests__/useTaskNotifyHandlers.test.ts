@@ -114,9 +114,14 @@ describe('handleTaskComplete', () => {
     expect(deps.messageSuccess).toHaveBeenCalledWith('test-file.zip completed')
   })
 
-  it('skips metadata-only tasks (followedBy present)', () => {
+  it('skips aria2-next metadata-only tasks', () => {
     const deps = makeDeps()
-    const task = makeTask({ followedBy: ['follow-gid'] })
+    const task = makeTask({
+      bittorrent: {
+        info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' },
+        metadata: { state: 'downloading', hasMetadata: false },
+      },
+    })
 
     handleTaskComplete(task, deps)
 

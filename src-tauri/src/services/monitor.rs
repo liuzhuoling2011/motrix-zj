@@ -137,31 +137,22 @@ impl TaskEvent {
     }
 }
 
-fn metadata_basename(path: &str) -> &str {
-    path.rsplit(['/', '\\']).next().unwrap_or(path)
-}
-
 fn is_metadata_task(task: &Aria2Task) -> bool {
     if task
-        .followed_by
+        .bittorrent
         .as_ref()
-        .is_some_and(|followed_by| !followed_by.is_empty())
-    {
-        return true;
-    }
-
-    if task
-        .files
-        .first()
-        .is_some_and(|file| metadata_basename(&file.path).starts_with("[METADATA]"))
+        .and_then(|bt| bt.metadata.as_ref())
+        .and_then(|metadata| metadata.state.as_deref())
+        .is_some_and(|state| state == "downloading")
     {
         return true;
     }
 
     task.bittorrent
         .as_ref()
-        .and_then(|bt| bt.info.as_ref())
-        .is_some_and(|info| info.name.starts_with("[METADATA]"))
+        .and_then(|bt| bt.metadata.as_ref())
+        .and_then(|metadata| metadata.has_metadata)
+        .is_some_and(|has_metadata| !has_metadata)
 }
 
 /// Builds the JSON `meta` field for a history record.
@@ -664,7 +655,7 @@ impl TaskMonitorState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aria2::types::{Aria2BtInfo, Aria2BtName, Aria2File, Aria2FileUri};
+    use crate::aria2::types::{Aria2BtInfo, Aria2BtMetadata, Aria2BtName, Aria2File, Aria2FileUri};
 
     fn make_task(gid: &str, status: &str) -> Aria2Task {
         Aria2Task {
@@ -710,6 +701,7 @@ mod tests {
             info: Some(Aria2BtName {
                 name: "Ubuntu.iso".to_string(),
             }),
+            metadata: None,
             announce_list: Some(vec![vec!["udp://tracker.example.com:6969".to_string()]]),
             creation_date: None,
             comment: None,
@@ -763,6 +755,7 @@ mod tests {
                 info: Some(Aria2BtName {
                     name: "MyTorrent".to_string(),
                 }),
+                metadata: None,
                 announce_list: Some(vec![
                     vec!["udp://tracker1.example.com:6969".to_string()],
                     vec!["udp://tracker2.example.com:6969".to_string()],
@@ -797,11 +790,13 @@ mod tests {
 
     fn make_metadata_task(gid: &str) -> Aria2Task {
         let mut task = make_task(gid, "complete");
-        task.files[0].path = "/downloads/[METADATA]KNOPPIX_V9.1CD-2021-01-25-EN".to_string();
-        task.followed_by = Some(vec!["child-gid".to_string()]);
         task.bittorrent = Some(Aria2BtInfo {
             info: Some(Aria2BtName {
-                name: "[METADATA]KNOPPIX_V9.1CD-2021-01-25-EN".to_string(),
+                name: "KNOPPIX_V9.1CD-2021-01-25-EN".to_string(),
+            }),
+            metadata: Some(Aria2BtMetadata {
+                state: Some("downloading".to_string()),
+                has_metadata: Some(false),
             }),
             announce_list: None,
             creation_date: None,

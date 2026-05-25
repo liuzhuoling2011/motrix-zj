@@ -6,20 +6,13 @@
 import type { Aria2Task, Aria2File, HistoryRecord, HistoryMeta, HistoryFileSnapshot } from '@shared/types'
 import { decodePathSegment } from '@shared/utils/batchHelpers'
 import { normalizeSep } from '@shared/utils/autoArchive'
+import { isBtMetadataTask } from '@shared/utils/task'
 import { getAddedAt } from '@/composables/useTaskOrder'
 import { logger } from '@shared/logger'
 
-/** Detect BT metadata-only downloads (the intermediate magnet resolution phase).
- *
- * These tasks have `[METADATA]` in the first file path or a `followedBy`
- * field pointing to the real download. They should NOT be persisted as
- * history records. */
+/** Detect magnet tasks that are still resolving BitTorrent metadata. */
 export function isMetadataTask(task: Aria2Task): boolean {
-  if (task.followedBy && task.followedBy.length > 0) return true
-  const firstPath = task.files?.[0]?.path ?? ''
-  const firstName = firstPath.split(/[/\\]/).pop() ?? firstPath
-  const btName = task.bittorrent?.info?.name ?? ''
-  return firstPath.startsWith('[METADATA]') || firstName.startsWith('[METADATA]') || btName.startsWith('[METADATA]')
+  return isBtMetadataTask(task)
 }
 
 // ── Centralized history snapshot helpers ────────────────────────────

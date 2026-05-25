@@ -31,6 +31,8 @@ pub struct Aria2File {
 pub struct Aria2BtInfo {
     #[serde(default)]
     pub info: Option<Aria2BtName>,
+    #[serde(default)]
+    pub metadata: Option<Aria2BtMetadata>,
     #[serde(default, rename = "announceList")]
     pub announce_list: Option<Vec<Vec<String>>>,
     #[serde(default, rename = "creationDate")]
@@ -39,6 +41,16 @@ pub struct Aria2BtInfo {
     pub comment: Option<String>,
     #[serde(default)]
     pub mode: Option<String>,
+}
+
+/// libtorrent metadata phase exposed by aria2-next.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Aria2BtMetadata {
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub has_metadata: Option<bool>,
 }
 
 /// Name sub-object within `Aria2BtInfo.info`.
@@ -249,7 +261,11 @@ mod tests {
             "dir": "/downloads",
             "bittorrent": {
                 "info": { "name": "test.torrent" },
-                "mode": "multi"
+                "mode": "multi",
+                "metadata": {
+                    "state": "downloading",
+                    "hasMetadata": false
+                }
             },
             "infoHash": "abc123def456",
             "seeder": "true",
@@ -259,6 +275,9 @@ mod tests {
         let bt = task.bittorrent.as_ref().unwrap();
         assert_eq!(bt.info.as_ref().unwrap().name, "test.torrent");
         assert_eq!(bt.mode.as_deref(), Some("multi"));
+        let metadata = bt.metadata.as_ref().unwrap();
+        assert_eq!(metadata.state.as_deref(), Some("downloading"));
+        assert_eq!(metadata.has_metadata, Some(false));
         assert_eq!(task.info_hash.as_deref(), Some("abc123def456"));
         assert_eq!(task.seeder.as_deref(), Some("true"));
         assert_eq!(task.num_seeders.as_deref(), Some("5"));
