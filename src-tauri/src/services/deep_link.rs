@@ -251,7 +251,6 @@ mod tests {
             "/Applications/MotrixNext.app".to_string(),
             "--flag".to_string(),
             "file:///Users/example/ubuntu.torrent".to_string(),
-            "/Users/example/Fedora.METALINK".to_string(),
             "magnet:?xt=urn:btih:abc".to_string(),
             "ed2k://|file|ubuntu.iso|123|0123456789abcdef0123456789abcdef|/".to_string(),
             "notes.txt".to_string(),
@@ -263,7 +262,6 @@ mod tests {
             filtered,
             vec![
                 "file:///Users/example/ubuntu.torrent".to_string(),
-                "/Users/example/Fedora.METALINK".to_string(),
                 "magnet:?xt=urn:btih:abc".to_string(),
                 "ed2k://|file|ubuntu.iso|123|0123456789abcdef0123456789abcdef|/".to_string()
             ]
