@@ -190,9 +190,9 @@ describe('buildNetworkForm', () => {
     expect(form.timeout).toBe(60)
   })
 
-  it('defaults fileAllocation to none', () => {
+  it('defaults fileAllocation to prealloc', () => {
     const form = buildNetworkForm(emptyConfig)
-    expect(form.fileAllocation).toBe('none')
+    expect(form.fileAllocation).toBe('prealloc')
   })
 
   it('reads fileAllocation from config', () => {
@@ -291,6 +291,11 @@ describe('buildNetworkSystemConfig', () => {
 
   it('emits custom file-allocation value', () => {
     const config = buildNetworkSystemConfig({ ...baseForm, fileAllocation: 'prealloc' })
+    expect(config['file-allocation']).toBe('prealloc')
+  })
+
+  it('falls back empty file-allocation to prealloc', () => {
+    const config = buildNetworkSystemConfig({ ...baseForm, fileAllocation: '' })
     expect(config['file-allocation']).toBe('prealloc')
   })
 

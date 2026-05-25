@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
 import { usePreferenceForm } from '@/composables/usePreferenceForm'
 import { useEngineRestart } from '@/composables/useEngineRestart'
+import { usePlatform } from '@/composables/usePlatform'
 import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
 import { logger } from '@shared/logger'
 import { useAppMessage } from '@/composables/useAppMessage'
@@ -46,11 +47,18 @@ const { t } = useI18n()
 const preferenceStore = usePreferenceStore()
 const dialog = useDialog()
 const message = useAppMessage()
+const { isWindows } = usePlatform()
 
 const proxyScopeOptions = PROXY_SCOPE_OPTIONS.map((s: string) => ({
   label: t(`preferences.proxy-scope-${s}`),
   value: s,
 }))
+const fileAllocationOptions = computed(() =>
+  FILE_ALLOCATION_OPTIONS.filter((value) => !(isWindows.value && value === 'falloc')).map((value) => ({
+    label: value,
+    value,
+  })),
+)
 
 type PortRecoveryTarget = 'rpc' | 'extensionApi' | 'bt' | 'dht' | 'ed2k'
 const portRecoveryTargets: PortRecoveryTarget[] = ['rpc', 'extensionApi', 'bt', 'dht', 'ed2k']
@@ -360,11 +368,7 @@ onMounted(() => {
         <NText depth="3" style="font-size: 12px; margin-left: 8px">{{ t('preferences.unit-seconds') }}</NText>
       </NFormItem>
       <NFormItem :label="t('preferences.file-allocation')">
-        <NSelect
-          v-model:value="form.fileAllocation"
-          :options="FILE_ALLOCATION_OPTIONS.map((v: string) => ({ label: v, value: v }))"
-          style="width: 140px"
-        />
+        <NSelect v-model:value="form.fileAllocation" :options="fileAllocationOptions" style="width: 140px" />
       </NFormItem>
     </NForm>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
