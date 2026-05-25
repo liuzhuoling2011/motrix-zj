@@ -74,6 +74,10 @@ pub struct Aria2Ed2kInfo {
     #[serde(default)]
     pub length: Option<String>,
     #[serde(default)]
+    pub completed_length: Option<String>,
+    #[serde(default)]
+    pub in_flight_completed_length: Option<String>,
+    #[serde(default)]
     pub part_hash_count: Option<String>,
     #[serde(default)]
     pub aich_root: Option<String>,
@@ -124,6 +128,8 @@ pub struct Aria2Task {
     pub status: String,
     pub total_length: String,
     pub completed_length: String,
+    #[serde(default)]
+    pub in_flight_completed_length: Option<String>,
     pub upload_length: String,
     pub download_speed: String,
     pub upload_speed: String,
@@ -256,6 +262,32 @@ mod tests {
         assert_eq!(task.info_hash.as_deref(), Some("abc123def456"));
         assert_eq!(task.seeder.as_deref(), Some("true"));
         assert_eq!(task.num_seeders.as_deref(), Some("5"));
+    }
+
+    #[test]
+    fn deserialize_ed2k_task_with_in_flight_progress_fields() {
+        let json = serde_json::json!({
+            "gid": "ed2k001",
+            "status": "active",
+            "totalLength": "3389035",
+            "completedLength": "0",
+            "inFlightCompletedLength": "1048576",
+            "uploadLength": "0",
+            "downloadSpeed": "65536",
+            "uploadSpeed": "0",
+            "connections": "3",
+            "dir": "/downloads",
+            "ed2k": {
+                "hash": "3D366ED505B977FC61C9A6EE01E96329",
+                "completedLength": "0",
+                "inFlightCompletedLength": "2097152"
+            }
+        });
+        let task: Aria2Task = serde_json::from_value(json).expect("deserialize");
+        let ed2k = task.ed2k.as_ref().unwrap();
+        assert_eq!(task.in_flight_completed_length.as_deref(), Some("1048576"));
+        assert_eq!(ed2k.completed_length.as_deref(), Some("0"));
+        assert_eq!(ed2k.in_flight_completed_length.as_deref(), Some("2097152"));
     }
 
     #[test]

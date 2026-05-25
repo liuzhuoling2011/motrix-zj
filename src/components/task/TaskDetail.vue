@@ -18,6 +18,7 @@ import {
   peerIdParser,
   timeRemaining,
   timeFormat,
+  getTaskVisibleCompletedLength,
 } from '@shared/utils'
 import { decodePathSegment } from '@shared/utils/batchHelpers'
 import { calcColumnWidth } from '@shared/utils/calcColumnWidth'
@@ -193,15 +194,12 @@ watch(
   },
   { immediate: true },
 )
-const percent = computed(() => (props.task ? calcProgress(props.task.totalLength, props.task.completedLength) : 0))
+const visibleCompletedLength = computed(() => (props.task ? getTaskVisibleCompletedLength(props.task) : 0))
+const percent = computed(() => (props.task ? calcProgress(props.task.totalLength, visibleCompletedLength.value) : 0))
 
 const remaining = computed(() => {
   if (!isActive.value || !props.task) return 0
-  return timeRemaining(
-    Number(props.task.totalLength),
-    Number(props.task.completedLength),
-    Number(props.task.downloadSpeed),
-  )
+  return timeRemaining(Number(props.task.totalLength), visibleCompletedLength.value, Number(props.task.downloadSpeed))
 })
 
 const remainingText = computed(() => {
@@ -673,7 +671,7 @@ function handleClose() {
                   </div>
                 </NDescriptionsItem>
                 <NDescriptionsItem :label="t('task.task-file-size') || 'Size'">
-                  {{ bytesToSize(task.completedLength, 2) }}
+                  {{ bytesToSize(visibleCompletedLength, 2) }}
                   <span v-if="Number(task.totalLength) > 0"> / {{ bytesToSize(task.totalLength, 2) }}</span>
                   <span v-if="remainingText" class="remaining-text">{{ remainingText }}</span>
                 </NDescriptionsItem>

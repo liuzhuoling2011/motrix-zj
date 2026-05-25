@@ -11,6 +11,7 @@ import {
   timeRemaining,
   timeFormat,
   checkTaskIsBT,
+  getTaskVisibleCompletedLength,
 } from '@shared/utils'
 import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@shared/logger'
@@ -54,20 +55,17 @@ const isBT = computed(() => checkTaskIsBT(props.task))
 const taskStatus = computed(() => (isSeeder.value ? TASK_STATUS.SEEDING : props.task.status))
 const isActive = computed(() => props.task.status === TASK_STATUS.ACTIVE)
 
-const percent = computed(() => calcProgress(props.task.totalLength, props.task.completedLength))
-const completedSize = computed(() => bytesToSize(props.task.completedLength, 2))
+const visibleCompletedLength = computed(() => getTaskVisibleCompletedLength(props.task))
+const percent = computed(() => calcProgress(props.task.totalLength, visibleCompletedLength.value))
+const completedSize = computed(() => bytesToSize(visibleCompletedLength.value, 2))
 const totalSize = computed(() => bytesToSize(props.task.totalLength, 2))
-const hasSizeInfo = computed(() => Number(props.task.completedLength) > 0 || Number(props.task.totalLength) > 0)
+const hasSizeInfo = computed(() => visibleCompletedLength.value > 0 || Number(props.task.totalLength) > 0)
 const downloadSpeed = computed(() => bytesToSize(props.task.downloadSpeed))
 const uploadSpeed = computed(() => bytesToSize(props.task.uploadSpeed))
 
 const remaining = computed(() => {
   if (!isActive.value) return 0
-  return timeRemaining(
-    Number(props.task.totalLength),
-    Number(props.task.completedLength),
-    Number(props.task.downloadSpeed),
-  )
+  return timeRemaining(Number(props.task.totalLength), visibleCompletedLength.value, Number(props.task.downloadSpeed))
 })
 
 const remainingText = computed(() => {

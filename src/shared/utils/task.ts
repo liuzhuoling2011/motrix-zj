@@ -13,6 +13,26 @@ export const calcProgress = (totalLength: string | number, completedLength: stri
   return parseFloat(percentage.toFixed(decimal))
 }
 
+const parseLength = (value: string | number | undefined): number => {
+  const parsed = Number(value ?? 0)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
+export const getTaskVisibleCompletedLength = (task: Aria2Task): number => {
+  const verified = parseLength(task.completedLength)
+  if (task.status !== 'active' || !task.ed2k) return verified
+
+  const total = parseLength(task.totalLength)
+  const visible = Math.max(
+    verified,
+    parseLength(task.inFlightCompletedLength),
+    parseLength(task.ed2k.completedLength),
+    parseLength(task.ed2k.inFlightCompletedLength),
+  )
+
+  return total > 0 ? Math.min(visible, total) : visible
+}
+
 /** Calculates upload-to-download ratio for seeding tasks. */
 export const calcRatio = (totalLength: string | number, uploadLength: string | number): number => {
   const total = parseInt(String(totalLength), 10)

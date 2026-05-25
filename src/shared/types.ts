@@ -34,6 +34,8 @@ export interface Aria2Ed2kInfo {
   hash?: string
   name?: string
   length?: string
+  completedLength?: string
+  inFlightCompletedLength?: string
   partHashCount?: string
   aichRoot?: string
   serverCount?: string
@@ -106,6 +108,7 @@ export interface Aria2Task {
   status: TaskStatus
   totalLength: string
   completedLength: string
+  inFlightCompletedLength?: string
   uploadLength: string
   downloadSpeed: string
   uploadSpeed: string
