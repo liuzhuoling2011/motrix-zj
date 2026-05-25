@@ -7,6 +7,7 @@ import { hasUnsafeHeaderChars, sanitizeHeaderValue } from '@shared/utils/headerS
 import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { SearchOutline } from '@vicons/ionicons5'
+import type { TaskProxyMode } from '@shared/utils/proxyPolicy'
 
 const { t } = useI18n()
 
@@ -19,14 +20,14 @@ const props = defineProps<{
   saveHttpAuth: boolean
   referer: string
   cookie: string
-  /** Proxy mode: 'none' | 'global' | 'custom'. */
-  proxyMode: 'none' | 'global' | 'custom'
-  /** Custom proxy address when proxyMode is 'custom'. */
+  /** Proxy mode for this task. */
+  proxyMode: TaskProxyMode
+  /** Custom proxy address when proxyMode is 'manual'. */
   customProxy: string
   /** Whether a usable global proxy is configured in Settings → Advanced. */
   globalProxyAvailable: boolean
-  /** The global proxy server address (displayed as read-only hint). */
-  globalProxyServer: string
+  /** The global proxy mode (displayed as read-only hint). */
+  globalProxyMode: string
 }>()
 
 const emit = defineEmits<{
@@ -38,7 +39,7 @@ const emit = defineEmits<{
   'update:saveHttpAuth': [value: boolean]
   'update:referer': [value: string]
   'update:cookie': [value: string]
-  'update:proxyMode': [value: 'none' | 'global' | 'custom']
+  'update:proxyMode': [value: TaskProxyMode]
   'update:customProxy': [value: string]
 }>()
 
@@ -143,20 +144,23 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
           <NRadioGroup
             :value="proxyMode"
             name="add-task-proxy-mode"
-            @update:value="$emit('update:proxyMode', $event as 'none' | 'global' | 'custom')"
+            @update:value="$emit('update:proxyMode', $event as TaskProxyMode)"
           >
-            <NRadio value="none">{{ t('task.proxy-mode-none') }}</NRadio>
+            <NRadio value="direct">{{ t('task.proxy-mode-direct') }}</NRadio>
+            <NRadio value="auto">{{ t('task.proxy-mode-auto') }}</NRadio>
             <NRadio v-if="globalProxyAvailable" value="global">
               {{ t('task.proxy-mode-global') }}
             </NRadio>
-            <NRadio value="custom">{{ t('task.proxy-mode-custom') }}</NRadio>
+            <NRadio value="manual">{{ t('task.proxy-mode-manual') }}</NRadio>
           </NRadioGroup>
           <div class="proxy-hint-collapse" :class="{ 'proxy-hint-collapse--open': proxyMode === 'global' }">
             <div class="proxy-hint-collapse__inner">
-              <div class="proxy-server-hint">{{ t('task.proxy-global-server') }} {{ globalProxyServer }}</div>
+              <div class="proxy-server-hint">
+                {{ t('task.proxy-global-mode') }} {{ t(`task.proxy-mode-${globalProxyMode}`) }}
+              </div>
             </div>
           </div>
-          <NCollapseTransition :show="proxyMode === 'custom'">
+          <NCollapseTransition :show="proxyMode === 'manual'">
             <div class="custom-proxy-input">
               <NInput
                 :value="customProxy"

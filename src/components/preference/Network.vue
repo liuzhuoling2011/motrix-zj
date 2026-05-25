@@ -30,6 +30,8 @@ import {
   NInputNumber,
   NInputGroup,
   NSwitch,
+  NRadio,
+  NRadioGroup,
   NSelect,
   NButton,
   NButtonGroup,
@@ -85,7 +87,8 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
   onSuccess(info) {
     form.value.proxy.server = info.server
     if (info.bypass) form.value.proxy.bypass = info.bypass
-    if (!form.value.proxy.enable) form.value.proxy.enable = true
+    form.value.proxy.mode = 'manual'
+    form.value.proxy.enable = true
     message.success(t('preferences.proxy-detected-success'))
   },
   onSocks() {
@@ -237,10 +240,14 @@ onMounted(() => {
     <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
       <!-- Proxy -->
       <NDivider title-placement="left">{{ t('preferences.proxy') }}</NDivider>
-      <NFormItem :label="t('preferences.enable-proxy')">
-        <NSwitch v-model:value="form.proxy.enable" />
+      <NFormItem :label="t('preferences.proxy-mode')">
+        <NRadioGroup v-model:value="form.proxy.mode" name="download-proxy-mode">
+          <NRadio value="direct">{{ t('preferences.proxy-mode-direct') }}</NRadio>
+          <NRadio value="auto">{{ t('preferences.proxy-mode-auto') }}</NRadio>
+          <NRadio value="manual">{{ t('preferences.proxy-mode-manual') }}</NRadio>
+        </NRadioGroup>
       </NFormItem>
-      <div class="proxy-collapse" :class="{ 'proxy-collapse--open': form.proxy.enable }">
+      <div class="proxy-collapse" :class="{ 'proxy-collapse--open': form.proxy.mode === 'manual' }">
         <div class="proxy-collapse__inner collapse-indent">
           <NFormItem :label="t('preferences.proxy-server')">
             <NInputGroup>

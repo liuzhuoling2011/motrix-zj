@@ -19,7 +19,7 @@ import { detectKind, createBatchItem, resolveExternalFilenameHint } from '@share
 import { summarizeExternalInput } from '@shared/utils/externalInputDiagnostics'
 import { parseMotrixDeepLink } from '@shared/utils/motrixDeepLink'
 import { buildEngineOptions, submitBatchItems, submitManualUris } from '@/composables/useAddTaskSubmit'
-import { isGlobalDownloadProxyActive, getDownloadProxy } from '@/composables/useAddTaskSubmit'
+import { getDownloadProxy } from '@/composables/useAddTaskSubmit'
 import { resolveUnresolvedItems } from '@/composables/useAddTaskFileOps'
 import { usePreferenceStore } from '@/stores/preference'
 import { useTaskStore } from '@/stores/task'
@@ -437,9 +437,9 @@ export const useAppStore = defineStore('app', () => {
       saveHttpAuth: true,
       referer,
       cookie,
-      proxyMode: isGlobalDownloadProxyActive(preferenceStore.config.proxy) ? 'global' : 'none',
+      proxyMode: 'global',
       customProxy: '',
-      globalProxyServer: preferenceStore.config.proxy?.server ?? '',
+      globalProxy: preferenceStore.config.proxy,
     }
   }
 

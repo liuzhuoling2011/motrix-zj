@@ -4,10 +4,11 @@
  * Contains configuration transforms, secret generation, and port randomization
  * logic that was previously inline in the component's script setup.
  */
-import { ENGINE_RPC_PORT, PROXY_SCOPES, PROXY_SCOPE_OPTIONS, DEFAULT_APP_CONFIG as D } from '@shared/constants'
+import { ENGINE_RPC_PORT, PROXY_SCOPE_OPTIONS, DEFAULT_APP_CONFIG as D } from '@shared/constants'
 import { convertCommaToLine, convertLineToComma, generateRandomInt } from '@shared/utils'
 import { isValidAria2ProxyUrl, UNSUPPORTED_PROXY_SCHEME_RE } from '@shared/utils/aria2Proxy'
 import type { AppConfig } from '@shared/types'
+import { buildDownloadProxyOptions, normalizeProxyMode, type EngineProxyMode } from '@shared/utils/proxyPolicy'
 
 export { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
 
@@ -36,6 +37,7 @@ export function isValidTrackerSourceUrl(input: string): boolean {
 export interface AdvancedForm {
   [key: string]: unknown
   proxy: {
+    mode: EngineProxyMode
     enable: boolean
     server: string
     bypass: string
@@ -117,6 +119,7 @@ export function buildAdvancedForm(config: AppConfig): {
   return {
     form: {
       proxy: {
+        mode: normalizeProxyMode(proxy.mode),
         enable: proxy.enable ?? D.proxy.enable,
         server: proxy.server ?? D.proxy.server,
         bypass: proxy.bypass ?? D.proxy.bypass,
@@ -170,8 +173,6 @@ export function buildAdvancedForm(config: AppConfig): {
  * Pure function — no side effects.
  */
 export function buildAdvancedSystemConfig(f: AdvancedForm): Record<string, string> {
-  const proxyForDownloads =
-    f.proxy.enable && Array.isArray(f.proxy.scope) && f.proxy.scope.includes(PROXY_SCOPES.DOWNLOAD)
   return {
     'rpc-listen-port': String(f.rpcListenPort),
     'rpc-secret': f.rpcSecret,
@@ -182,8 +183,7 @@ export function buildAdvancedSystemConfig(f: AdvancedForm): Record<string, strin
     'user-agent': f.userAgent || '',
     'log-level': f.logLevel || 'debug',
     'bt-tracker': convertLineToComma(f.btTracker),
-    'all-proxy': proxyForDownloads ? f.proxy.server : '',
-    'no-proxy': proxyForDownloads ? f.proxy.bypass || '' : '',
+    ...buildDownloadProxyOptions(f.proxy),
   }
 }
 
@@ -209,6 +209,10 @@ export function transformAdvancedForStore(f: AdvancedForm): Record<string, unkno
   } = f
   return {
     ...rest,
+    proxy: {
+      ...f.proxy,
+      enable: f.proxy.mode === 'manual',
+    },
     btTracker: convertLineToComma(f.btTracker),
     clipboard: {
       enable: clipboardEnable,
@@ -235,7 +239,7 @@ export function transformAdvancedForStore(f: AdvancedForm): Record<string, unkno
  * Returns null if valid, or an i18n error key if invalid.
  */
 export function validateAdvancedForm(f: AdvancedForm): string | null {
-  if (f.proxy.enable && f.proxy.server) {
+  if (f.proxy.mode === 'manual' && f.proxy.server) {
     if (!isValidAria2ProxyUrl(f.proxy.server)) {
       return UNSUPPORTED_PROXY_SCHEME_RE.test(f.proxy.server.trim())
         ? 'preferences.proxy-unsupported-protocol'

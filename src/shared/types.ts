@@ -164,8 +164,9 @@ export interface Aria2RawGlobalStat {
   [key: string]: string
 }
 
-/** HTTP/SOCKS proxy configuration for aria2 and tracker requests. */
+/** HTTP proxy configuration for download tasks and scoped app requests. */
 export interface ProxyConfig {
+  mode?: import('@shared/utils/proxyPolicy').EngineProxyMode
   enable: boolean
   server: string
   bypass?: string

@@ -48,8 +48,7 @@ const migrations: Migration[] = [
   // ── v0 → v1 ──────────────────────────────────────────────────────
   // Backfill empty proxy.scope for users who configured proxy before
   // the scope feature was introduced (pre-#81). Without scope values,
-  // buildAdvancedSystemConfig() emits all-proxy='' and aria2 receives
-  // no proxy configuration, causing Bug #103.
+  // the download proxy settings cannot target download tasks.
   //
   // Empty scope is treated as "never explicitly configured" rather than
   // "user intentionally deselected all scopes", because the scope UI

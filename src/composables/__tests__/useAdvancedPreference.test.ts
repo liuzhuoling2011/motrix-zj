@@ -195,7 +195,13 @@ describe('buildAdvancedForm', () => {
 
   it('preserves proxy configuration', () => {
     const config = {
-      proxy: { enable: true, server: 'socks5://127.0.0.1:1080', bypass: '*.local', scope: ['download'] },
+      proxy: {
+        mode: 'manual',
+        enable: true,
+        server: 'socks5://127.0.0.1:1080',
+        bypass: '*.local',
+        scope: ['download'],
+      },
     } as AppConfig
     const { form } = buildAdvancedForm(config)
     expect(form.proxy.enable).toBe(true)
@@ -229,7 +235,7 @@ describe('buildAdvancedForm', () => {
 
 describe('buildAdvancedSystemConfig', () => {
   const baseForm: AdvancedForm = {
-    proxy: { enable: false, server: '', bypass: '', scope: [] },
+    proxy: { mode: 'direct', enable: false, server: '', bypass: '', scope: [] },
     trackerSource: [],
     customTrackerUrls: [],
     btTracker: 'udp://t1.org:6969\nudp://t2.org:6969',
@@ -282,10 +288,11 @@ describe('buildAdvancedSystemConfig', () => {
     expect(config['bt-tracker']).toBe('udp://t1.org:6969,udp://t2.org:6969')
   })
 
-  it('sets proxy when enabled for downloads', () => {
+  it('sets manual proxy mode when enabled for downloads', () => {
     const proxyForm: AdvancedForm = {
       ...baseForm,
       proxy: {
+        mode: 'manual',
         enable: true,
         server: 'http://proxy:8080',
         bypass: '*.local',
@@ -293,27 +300,30 @@ describe('buildAdvancedSystemConfig', () => {
       },
     }
     const config = buildAdvancedSystemConfig(proxyForm)
+    expect(config['proxy-mode']).toBe('manual')
     expect(config['all-proxy']).toBe('http://proxy:8080')
     expect(config['no-proxy']).toBe('*.local')
   })
 
-  it('clears proxy when not enabled for downloads', () => {
+  it('forces direct mode when download scope is excluded', () => {
     const noProxyForm: AdvancedForm = {
       ...baseForm,
-      proxy: { enable: true, server: 'http://proxy:8080', bypass: '*.local', scope: ['app'] },
+      proxy: { mode: 'manual', enable: true, server: 'http://proxy:8080', bypass: '*.local', scope: ['app'] },
     }
     const config = buildAdvancedSystemConfig(noProxyForm)
-    expect(config['all-proxy']).toBe('')
-    expect(config['no-proxy']).toBe('')
+    expect(config['proxy-mode']).toBe('direct')
+    expect(config['all-proxy']).toBeUndefined()
+    expect(config['no-proxy']).toBeUndefined()
   })
 
-  it('clears proxy when proxy is disabled', () => {
+  it('forces direct mode when proxy is direct', () => {
     const disabledForm: AdvancedForm = {
       ...baseForm,
-      proxy: { enable: false, server: 'http://proxy:8080', bypass: '', scope: [PROXY_SCOPES.DOWNLOAD] },
+      proxy: { mode: 'direct', enable: false, server: 'http://proxy:8080', bypass: '', scope: [PROXY_SCOPES.DOWNLOAD] },
     }
     const config = buildAdvancedSystemConfig(disabledForm)
-    expect(config['all-proxy']).toBe('')
+    expect(config['proxy-mode']).toBe('direct')
+    expect(config['all-proxy']).toBeUndefined()
   })
 })
 
@@ -322,7 +332,7 @@ describe('buildAdvancedSystemConfig', () => {
 describe('transformAdvancedForStore', () => {
   it('converts trackers back to comma format', () => {
     const form: AdvancedForm = {
-      proxy: { enable: false, server: '', bypass: '', scope: [] },
+      proxy: { mode: 'direct', enable: false, server: '', bypass: '', scope: [] },
       trackerSource: [],
       customTrackerUrls: [],
       btTracker: 'udp://a\nudp://b',
@@ -364,7 +374,7 @@ describe('transformAdvancedForStore', () => {
 
   it('persists ED2K clipboard and protocol toggles', () => {
     const form: AdvancedForm = {
-      proxy: { enable: false, server: '', bypass: '', scope: [] },
+      proxy: { mode: 'direct', enable: false, server: '', bypass: '', scope: [] },
       trackerSource: [],
       customTrackerUrls: [],
       btTracker: '',
@@ -409,7 +419,7 @@ describe('transformAdvancedForStore', () => {
 
   it('preserves port numbers as numbers (not strings)', () => {
     const form: AdvancedForm = {
-      proxy: { enable: false, server: '', bypass: '', scope: [] },
+      proxy: { mode: 'direct', enable: false, server: '', bypass: '', scope: [] },
       trackerSource: [],
       customTrackerUrls: [],
       btTracker: '',
@@ -555,7 +565,7 @@ describe('isValidAria2ProxyUrl', () => {
 
 describe('validateAdvancedForm', () => {
   const validForm: AdvancedForm = {
-    proxy: { enable: false, server: '', bypass: '', scope: [] },
+    proxy: { mode: 'direct', enable: false, server: '', bypass: '', scope: [] },
     trackerSource: [],
     customTrackerUrls: [],
     btTracker: '',
@@ -600,56 +610,56 @@ describe('validateAdvancedForm', () => {
     expect(validateAdvancedForm({ ...validForm, rpcSecret: '' })).toBeNull()
   })
 
-  it('returns null for valid proxy URL when proxy enabled', () => {
+  it('returns null for valid proxy URL in manual mode', () => {
     expect(
       validateAdvancedForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: 'http://proxy.example.com:8080' },
+        proxy: { ...validForm.proxy, mode: 'manual', enable: true, server: 'http://proxy.example.com:8080' },
       }),
     ).toBeNull()
   })
 
-  it('returns invalid-proxy-url for malformed URL when proxy enabled', () => {
+  it('returns invalid-proxy-url for malformed URL in manual mode', () => {
     expect(
       validateAdvancedForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: 'http://:invalid:url:' },
+        proxy: { ...validForm.proxy, mode: 'manual', enable: true, server: 'http://:invalid:url:' },
       }),
     ).toBe('preferences.invalid-proxy-url')
   })
 
-  it('returns proxy-unsupported-protocol for socks5 when proxy enabled', () => {
+  it('returns proxy-unsupported-protocol for socks5 in manual mode', () => {
     expect(
       validateAdvancedForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: 'socks5://127.0.0.1:1080' },
+        proxy: { ...validForm.proxy, mode: 'manual', enable: true, server: 'socks5://127.0.0.1:1080' },
       }),
     ).toBe('preferences.proxy-unsupported-protocol')
   })
 
-  it('returns proxy-unsupported-protocol for socks4 when proxy enabled', () => {
+  it('returns proxy-unsupported-protocol for socks4 in manual mode', () => {
     expect(
       validateAdvancedForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: 'socks4://127.0.0.1:1080' },
+        proxy: { ...validForm.proxy, mode: 'manual', enable: true, server: 'socks4://127.0.0.1:1080' },
       }),
     ).toBe('preferences.proxy-unsupported-protocol')
   })
 
-  it('returns null for invalid proxy URL when proxy disabled', () => {
+  it('returns null for invalid proxy URL in direct mode', () => {
     expect(
       validateAdvancedForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: false, server: 'socks5://127.0.0.1:1080' },
+        proxy: { ...validForm.proxy, mode: 'direct', enable: false, server: 'socks5://127.0.0.1:1080' },
       }),
     ).toBeNull()
   })
 
-  it('returns null for empty proxy server when proxy enabled', () => {
+  it('returns null for empty proxy server in manual mode', () => {
     expect(
       validateAdvancedForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: '' },
+        proxy: { ...validForm.proxy, mode: 'manual', enable: true, server: '' },
       }),
     ).toBeNull()
   })
@@ -695,28 +705,41 @@ describe('proxy configuration invariants', () => {
 
   it('buildAdvancedForm preserves user-selected subset of scopes', () => {
     const config = {
-      proxy: { enable: true, server: 'http://127.0.0.1:7890', bypass: '', scope: [PROXY_SCOPES.DOWNLOAD] },
+      proxy: {
+        mode: 'manual',
+        enable: true,
+        server: 'http://127.0.0.1:7890',
+        bypass: '',
+        scope: [PROXY_SCOPES.DOWNLOAD],
+      },
     } as AppConfig
     const { form } = buildAdvancedForm(config)
     expect(form.proxy.scope).toEqual([PROXY_SCOPES.DOWNLOAD])
   })
 
-  it('enabling proxy with default scope produces non-empty all-proxy', () => {
+  it('manual proxy with default scope produces non-empty all-proxy', () => {
     // End-to-end: the exact user flow from issue #81.
     // 1. Fresh install → buildAdvancedForm({}) → form with default scope
-    // 2. User toggles enable=true and enters server
-    // 3. buildAdvancedSystemConfig → all-proxy MUST be the server value
+    // 2. User selects manual mode and enters server
+    // 3. buildAdvancedSystemConfig → proxy-mode/manual plus all-proxy
     const { form } = buildAdvancedForm({} as AppConfig)
-    form.proxy.enable = true
+    form.proxy.mode = 'manual'
     form.proxy.server = 'http://127.0.0.1:7890'
     const systemConfig = buildAdvancedSystemConfig(form)
+    expect(systemConfig['proxy-mode']).toBe('manual')
     expect(systemConfig['all-proxy']).toBe('http://127.0.0.1:7890')
-    expect(systemConfig['no-proxy']).toBe('')
+    expect(systemConfig['no-proxy']).toBeUndefined()
   })
 
-  it('disabling proxy produces empty-string all-proxy (for clearing)', () => {
+  it('direct proxy mode emits direct without all-proxy', () => {
     const form: AdvancedForm = {
-      proxy: { enable: false, server: 'http://127.0.0.1:7890', bypass: '', scope: [...PROXY_SCOPE_OPTIONS] },
+      proxy: {
+        mode: 'direct',
+        enable: false,
+        server: 'http://127.0.0.1:7890',
+        bypass: '',
+        scope: [...PROXY_SCOPE_OPTIONS],
+      },
       trackerSource: [],
       customTrackerUrls: [],
       btTracker: '',
@@ -753,14 +776,15 @@ describe('proxy configuration invariants', () => {
       fileAllocation: 'prealloc',
     }
     const systemConfig = buildAdvancedSystemConfig(form)
-    // Empty string is intentional — aria2 accepts '' to clear the proxy
-    expect(systemConfig['all-proxy']).toBe('')
-    expect(systemConfig['no-proxy']).toBe('')
+    expect(systemConfig['proxy-mode']).toBe('direct')
+    expect(systemConfig['all-proxy']).toBeUndefined()
+    expect(systemConfig['no-proxy']).toBeUndefined()
   })
 
-  it('proxy with download scope excluded produces empty all-proxy', () => {
+  it('proxy with download scope excluded emits direct mode', () => {
     const form: AdvancedForm = {
       proxy: {
+        mode: 'manual',
         enable: true,
         server: 'http://127.0.0.1:7890',
         bypass: '',
@@ -802,12 +826,14 @@ describe('proxy configuration invariants', () => {
       fileAllocation: 'prealloc',
     }
     const systemConfig = buildAdvancedSystemConfig(form)
-    expect(systemConfig['all-proxy']).toBe('')
+    expect(systemConfig['proxy-mode']).toBe('direct')
+    expect(systemConfig['all-proxy']).toBeUndefined()
   })
 
   it('proxy bypass value is forwarded to no-proxy when download scope active', () => {
     const form: AdvancedForm = {
       proxy: {
+        mode: 'manual',
         enable: true,
         server: 'http://proxy:8080',
         bypass: '192.168.0.0/16,*.local',
@@ -849,6 +875,7 @@ describe('proxy configuration invariants', () => {
       fileAllocation: 'prealloc',
     }
     const systemConfig = buildAdvancedSystemConfig(form)
+    expect(systemConfig['proxy-mode']).toBe('manual')
     expect(systemConfig['all-proxy']).toBe('http://proxy:8080')
     expect(systemConfig['no-proxy']).toBe('192.168.0.0/16,*.local')
   })
@@ -878,7 +905,7 @@ describe('buildAdvancedForm — hardwareRendering', () => {
 describe('transformAdvancedForStore — hardwareRendering', () => {
   it('preserves hardwareRendering in store output', () => {
     const form: AdvancedForm = {
-      proxy: { enable: false, server: '', bypass: '', scope: [] },
+      proxy: { mode: 'direct', enable: false, server: '', bypass: '', scope: [] },
       trackerSource: [],
       customTrackerUrls: [],
       btTracker: '',

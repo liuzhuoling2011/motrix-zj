@@ -9,9 +9,10 @@
  * this tab's save flow.
  */
 import type { AppConfig, PortConflictRecoveryConfig } from '@shared/types'
-import { PROXY_SCOPES, PROXY_SCOPE_OPTIONS, DEFAULT_APP_CONFIG as D } from '@shared/constants'
+import { PROXY_SCOPE_OPTIONS, DEFAULT_APP_CONFIG as D } from '@shared/constants'
 import { generateRandomInt } from '@shared/utils'
 import { isValidAria2ProxyUrl, UNSUPPORTED_PROXY_SCHEME_RE } from '@shared/utils/aria2Proxy'
+import { buildDownloadProxyOptions, normalizeProxyMode, type EngineProxyMode } from '@shared/utils/proxyPolicy'
 
 export { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
 
@@ -20,6 +21,7 @@ export { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
 export interface NetworkForm {
   [key: string]: unknown
   proxy: {
+    mode: EngineProxyMode
     enable: boolean
     server: string
     bypass: string
@@ -62,6 +64,7 @@ export function buildNetworkForm(config: AppConfig): NetworkForm {
   const proxy = config.proxy ?? D.proxy
   return {
     proxy: {
+      mode: normalizeProxyMode(proxy.mode),
       enable: proxy.enable ?? D.proxy.enable,
       server: proxy.server ?? D.proxy.server,
       bypass: proxy.bypass ?? D.proxy.bypass,
@@ -84,8 +87,6 @@ export function buildNetworkForm(config: AppConfig): NetworkForm {
  * Handles proxy scope filtering: only sets all-proxy if download scope is active.
  */
 export function buildNetworkSystemConfig(f: NetworkForm): Record<string, string> {
-  const proxyForDownloads =
-    f.proxy.enable && Array.isArray(f.proxy.scope) && f.proxy.scope.includes(PROXY_SCOPES.DOWNLOAD)
   return {
     'listen-port': String(f.listenPort),
     'dht-listen-port': String(f.dhtListenPort),
@@ -95,8 +96,7 @@ export function buildNetworkSystemConfig(f: NetworkForm): Record<string, string>
     'connect-timeout': String(f.connectTimeout),
     timeout: String(f.timeout),
     'file-allocation': f.fileAllocation || 'prealloc',
-    'all-proxy': proxyForDownloads ? f.proxy.server : '',
-    'no-proxy': proxyForDownloads ? f.proxy.bypass || '' : '',
+    ...buildDownloadProxyOptions(f.proxy),
   }
 }
 
@@ -107,6 +107,10 @@ export function buildNetworkSystemConfig(f: NetworkForm): Record<string, string>
 export function transformNetworkForStore(f: NetworkForm): Partial<AppConfig> {
   return {
     ...f,
+    proxy: {
+      ...f.proxy,
+      enable: f.proxy.mode === 'manual',
+    },
     autoChangeConflictingPorts: f.portConflictRecovery.enabled,
   }
 }
@@ -129,7 +133,7 @@ export function validateNetworkForm(f: NetworkForm): string | null {
   ) {
     return 'preferences.port-conflict-recovery-invalid-range'
   }
-  if (f.proxy.enable && f.proxy.server) {
+  if (f.proxy.mode === 'manual' && f.proxy.server) {
     if (!isValidAria2ProxyUrl(f.proxy.server)) {
       return UNSUPPORTED_PROXY_SCHEME_RE.test(f.proxy.server.trim())
         ? 'preferences.proxy-unsupported-protocol'

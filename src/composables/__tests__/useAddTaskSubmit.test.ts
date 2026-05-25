@@ -55,7 +55,7 @@ const mockTaskStoreForHook = {
 const mockPreferenceStore = {
   config: {
     newTaskShowDownloading: true,
-    proxy: { enable: false, server: '', scope: [], bypass: '' },
+    proxy: { mode: 'direct', enable: false, server: '', scope: [], bypass: '' },
     fileCategoryEnabled: false,
     fileCategories: [],
   },
@@ -111,7 +111,7 @@ describe('buildEngineOptions', () => {
     httpAuthUsername: '',
     httpAuthPassword: '',
     saveHttpAuth: true,
-    proxyMode: 'none',
+    proxyMode: 'direct',
     customProxy: '',
   }
 
@@ -190,75 +190,87 @@ describe('buildEngineOptions', () => {
     expect(opts.header).toBeUndefined()
   })
 
-  // ── Proxy tri-state tests ──
+  // ── Proxy mode tests ──
 
-  it('sets all-proxy when proxyMode is global and globalProxyServer is provided', () => {
+  it('uses the global download proxy policy when proxyMode is global', () => {
     const opts = buildEngineOptions({
       ...baseForm,
       proxyMode: 'global',
-      globalProxyServer: 'http://127.0.0.1:7890',
+      globalProxy: {
+        mode: 'manual',
+        enable: true,
+        server: 'http://127.0.0.1:7890',
+        bypass: '*.local',
+        scope: ['download'],
+      },
     })
+    expect(opts['proxy-mode']).toBe('manual')
     expect(opts['all-proxy']).toBe('http://127.0.0.1:7890')
+    expect(opts['no-proxy']).toBe('*.local')
   })
 
-  it('sets all-proxy to empty string when proxyMode is none (clears global)', () => {
+  it('forces direct mode when proxyMode is direct', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      proxyMode: 'none',
-      globalProxyServer: 'http://127.0.0.1:7890',
+      proxyMode: 'direct',
     })
-    expect(opts['all-proxy']).toBe('')
+    expect(opts['proxy-mode']).toBe('direct')
+    expect(opts['all-proxy']).toBeUndefined()
   })
 
-  it('sets all-proxy to empty string when proxyMode is global but server is empty', () => {
+  it('uses auto mode without proxy options when proxyMode is auto', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      proxyMode: 'auto',
+    })
+    expect(opts['proxy-mode']).toBe('auto')
+    expect(opts['all-proxy']).toBeUndefined()
+  })
+
+  it('does not add proxy options when proxyMode is global but global proxy is absent', () => {
     const opts = buildEngineOptions({
       ...baseForm,
       proxyMode: 'global',
-      globalProxyServer: '',
     })
-    expect(opts['all-proxy']).toBe('')
+    expect(opts['proxy-mode']).toBeUndefined()
+    expect(opts['all-proxy']).toBeUndefined()
   })
 
-  it('sets all-proxy to empty string when proxyMode is global but server is undefined', () => {
+  it('sets manual proxy options when proxyMode is manual with valid address', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      proxyMode: 'global',
-    })
-    expect(opts['all-proxy']).toBe('')
-  })
-
-  it('sets all-proxy when proxyMode is custom with valid address', () => {
-    const opts = buildEngineOptions({
-      ...baseForm,
-      proxyMode: 'custom',
+      proxyMode: 'manual',
       customProxy: 'http://10.0.0.1:8080',
     })
+    expect(opts['proxy-mode']).toBe('manual')
     expect(opts['all-proxy']).toBe('http://10.0.0.1:8080')
   })
 
-  it('sets all-proxy to empty string when proxyMode is custom but customProxy is empty', () => {
+  it('falls back to direct when proxyMode is manual but customProxy is empty', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      proxyMode: 'custom',
+      proxyMode: 'manual',
       customProxy: '',
     })
-    expect(opts['all-proxy']).toBe('')
+    expect(opts['proxy-mode']).toBe('direct')
+    expect(opts['all-proxy']).toBeUndefined()
   })
 
-  it('clears all-proxy when proxyMode is none even with customProxy set', () => {
+  it('does not send all-proxy when proxyMode is direct even with customProxy set', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      proxyMode: 'none',
+      proxyMode: 'direct',
       customProxy: 'http://10.0.0.1:8080',
     })
-    expect(opts['all-proxy']).toBe('')
+    expect(opts['proxy-mode']).toBe('direct')
+    expect(opts['all-proxy']).toBeUndefined()
   })
 
   it('handles proxy server with authentication credentials', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      proxyMode: 'global',
-      globalProxyServer: 'http://user:pass@proxy.example.com:8080',
+      proxyMode: 'manual',
+      customProxy: 'http://user:pass@proxy.example.com:8080',
     })
     expect(opts['all-proxy']).toBe('http://user:pass@proxy.example.com:8080')
   })
@@ -435,7 +447,7 @@ describe('submitManualUris', () => {
     httpAuthUsername: '',
     httpAuthPassword: '',
     saveHttpAuth: true,
-    proxyMode: 'none',
+    proxyMode: 'direct',
     customProxy: '',
   }
 
@@ -618,7 +630,7 @@ describe('useAddTaskSubmit', () => {
     httpAuthUsername: '',
     httpAuthPassword: '',
     saveHttpAuth: true,
-    proxyMode: 'none',
+    proxyMode: 'direct',
     customProxy: '',
   }
 
@@ -687,28 +699,28 @@ describe('useAddTaskSubmit', () => {
 // ── isGlobalProxyConfigured ─────────────────────────────────────────
 
 describe('isGlobalProxyConfigured', () => {
-  it('returns true when proxy is enabled and server is non-empty', () => {
-    const proxy: ProxyConfig = { enable: true, server: 'http://127.0.0.1:7890' }
+  it('returns true for a manual download proxy with a server', () => {
+    const proxy: ProxyConfig = { mode: 'manual', enable: true, server: 'http://127.0.0.1:7890', scope: ['download'] }
     expect(isGlobalProxyConfigured(proxy)).toBe(true)
   })
 
-  it('returns false when proxy is disabled', () => {
-    const proxy: ProxyConfig = { enable: false, server: 'http://127.0.0.1:7890' }
+  it('returns false for direct mode', () => {
+    const proxy: ProxyConfig = { mode: 'direct', enable: false, server: 'http://127.0.0.1:7890', scope: ['download'] }
     expect(isGlobalProxyConfigured(proxy)).toBe(false)
   })
 
   it('returns false when server is empty', () => {
-    const proxy: ProxyConfig = { enable: true, server: '' }
+    const proxy: ProxyConfig = { mode: 'manual', enable: true, server: '', scope: ['download'] }
     expect(isGlobalProxyConfigured(proxy)).toBe(false)
   })
 
   it('returns false when server is whitespace-only', () => {
-    const proxy: ProxyConfig = { enable: true, server: '   ' }
+    const proxy: ProxyConfig = { mode: 'manual', enable: true, server: '   ', scope: ['download'] }
     expect(isGlobalProxyConfigured(proxy)).toBe(false)
   })
 
   it('returns false when both disabled and empty server', () => {
-    const proxy: ProxyConfig = { enable: false, server: '' }
+    const proxy: ProxyConfig = { mode: 'direct', enable: false, server: '', scope: ['download'] }
     expect(isGlobalProxyConfigured(proxy)).toBe(false)
   })
 })
@@ -716,8 +728,9 @@ describe('isGlobalProxyConfigured', () => {
 // ── isGlobalDownloadProxyActive ─────────────────────────────────────
 
 describe('isGlobalDownloadProxyActive', () => {
-  it('returns true when proxy enabled, server set, and scope includes download', () => {
+  it('returns true for manual mode with server and download scope', () => {
     const proxy: ProxyConfig = {
+      mode: 'manual',
       enable: true,
       server: 'http://proxy:8080',
       scope: ['download', 'update-app'],
@@ -727,6 +740,7 @@ describe('isGlobalDownloadProxyActive', () => {
 
   it('returns false when scope does not include download', () => {
     const proxy: ProxyConfig = {
+      mode: 'manual',
       enable: true,
       server: 'http://proxy:8080',
       scope: ['update-app', 'update-trackers'],
@@ -736,6 +750,7 @@ describe('isGlobalDownloadProxyActive', () => {
 
   it('returns false when proxy is disabled', () => {
     const proxy: ProxyConfig = {
+      mode: 'direct',
       enable: false,
       server: 'http://proxy:8080',
       scope: ['download'],
@@ -745,6 +760,7 @@ describe('isGlobalDownloadProxyActive', () => {
 
   it('returns false when server is empty', () => {
     const proxy: ProxyConfig = {
+      mode: 'manual',
       enable: true,
       server: '',
       scope: ['download'],
@@ -754,6 +770,7 @@ describe('isGlobalDownloadProxyActive', () => {
 
   it('returns false when scope is undefined', () => {
     const proxy: ProxyConfig = {
+      mode: 'manual',
       enable: true,
       server: 'http://proxy:8080',
     }
@@ -762,6 +779,7 @@ describe('isGlobalDownloadProxyActive', () => {
 
   it('returns false when scope is empty array', () => {
     const proxy: ProxyConfig = {
+      mode: 'manual',
       enable: true,
       server: 'http://proxy:8080',
       scope: [],

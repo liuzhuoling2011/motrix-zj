@@ -2,14 +2,15 @@
  * @fileoverview Composable for managing per-task options in the Task Detail drawer.
  *
  * Reads the current task's options via `getTaskOption`, exposes a reactive form
- * for UA, referer, cookie, authorization, and proxy (tri-state: none/global/custom),
+ * for UA, referer, cookie, authorization, and proxy,
  * and applies changes via `changeTaskOption`.
  *
  * ## aria2 source code verification
  *
  * All target options are confirmed mutable via `changeOption` in
  * `OptionHandlerFactory.cc` — each has `setChangeOptionForReserved(true)`:
- * - `all-proxy` (L1390) — HttpProxyOptionHandler, accepts any proxy URL
+ * - `proxy-mode` — direct / auto / manual
+ * - `all-proxy` — HttpProxyOptionHandler, accepts HTTP proxy URLs
  * - `user-agent` (L1223) — DefaultOptionHandler
  * - `referer` (L1185) — DefaultOptionHandler
  * - `header` (L1094) — CumulativeOptionHandler, accepts array input
@@ -21,12 +22,17 @@
  */
 import { ref, reactive, computed, watch, type Ref } from 'vue'
 import { isEngineReady } from '@/api/aria2'
-import { isGlobalProxyConfigured } from '@/composables/useAddTaskSubmit'
-import { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
 import { sanitizeHeaderValue, sanitizeHttpHeaderOptions } from '@shared/utils/headerSanitize'
 import { TASK_STATUS } from '@shared/constants'
 import type { Aria2Task, Aria2EngineOptions, ProxyConfig } from '@shared/types'
 import { logger } from '@shared/logger'
+import {
+  buildDownloadProxyOptions,
+  buildTaskProxyOptions,
+  hasInvalidManualProxy,
+  normalizeProxyMode,
+  type TaskProxyMode,
+} from '@shared/utils/proxyPolicy'
 
 // ── Constants ─────────────────────────────────────────────────────
 
@@ -36,7 +42,7 @@ const MODIFIABLE_STATUSES = new Set([TASK_STATUS.ACTIVE, TASK_STATUS.WAITING, TA
 // ── Public types ──────────────────────────────────────────────────
 
 /** Proxy configuration mode for a specific task. */
-export type ProxyMode = 'none' | 'global' | 'custom'
+export type ProxyMode = TaskProxyMode
 
 export interface TaskDetailOptionsForm {
   userAgent: string
@@ -111,7 +117,7 @@ function createEmptyForm(): TaskDetailOptionsForm {
     authorization: '',
     httpAuthUsername: '',
     httpAuthPassword: '',
-    proxyMode: 'none',
+    proxyMode: 'global',
     customProxy: '',
   }
 }
@@ -128,21 +134,23 @@ function normalizeProxyUrl(url: string): string {
 }
 
 /**
- * Detects the proxy mode from the loaded all-proxy value.
- * - Empty → none
- * - Matches global proxy server → global
- * - Anything else → custom (with the URL preserved)
+ * Detects the proxy mode from aria2-next task options.
  *
  * Uses normalized comparison because aria2's HttpProxyOptionHandler
  * reconstructs URLs via uri::construct(), which appends a trailing
  * slash (e.g. "http://host:port" → "http://host:port/").
  */
-function detectProxyMode(allProxy: string, globalServer: string): { mode: ProxyMode; custom: string } {
-  if (!allProxy) return { mode: 'none', custom: '' }
-  if (globalServer && normalizeProxyUrl(allProxy) === normalizeProxyUrl(globalServer)) {
-    return { mode: 'global', custom: '' }
+function detectProxyMode(opts: Record<string, string>, globalServer: string): { mode: ProxyMode; custom: string } {
+  const mode = normalizeProxyMode(opts.proxyMode)
+  const allProxy = (opts.allProxy as string) ?? ''
+  if (mode === 'direct' || mode === 'auto') return { mode, custom: '' }
+  if (mode === 'manual') {
+    if (globalServer && normalizeProxyUrl(allProxy) === normalizeProxyUrl(globalServer)) {
+      return { mode: 'global', custom: '' }
+    }
+    return { mode: 'manual', custom: allProxy }
   }
-  return { mode: 'custom', custom: allProxy }
+  return { mode: 'global', custom: '' }
 }
 
 // ── Options loader ────────────────────────────────────────────────
@@ -158,8 +166,7 @@ function populateFormFromResponse(opts: Record<string, string>, form: TaskDetail
   form.httpAuthUsername = (opts.httpUser as string) ?? ''
   form.httpAuthPassword = (opts.httpPasswd as string) ?? ''
 
-  const allProxy = (opts.allProxy as string) ?? ''
-  const detected = detectProxyMode(allProxy, globalServer)
+  const detected = detectProxyMode(opts, globalServer)
   form.proxyMode = detected.mode
   form.customProxy = detected.custom
 }
@@ -169,7 +176,7 @@ function populateFormFromResponse(opts: Record<string, string>, form: TaskDetail
 function buildChangedOptions(
   form: TaskDetailOptionsForm,
   loaded: TaskDetailOptionsForm,
-  resolvedProxy: string,
+  proxyOptions: Aria2EngineOptions,
 ): Aria2EngineOptions {
   const options: Aria2EngineOptions = {}
   const sanitizedHeaders = sanitizeHttpHeaderOptions({
@@ -194,18 +201,10 @@ function buildChangedOptions(
     options['http-passwd'] = sanitizeHeaderValue(form.httpAuthPassword)
   }
   if (form.proxyMode !== loaded.proxyMode || form.customProxy !== loaded.customProxy) {
-    options['all-proxy'] = resolvedProxy
+    Object.assign(options, proxyOptions)
   }
 
   return options
-}
-
-// ── Proxy resolution ──────────────────────────────────────────────
-
-function resolveProxy(mode: ProxyMode, customProxy: string, globalServer: string): string {
-  if (mode === 'global') return globalServer
-  if (mode === 'custom') return customProxy
-  return ''
 }
 
 // ── Composable ────────────────────────────────────────────────────
@@ -222,7 +221,7 @@ export function useTaskDetailOptions(config: UseTaskDetailOptionsConfig) {
     return MODIFIABLE_STATUSES.has(task.value.status)
   })
 
-  const globalProxyAvailable = computed(() => isGlobalProxyConfigured(proxyConfig()))
+  const globalProxyAvailable = computed(() => true)
   const proxyAddress = computed(() => proxyConfig()?.server ?? '')
 
   const dirty = computed(
@@ -247,16 +246,6 @@ export function useTaskDetailOptions(config: UseTaskDetailOptionsConfig) {
       const opts = await getTaskOption(gid)
       populateFormFromResponse(opts, form, proxyAddress.value)
 
-      // If the global proxy has been disabled since this task was created,
-      // the detected 'global' mode is stale — downgrade to 'custom' so the
-      // UI truthfully shows the actual per-task proxy address from aria2.
-      // The user can then manually clear it or switch to 'none'.
-      if (form.proxyMode === 'global' && !globalProxyAvailable.value) {
-        const actualProxy = (opts.allProxy as string) ?? ''
-        form.proxyMode = actualProxy ? 'custom' : 'none'
-        form.customProxy = actualProxy
-      }
-
       snapshotForm(form, loaded)
     } catch (err) {
       logger.debug('[useTaskDetailOptions] getTaskOption failed', err)
@@ -270,28 +259,22 @@ export function useTaskDetailOptions(config: UseTaskDetailOptionsConfig) {
     { immediate: true },
   )
 
-  // Sync proxyMode in real-time when global proxy config changes.
-  // Covers the timing gap where loadOptions ran before the preference
-  // store finished loading, leaving a stale 'global' mode.
-  watch(globalProxyAvailable, (available) => {
-    if (!available && form.proxyMode === 'global') {
-      form.proxyMode = form.customProxy ? 'custom' : 'none'
-    }
-  })
-
   async function applyOptions(): Promise<void> {
     if (applying.value || !task.value || !dirty.value) return
     applying.value = true
     try {
-      const proxy = resolveProxy(form.proxyMode, form.customProxy, proxyAddress.value)
+      const proxyOptions =
+        form.proxyMode === 'global'
+          ? buildDownloadProxyOptions(proxyConfig())
+          : buildTaskProxyOptions(form.proxyMode, form.customProxy, proxyConfig())
 
       // Validate proxy format before sending to aria2 — prevents errorCode=28 crash
-      if (proxy && !isValidAria2ProxyUrl(proxy)) {
+      if (hasInvalidManualProxy(proxyOptions)) {
         message.error(t('task.proxy-unsupported-protocol'))
         return
       }
 
-      const options = buildChangedOptions(form, loaded, proxy)
+      const options = buildChangedOptions(form, loaded, proxyOptions)
       await changeTaskOption({ gid: task.value.gid, options })
       snapshotForm(form, loaded)
       const key = task.value.status === TASK_STATUS.ACTIVE ? 'task.options-applied-restart' : 'task.options-applied'

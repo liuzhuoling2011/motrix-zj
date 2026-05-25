@@ -7,6 +7,7 @@ pub(crate) const SUPPORTED_ENGINE_KEYS: &[&str] = &[
     "all-proxy-passwd",
     "all-proxy-user",
     "all-proxy",
+    "proxy-mode",
     "allow-overwrite",
     "allow-piece-length-change",
     "always-resume",

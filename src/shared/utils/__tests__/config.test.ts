@@ -208,12 +208,10 @@ describe('formatOptionsForEngine', () => {
     expect(Object.keys(result)).toHaveLength(0)
   })
 
-  it('forwards empty-string values (aria2 uses them to clear options like all-proxy)', () => {
-    // Verified in aria2 source: HttpProxyOptionHandler::parseArg (OptionHandlerImpl.cc:504)
-    // accepts empty string to clear the proxy. Filtering '' prevents proxy disable.
-    const result = formatOptionsForEngine({ allProxy: '', noProxy: '' })
-    expect(result['all-proxy']).toBe('')
-    expect(result['no-proxy']).toBe('')
+  it('forwards empty-string values for aria2 options that intentionally accept them', () => {
+    const result = formatOptionsForEngine({ userAgent: '', referer: '' })
+    expect(result['user-agent']).toBe('')
+    expect(result.referer).toBe('')
   })
   it('keeps numeric 0 value (converted to string)', () => {
     const result = formatOptionsForEngine({ seedTime: 0 })

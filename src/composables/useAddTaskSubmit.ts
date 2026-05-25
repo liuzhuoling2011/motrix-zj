@@ -31,6 +31,15 @@ import type { Aria2EngineOptions, BatchItem, FileCategory, ProxyConfig } from '@
 import { isMagnetUri } from '@/composables/useMagnetFlow'
 import { sanitizeHttpHeaderOptions } from '@shared/utils/headerSanitize'
 import { getErrorMessage } from '@shared/utils/errorMessage'
+import {
+  buildDownloadProxyOptions,
+  buildTaskProxyOptions,
+  getDownloadProxy,
+  isManualDownloadProxy,
+  type TaskProxyMode,
+} from '@shared/utils/proxyPolicy'
+
+export { getDownloadProxy } from '@shared/utils/proxyPolicy'
 
 export interface AddTaskForm {
   uris: string
@@ -44,12 +53,12 @@ export interface AddTaskForm {
   saveHttpAuth: boolean
   referer: string
   cookie: string
-  /** Proxy mode: none (no proxy), global (use global), custom (user-entered). */
-  proxyMode: 'none' | 'global' | 'custom'
-  /** User-entered proxy address when proxyMode is 'custom'. */
+  /** Proxy mode for this task. */
+  proxyMode: TaskProxyMode
+  /** User-entered proxy address when proxyMode is 'manual'. */
   customProxy: string
-  /** Injected from the preference store — not user-editable in the form. */
-  globalProxyServer?: string
+  /** Injected from the preference store; used when proxyMode is 'global'. */
+  globalProxy?: ProxyConfig
 }
 
 export interface UseAddTaskSubmitOptions {
@@ -103,20 +112,13 @@ export function buildEngineOptions(form: AddTaskForm): Aria2EngineOptions {
     options['http-passwd'] = httpAuthPassword
   }
 
-  // Always set all-proxy — empty string clears any inherited global proxy.
-  // Without this, mode 'none' would silently inherit the engine-level proxy.
-  options['all-proxy'] = resolveAddTaskProxy(form)
+  Object.assign(
+    options,
+    form.proxyMode === 'global' && form.globalProxy
+      ? buildDownloadProxyOptions(form.globalProxy)
+      : buildTaskProxyOptions(form.proxyMode, form.customProxy, form.globalProxy),
+  )
   return options
-}
-
-/**
- * Resolves the effective proxy URL from the tri-state add-task form.
- * Mirrors the resolveProxy() pattern in useTaskDetailOptions.
- */
-function resolveAddTaskProxy(form: AddTaskForm): string {
-  if (form.proxyMode === 'global') return form.globalProxyServer ?? ''
-  if (form.proxyMode === 'custom') return form.customProxy
-  return ''
 }
 
 /**
@@ -125,7 +127,7 @@ function resolveAddTaskProxy(form: AddTaskForm): string {
  * Pure function — no side effects.
  */
 export function isGlobalProxyConfigured(proxy: ProxyConfig): boolean {
-  return proxy.enable && !!proxy.server.trim()
+  return isManualDownloadProxy(proxy)
 }
 
 /**
@@ -135,17 +137,7 @@ export function isGlobalProxyConfigured(proxy: ProxyConfig): boolean {
  * Pure function — no side effects.
  */
 export function isGlobalDownloadProxyActive(proxy: ProxyConfig): boolean {
-  return isGlobalProxyConfigured(proxy) && Array.isArray(proxy.scope) && proxy.scope.includes('download')
-}
-
-/**
- * Returns the proxy server URL when the download proxy is active,
- * or `undefined` otherwise.  Used to pass the proxy to Rust commands
- * (`resolve_filename`, `fetch_remote_bytes`) that make external HTTP
- * requests on behalf of the download flow.
- */
-export function getDownloadProxy(proxy: ProxyConfig): string | undefined {
-  return isGlobalDownloadProxyActive(proxy) ? proxy.server : undefined
+  return isManualDownloadProxy(proxy)
 }
 
 /**

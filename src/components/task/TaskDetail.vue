@@ -61,6 +61,7 @@ import { useAppMessage } from '@/composables/useAppMessage'
 import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
 import { getAddedAt } from '@/composables/useTaskOrder'
 import type { Aria2Task, Aria2File, Aria2Peer } from '@shared/types'
+import { normalizeProxyMode } from '@shared/utils/proxyPolicy'
 
 const props = defineProps<{
   show: boolean
@@ -80,7 +81,6 @@ const {
   form: optForm,
   canModify: optCanModify,
   globalProxyAvailable: optGlobalProxyAvailable,
-  proxyAddress: optProxyAddress,
   dirty: optDirty,
   applying: optApplying,
   applyOptions: optApplyFn,
@@ -96,6 +96,7 @@ const {
 const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect({
   onSuccess(info) {
     optForm.customProxy = info.server
+    optForm.proxyMode = 'manual'
     message.success(t('preferences.proxy-detected-success'))
   },
   onSocks() {
@@ -769,21 +770,25 @@ function handleClose() {
               <NFormItem :label="t('task.task-proxy-label') + ':'">
                 <div class="proxy-radio-group">
                   <NRadioGroup v-model:value="optForm.proxyMode" :disabled="!optCanModify" name="task-proxy-mode">
-                    <NRadio value="none">{{ t('task.proxy-mode-none') }}</NRadio>
+                    <NRadio value="direct">{{ t('task.proxy-mode-direct') }}</NRadio>
+                    <NRadio value="auto">{{ t('task.proxy-mode-auto') }}</NRadio>
                     <NRadio v-if="optGlobalProxyAvailable" value="global">
                       {{ t('task.proxy-mode-global') }}
                     </NRadio>
-                    <NRadio value="custom">{{ t('task.proxy-mode-custom') }}</NRadio>
+                    <NRadio value="manual">{{ t('task.proxy-mode-manual') }}</NRadio>
                   </NRadioGroup>
                   <div
                     class="proxy-hint-collapse"
                     :class="{ 'proxy-hint-collapse--open': optForm.proxyMode === 'global' }"
                   >
                     <div class="proxy-hint-collapse__inner">
-                      <div class="proxy-server-hint">{{ t('task.proxy-global-server') }} {{ optProxyAddress }}</div>
+                      <div class="proxy-server-hint">
+                        {{ t('task.proxy-global-mode') }}
+                        {{ t(`task.proxy-mode-${normalizeProxyMode(preferenceStore.config.proxy?.mode)}`) }}
+                      </div>
                     </div>
                   </div>
-                  <NCollapseTransition :show="optForm.proxyMode === 'custom'">
+                  <NCollapseTransition :show="optForm.proxyMode === 'manual'">
                     <div class="custom-proxy-input">
                       <NInput
                         v-model:value="optForm.customProxy"

@@ -16,12 +16,11 @@ import {
   classifySubmitError,
   submitBatchItems,
   submitManualUris,
-  isGlobalProxyConfigured,
-  isGlobalDownloadProxyActive,
   getDownloadProxy,
 } from '@/composables/useAddTaskSubmit'
-import type { ManualUriSubmitResult } from '@/composables/useAddTaskSubmit'
+import type { AddTaskForm, ManualUriSubmitResult } from '@/composables/useAddTaskSubmit'
 import { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
+import { normalizeProxyMode } from '@shared/utils/proxyPolicy'
 import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
 import { isMagnetUri } from '@/composables/useMagnetFlow'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
@@ -94,7 +93,7 @@ const showAdvanced = ref(false)
 const submitting = ref(false)
 const selectedBatchIndex = ref(0)
 
-const form = ref({
+const form = ref<AddTaskForm>({
   uris: '',
   out: '',
   dir: preferenceStore.config.dir || '',
@@ -106,11 +105,9 @@ const form = ref({
   saveHttpAuth: true,
   referer: '',
   cookie: '',
-  proxyMode: (isGlobalDownloadProxyActive(preferenceStore.config.proxy) ? 'global' : 'none') as
-    | 'none'
-    | 'global'
-    | 'custom',
+  proxyMode: 'global' as const,
   customProxy: '',
+  globalProxy: preferenceStore.config.proxy,
 })
 
 /**
@@ -119,19 +116,13 @@ const form = ref({
  * the store replaces the entire config ref on save, which would break
  * reactivity for any local alias.
  */
-const globalProxyAvailable = computed(() => isGlobalProxyConfigured(preferenceStore.config.proxy))
+const globalProxyAvailable = computed(() => true)
 
-/** The global proxy server address for display in the radio hint. */
-const globalProxyServer = computed(() => preferenceStore.config.proxy?.server ?? '')
+const globalProxyMode = computed(() => normalizeProxyMode(preferenceStore.config.proxy?.mode))
 
 // Sync proxyMode when the global proxy config changes (e.g. disabled in
 // settings, or config loads after component mount).  Without this, a stale
 // 'global' mode would leave the proxy-hint visible with no matching radio.
-watch(globalProxyAvailable, (available) => {
-  if (!available && form.value.proxyMode === 'global') {
-    form.value.proxyMode = 'none'
-  }
-})
 
 const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
 
@@ -415,8 +406,9 @@ function handleClose() {
     saveHttpAuth: true,
     referer: '',
     cookie: '',
-    proxyMode: isGlobalDownloadProxyActive(preferenceStore.config.proxy) ? 'global' : 'none',
+    proxyMode: 'global',
     customProxy: '',
+    globalProxy: preferenceStore.config.proxy,
   })
   submitting.value = false
   selectedBatchIndex.value = 0
@@ -428,7 +420,7 @@ async function handleSubmit() {
 
   try {
     // Validate custom proxy before building options
-    if (form.value.proxyMode === 'custom' && form.value.customProxy) {
+    if (form.value.proxyMode === 'manual' && form.value.customProxy) {
       if (!isValidAria2ProxyUrl(form.value.customProxy)) {
         message.error(t('task.proxy-unsupported-protocol'), { closable: true })
         submitting.value = false
@@ -441,7 +433,7 @@ async function handleSubmit() {
     const effectiveForm = {
       ...form.value,
       dir: form.value.dir.trim() || preferenceStore.config.dir,
-      globalProxyServer: globalProxyServer.value,
+      globalProxy: preferenceStore.config.proxy,
     }
     const options = buildEngineOptions(effectiveForm)
     let manualResult: ManualUriSubmitResult = { submittedTaskNames: [], magnetGids: [], magnetFailures: [] }
@@ -709,7 +701,7 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
             v-model:proxy-mode="form.proxyMode"
             v-model:custom-proxy="form.customProxy"
             :global-proxy-available="globalProxyAvailable"
-            :global-proxy-server="globalProxyServer"
+            :global-proxy-mode="globalProxyMode"
           />
         </div>
       </NForm>
