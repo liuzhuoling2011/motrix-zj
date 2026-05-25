@@ -28,6 +28,7 @@ import {
   CloudUploadOutline,
   CheckmarkCircleOutline,
   TrashOutline,
+  RadioOutline,
 } from '@vicons/ionicons5'
 import TaskItemActions from './TaskItemActions.vue'
 import type { Aria2Task } from '@shared/types'
@@ -309,6 +310,7 @@ onBeforeUnmount(() => {
         <div class="progress-left" :class="{ 'info-hidden': !hasSizeInfo && !isMetadataFetching }">
           <Transition name="metadata-hint" mode="out-in">
             <span v-if="isMetadataFetching" key="metadata" class="metadata-hint">
+              <NIcon :size="12" class="metadata-hint-icon"><RadioOutline /></NIcon>
               {{ t('task.bt-metadata-fetching') || 'Fetching torrent' }}
             </span>
             <span v-else key="size">
@@ -515,6 +517,9 @@ onBeforeUnmount(() => {
   transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
 .metadata-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   color: var(--m3-status-active);
   font-size: 12px;
   line-height: 14px;

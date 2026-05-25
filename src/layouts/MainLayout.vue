@@ -28,6 +28,7 @@ import {
   parseFilesForSelection,
   buildSelectFileOption,
   buildStatusAwareConfirmAction,
+  getPendingMagnetSelectionGids,
 } from '@/composables/useMagnetFlow'
 import type { MagnetFileItem } from '@/composables/useMagnetFlow'
 import aria2Api from '@/api/aria2'
@@ -330,6 +331,19 @@ function startMagnetPoll() {
   }
 
   void tick()
+}
+
+async function restorePendingMagnetSelections() {
+  try {
+    const tasks = await aria2Api.fetchTaskList({ type: 'active' })
+    const gids = getPendingMagnetSelectionGids(tasks)
+    if (gids.length === 0) return
+
+    const known = new Set(appStore.pendingMagnetGids)
+    appStore.pendingMagnetGids = [...appStore.pendingMagnetGids, ...gids.filter((gid) => !known.has(gid))]
+  } catch (e) {
+    logger.debug('MainLayout.magnetRestore', e instanceof Error ? e.message : String(e))
+  }
 }
 
 async function handleMagnetConfirm(selectedIndices: number[]) {
@@ -789,6 +803,7 @@ onMounted(async () => {
   // Watches pendingMagnetGids in app store and starts polling when
   // magnet tasks are added. Runs at MainLayout level so it works
   // even when the user navigates away from the task page.
+  await restorePendingMagnetSelections()
   watch(
     () => appStore.pendingMagnetGids,
     (gids) => {

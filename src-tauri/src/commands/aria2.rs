@@ -15,21 +15,23 @@ use tauri_plugin_store::StoreExt;
 const ED2K_SEARCH_TEMP_PREFIX: &str = "motrix-next-ed2k-search-";
 const ED2K_SEARCH_FILE_PREFIX: &str = "aria2-next-ed2k-search-";
 
-/// Fetch task list by type: "active" returns active+waiting, otherwise stopped.
+/// Fetch task list by type.
 #[tauri::command]
 pub async fn aria2_fetch_task_list(
     state: State<'_, Aria2State>,
     r#type: String,
     limit: Option<i64>,
 ) -> Result<Vec<Aria2Task>, AppError> {
-    if r#type == "active" {
-        let (active, waiting) =
-            tokio::try_join!(state.0.tell_active(), state.0.tell_waiting(0, 1000),)?;
-        let mut result = active;
-        result.extend(waiting);
-        Ok(result)
-    } else {
-        state.0.tell_stopped(0, limit.unwrap_or(1000)).await
+    match r#type.as_str() {
+        "active" => {
+            let (active, waiting) =
+                tokio::try_join!(state.0.tell_active(), state.0.tell_waiting(0, 1000),)?;
+            let mut result = active;
+            result.extend(waiting);
+            Ok(result)
+        }
+        "waiting" => state.0.tell_waiting(0, limit.unwrap_or(1000)).await,
+        _ => state.0.tell_stopped(0, limit.unwrap_or(1000)).await,
     }
 }
 

@@ -6,7 +6,7 @@
  * - Parse aria2 file list into UI-friendly selection items
  * - Build the select-file option string
  */
-import type { Aria2File, Aria2EngineOptions } from '@shared/types'
+import type { Aria2File, Aria2EngineOptions, Aria2Task } from '@shared/types'
 
 /** Check if a URI is a magnet link. */
 export function isMagnetUri(uri: string): boolean {
@@ -63,6 +63,17 @@ export function buildSelectFileOption(indices: number[]): string {
  */
 export function shouldShowFileSelection(config: { pauseMetadata?: boolean | string }): boolean {
   return config.pauseMetadata !== false && config.pauseMetadata !== 'false'
+}
+
+export function getPendingMagnetSelectionGids(tasks: Aria2Task[]): string[] {
+  return tasks
+    .filter((task) => {
+      if (!task.bittorrent || task.status !== 'paused') return false
+      if (task.bittorrent.metadata?.hasMetadata !== true) return false
+      if (!task.bittorrent.info?.name) return false
+      return task.files.some((file) => Number(file.length) > 0)
+    })
+    .map((task) => task.gid)
 }
 
 /** Actions needed to apply file selection to a download based on its current status. */
