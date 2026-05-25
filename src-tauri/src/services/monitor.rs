@@ -797,6 +797,7 @@ mod tests {
             metadata: Some(Aria2BtMetadata {
                 state: Some("downloading".to_string()),
                 has_metadata: Some(false),
+                display_name: None,
             }),
             announce_list: None,
             creation_date: None,

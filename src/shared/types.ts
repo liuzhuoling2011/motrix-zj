@@ -26,6 +26,7 @@ export interface Aria2BtInfo {
   metadata?: {
     state?: 'downloading' | 'ready' | string
     hasMetadata?: boolean
+    displayName?: string
   }
   announceList?: string[][]
   creationDate?: number

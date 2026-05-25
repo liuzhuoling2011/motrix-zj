@@ -79,6 +79,8 @@ export const getTaskName = (task: Aria2Task | null, options: { defaultName?: str
 
   if (bittorrent && bittorrent.info && bittorrent.info.name) {
     result = bittorrent.info.name
+  } else if (bittorrent?.metadata?.displayName) {
+    result = bittorrent.metadata.displayName
   } else if (files.length === 1) {
     const name = getFileNameFromFile(files[0])
     result = name || result

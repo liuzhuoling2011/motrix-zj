@@ -51,6 +51,8 @@ pub struct Aria2BtMetadata {
     pub state: Option<String>,
     #[serde(default)]
     pub has_metadata: Option<bool>,
+    #[serde(default)]
+    pub display_name: Option<String>,
 }
 
 /// Name sub-object within `Aria2BtInfo.info`.
@@ -264,7 +266,8 @@ mod tests {
                 "mode": "multi",
                 "metadata": {
                     "state": "downloading",
-                    "hasMetadata": false
+                    "hasMetadata": false,
+                    "displayName": "Display Name"
                 }
             },
             "infoHash": "abc123def456",
@@ -278,6 +281,7 @@ mod tests {
         let metadata = bt.metadata.as_ref().unwrap();
         assert_eq!(metadata.state.as_deref(), Some("downloading"));
         assert_eq!(metadata.has_metadata, Some(false));
+        assert_eq!(metadata.display_name.as_deref(), Some("Display Name"));
         assert_eq!(task.info_hash.as_deref(), Some("abc123def456"));
         assert_eq!(task.seeder.as_deref(), Some("true"));
         assert_eq!(task.num_seeders.as_deref(), Some("5"));

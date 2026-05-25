@@ -340,6 +340,14 @@ describe('getTaskDisplayName', () => {
     expect(getTaskDisplayName(task)).toBe('Ubuntu 24.04')
   })
 
+  it('uses BitTorrent metadata display name while magnet metadata is downloading', () => {
+    const task = createMockTask({
+      files: [createMockFile({ path: '/downloads/magnet' })],
+      bittorrent: { metadata: { state: 'downloading', hasMetadata: false, displayName: 'Display Name' } },
+    })
+    expect(getTaskDisplayName(task)).toBe('Display Name')
+  })
+
   it('returns original name for malformed percent sequence', () => {
     const task = createMockTask({
       files: [createMockFile({ path: '/downloads/bad%ZZname.txt' })],
