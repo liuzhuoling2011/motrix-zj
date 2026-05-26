@@ -35,7 +35,7 @@ import {
   validateEd2kForm,
 } from '@/composables/useEd2kPreference'
 import { cleanupEd2kSearch, ed2kSearch, getEd2kSearchResults } from '@/api/aria2'
-import { ENGINE_RPC_PORT } from '@shared/constants'
+import { BT_LISTEN_PORT, DHT_LISTEN_PORT, ENGINE_RPC_PORT } from '@shared/constants'
 import { diffConfig, checkIsNeedRestart } from '@shared/utils/config'
 import { bytesToSize } from '@shared/utils'
 import { getErrorMessage } from '@shared/utils/errorMessage'
@@ -152,8 +152,8 @@ function onUdpPortDice() {
 async function syncUpnpState(ed2kPort: number, ed2kUdpPort: number) {
   try {
     await invoke('start_upnp_mapping', {
-      btPort: Number(preferenceStore.config.listenPort) || 21301,
-      dhtPort: Number(preferenceStore.config.dhtListenPort) || 26701,
+      btPort: Number(preferenceStore.config.listenPort) || BT_LISTEN_PORT,
+      dhtPort: Number(preferenceStore.config.dhtListenPort) || DHT_LISTEN_PORT,
       ed2kPort: ed2kPort > 0 ? ed2kPort : null,
       ed2kUdpPort: ed2kUdpPort > 0 ? ed2kUdpPort : null,
     })

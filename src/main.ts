@@ -9,7 +9,13 @@ import { useTaskStore } from './stores/task'
 import { useAppStore } from './stores/app'
 import { useHistoryStore } from './stores/history'
 import aria2Api from './api/aria2'
-import { ENGINE_RPC_PORT, AUTO_SYNC_TRACKER_INTERVAL, DEFAULT_TRACKER_SOURCE } from '@shared/constants'
+import {
+  AUTO_SYNC_TRACKER_INTERVAL,
+  BT_LISTEN_PORT,
+  DEFAULT_TRACKER_SOURCE,
+  DHT_LISTEN_PORT,
+  ENGINE_RPC_PORT,
+} from '@shared/constants'
 import { convertTrackerDataToLine, convertTrackerDataToComma, reduceTrackerString } from '@shared/utils/tracker'
 import { logger } from '@shared/logger'
 import { getErrorMessage } from '@shared/utils/errorMessage'
@@ -380,8 +386,8 @@ window.addEventListener('unhandledrejection', (e) => {
       import('@tauri-apps/api/core')
         .then(({ invoke }) =>
           invoke('start_upnp_mapping', {
-            btPort: Number(config.listenPort) || 21301,
-            dhtPort: Number(config.dhtListenPort) || 26701,
+            btPort: Number(config.listenPort) || BT_LISTEN_PORT,
+            dhtPort: Number(config.dhtListenPort) || DHT_LISTEN_PORT,
             ed2kPort: Number(config.ed2kListenPort) > 0 ? Number(config.ed2kListenPort) : null,
             ed2kUdpPort: Number(config.ed2kUdpListenPort) > 0 ? Number(config.ed2kUdpListenPort) : null,
           }),

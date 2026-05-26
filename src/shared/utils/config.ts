@@ -1,7 +1,7 @@
 /** @fileoverview Config key conversion, diffing, validation, and engine option formatting. */
 import { camelCase, isEmpty, isFunction, isNaN, isPlainObject, kebabCase, omitBy, pick, isArray } from 'lodash-es'
 import { userKeys, systemKeys, needRestartKeys } from '@shared/configKeys'
-import { ENGINE_RPC_HOST } from '@shared/constants'
+import { ENGINE_RPC_HOST, ENGINE_RPC_PORT } from '@shared/constants'
 import { splitTextRows } from './format'
 import type { Aria2EngineOptions } from '@shared/types'
 
@@ -62,7 +62,7 @@ export const diffConfig = (
     if (isArray(val) || isPlainObject(val)) {
       return JSON.stringify(curr[key]) === JSON.stringify(val)
     }
-    // Coerce-equal primitives (e.g. string "21301" == number 21301) are NOT
+    // Coerce-equal primitives (e.g. string "24120" == number 24120) are NOT
     // real changes.  This handles legacy config.json entries where port values
     // were stored as strings but the form produces numbers.
 
@@ -105,7 +105,7 @@ export const formatOptionsForEngine = (
   return result
 }
 
-export const buildRpcUrl = (options: { port: number; secret?: string } = { port: 16800 }): string => {
+export const buildRpcUrl = (options: { port: number; secret?: string } = { port: ENGINE_RPC_PORT }): string => {
   const { port, secret } = options
   let result = `${ENGINE_RPC_HOST}:${port}/jsonrpc`
   if (secret) result = `token:${secret}@${result}`

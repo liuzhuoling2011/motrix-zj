@@ -4,7 +4,12 @@
  * Contains configuration transforms, secret generation, and port randomization
  * logic that was previously inline in the component's script setup.
  */
-import { ENGINE_RPC_PORT, PROXY_SCOPE_OPTIONS, DEFAULT_APP_CONFIG as D } from '@shared/constants'
+import {
+  PORT_RECOVERY_RANGE_END,
+  PORT_RECOVERY_RANGE_START,
+  PROXY_SCOPE_OPTIONS,
+  DEFAULT_APP_CONFIG as D,
+} from '@shared/constants'
 import { convertCommaToLine, convertLineToComma, generateRandomInt } from '@shared/utils'
 import { isValidAria2ProxyUrl, UNSUPPORTED_PROXY_SCHEME_RE } from '@shared/utils/aria2Proxy'
 import type { AppConfig } from '@shared/types'
@@ -252,13 +257,13 @@ export function validateAdvancedForm(f: AdvancedForm): string | null {
 // ── Port Randomization ──────────────────────────────────────────────
 
 export function randomRpcPort(): number {
-  return generateRandomInt(ENGINE_RPC_PORT, 20000)
+  return generateRandomInt(PORT_RECOVERY_RANGE_START, PORT_RECOVERY_RANGE_END + 1)
 }
 
 export function randomBtPort(): number {
-  return generateRandomInt(20000, 24999)
+  return generateRandomInt(PORT_RECOVERY_RANGE_START, PORT_RECOVERY_RANGE_END + 1)
 }
 
 export function randomDhtPort(): number {
-  return generateRandomInt(25000, 29999)
+  return generateRandomInt(PORT_RECOVERY_RANGE_START, PORT_RECOVERY_RANGE_END + 1)
 }

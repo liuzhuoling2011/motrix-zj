@@ -8,6 +8,15 @@ use std::net::{TcpListener, UdpSocket};
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_store::StoreExt;
 
+pub(crate) const DEFAULT_RPC_PORT: u16 = 24100;
+pub(crate) const DEFAULT_EXTENSION_API_PORT: u16 = 24110;
+pub(crate) const DEFAULT_BT_PORT: u16 = 24120;
+pub(crate) const DEFAULT_DHT_PORT: u16 = 24130;
+pub(crate) const DEFAULT_ED2K_PORT: u16 = 24140;
+pub(crate) const DEFAULT_ED2K_UDP_PORT: u16 = 24150;
+const DEFAULT_RECOVERY_RANGE_START: u16 = 24000;
+const DEFAULT_RECOVERY_RANGE_END: u16 = 24999;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum PortKind {
@@ -97,8 +106,8 @@ fn default_recovery_policy(enabled: bool) -> PortRecoveryPolicy {
     PortRecoveryPolicy {
         enabled,
         range: PortRange {
-            start: 30000,
-            end: 39999,
+            start: DEFAULT_RECOVERY_RANGE_START,
+            end: DEFAULT_RECOVERY_RANGE_END,
         },
         rpc: true,
         extension_api: true,
@@ -114,42 +123,42 @@ fn spec_for(kind: PortKind) -> PortSpec {
         PortKind::Rpc => PortSpec {
             prefs_key: "rpcListenPort",
             system_key: "rpc-listen-port",
-            fallback: 16800,
+            fallback: DEFAULT_RPC_PORT,
             transport: PortTransport::Tcp,
             allows_zero: false,
         },
         PortKind::ExtensionApi => PortSpec {
             prefs_key: "extensionApiPort",
             system_key: "",
-            fallback: 16801,
+            fallback: DEFAULT_EXTENSION_API_PORT,
             transport: PortTransport::Tcp,
             allows_zero: false,
         },
         PortKind::Bt => PortSpec {
             prefs_key: "listenPort",
             system_key: "listen-port",
-            fallback: 21301,
+            fallback: DEFAULT_BT_PORT,
             transport: PortTransport::Tcp,
             allows_zero: false,
         },
         PortKind::Dht => PortSpec {
             prefs_key: "dhtListenPort",
             system_key: "dht-listen-port",
-            fallback: 26701,
+            fallback: DEFAULT_DHT_PORT,
             transport: PortTransport::Udp,
             allows_zero: false,
         },
         PortKind::Ed2k => PortSpec {
             prefs_key: "ed2kListenPort",
             system_key: "ed2k-listen-port",
-            fallback: 4662,
+            fallback: DEFAULT_ED2K_PORT,
             transport: PortTransport::Tcp,
             allows_zero: true,
         },
         PortKind::Ed2kUdp => PortSpec {
             prefs_key: "ed2kUdpListenPort",
             system_key: "ed2k-udp-listen-port",
-            fallback: 4672,
+            fallback: DEFAULT_ED2K_UDP_PORT,
             transport: PortTransport::Udp,
             allows_zero: true,
         },
@@ -668,13 +677,13 @@ mod tests {
     #[test]
     fn aria2_bt_bind_error_line_detects_runtime_bt_port_failures() {
         assert!(aria2_bt_bind_error_line(
-            "05/14 10:24:11 [ERROR] IPv4 BitTorrent: failed to bind TCP port 21301"
+            "05/14 10:24:11 [ERROR] IPv4 BitTorrent: failed to bind TCP port 24120"
         ));
         assert!(aria2_bt_bind_error_line(
             "Exception: [BtSetup.cc:212] errorCode=1 Errors occurred while binding port."
         ));
         assert!(!aria2_bt_bind_error_line(
-            "05/14 10:24:11 [NOTICE] IPv4 RPC: listening on TCP port 16800"
+            "05/14 10:24:11 [NOTICE] IPv4 RPC: listening on TCP port 24100"
         ));
     }
 }

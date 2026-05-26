@@ -108,7 +108,7 @@ function createDeps() {
     saveBeforeLeave: null as (() => Promise<void>) | null,
     updatePreference: vi.fn(),
     config: {
-      rpcListenPort: 16800,
+      rpcListenPort: 24100,
       rpcSecret: '',
       lightweightMode: false,
     },
@@ -358,12 +358,12 @@ describe('useAppEvents', () => {
 
     await setupListeners()
     eventCallbacks['port-auto-switched']?.({
-      payload: [{ kind: 'bt', oldPort: 21301, newPort: 20000 }],
+      payload: [{ kind: 'bt', oldPort: 24120, newPort: 24800 }],
     })
 
     expect(message.success).toHaveBeenCalledWith('preferences.port-auto-switched')
     expect(deps.preferenceStore.updatePreference).toHaveBeenCalledWith({
-      listenPort: 20000,
+      listenPort: 24800,
     })
   })
 
@@ -373,11 +373,11 @@ describe('useAppEvents', () => {
 
     await setupListeners()
     eventCallbacks['port-auto-switched']?.({
-      payload: [{ kind: 'ed2k', oldPort: 4662, newPort: 30000 }],
+      payload: [{ kind: 'ed2k', oldPort: 24140, newPort: 24810 }],
     })
 
     expect(deps.preferenceStore.updatePreference).toHaveBeenCalledWith({
-      ed2kListenPort: 30000,
+      ed2kListenPort: 24810,
     })
   })
 
@@ -389,7 +389,7 @@ describe('useAppEvents', () => {
     eventCallbacks['port-auto-switch-failed']?.({
       payload: {
         kind: 'bt',
-        port: 21301,
+        port: 24120,
         reason: 'disabled',
         source: 'bt-runtime',
       },

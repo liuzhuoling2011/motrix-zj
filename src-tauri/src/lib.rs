@@ -21,6 +21,7 @@ pub use commands::protocol::try_run_elevated;
 use crate::commands::power::ShutdownCancelState;
 use crate::commands::updater::{DownloadedUpdate, UpdateCancelState};
 use engine::EngineState;
+use services::port_guard::DEFAULT_RPC_PORT;
 use tauri::{Emitter, Manager};
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -268,7 +269,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // Aria2 JSON-RPC client — starts with default credentials, updated
     // after engine start via Aria2Client::update_credentials().
     let aria2_state = aria2::client::Aria2State(std::sync::Arc::new(
-        aria2::client::Aria2Client::new(16800, String::new()),
+        aria2::client::Aria2Client::new(DEFAULT_RPC_PORT, String::new()),
     ));
     app.manage(aria2_state);
 

@@ -6,7 +6,7 @@
  * restart instead of hot reloading through changeGlobalOption.
  */
 import type { AppConfig } from '@shared/types'
-import { DEFAULT_APP_CONFIG as D } from '@shared/constants'
+import { PORT_RECOVERY_RANGE_END, PORT_RECOVERY_RANGE_START, DEFAULT_APP_CONFIG as D } from '@shared/constants'
 import { convertCommaToLine, convertLineToComma, generateRandomInt } from '@shared/utils'
 
 export const ED2K_SEARCH_POLL_INTERVAL_MS = 1000
@@ -118,7 +118,7 @@ export function validateEd2kForm(f: Ed2kForm): string | null {
 }
 
 export function randomEd2kPort(): number {
-  return generateRandomInt(30000, 34999)
+  return generateRandomInt(PORT_RECOVERY_RANGE_START, PORT_RECOVERY_RANGE_END + 1)
 }
 
 export function getEd2kSearchToastKey(outcome: Ed2kSearchOutcome, resultCount: number): string {

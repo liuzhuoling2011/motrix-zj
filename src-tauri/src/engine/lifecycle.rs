@@ -12,6 +12,7 @@ static BT_PORT_RECOVERY_IN_FLIGHT: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
 const ENGINE_SIDECAR_NAME: &str = "motrix-next-engine";
+const DEFAULT_RPC_PORT_STR: &str = "24100";
 
 fn recover_bt_port_conflict(app: &tauri::AppHandle) {
     if BT_PORT_RECOVERY_IN_FLIGHT.swap(true, Ordering::SeqCst) {
@@ -121,7 +122,7 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
     let port = config
         .get("rpc-listen-port")
         .and_then(|v| v.as_str())
-        .unwrap_or("16800");
+        .unwrap_or(DEFAULT_RPC_PORT_STR);
     cleanup_port(port);
 
     // Resolve aria2.conf via Tauri's resource directory — correct for all
@@ -341,7 +342,7 @@ pub fn restart_engine(app: &tauri::AppHandle, _config: &serde_json::Value) -> Re
     let port = config
         .get("rpc-listen-port")
         .and_then(|v| v.as_str())
-        .unwrap_or("16800");
+        .unwrap_or(DEFAULT_RPC_PORT_STR);
     cleanup_port(port);
 
     // Step 3: Spawn new Aria2 Next (inlined from start_engine to keep lock held)

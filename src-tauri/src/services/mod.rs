@@ -28,6 +28,7 @@ use crate::aria2::client::Aria2State;
 use crate::engine::SUPPORTED_ENGINE_KEYS;
 use crate::error::AppError;
 use config::RuntimeConfigState;
+use port_guard::DEFAULT_RPC_PORT;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
@@ -286,7 +287,7 @@ fn read_engine_credentials(app: &tauri::AppHandle) -> Result<(u16, String), AppE
                     .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
             })
         })
-        .unwrap_or(16800);
+        .unwrap_or(DEFAULT_RPC_PORT);
 
     let secret = prefs
         .as_ref()

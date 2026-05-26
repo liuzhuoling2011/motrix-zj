@@ -69,7 +69,14 @@ export const LOG_LEVELS = ['error', 'warn', 'info', 'debug']
 export const MAX_NUM_OF_DIRECTORIES = 5
 
 export const ENGINE_RPC_HOST = '127.0.0.1'
-export const ENGINE_RPC_PORT = 16800
+export const ENGINE_RPC_PORT = 24100
+export const EXTENSION_API_PORT = 24110
+export const BT_LISTEN_PORT = 24120
+export const DHT_LISTEN_PORT = 24130
+export const ED2K_LISTEN_PORT = 24140
+export const ED2K_UDP_LISTEN_PORT = 24150
+export const PORT_RECOVERY_RANGE_START = 24000
+export const PORT_RECOVERY_RANGE_END = 24999
 export const ENGINE_MAX_CONCURRENT_DOWNLOADS = 10
 export const ENGINE_MAX_CONNECTION_PER_SERVER = 256
 export const ENGINE_DEFAULT_CONNECTION_PER_SERVER = 64
@@ -265,12 +272,12 @@ export const DEFAULT_APP_CONFIG = {
   // ── Network & Security ────────────────────────────────────────
   enableUpnp: true, // old Motrix=true; required for BitTorrent behind NAT
   rpcListenPort: ENGINE_RPC_PORT,
-  extensionApiPort: 16801,
+  extensionApiPort: EXTENSION_API_PORT,
   autoChangeConflictingPorts: true,
   portConflictRecovery: {
     enabled: true,
-    rangeStart: 30000,
-    rangeEnd: 39999,
+    rangeStart: PORT_RECOVERY_RANGE_START,
+    rangeEnd: PORT_RECOVERY_RANGE_END,
     rpc: true,
     extensionApi: true,
     bt: true,
@@ -284,10 +291,10 @@ export const DEFAULT_APP_CONFIG = {
   //   undefined → main.ts auto-generates on first launch.
   //   '' → user intentionally cleared (respected, not regenerated).
   //   'abc' → user-set or auto-generated secret (kept as-is).
-  listenPort: 21301,
-  dhtListenPort: 26701,
-  ed2kListenPort: 4662,
-  ed2kUdpListenPort: 4672,
+  listenPort: BT_LISTEN_PORT,
+  dhtListenPort: DHT_LISTEN_PORT,
+  ed2kListenPort: ED2K_LISTEN_PORT,
+  ed2kUdpListenPort: ED2K_UDP_LISTEN_PORT,
   ed2kServer: '',
   ed2kServerList: '',
   ed2kNodeList: '',

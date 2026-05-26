@@ -11,6 +11,8 @@ use serde::Deserialize;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+pub const DEFAULT_EXTENSION_API_PORT: u16 = 24110;
+
 /// Subset of `AppConfig` fields consumed by Rust runtime services.
 ///
 /// Field names use `camelCase` via `#[serde(rename_all = "camelCase")]` to
@@ -83,7 +85,7 @@ fn default_schedule_to() -> String {
 }
 
 fn default_extension_api_port() -> u16 {
-    16801
+    DEFAULT_EXTENSION_API_PORT
 }
 
 impl Default for RuntimeConfig {
@@ -192,7 +194,7 @@ mod tests {
             "theme": "dark",
             "dir": "/downloads",
             "split": 16,
-            "rpcListenPort": 16800,
+            "rpcListenPort": 24100,
             "rpcSecret": "changeme"
         });
 

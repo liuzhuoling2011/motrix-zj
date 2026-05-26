@@ -19,7 +19,7 @@
 
 use crate::aria2::client::Aria2State;
 use crate::error::AppError;
-use crate::services::config::RuntimeConfigState;
+use crate::services::config::{RuntimeConfigState, DEFAULT_EXTENSION_API_PORT};
 use crate::services::deep_link;
 use crate::services::port_guard;
 use axum::{
@@ -586,7 +586,7 @@ pub async fn restart_on_port(app: &AppHandle, new_port: u16) -> Result<u16, AppE
 // ── Read extension API port from RuntimeConfig ─────────────────────
 
 /// Read the extension API port from RuntimeConfigState.
-/// Falls back to store read, then to 16801 if neither is available.
+/// Falls back to store read, then to the default extension API port if neither is available.
 pub async fn read_extension_api_port(app: &AppHandle) -> u16 {
     // Primary: RuntimeConfigState (cached, always in sync)
     if let Some(rc_state) = app.try_state::<RuntimeConfigState>() {
@@ -608,7 +608,7 @@ fn read_extension_api_port_from_store(app: &AppHandle) -> u16 {
                     .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
             })
         })
-        .unwrap_or(16801)
+        .unwrap_or(DEFAULT_EXTENSION_API_PORT)
 }
 
 #[cfg(test)]

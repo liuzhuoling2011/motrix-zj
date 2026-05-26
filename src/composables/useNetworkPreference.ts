@@ -9,7 +9,12 @@
  * this tab's save flow.
  */
 import type { AppConfig, PortConflictRecoveryConfig } from '@shared/types'
-import { PROXY_SCOPE_OPTIONS, DEFAULT_APP_CONFIG as D } from '@shared/constants'
+import {
+  PORT_RECOVERY_RANGE_END,
+  PORT_RECOVERY_RANGE_START,
+  PROXY_SCOPE_OPTIONS,
+  DEFAULT_APP_CONFIG as D,
+} from '@shared/constants'
 import { generateRandomInt } from '@shared/utils'
 import { isValidAria2ProxyUrl, UNSUPPORTED_PROXY_SCHEME_RE } from '@shared/utils/aria2Proxy'
 import { buildDownloadProxyOptions, normalizeProxyMode, type EngineProxyMode } from '@shared/utils/proxyPolicy'
@@ -146,9 +151,9 @@ export function validateNetworkForm(f: NetworkForm): string | null {
 // ── Port Randomization ──────────────────────────────────────────────
 
 export function randomBtPort(): number {
-  return generateRandomInt(20000, 24999)
+  return generateRandomInt(PORT_RECOVERY_RANGE_START, PORT_RECOVERY_RANGE_END + 1)
 }
 
 export function randomDhtPort(): number {
-  return generateRandomInt(25000, 29999)
+  return generateRandomInt(PORT_RECOVERY_RANGE_START, PORT_RECOVERY_RANGE_END + 1)
 }
