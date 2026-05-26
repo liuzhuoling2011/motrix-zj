@@ -18,7 +18,14 @@ import {
   randomDhtPort,
   type AdvancedForm,
 } from '../useAdvancedPreference'
-import { ENGINE_RPC_PORT, PROXY_SCOPES, PROXY_SCOPE_OPTIONS, DEFAULT_APP_CONFIG } from '@shared/constants'
+import {
+  ENGINE_RPC_PORT,
+  PROXY_SCOPES,
+  PROXY_SCOPE_OPTIONS,
+  DEFAULT_APP_CONFIG,
+  PORT_RECOVERY_RANGE_START,
+  PORT_RECOVERY_RANGE_END,
+} from '@shared/constants'
 import { diffConfig } from '@shared/utils/config'
 import type { AppConfig } from '@shared/types'
 
@@ -671,24 +678,24 @@ describe('port randomizers', () => {
   it('randomRpcPort stays within the port recovery range', () => {
     for (let i = 0; i < 20; i++) {
       const port = randomRpcPort()
-      expect(port).toBeGreaterThanOrEqual(ENGINE_RPC_PORT)
-      expect(port).toBeLessThanOrEqual(24999)
+      expect(port).toBeGreaterThanOrEqual(PORT_RECOVERY_RANGE_START)
+      expect(port).toBeLessThanOrEqual(PORT_RECOVERY_RANGE_END)
     }
   })
 
   it('randomBtPort stays within the port recovery range', () => {
     for (let i = 0; i < 20; i++) {
       const port = randomBtPort()
-      expect(port).toBeGreaterThanOrEqual(24000)
-      expect(port).toBeLessThanOrEqual(24999)
+      expect(port).toBeGreaterThanOrEqual(PORT_RECOVERY_RANGE_START)
+      expect(port).toBeLessThanOrEqual(PORT_RECOVERY_RANGE_END)
     }
   })
 
   it('randomDhtPort stays within the port recovery range', () => {
     for (let i = 0; i < 20; i++) {
       const port = randomDhtPort()
-      expect(port).toBeGreaterThanOrEqual(24000)
-      expect(port).toBeLessThanOrEqual(24999)
+      expect(port).toBeGreaterThanOrEqual(PORT_RECOVERY_RANGE_START)
+      expect(port).toBeLessThanOrEqual(PORT_RECOVERY_RANGE_END)
     }
   })
 })
