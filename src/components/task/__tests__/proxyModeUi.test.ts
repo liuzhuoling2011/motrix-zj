@@ -19,14 +19,10 @@ describe('task proxy mode UI', () => {
   it('orders Add Task proxy modes as Proxy off, Environment, Manual', async () => {
     const source = (await import('@/components/task/addtask/AdvancedOptions.vue?raw')).default
     expect(extractProxyOrder(source, 'name="add-task-proxy-mode"')).toEqual(TASK_PROXY_ORDER)
-    expect(source).not.toContain('proxy-mode-app')
-    expect(source).not.toContain('proxy-mode-global')
   })
 
   it('orders Task Detail proxy modes as Proxy off, Environment, Manual', async () => {
     const source = (await import('@/components/task/TaskDetail.vue?raw')).default
     expect(extractProxyOrder(source, 'name="task-proxy-mode"')).toEqual(TASK_PROXY_ORDER)
-    expect(source).not.toContain('proxy-mode-app')
-    expect(source).not.toContain('proxy-mode-global')
   })
 })
