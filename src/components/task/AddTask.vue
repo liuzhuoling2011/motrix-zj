@@ -20,7 +20,6 @@ import {
 } from '@/composables/useAddTaskSubmit'
 import type { AddTaskForm, ManualUriSubmitResult } from '@/composables/useAddTaskSubmit'
 import { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
-import { normalizeProxyMode } from '@shared/utils/proxyPolicy'
 import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
 import { isMagnetUri } from '@/composables/useMagnetFlow'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
@@ -117,12 +116,6 @@ const form = ref<AddTaskForm>({
  * reactivity for any local alias.
  */
 const globalProxyAvailable = computed(() => true)
-
-const globalProxyMode = computed(() => normalizeProxyMode(preferenceStore.config.proxy?.mode))
-
-// Sync proxyMode when the global proxy config changes (e.g. disabled in
-// settings, or config loads after component mount).  Without this, a stale
-// 'global' mode would leave the proxy-hint visible with no matching radio.
 
 const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
 
@@ -701,7 +694,6 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
             v-model:proxy-mode="form.proxyMode"
             v-model:custom-proxy="form.customProxy"
             :global-proxy-available="globalProxyAvailable"
-            :global-proxy-mode="globalProxyMode"
           />
         </div>
       </NForm>

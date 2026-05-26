@@ -76,7 +76,7 @@ export default {
   'change-language': 'Dili değiştir',
   proxy: 'Proxy',
   'proxy-mode': 'Proxy modu',
-  'proxy-mode-direct': 'Doğrudan bağlantı',
+  'proxy-mode-direct': 'Proxy kapalı',
   'proxy-mode-auto': 'Ortam proxy\'sini devral',
   'proxy-mode-manual': 'Manuel proxy',
   'proxy-bypass': 'Proxy istisnası',

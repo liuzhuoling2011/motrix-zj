@@ -24,10 +24,8 @@ const props = defineProps<{
   proxyMode: TaskProxyMode
   /** Custom proxy address when proxyMode is 'manual'. */
   customProxy: string
-  /** Whether a usable global proxy is configured in Settings → Advanced. */
+  /** Whether the app-level proxy option should be shown. */
   globalProxyAvailable: boolean
-  /** The global proxy mode (displayed as read-only hint). */
-  globalProxyMode: string
 }>()
 
 const emit = defineEmits<{
@@ -146,20 +144,13 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
             name="add-task-proxy-mode"
             @update:value="$emit('update:proxyMode', $event as TaskProxyMode)"
           >
-            <NRadio value="direct">{{ t('task.proxy-mode-direct') }}</NRadio>
-            <NRadio value="auto">{{ t('task.proxy-mode-auto') }}</NRadio>
             <NRadio v-if="globalProxyAvailable" value="global">
               {{ t('task.proxy-mode-global') }}
             </NRadio>
+            <NRadio value="direct">{{ t('task.proxy-mode-direct') }}</NRadio>
+            <NRadio value="auto">{{ t('task.proxy-mode-auto') }}</NRadio>
             <NRadio value="manual">{{ t('task.proxy-mode-manual') }}</NRadio>
           </NRadioGroup>
-          <div class="proxy-hint-collapse" :class="{ 'proxy-hint-collapse--open': proxyMode === 'global' }">
-            <div class="proxy-hint-collapse__inner">
-              <div class="proxy-server-hint">
-                {{ t('task.proxy-global-mode') }} {{ t(`task.proxy-mode-${globalProxyMode}`) }}
-              </div>
-            </div>
-          </div>
           <NCollapseTransition :show="proxyMode === 'manual'">
             <div class="custom-proxy-input">
               <NInput
@@ -226,24 +217,6 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
   display: flex;
   flex-direction: column;
   width: 100%;
-}
-.proxy-hint-collapse {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.25s ease;
-}
-.proxy-hint-collapse--open {
-  grid-template-rows: 1fr;
-}
-.proxy-hint-collapse__inner {
-  overflow: hidden;
-}
-.proxy-server-hint {
-  font-size: var(--font-size-sm);
-  color: var(--n-text-color-3, #999);
-  opacity: 0.8;
-  user-select: all;
-  padding: 4px 0 2px;
 }
 .custom-proxy-input {
   display: flex;

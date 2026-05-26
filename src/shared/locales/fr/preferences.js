@@ -77,7 +77,7 @@ export default {
   'change-language': 'Changer de langue',
   proxy: 'Proxy',
   'proxy-mode': 'Mode proxy',
-  'proxy-mode-direct': 'Connexion directe',
+  'proxy-mode-direct': 'Proxy désactivé',
   'proxy-mode-auto': 'Hériter du proxy d\'environnement',
   'proxy-mode-manual': 'Proxy manuel',
   'proxy-bypass': 'Contournement du proxy',

@@ -77,7 +77,7 @@ export default {
   'language-changed-later': 'Més tard',
   proxy: 'Proxy',
   'proxy-mode': 'Mode de proxy',
-  'proxy-mode-direct': 'Connexió directa',
+  'proxy-mode-direct': 'Proxy desactivat',
   'proxy-mode-auto': 'Hereta el proxy de l\'entorn',
   'proxy-mode-manual': 'Proxy manual',
   'proxy-bypass': 'Omissió del proxy',
