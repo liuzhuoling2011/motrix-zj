@@ -99,36 +99,36 @@ describe('calcRatio', () => {
 })
 
 describe('getTaskVisibleCompletedLength', () => {
-  it('uses in-flight bytes for active ED2K task display progress', () => {
+  it('uses ED2K visibleCompletedLength for display progress', () => {
     const task = createMockTask({
-      status: 'active',
+      status: 'paused',
       totalLength: '1000',
       completedLength: '0',
       inFlightCompletedLength: '250',
       ed2k: {
         completedLength: '300',
         inFlightCompletedLength: '700',
+        visibleCompletedLength: '800',
       },
     })
 
-    expect(getTaskVisibleCompletedLength(task)).toBe(700)
+    expect(getTaskVisibleCompletedLength(task)).toBe(800)
   })
 
-  it('clamps active ED2K display progress to total length', () => {
+  it('clamps ED2K visibleCompletedLength to total length', () => {
     const task = createMockTask({
       status: 'active',
       totalLength: '1000',
       completedLength: '0',
-      inFlightCompletedLength: '1500',
       ed2k: {
-        inFlightCompletedLength: '2000',
+        visibleCompletedLength: '2000',
       },
     })
 
     expect(getTaskVisibleCompletedLength(task)).toBe(1000)
   })
 
-  it('uses verified bytes for non-active ED2K states', () => {
+  it('uses ED2K visibleCompletedLength for stopped states', () => {
     const task = createMockTask({
       status: 'complete',
       totalLength: '1000',
@@ -137,6 +137,7 @@ describe('getTaskVisibleCompletedLength', () => {
       ed2k: {
         completedLength: '400',
         inFlightCompletedLength: '500',
+        visibleCompletedLength: '1000',
       },
     })
 

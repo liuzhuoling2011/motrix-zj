@@ -20,15 +20,10 @@ const parseLength = (value: string | number | undefined): number => {
 
 export const getTaskVisibleCompletedLength = (task: Aria2Task): number => {
   const verified = parseLength(task.completedLength)
-  if (task.status !== 'active' || !task.ed2k) return verified
+  if (!task.ed2k) return verified
 
   const total = parseLength(task.totalLength)
-  const visible = Math.max(
-    verified,
-    parseLength(task.inFlightCompletedLength),
-    parseLength(task.ed2k.completedLength),
-    parseLength(task.ed2k.inFlightCompletedLength),
-  )
+  const visible = parseLength(task.ed2k.visibleCompletedLength)
 
   return total > 0 ? Math.min(visible, total) : visible
 }

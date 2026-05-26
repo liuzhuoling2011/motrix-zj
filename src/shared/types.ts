@@ -41,6 +41,7 @@ export interface Aria2Ed2kInfo {
   length?: string
   completedLength?: string
   inFlightCompletedLength?: string
+  visibleCompletedLength?: string
   partHashCount?: string
   aichRoot?: string
   serverCount?: string

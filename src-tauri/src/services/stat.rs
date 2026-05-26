@@ -69,20 +69,9 @@ fn visible_completed_length(task: &crate::aria2::types::Aria2Task) -> u64 {
     let Some(ed2k) = &task.ed2k else {
         return verified;
     };
-    if task.status != "active" {
-        return verified;
-    }
 
     let total = parse_length(Some(&task.total_length));
-    let visible = [
-        verified,
-        parse_length(task.in_flight_completed_length.as_deref()),
-        parse_length(ed2k.completed_length.as_deref()),
-        parse_length(ed2k.in_flight_completed_length.as_deref()),
-    ]
-    .into_iter()
-    .max()
-    .unwrap_or(verified);
+    let visible = parse_length(ed2k.visible_completed_length.as_deref());
 
     if total > 0 {
         visible.min(total)
@@ -795,7 +784,7 @@ mod tests {
     }
 
     #[test]
-    fn visible_completed_length_uses_in_flight_for_active_ed2k() {
+    fn visible_completed_length_uses_ed2k_visible_length() {
         use crate::aria2::types::Aria2Ed2kInfo;
 
         let mut task = make_task("ed2k", "active");
@@ -808,6 +797,7 @@ mod tests {
             length: None,
             completed_length: Some("300".to_string()),
             in_flight_completed_length: Some("700".to_string()),
+            visible_completed_length: Some("800".to_string()),
             part_hash_count: None,
             aich_root: None,
             server_count: None,
@@ -829,11 +819,11 @@ mod tests {
             peer_credit_count: None,
         });
 
-        assert_eq!(visible_completed_length(&task), 700);
+        assert_eq!(visible_completed_length(&task), 800);
     }
 
     #[test]
-    fn visible_completed_length_uses_verified_for_non_active_ed2k() {
+    fn visible_completed_length_uses_ed2k_visible_length_for_stopped_tasks() {
         use crate::aria2::types::Aria2Ed2kInfo;
 
         let mut task = make_task("ed2k", "complete");
@@ -846,6 +836,7 @@ mod tests {
             length: None,
             completed_length: Some("300".to_string()),
             in_flight_completed_length: Some("700".to_string()),
+            visible_completed_length: Some("1000".to_string()),
             part_hash_count: None,
             aich_root: None,
             server_count: None,

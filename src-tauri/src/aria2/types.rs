@@ -92,6 +92,8 @@ pub struct Aria2Ed2kInfo {
     #[serde(default)]
     pub in_flight_completed_length: Option<String>,
     #[serde(default)]
+    pub visible_completed_length: Option<String>,
+    #[serde(default)]
     pub part_hash_count: Option<String>,
     #[serde(default)]
     pub aich_root: Option<String>,
@@ -288,7 +290,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_ed2k_task_with_in_flight_progress_fields() {
+    fn deserialize_ed2k_task_with_visible_progress_fields() {
         let json = serde_json::json!({
             "gid": "ed2k001",
             "status": "active",
@@ -303,7 +305,8 @@ mod tests {
             "ed2k": {
                 "hash": "3D366ED505B977FC61C9A6EE01E96329",
                 "completedLength": "0",
-                "inFlightCompletedLength": "2097152"
+                "inFlightCompletedLength": "2097152",
+                "visibleCompletedLength": "3145728"
             }
         });
         let task: Aria2Task = serde_json::from_value(json).expect("deserialize");
@@ -311,6 +314,7 @@ mod tests {
         assert_eq!(task.in_flight_completed_length.as_deref(), Some("1048576"));
         assert_eq!(ed2k.completed_length.as_deref(), Some("0"));
         assert_eq!(ed2k.in_flight_completed_length.as_deref(), Some("2097152"));
+        assert_eq!(ed2k.visible_completed_length.as_deref(), Some("3145728"));
     }
 
     #[test]
