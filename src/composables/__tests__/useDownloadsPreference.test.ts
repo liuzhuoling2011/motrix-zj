@@ -9,7 +9,9 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   buildDownloadsForm,
   buildDownloadsSystemConfig,
+  getCompletedRecordRetentionSelectValue,
   recordDownloadsDirectory,
+  resolveCompletedRecordRetentionDays,
   transformDownloadsForStore,
   type DownloadsForm,
 } from '../useDownloadsPreference'
@@ -444,6 +446,27 @@ describe('transformDownloadsForStore', () => {
   it('preserves completedRecordRetentionDays through transform', () => {
     const result = transformDownloadsForStore({ ...baseForm, completedRecordRetentionDays: 365 })
     expect(result.completedRecordRetentionDays).toBe(365)
+  })
+})
+
+// ── completed record retention select ───────────────────────────────
+
+describe('completed record retention select helpers', () => {
+  it('maps preset day counts to themselves', () => {
+    expect(getCompletedRecordRetentionSelectValue(1)).toBe(1)
+    expect(getCompletedRecordRetentionSelectValue(7)).toBe(7)
+  })
+
+  it('maps custom day counts to the custom option', () => {
+    expect(getCompletedRecordRetentionSelectValue(30)).toBe(-1)
+  })
+
+  it('keeps the previous positive day count when switching from a preset to custom', () => {
+    expect(resolveCompletedRecordRetentionDays(-1, 7)).toBe(7)
+  })
+
+  it('uses 30 days when switching from forever to custom', () => {
+    expect(resolveCompletedRecordRetentionDays(-1, 0)).toBe(30)
   })
 })
 

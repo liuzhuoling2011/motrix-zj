@@ -14,7 +14,6 @@ import { changeGlobalOption, isEngineReady } from '@/api/aria2'
 import {
   ENGINE_RPC_PORT,
   ENGINE_MAX_CONNECTION_PER_SERVER,
-  COMPLETED_RECORD_RETENTION_OPTIONS,
   SAFE_LIMIT_SPLIT,
   SAFE_LIMIT_CONNECTION_PER_SERVER,
   SCHEDULE_DAY,
@@ -25,7 +24,9 @@ import { useAppMessage } from '@/composables/useAppMessage'
 import {
   buildDownloadsForm,
   buildDownloadsSystemConfig,
+  getCompletedRecordRetentionSelectValue,
   recordDownloadsDirectory,
+  resolveCompletedRecordRetentionDays,
   transformDownloadsForStore,
 } from '@/composables/useDownloadsPreference'
 import type { FileCategory } from '@shared/types'
@@ -186,16 +187,15 @@ const completedRecordRetentionOptions = computed(() => [
   { label: t('preferences.completed-record-retention-1-year'), value: 365 },
   { label: t('preferences.completed-record-retention-custom'), value: -1 },
 ])
+const completedRecordRetentionMode = ref(0)
 const completedRecordRetentionSelectValue = computed<number>({
-  get: () => {
-    const value = Number(form.value.completedRecordRetentionDays)
-    return COMPLETED_RECORD_RETENTION_OPTIONS.includes(value as (typeof COMPLETED_RECORD_RETENTION_OPTIONS)[number])
-      ? value
-      : -1
-  },
+  get: () => completedRecordRetentionMode.value,
   set: (value) => {
-    if (value !== -1) form.value.completedRecordRetentionDays = value
-    else if (form.value.completedRecordRetentionDays <= 0) form.value.completedRecordRetentionDays = 30
+    completedRecordRetentionMode.value = value
+    form.value.completedRecordRetentionDays = resolveCompletedRecordRetentionDays(
+      value,
+      Number(form.value.completedRecordRetentionDays),
+    )
   },
 })
 const selectedNotificationTypes = computed<string[]>({
@@ -306,6 +306,9 @@ async function handleScheduleToggle(enabled: boolean) {
 
 function loadForm() {
   Object.assign(form.value, buildForm())
+  completedRecordRetentionMode.value = getCompletedRecordRetentionSelectValue(
+    Number(form.value.completedRecordRetentionDays),
+  )
   const ul = parseSpeedLimit(form.value.maxOverallUploadLimit)
   uploadSpeedValue.value = ul.num
   uploadUnit.value = ul.unit
