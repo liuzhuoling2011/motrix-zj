@@ -9,12 +9,13 @@
 import { ref, h, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { relaunch } from '@tauri-apps/plugin-process'
-import { downloadDir, appDataDir } from '@tauri-apps/api/path'
+import { appDataDir, join } from '@tauri-apps/api/path'
 import { save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { NTag, useDialog, type DataTableColumns } from 'naive-ui'
 import { logger } from '@shared/logger'
 import { bytesToSize } from '@shared/utils/format'
 import { calcColumnWidth } from '@shared/utils/calcColumnWidth'
+import { resolveUserVisibleDownloadDir } from '@shared/utils/userVisibleDirectory'
 import { useIpc } from '@/composables/useIpc'
 import { useEngineRestart } from '@/composables/useEngineRestart'
 import { ENGINE_RPC_PORT } from '@shared/constants'
@@ -38,6 +39,9 @@ interface AdvancedActionsDeps {
     clearRecords: () => Promise<void>
   }
   preferenceStore: {
+    config: {
+      dir?: string
+    }
     resetToDefaults: () => Promise<boolean>
   }
   form: { value: Record<string, unknown> }
@@ -281,10 +285,12 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
 
   async function handleExportLogs() {
     try {
-      const defaultDir = await downloadDir()
+      const resolvedDir = await resolveUserVisibleDownloadDir({ configuredDir: preferenceStore.config.dir })
+      const defaultPath = await join(resolvedDir.path, 'motrix-next-logs.zip')
+      logger.info('Advanced.exportLogs', `defaultDir source=${resolvedDir.source} fallback=${resolvedDir.usedFallback}`)
       const savePath = await saveDialog({
         title: t('preferences.export-diagnostic-logs'),
-        defaultPath: `${defaultDir}/motrix-next-logs.zip`,
+        defaultPath,
         filters: [{ name: 'ZIP', extensions: ['zip'] }],
       })
       if (!savePath) return

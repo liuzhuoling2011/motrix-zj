@@ -19,6 +19,7 @@ import {
 import { convertTrackerDataToLine, convertTrackerDataToComma, reduceTrackerString } from '@shared/utils/tracker'
 import { logger } from '@shared/logger'
 import { getErrorMessage } from '@shared/utils/errorMessage'
+import { resolveUserVisibleDownloadDir } from '@shared/utils/userVisibleDirectory'
 import type { AppConfig, TauriUpdate } from '@shared/types'
 import App from './App.vue'
 import 'virtual:uno.css'
@@ -149,32 +150,18 @@ if (import.meta.env.PROD) {
     try {
       const { invoke } = await import('@tauri-apps/api/core')
 
-      // Resolve OS-specific Downloads directory as fallback when config.dir
-      // is empty. Without this, aria2 receives no --dir arg and defaults to
-      // CWD, which is read-only on macOS .app bundles (errorCode=16).
-      //
-      // Three-tier fallback:
-      //   1. downloadDir()            — ~/Downloads (via Tauri path API)
-      //   2. homeDir() + '/Downloads' — manual construction
-      //   3. homeDir()                — last resort (home dir always exists)
+      // Resolve a user-visible writable directory before aria2 starts.
       let defaultDir = ''
       if (!config.dir) {
-        const { downloadDir, homeDir } = await import('@tauri-apps/api/path')
-        try {
-          defaultDir = await downloadDir()
-        } catch (e) {
-          logger.warn('Engine', `downloadDir() unavailable, falling back to homeDir: ${e}`)
-          try {
-            defaultDir = (await homeDir()) + '/Downloads'
-          } catch (e) {
-            logger.warn('Engine', `homeDir() unavailable, dir fallback exhausted: ${e}`)
-          }
-        }
-        // Persist the resolved dir so future launches skip the fallback chain
+        const resolvedDir = await resolveUserVisibleDownloadDir()
+        defaultDir = resolvedDir.path
         if (defaultDir) {
           config.dir = defaultDir
           preferenceStore.updateAndSave({ dir: defaultDir })
-          logger.info('Engine', `resolved default download dir: ${defaultDir}`)
+          logger.info(
+            'Engine',
+            `resolved default download dir source=${resolvedDir.source} fallback=${resolvedDir.usedFallback}`,
+          )
         }
       }
 

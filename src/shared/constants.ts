@@ -125,7 +125,7 @@ export const UPDATE_CHANNELS = ['stable', 'beta', 'latest'] as const
  *
  * Dynamic values handled at runtime:
  * - `locale: ''`    → OS locale detection in main.ts
- * - `dir: ''`       → system Downloads directory via Tauri API
+ * - `dir: ''`       → user-visible download directory resolver at runtime
  * - `rpcSecret`     → ABSENT from defaults; auto-generated on first launch in main.ts
  */
 

@@ -6,9 +6,9 @@ import { usePreferenceStore } from '@/stores/preference'
 import { usePreferenceForm } from '@/composables/usePreferenceForm'
 import { useEngineRestart } from '@/composables/useEngineRestart'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
-import { downloadDir } from '@tauri-apps/api/path'
 import { extractSpeedUnit } from '@shared/utils'
 import { logger } from '@shared/logger'
+import { resolveUserVisibleDownloadDir } from '@shared/utils/userVisibleDirectory'
 import { toggleSpeedLimit } from '@/composables/useSpeedLimiter'
 import { changeGlobalOption, isEngineReady } from '@/api/aria2'
 import {
@@ -340,7 +340,9 @@ function handleManualRestart() {
 
 onMounted(async () => {
   try {
-    defaultDownloadDir.value = await downloadDir()
+    const resolvedDir = await resolveUserVisibleDownloadDir({ configuredDir: preferenceStore.config.dir })
+    defaultDownloadDir.value = resolvedDir.path
+    logger.info('Downloads.downloadDir', `resolved source=${resolvedDir.source} fallback=${resolvedDir.usedFallback}`)
   } catch (e) {
     logger.debug('Downloads.downloadDir', e)
   }

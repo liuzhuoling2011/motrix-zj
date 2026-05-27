@@ -61,10 +61,14 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 
 vi.mock('@tauri-apps/api/path', () => ({
   downloadDir: vi.fn(async () => '/Downloads'),
+  homeDir: vi.fn(async () => '/home/test'),
+  appDataDir: vi.fn(async () => '/home/test/.local/share/com.motrix.next'),
+  join: vi.fn(async (...parts: string[]) => parts.join('/').replace(/\/+/g, '/')),
 }))
 
 vi.mock('@tauri-apps/plugin-fs', () => ({
   readFile: readFileMock,
+  exists: vi.fn(async () => true),
 }))
 
 vi.mock('@/composables/useTorrentParser', () => ({

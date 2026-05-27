@@ -609,25 +609,20 @@ describe('Silent-catch elimination: stores', () => {
 // Self-audit round 2 — error variable capture and missing logger calls
 // =====================================================================
 
-describe('Self-audit: main.ts error variable capture', () => {
+describe('Self-audit: main.ts user-visible directory resolver', () => {
   let source: string
   beforeAll(() => {
     source = fs.readFileSync(path.join(SRC_ROOT, 'src', 'main.ts'), 'utf-8')
   })
 
-  it('downloadDir fallback catch captures error variable', () => {
-    // The three-tier fallback chain must use `catch (e)` not `catch {`
-    // so the error details are included in the logger.warn message.
-    const fallback = source.slice(source.indexOf('downloadDir()'), source.indexOf('Persist the resolved dir'))
-    expect(fallback).not.toMatch(/\} catch \{/)
+  it('startup download dir resolution uses the shared resolver', () => {
+    expect(source).toContain("from '@shared/utils/userVisibleDirectory'")
+    expect(source).toContain('resolveUserVisibleDownloadDir()')
   })
 
-  it('downloadDir fallback log includes error interpolation', () => {
-    expect(source).toContain('falling back to homeDir: ${e}')
-  })
-
-  it('homeDir fallback log includes error interpolation', () => {
-    expect(source).toContain('dir fallback exhausted: ${e}')
+  it('startup logs safe resolver diagnostics without raw path details', () => {
+    expect(source).toContain('source=${resolvedDir.source}')
+    expect(source).toContain('fallback=${resolvedDir.usedFallback}')
   })
 })
 

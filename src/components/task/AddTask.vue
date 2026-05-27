@@ -23,10 +23,10 @@ import { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
 import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
 import { isMagnetUri } from '@/composables/useMagnetFlow'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
-import { downloadDir } from '@tauri-apps/api/path'
 import { logger } from '@shared/logger'
 import { getErrorMessage } from '@shared/utils/errorMessage'
 import { normalizeProxyMode } from '@shared/utils/proxyPolicy'
+import { resolveUserVisibleDownloadDir } from '@shared/utils/userVisibleDirectory'
 
 import { resolveUnresolvedItems, chooseTorrentFile as chooseTorrentFileImpl } from '@/composables/useAddTaskFileOps'
 import {
@@ -251,7 +251,9 @@ function onDirInput(value: string) {
 onMounted(async () => {
   if (!form.value.dir) {
     try {
-      form.value.dir = await downloadDir()
+      const resolvedDir = await resolveUserVisibleDownloadDir({ configuredDir: preferenceStore.config.dir })
+      form.value.dir = resolvedDir.path
+      logger.info('AddTask.dir', `resolved source=${resolvedDir.source} fallback=${resolvedDir.usedFallback}`)
     } catch (e) {
       logger.debug('AddTask.dir', e)
       form.value.dir = '~/Downloads'
