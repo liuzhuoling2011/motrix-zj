@@ -203,6 +203,10 @@ function getTextarea(wrapper: ReturnType<typeof mount>) {
   return wrapper.find('textarea')
 }
 
+function getRenameInput(wrapper: ReturnType<typeof mount>) {
+  return wrapper.find('input[placeholder="task.task-out-tips"]')
+}
+
 describe('AddTask batch URI integration', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -279,6 +283,27 @@ describe('AddTask batch URI integration', () => {
       ['https://b.example/file', 'https://c.example/file', 'https://a.example/file'].join('\n'),
     )
     expect(appStore.pendingBatch).toEqual([])
+  })
+
+  it('clears stale rename value when a new batch without filename arrives while open', async () => {
+    const appStore = useAppStore()
+    appStore.pendingFilename = 'old.zip'
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    await nextTick()
+
+    expect((getRenameInput(wrapper).element as HTMLInputElement).value).toBe('old.zip')
+
+    appStore.pendingFilename = ''
+    appStore.pendingBatch = [createBatchItem('uri', 'https://example.com/new.zip')]
+
+    await nextTick()
+    await flushPromises()
+
+    expect((getTextarea(wrapper).element as HTMLTextAreaElement).value).toBe('https://example.com/new.zip')
+    expect((getRenameInput(wrapper).element as HTMLInputElement).value).toBe('')
   })
 
   it('resets batch list ui state on close so the next open does not leave an empty batch shell behind', async () => {

@@ -594,6 +594,27 @@ describe('useAppStore', () => {
       expect(store.pendingFilename).toBe('')
     })
 
+    it('clears stale external metadata when the next deep link omits it', () => {
+      const store = useAppStore()
+      const firstUrl = encodeURIComponent('https://cdn.quark.cn/hash123')
+      const firstReferer = encodeURIComponent('https://pan.quark.cn')
+      const firstCookie = encodeURIComponent('__puus=abc')
+      const firstFilename = encodeURIComponent('first.zip')
+      store.handleDeepLinkUrls([
+        `motrixnext://new?url=${firstUrl}&referer=${firstReferer}&cookie=${firstCookie}&filename=${firstFilename}`,
+      ])
+      expect(store.pendingReferer).toBe('https://pan.quark.cn')
+      expect(store.pendingCookie).toBe('__puus=abc')
+      expect(store.pendingFilename).toBe('first.zip')
+
+      const secondUrl = encodeURIComponent('https://example.com/second.zip')
+      store.handleDeepLinkUrls([`motrixnext://new?url=${secondUrl}`])
+
+      expect(store.pendingReferer).toBe('')
+      expect(store.pendingCookie).toBe('')
+      expect(store.pendingFilename).toBe('')
+    })
+
     it('clears pendingFilename when hideAddTaskDialog is called', () => {
       const store = useAppStore()
       const url = encodeURIComponent('https://cdn.quark.cn/hash123')

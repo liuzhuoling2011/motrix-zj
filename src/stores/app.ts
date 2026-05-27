@@ -274,15 +274,9 @@ export const useAppStore = defineStore('app', () => {
           const downloadUrl = motrixDeepLink.downloadUrl
           const kind = detectKind(downloadUrl)
           const resolvedHint = resolveExternalFilenameHint(downloadUrl, motrixDeepLink.filename)
-          if (motrixDeepLink.referer) {
-            pendingReferer.value = motrixDeepLink.referer
-          }
-          if (motrixDeepLink.cookie) {
-            pendingCookie.value = motrixDeepLink.cookie
-          }
-          if (resolvedHint) {
-            pendingFilename.value = resolvedHint
-          }
+          pendingReferer.value = motrixDeepLink.referer
+          pendingCookie.value = motrixDeepLink.cookie
+          pendingFilename.value = resolvedHint
 
           const autoSubmit = usePreferenceStore().config.autoSubmitFromExtension
           const autoSelectAll = usePreferenceStore().config.autoSelectAllFilesFromExtension === true

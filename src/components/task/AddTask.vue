@@ -101,6 +101,12 @@ function syncDefaultTaskProxy() {
   form.value.appProxy = preferenceStore.config.proxy
 }
 
+function syncPendingExternalMetadata() {
+  form.value.referer = appStore.pendingReferer
+  form.value.cookie = appStore.pendingCookie
+  form.value.out = appStore.pendingFilename
+}
+
 const form = ref<AddTaskForm>({
   uris: '',
   out: '',
@@ -194,19 +200,7 @@ watch(
       // Reset the manual-override flag each time the dialog opens
       dirUserModified.value = false
 
-      // Pre-fill referer and cookie from browser extension deep-link.
-      // These are extracted by handleDeepLinkUrls() and stored as pending
-      // values. Without this, the manual-submit path silently discards
-      // them — causing cookie-gated CDNs (Quark, Baidu) to return 412.
-      if (appStore.pendingReferer) {
-        form.value.referer = appStore.pendingReferer
-      }
-      if (appStore.pendingCookie) {
-        form.value.cookie = appStore.pendingCookie
-      }
-      if (appStore.pendingFilename) {
-        form.value.out = appStore.pendingFilename
-      }
+      syncPendingExternalMetadata()
     }
   },
 )
@@ -337,6 +331,7 @@ watch(
         '',
         uriItems.map((i) => i.payload),
       )
+      syncPendingExternalMetadata()
       appStore.pendingBatch = batch.value.filter((i) => i.kind !== 'uri')
     }
     // Auto-switch tab SYNCHRONOUSLY (before any await) so NTabs computes
