@@ -23,7 +23,16 @@ import { getDownloadProxy } from '@/composables/useAddTaskSubmit'
 import { resolveUnresolvedItems } from '@/composables/useAddTaskFileOps'
 import { usePreferenceStore } from '@/stores/preference'
 import { useTaskStore } from '@/stores/task'
-import type { Aria2RawGlobalStat, Aria2EngineOptions, TauriUpdate, AppConfig, BatchItem } from '@shared/types'
+import type {
+  Aria2RawGlobalStat,
+  Aria2EngineOptions,
+  BrowserRequestHeader,
+  ExternalDownloadContext,
+  ExternalDownloadInput,
+  TauriUpdate,
+  AppConfig,
+  BatchItem,
+} from '@shared/types'
 import type { AddTaskForm } from '@/composables/useAddTaskSubmit'
 import { normalizeProxyMode } from '@shared/utils/proxyPolicy'
 
@@ -75,6 +84,10 @@ export const useAppStore = defineStore('app', () => {
   const pendingCookie = ref('')
   /** Output filename from extension's Content-Disposition extraction. */
   const pendingFilename = ref('')
+  /** User-Agent captured by the browser extension for the most recent external input. */
+  const pendingUserAgent = ref('')
+  /** Browser request headers captured by the extension for the most recent external input. */
+  const pendingRequestHeaders = ref<BrowserRequestHeader[]>([])
   const progress = ref(0)
   const pendingUpdate = ref<TauriUpdate | null>(null)
   const engineRestarting = ref(true)
@@ -171,6 +184,8 @@ export const useAppStore = defineStore('app', () => {
     pendingReferer.value = ''
     pendingCookie.value = ''
     pendingFilename.value = ''
+    pendingUserAgent.value = ''
+    pendingRequestHeaders.value = []
   }
 
   function updateAddTaskOptions(options: Aria2EngineOptions = {}) {
@@ -271,43 +286,17 @@ export const useAppStore = defineStore('app', () => {
       // `motrixnext://new?url=X` creates a download task from the URL.
       if (motrixDeepLink.valid) {
         if (motrixDeepLink.isNewTask) {
-          const downloadUrl = motrixDeepLink.downloadUrl
-          const kind = detectKind(downloadUrl)
-          const resolvedHint = resolveExternalFilenameHint(downloadUrl, motrixDeepLink.filename)
-          pendingReferer.value = motrixDeepLink.referer
-          pendingCookie.value = motrixDeepLink.cookie
-          pendingFilename.value = resolvedHint
-
-          const autoSubmit = usePreferenceStore().config.autoSubmitFromExtension
-          const autoSelectAll = usePreferenceStore().config.autoSelectAllFilesFromExtension === true
-          logger.info(
-            'DeepLink.new',
-            formatLogFields({
-              url: summarizeExternalInput(downloadUrl),
-              kind,
-              referer: motrixDeepLink.referer ? 'present' : 'none',
-              cookie: motrixDeepLink.cookie ? 'present' : 'none',
-              filename: motrixDeepLink.filename ? 'present' : 'none',
-              resolvedFilename: resolvedHint ? 'present' : 'none',
-              autoSubmit,
-            }),
+          const routed = routeExternalDownloadInput(
+            {
+              url: motrixDeepLink.downloadUrl,
+              referer: motrixDeepLink.referer,
+              cookie: motrixDeepLink.cookie,
+              filename: motrixDeepLink.filename,
+              source: 'deep-link',
+            },
+            items,
           )
-          if (autoSubmit && autoSelectAll && kind === 'uri' && downloadUrl.toLowerCase().startsWith('magnet:')) {
-            result.autoSubmitted += 1
-            void autoSubmitExtensionUrl(downloadUrl, motrixDeepLink.referer, motrixDeepLink.cookie, resolvedHint, true)
-          } else if (autoSubmit && kind === 'uri') {
-            result.autoSubmitted += 1
-            void autoSubmitExtensionUrl(downloadUrl, motrixDeepLink.referer, motrixDeepLink.cookie, resolvedHint)
-          } else if (autoSubmit && autoSelectAll && kind === 'torrent') {
-            result.autoSubmitted += 1
-            void autoSubmitExtensionFile(downloadUrl, kind, motrixDeepLink.referer, motrixDeepLink.cookie)
-          } else {
-            const item = createBatchItem(kind, downloadUrl)
-            if (resolvedHint) {
-              item.displayName = resolvedHint
-            }
-            items.push(item)
-          }
+          result.autoSubmitted += routed.autoSubmitted
         } else {
           result.ignored += 1
           const fields = formatLogFields({
@@ -368,21 +357,110 @@ export const useAppStore = defineStore('app', () => {
     return result
   }
 
+  function handleExternalInputs(inputs: ExternalDownloadInput[]): DeepLinkHandlingResult {
+    const result: DeepLinkHandlingResult = {
+      received: inputs?.length ?? 0,
+      queued: 0,
+      autoSubmitted: 0,
+      ignored: 0,
+    }
+    if (!inputs || inputs.length === 0) return result
+
+    const items: BatchItem[] = []
+    for (const input of inputs) {
+      if (!input.url) {
+        result.ignored += 1
+        continue
+      }
+      const routed = routeExternalDownloadInput(input, items)
+      result.autoSubmitted += routed.autoSubmitted
+      result.ignored += routed.ignored
+    }
+
+    if (items.length > 0) {
+      const skipped = enqueueBatch(items)
+      result.queued += items.length - skipped
+    }
+
+    return result
+  }
+
+  function buildExternalContext(input: ExternalDownloadInput): ExternalDownloadContext {
+    return {
+      referer: input.referer ?? '',
+      cookie: input.cookie ?? '',
+      userAgent: input.userAgent ?? '',
+      requestHeaders: input.requestHeaders ?? [],
+    }
+  }
+
+  function routeExternalDownloadInput(
+    input: ExternalDownloadInput,
+    items: BatchItem[],
+  ): Pick<DeepLinkHandlingResult, 'autoSubmitted' | 'ignored'> {
+    const downloadUrl = input.finalUrl || input.url
+    const kind = detectKind(downloadUrl)
+    const resolvedHint = resolveExternalFilenameHint(downloadUrl, input.filename ?? '')
+    const context = buildExternalContext(input)
+
+    pendingReferer.value = context.referer ?? ''
+    pendingCookie.value = context.cookie ?? ''
+    pendingUserAgent.value = context.userAgent ?? ''
+    pendingRequestHeaders.value = context.requestHeaders ?? []
+    pendingFilename.value = resolvedHint
+
+    const preferenceStore = usePreferenceStore()
+    const autoSubmit = preferenceStore.config.autoSubmitFromExtension
+    const autoSelectAll = preferenceStore.config.autoSelectAllFilesFromExtension === true
+    logger.info(
+      'ExternalInput.new',
+      formatLogFields({
+        url: summarizeExternalInput(downloadUrl),
+        kind,
+        source: input.source || 'unknown',
+        hasUserAgent: context.userAgent ? 'true' : 'false',
+        hasCookie: context.cookie ? 'true' : 'false',
+        headerCount: context.requestHeaders?.length ?? 0,
+        filename: input.filename ? 'present' : 'none',
+        resolvedFilename: resolvedHint ? 'present' : 'none',
+        autoSubmit,
+      }),
+    )
+
+    if (autoSubmit && autoSelectAll && kind === 'uri' && downloadUrl.toLowerCase().startsWith('magnet:')) {
+      void autoSubmitExtensionUrl(downloadUrl, context, resolvedHint, true)
+      return { autoSubmitted: 1, ignored: 0 }
+    }
+    if (autoSubmit && kind === 'uri') {
+      void autoSubmitExtensionUrl(downloadUrl, context, resolvedHint)
+      return { autoSubmitted: 1, ignored: 0 }
+    }
+    if (autoSubmit && autoSelectAll && kind === 'torrent') {
+      void autoSubmitExtensionFile(downloadUrl, kind, context)
+      return { autoSubmitted: 1, ignored: 0 }
+    }
+
+    const item = createBatchItem(kind, downloadUrl)
+    item.browserContext = context
+    if (resolvedHint) item.displayName = resolvedHint
+    items.push(item)
+    return { autoSubmitted: 0, ignored: 0 }
+  }
+
   /**
    * Auto-submits a single extension URL using the user's default settings.
    * Equivalent to opening AddTask and clicking Submit without any changes.
    */
   async function autoSubmitExtensionUrl(
     url: string,
-    referer: string,
-    cookie: string,
+    context: ExternalDownloadContext,
     filenameHint: string,
     autoSelectAllFiles = false,
   ): Promise<void> {
     const preferenceStore = usePreferenceStore()
     const taskStore = useTaskStore()
 
-    const form = buildExtensionSubmitForm(url, preferenceStore, referer, cookie, filenameHint)
+    const form = buildExtensionSubmitForm(url, preferenceStore, context, filenameHint)
     const options = buildEngineOptions(form)
     if (autoSelectAllFiles) {
       options['pause-metadata'] = 'false'
@@ -416,8 +494,7 @@ export const useAppStore = defineStore('app', () => {
   function buildExtensionSubmitForm(
     url: string,
     preferenceStore: ReturnType<typeof usePreferenceStore>,
-    referer: string,
-    cookie: string,
+    context: ExternalDownloadContext,
     filenameHint: string,
   ): AddTaskForm {
     return {
@@ -425,23 +502,31 @@ export const useAppStore = defineStore('app', () => {
       out: filenameHint,
       dir: preferenceStore.config.dir,
       split: preferenceStore.config.split ?? 16,
-      userAgent: '',
+      userAgent: context.userAgent || preferenceStore.config.userAgent || '',
       authorization: '',
       httpAuthUsername: '',
       httpAuthPassword: '',
       saveHttpAuth: true,
-      referer,
-      cookie,
+      referer: context.referer ?? '',
+      cookie: context.cookie ?? '',
       proxyMode: normalizeProxyMode(preferenceStore.config.proxy.mode),
       customProxy: '',
       appProxy: preferenceStore.config.proxy,
+      requestHeaders: context.requestHeaders ?? [],
+      uriRequestContexts: {
+        [url]: context,
+      },
     }
   }
 
-  async function autoSubmitExtensionFile(url: string, kind: 'torrent', referer: string, cookie: string): Promise<void> {
+  async function autoSubmitExtensionFile(
+    url: string,
+    kind: 'torrent',
+    context: ExternalDownloadContext,
+  ): Promise<void> {
     const preferenceStore = usePreferenceStore()
     const taskStore = useTaskStore()
-    const form = buildExtensionSubmitForm(url, preferenceStore, referer, cookie, '')
+    const form = buildExtensionSubmitForm(url, preferenceStore, context, '')
     const options = buildEngineOptions(form)
     const source = url.toLowerCase().startsWith('file://') ? normalizeFileUriPath(url) : url
     const item = createBatchItem(kind, source)
@@ -477,6 +562,8 @@ export const useAppStore = defineStore('app', () => {
     addTaskOptions,
     pendingReferer,
     pendingCookie,
+    pendingUserAgent,
+    pendingRequestHeaders,
     progress,
     pendingUpdate,
     engineRestarting,
@@ -497,6 +584,7 @@ export const useAppStore = defineStore('app', () => {
     fetchEngineInfo,
     fetchEngineOptions,
     handleDeepLinkUrls,
+    handleExternalInputs,
     setExternalInputErrorHandler,
     setExternalInputStartHandler,
     pendingProtocolHijack,

@@ -234,6 +234,7 @@ pub(crate) fn handle_minimize_to_tray(app: &tauri::AppHandle, window: &tauri::We
         log::info!("tray:lightweight-destroy label={}", window.label());
         save_window_state_before_lightweight_destroy(app);
         services::deep_link::mark_frontend_unready(app);
+        services::external_input::mark_frontend_unready(app);
         services::frontend_action::mark_frontend_actions_unready(app);
         let _ = window.destroy();
     } else {
@@ -285,6 +286,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(target_os = "linux")]
     app.manage(services::notification::LinuxNotificationRegistry::new());
     app.manage(services::deep_link::PendingDeepLinkState::new());
+    app.manage(services::external_input::PendingExternalInputState::new());
     app.manage(services::frontend_action::PendingFrontendActionState::new());
 
     // App lifecycle — tracks cold-start vs runtime phase for autostart
@@ -941,6 +943,7 @@ pub fn run() {
             commands::restart_http_api,
             commands::peek_pending_deep_links_silent,
             commands::take_pending_deep_links,
+            commands::take_pending_external_inputs,
             commands::take_pending_frontend_actions,
             commands::history_add_record,
             commands::history_get_records,

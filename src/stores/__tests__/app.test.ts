@@ -826,6 +826,81 @@ describe('useAppStore', () => {
       expect(store.pendingCookie).toBe('auth=secret')
     })
 
+    it('auto-submits structured extension input with captured user agent and request headers', async () => {
+      const store = useAppStore()
+      const { usePreferenceStore } = await import('@/stores/preference')
+      const prefStore = usePreferenceStore()
+      prefStore.config.autoSubmitFromExtension = true
+      prefStore.config.userAgent = 'ConfiguredUA/1.0'
+
+      store.handleExternalInputs([
+        {
+          url: 'https://drivers.amd.com/file.exe',
+          finalUrl: 'https://drivers.amd.com/file.exe',
+          referer: 'https://www.amd.com/support',
+          cookie: 'auth=secret',
+          userAgent: 'BrowserUA/1.0',
+          requestHeaders: [{ name: 'Accept', value: 'application/octet-stream' }],
+          filename: 'driver.exe',
+          source: 'http-api',
+        },
+      ])
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      const submittedForm = submitManualUrisMock.mock.calls[0][0]
+      const submittedOptions = submitManualUrisMock.mock.calls[0][1]
+      expect(submittedForm.userAgent).toBe('BrowserUA/1.0')
+      expect(submittedForm.requestHeaders).toEqual([{ name: 'Accept', value: 'application/octet-stream' }])
+      expect(submittedOptions).toMatchObject({
+        'user-agent': 'BrowserUA/1.0',
+        referer: 'https://www.amd.com/support',
+        header: ['Accept: application/octet-stream', 'Cookie: auth=secret'],
+      })
+    })
+
+    it('falls back to configured user agent when structured input has none', async () => {
+      const store = useAppStore()
+      const { usePreferenceStore } = await import('@/stores/preference')
+      const prefStore = usePreferenceStore()
+      prefStore.config.autoSubmitFromExtension = true
+      prefStore.config.userAgent = 'ConfiguredUA/1.0'
+
+      store.handleExternalInputs([
+        {
+          url: 'https://example.com/file.zip',
+          source: 'http-api',
+        },
+      ])
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      const submittedOptions = submitManualUrisMock.mock.calls[0][1]
+      expect(submittedOptions['user-agent']).toBe('ConfiguredUA/1.0')
+    })
+
+    it('keeps structured request headers for manual dialog submission', async () => {
+      const store = useAppStore()
+      const { usePreferenceStore } = await import('@/stores/preference')
+      const prefStore = usePreferenceStore()
+      prefStore.config.autoSubmitFromExtension = false
+
+      store.handleExternalInputs([
+        {
+          url: 'https://example.com/file.zip',
+          userAgent: 'BrowserUA/1.0',
+          requestHeaders: [{ name: 'Accept-Language', value: 'en-US,en;q=0.9' }],
+          source: 'http-api',
+        },
+      ])
+
+      expect(store.pendingBatch).toHaveLength(1)
+      expect(store.pendingBatch[0].browserContext).toMatchObject({
+        userAgent: 'BrowserUA/1.0',
+        requestHeaders: [{ name: 'Accept-Language', value: 'en-US,en;q=0.9' }],
+      })
+      expect(store.pendingUserAgent).toBe('BrowserUA/1.0')
+      expect(store.pendingRequestHeaders).toEqual([{ name: 'Accept-Language', value: 'en-US,en;q=0.9' }])
+    })
+
     it('non-extension deep links (file://, http://) are unaffected by auto-submit', async () => {
       const store = useAppStore()
       const { usePreferenceStore } = await import('@/stores/preference')

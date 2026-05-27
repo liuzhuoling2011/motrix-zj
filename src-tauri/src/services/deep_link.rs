@@ -117,10 +117,6 @@ pub fn route_external_inputs(app: &AppHandle, urls: Vec<String>, source: &'stati
     route_external_inputs_with_intent(app, urls, source, false);
 }
 
-pub fn route_silent_external_inputs(app: &AppHandle, urls: Vec<String>, source: &'static str) {
-    route_external_inputs_with_intent(app, urls, source, true);
-}
-
 fn route_external_inputs_with_intent(
     app: &AppHandle,
     urls: Vec<String>,

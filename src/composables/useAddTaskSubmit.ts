@@ -27,9 +27,20 @@ import {
 import { buildOuts } from '@shared/utils/rename'
 import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@shared/logger'
-import type { Aria2EngineOptions, BatchItem, FileCategory, ProxyConfig } from '@shared/types'
+import type {
+  Aria2EngineOptions,
+  BatchItem,
+  BrowserRequestHeader,
+  ExternalDownloadContext,
+  FileCategory,
+  ProxyConfig,
+} from '@shared/types'
 import { isMagnetUri } from '@/composables/useMagnetFlow'
-import { sanitizeHttpHeaderOptions } from '@shared/utils/headerSanitize'
+import {
+  sanitizeBrowserRequestHeaders,
+  sanitizeHttpHeaderOptions,
+  sanitizeSingleHeaderValue,
+} from '@shared/utils/headerSanitize'
 import { getErrorMessage } from '@shared/utils/errorMessage'
 import { buildTaskProxyOptions, getDownloadProxy, type TaskProxyMode } from '@shared/utils/proxyPolicy'
 
@@ -53,6 +64,8 @@ export interface AddTaskForm {
   customProxy: string
   /** Injected from the preference store; used for manual proxy bypass inheritance. */
   appProxy?: ProxyConfig
+  requestHeaders: BrowserRequestHeader[]
+  uriRequestContexts?: Record<string, ExternalDownloadContext>
 }
 
 export interface UseAddTaskSubmitOptions {
@@ -75,13 +88,13 @@ export interface ManualUriSubmitResult {
  * Builds aria2 engine options from the add-task form.
  * Pure function — no side effects, fully testable.
  */
-export function buildEngineOptions(form: AddTaskForm): Aria2EngineOptions {
-  const headers = sanitizeHttpHeaderOptions({
-    userAgent: form.userAgent,
-    referer: form.referer,
-    cookie: form.cookie,
-    authorization: form.authorization,
-  })
+export function buildEngineOptions(form: AddTaskForm, context?: ExternalDownloadContext): Aria2EngineOptions {
+  const headers = {
+    userAgent: sanitizeSingleHeaderValue(context?.userAgent ?? form.userAgent),
+    referer: sanitizeSingleHeaderValue(context?.referer ?? form.referer),
+    cookie: sanitizeSingleHeaderValue(context?.cookie ?? form.cookie),
+    authorization: sanitizeSingleHeaderValue(form.authorization),
+  }
   const options: Aria2EngineOptions = {
     dir: form.dir,
     split: String(form.split),
@@ -94,7 +107,9 @@ export function buildEngineOptions(form: AddTaskForm): Aria2EngineOptions {
   if (headers.userAgent) options['user-agent'] = headers.userAgent
   if (headers.referer) options.referer = headers.referer
 
-  const headerLines: string[] = []
+  const headerLines: string[] = sanitizeBrowserRequestHeaders(context?.requestHeaders ?? form.requestHeaders).map(
+    (header) => `${header.name}: ${header.value}`,
+  )
   if (headers.cookie) headerLines.push(`Cookie: ${headers.cookie}`)
   if (headers.authorization) headerLines.push(`Authorization: ${headers.authorization}`)
   if (headerLines.length > 0) options.header = headerLines
@@ -221,9 +236,10 @@ export async function submitManualUris(
           const pathFilename = extractDecodedFilename(uri)
           if (!pathFilename || hasExtension(pathFilename)) return ''
           try {
+            const uriContext = form.uriRequestContexts?.[uri]
             const sanitizedHeaders = sanitizeHttpHeaderOptions({
-              referer: form.referer,
-              cookie: form.cookie,
+              referer: uriContext?.referer ?? form.referer,
+              cookie: uriContext?.cookie ?? form.cookie,
             })
             const args: {
               url: string
@@ -242,7 +258,21 @@ export async function submitManualUris(
           }
         }),
       )
-      await taskStore.addUri({ uris: regularUris, outs, options, fileCategory })
+      const contextEntries = form.uriRequestContexts ?? {}
+      const hasPerUriContext = regularUris.some((uri) => contextEntries[uri])
+      if (hasPerUriContext) {
+        for (let index = 0; index < regularUris.length; index++) {
+          const uri = regularUris[index]
+          await taskStore.addUri({
+            uris: [uri],
+            outs: [outs[index] ?? ''],
+            options: buildEngineOptions(form, contextEntries[uri]),
+            fileCategory,
+          })
+        }
+      } else {
+        await taskStore.addUri({ uris: regularUris, outs, options, fileCategory })
+      }
       const optionOut = typeof options.out === 'string' ? options.out : ''
       submittedTaskNames.push(
         ...regularUris.map((uri, index) => resolveSubmittedTaskName(uri, optionOut || outs[index])),

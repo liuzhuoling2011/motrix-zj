@@ -85,6 +85,7 @@ function createDeps() {
     showAddTaskDialog: vi.fn(),
     enqueueBatch: vi.fn(() => 0),
     handleDeepLinkUrls: vi.fn(),
+    handleExternalInputs: vi.fn(),
     setExternalInputErrorHandler: vi.fn(),
     setExternalInputStartHandler: vi.fn(),
     engineReady: false,

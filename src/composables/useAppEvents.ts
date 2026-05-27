@@ -17,6 +17,7 @@ import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
 import { createExternalInputTraceId, summarizeExternalInputBatch } from '@shared/utils/externalInputDiagnostics'
 import { getErrorMessage } from '@shared/utils/errorMessage'
 import { isMotrixNewTaskLink } from '@shared/utils/motrixDeepLink'
+import type { ExternalDownloadInput } from '@shared/types'
 import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
 import { onUnmounted, watch, type Ref, type WatchStopHandle } from 'vue'
 
@@ -33,6 +34,11 @@ interface PendingDeepLinksPayload {
 }
 
 type DeepLinkEventPayload = string[] | PendingDeepLinksPayload
+
+interface PendingExternalInputsPayload {
+  inputs: ExternalDownloadInput[]
+  silent: boolean
+}
 
 type PendingFrontendActionChannel = 'menu-event' | 'tray-menu-action'
 
@@ -60,6 +66,7 @@ interface AppEventsDeps {
     showAddTaskDialog: () => void
     enqueueBatch: (items: ReturnType<typeof createBatchItem>[]) => number
     handleDeepLinkUrls: (urls: string[]) => DeepLinkHandlingResult | void
+    handleExternalInputs: (inputs: ExternalDownloadInput[]) => DeepLinkHandlingResult | void
     setExternalInputErrorHandler?: (handler: ((error: unknown) => void) | null) => void
     setExternalInputStartHandler?: (handler: ((taskNames: string[]) => void) | null) => void
     engineReady: boolean
@@ -112,6 +119,7 @@ interface AppEventsReturn {
     unlistenMenuEvent: (() => void) | null
     unlistenTrayMenu: (() => void) | null
     unlistenDeepLink: (() => void) | null
+    unlistenExternalInput: (() => void) | null
     unlistenSingleInstance: (() => void) | null
     teardown: () => void
   }>
@@ -644,8 +652,76 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
     }
   }
 
+  async function processIncomingExternalInputs(inputs: ExternalDownloadInput[], options: { silent?: boolean } = {}) {
+    const traceId = createExternalInputTraceId()
+    const silent = options.silent === true
+    logger.info(
+      'ExternalInput',
+      formatLogFields({
+        traceId,
+        stage: 'received',
+        source: 'structured',
+        route: route.path,
+        silent,
+        count: inputs.length,
+        hasCookie: inputs.some((input) => Boolean(input.cookie)),
+        hasUserAgent: inputs.some((input) => Boolean(input.userAgent)),
+        headerCount: inputs.reduce((count, input) => count + (input.requestHeaders?.length ?? 0), 0),
+      }),
+    )
+    if (!silent) {
+      const mainWindow = getCurrentWindow()
+      await runExternalInputWindowStage(traceId, 'unminimize', () => mainWindow.unminimize())
+      await runExternalInputWindowStage(traceId, 'show', () => mainWindow.show())
+      await runExternalInputWindowStage(traceId, 'setFocus', () => mainWindow.setFocus())
+    }
+
+    if (!silent && inputs.length > 0 && route.path !== '/task/all') {
+      try {
+        await router.push('/task/all')
+        logger.debug('ExternalInput', formatLogFields({ traceId, stage: 'navigate', result: 'ok', route: '/task/all' }))
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error)
+        logger.warn(
+          'ExternalInput',
+          formatLogFields({ traceId, stage: 'navigate', result: 'failed', route: '/task/all', reason }),
+        )
+      }
+    }
+
+    logger.info('ExternalInput', formatLogFields({ traceId, stage: 'route-download', result: 'start' }))
+    try {
+      const handlingResult = appStore.handleExternalInputs(inputs)
+      logger.info(
+        'ExternalInput',
+        formatLogFields({
+          traceId,
+          stage: 'route-download',
+          result: 'ok',
+          received: handlingResult?.received ?? 'unknown',
+          queued: handlingResult?.queued ?? 'unknown',
+          autoSubmitted: handlingResult?.autoSubmitted ?? 'unknown',
+          ignored: handlingResult?.ignored ?? 'unknown',
+        }),
+      )
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      logger.error('ExternalInput', formatLogFields({ traceId, stage: 'route-download', result: 'failed', reason }))
+      throw error
+    }
+    if (silent) {
+      await scheduleSilentLightweightCleanup(traceId)
+    }
+  }
+
   function normalizeDeepLinkPayload(payload: DeepLinkEventPayload): PendingDeepLinksPayload {
     return Array.isArray(payload) ? { urls: payload, silent: false } : payload
+  }
+
+  function normalizeExternalInputPayload(
+    payload: PendingExternalInputsPayload | ExternalDownloadInput[],
+  ): PendingExternalInputsPayload {
+    return Array.isArray(payload) ? { inputs: payload, silent: false } : payload
   }
 
   async function setupExternalInputListeners() {
@@ -653,6 +729,12 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       await listen<DeepLinkEventPayload>('deep-link-open', async (event) => {
         const payload = normalizeDeepLinkPayload(event.payload)
         await processIncomingDeepLinks(payload.urls, { silent: payload.silent })
+      }),
+    )
+
+    const unlistenExternalInput = registerCleanup(
+      await listen<PendingExternalInputsPayload>('external-input-open', async (event) => {
+        await processIncomingExternalInputs(event.payload.inputs, { silent: event.payload.silent })
       }),
     )
 
@@ -676,7 +758,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       }),
     )
 
-    return { unlistenDeepLink, unlistenSingleInstance }
+    return { unlistenDeepLink, unlistenExternalInput, unlistenSingleInstance }
   }
 
   // ─── Orchestrator ─────────────────────────────────────────────────
@@ -687,7 +769,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
     await setupEngineWatchers()
     setupNavGuard()
 
-    const { unlistenDeepLink, unlistenSingleInstance } = await setupExternalInputListeners()
+    const { unlistenDeepLink, unlistenExternalInput, unlistenSingleInstance } = await setupExternalInputListeners()
     const unlistenDragDrop = await setupDragDropListener()
     const unlistenMenuEvent = await setupMenuListener()
     const unlistenTrayMenu = await setupTrayListener()
@@ -707,6 +789,16 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
         )
         await processIncomingDeepLinks(pendingUrls, { silent })
       }
+      const pendingExternal = normalizeExternalInputPayload(
+        await invoke<PendingExternalInputsPayload | ExternalDownloadInput[]>('take_pending_external_inputs'),
+      )
+      if (pendingExternal.inputs.length > 0) {
+        logger.info(
+          'AppEvents',
+          `consuming ${pendingExternal.inputs.length} pending external input(s) from window recreation silent=${pendingExternal.silent}`,
+        )
+        await processIncomingExternalInputs(pendingExternal.inputs, { silent: pendingExternal.silent })
+      }
       const pendingActions = await invoke<PendingFrontendAction[]>('take_pending_frontend_actions')
       if (pendingActions.length > 0) {
         logger.info('AppEvents', `consuming ${pendingActions.length} pending frontend action(s) from window recreation`)
@@ -722,7 +814,15 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       logger.debug('AppEvents.pendingNativeEvents', e)
     }
 
-    return { unlistenDragDrop, unlistenMenuEvent, unlistenTrayMenu, unlistenDeepLink, unlistenSingleInstance, teardown }
+    return {
+      unlistenDragDrop,
+      unlistenMenuEvent,
+      unlistenTrayMenu,
+      unlistenDeepLink,
+      unlistenExternalInput,
+      unlistenSingleInstance,
+      teardown,
+    }
   }
 
   return { setupListeners }

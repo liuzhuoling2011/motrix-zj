@@ -105,6 +105,8 @@ function syncPendingExternalMetadata() {
   form.value.referer = appStore.pendingReferer
   form.value.cookie = appStore.pendingCookie
   form.value.out = appStore.pendingFilename
+  form.value.userAgent = appStore.pendingUserAgent
+  form.value.requestHeaders = appStore.pendingRequestHeaders
 }
 
 const form = ref<AddTaskForm>({
@@ -122,6 +124,8 @@ const form = ref<AddTaskForm>({
   proxyMode: defaultTaskProxyMode(),
   customProxy: defaultTaskProxyServer(),
   appProxy: preferenceStore.config.proxy,
+  requestHeaders: [],
+  uriRequestContexts: {},
 })
 
 const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
@@ -283,6 +287,9 @@ watch(
           form.value.uris,
           uriItems.map((i) => i.payload),
         )
+        form.value.uriRequestContexts = Object.fromEntries(
+          uriItems.flatMap((i) => (i.browserContext ? [[i.payload, i.browserContext]] : [])),
+        )
         appStore.pendingBatch = batch.value.filter((i) => i.kind !== 'uri')
       }
       // Auto-switch to Torrent tab when file items are present
@@ -330,6 +337,9 @@ watch(
       form.value.uris = mergeRawUriLines(
         '',
         uriItems.map((i) => i.payload),
+      )
+      form.value.uriRequestContexts = Object.fromEntries(
+        uriItems.flatMap((i) => (i.browserContext ? [[i.payload, i.browserContext]] : [])),
       )
       syncPendingExternalMetadata()
       appStore.pendingBatch = batch.value.filter((i) => i.kind !== 'uri')
@@ -404,6 +414,8 @@ function handleClose() {
     saveHttpAuth: true,
     referer: '',
     cookie: '',
+    requestHeaders: [],
+    uriRequestContexts: {},
   })
   syncDefaultTaskProxy()
   submitting.value = false

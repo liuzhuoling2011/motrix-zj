@@ -14,6 +14,7 @@
 
 pub mod config;
 pub mod deep_link;
+pub mod external_input;
 pub mod frontend_action;
 pub mod http_api;
 pub mod monitor;

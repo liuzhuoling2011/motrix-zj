@@ -395,6 +395,25 @@ export interface Aria2EngineOptions {
   [key: string]: string | string[] | undefined
 }
 
+export interface BrowserRequestHeader {
+  name: string
+  value: string
+}
+
+export interface ExternalDownloadContext {
+  referer?: string
+  cookie?: string
+  userAgent?: string
+  requestHeaders?: BrowserRequestHeader[]
+}
+
+export interface ExternalDownloadInput extends ExternalDownloadContext {
+  url: string
+  finalUrl?: string
+  filename?: string
+  source?: string
+}
+
 /** Saved HTTP Basic authentication credential scoped to a normalized URL origin. */
 export interface HttpAuthCredential {
   id: number
@@ -463,6 +482,8 @@ export interface BatchItem {
   displayName: string
   /** URI text (for uri kind) or base64-encoded file content (for torrent). */
   payload: string
+  /** Browser request context captured by the extension for this item. */
+  browserContext?: ExternalDownloadContext
   /** Parsed torrent metadata — only present for torrent items. */
   torrentMeta?: { infoHash: string; files: { idx: number; path: string; length: number }[] }
   /** Selected file indices for torrent selective download. */

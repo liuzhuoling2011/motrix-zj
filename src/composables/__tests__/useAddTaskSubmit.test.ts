@@ -111,6 +111,7 @@ describe('buildEngineOptions', () => {
     saveHttpAuth: true,
     proxyMode: 'direct',
     customProxy: '',
+    requestHeaders: [],
   }
 
   it('always includes dir and split', () => {
@@ -159,6 +160,56 @@ describe('buildEngineOptions', () => {
     expect(opts.header).toEqual(['Cookie: session=abc', 'Authorization: Bearer token'])
   })
 
+  it('merges sanitized browser request headers before explicit cookie and authorization', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      cookie: 'session=abc',
+      authorization: 'Bearer token',
+      requestHeaders: [
+        { name: 'Accept', value: 'application/octet-stream' },
+        { name: 'Accept-Language', value: 'en-US,en;q=0.9' },
+      ],
+    })
+
+    expect(opts.header).toEqual([
+      'Accept: application/octet-stream',
+      'Accept-Language: en-US,en;q=0.9',
+      'Cookie: session=abc',
+      'Authorization: Bearer token',
+    ])
+  })
+
+  it('drops unsafe, forbidden, duplicate, and overlong browser request headers', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      requestHeaders: [
+        { name: 'Accept', value: 'application/octet-stream' },
+        { name: 'Accept', value: 'text/html' },
+        { name: 'Host', value: 'example.com' },
+        { name: 'X-Evil', value: 'bad' },
+        { name: 'Origin', value: 'https://example.com\r\nInjected: bad' },
+        { name: 'DNT', value: '1' },
+        { name: 'Accept-Language', value: 'x'.repeat(8193) },
+      ],
+    })
+
+    expect(opts.header).toEqual(['Accept: application/octet-stream', 'DNT: 1'])
+  })
+
+  it('drops explicit header fields that contain CRLF instead of joining injected segments', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      userAgent: 'MyUA\r\nInjected: bad',
+      referer: 'https://r.com\n',
+      cookie: 'session=abc\r\nX-Evil: 1',
+      authorization: 'Bearer token\nAnother: bad',
+    })
+
+    expect(opts['user-agent']).toBeUndefined()
+    expect(opts.referer).toBeUndefined()
+    expect(opts.header).toBeUndefined()
+  })
+
   it('builds HTTP Basic Auth options from form fields', () => {
     const opts = buildEngineOptions({
       ...baseForm,
@@ -169,18 +220,18 @@ describe('buildEngineOptions', () => {
     expect(opts['http-passwd']).toBe('secret')
   })
 
-  it('sanitizes every HTTP header value before building aria2 options', () => {
+  it('trims clean explicit HTTP header values before building aria2 options', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      userAgent: 'MyUA\r\nInjected: bad',
-      referer: 'https://r.com\n',
-      cookie: 'session=abc\r\nX-Evil: 1',
-      authorization: 'Bearer token\nAnother: bad',
+      userAgent: ' MyUA ',
+      referer: ' https://r.com ',
+      cookie: ' session=abc ',
+      authorization: ' Bearer token ',
     })
 
-    expect(opts['user-agent']).toBe('MyUAInjected: bad')
+    expect(opts['user-agent']).toBe('MyUA')
     expect(opts.referer).toBe('https://r.com')
-    expect(opts.header).toEqual(['Cookie: session=abcX-Evil: 1', 'Authorization: Bearer tokenAnother: bad'])
+    expect(opts.header).toEqual(['Cookie: session=abc', 'Authorization: Bearer token'])
   })
 
   it('omits header when no cookie or auth', () => {
@@ -421,6 +472,7 @@ describe('submitManualUris', () => {
     saveHttpAuth: true,
     proxyMode: 'direct',
     customProxy: '',
+    requestHeaders: [],
   }
 
   beforeEach(() => {
@@ -604,6 +656,7 @@ describe('useAddTaskSubmit', () => {
     saveHttpAuth: true,
     proxyMode: 'direct',
     customProxy: '',
+    requestHeaders: [],
   }
 
   beforeEach(() => {
