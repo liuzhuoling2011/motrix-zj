@@ -391,6 +391,7 @@ export const useAppStore = defineStore('app', () => {
       cookie: input.cookie ?? '',
       userAgent: input.userAgent ?? '',
       requestHeaders: input.requestHeaders ?? [],
+      traceId: input.traceId,
     }
   }
 
@@ -418,6 +419,7 @@ export const useAppStore = defineStore('app', () => {
         url: summarizeExternalInput(downloadUrl),
         kind,
         source: input.source || 'unknown',
+        traceId: context.traceId ?? 'none',
         hasUserAgent: context.userAgent ? 'true' : 'false',
         hasCookie: context.cookie ? 'true' : 'false',
         headerCount: context.requestHeaders?.length ?? 0,
@@ -481,7 +483,14 @@ export const useAppStore = defineStore('app', () => {
       const taskNames = result.submittedTaskNames.length > 0 ? result.submittedTaskNames : [filenameHint || url]
       externalInputStartHandler?.(taskNames)
       preferenceStore.recordHistoryDirectory(form.dir || preferenceStore.config.dir)
-      logger.info('autoSubmit', `auto-submitted: ${url}`)
+      logger.info(
+        'autoSubmit',
+        formatLogFields({
+          traceId: context.traceId ?? 'none',
+          url: summarizeExternalInput(url),
+          result: 'submitted',
+        }),
+      )
     } catch (e) {
       logger.error('autoSubmit', e)
       externalInputErrorHandler?.(e)
@@ -539,7 +548,14 @@ export const useAppStore = defineStore('app', () => {
       if (failures > 0) throw new Error(item.error || 'Failed to submit file')
       externalInputStartHandler?.([item.displayName])
       preferenceStore.recordHistoryDirectory(form.dir || preferenceStore.config.dir)
-      logger.info('autoSubmit', `auto-submitted file: ${url}`)
+      logger.info(
+        'autoSubmit',
+        formatLogFields({
+          traceId: context.traceId ?? 'none',
+          url: summarizeExternalInput(url),
+          result: 'submitted-file',
+        }),
+      )
     } catch (e) {
       logger.error('autoSubmit', e)
       externalInputErrorHandler?.(e)

@@ -470,4 +470,36 @@ describe('useAppEvents', () => {
     expect(appStore.handleDeepLinkUrls).toHaveBeenCalledWith([deepLink])
     expect(loggerMock.info).toHaveBeenCalledWith('ExternalInput', expect.stringContaining('queued=1'))
   })
+
+  it('attaches the external input trace id before routing structured payloads', async () => {
+    const { deps, appStore } = createDeps()
+    appStore.handleExternalInputs.mockReturnValueOnce({ received: 1, queued: 1, autoSubmitted: 0, ignored: 0 })
+    const { setupListeners } = mountComposable(deps)
+
+    await setupListeners()
+    await eventCallbacks['external-input-open']?.({
+      payload: {
+        inputs: [
+          {
+            url: 'https://example.com/file.zip?token=secret',
+            cookie: 'session=secret',
+            userAgent: 'BrowserUA/1.0',
+            requestHeaders: [{ name: 'Accept', value: 'application/octet-stream' }],
+            source: 'http-api',
+          },
+        ],
+        silent: false,
+      },
+    })
+
+    expect(appStore.handleExternalInputs).toHaveBeenCalledWith([
+      expect.objectContaining({
+        url: 'https://example.com/file.zip?token=secret',
+        traceId: expect.stringMatching(/^external-input-/),
+      }),
+    ])
+    expect(loggerMock.info.mock.calls.flat().join(' ')).not.toContain('session=secret')
+    expect(loggerMock.info.mock.calls.flat().join(' ')).not.toContain('token=secret')
+    expect(loggerMock.info.mock.calls.flat().join(' ')).not.toContain('BrowserUA')
+  })
 })

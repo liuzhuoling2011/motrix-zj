@@ -26,7 +26,7 @@ import {
 } from '@shared/utils/batchHelpers'
 import { buildOuts } from '@shared/utils/rename'
 import { invoke } from '@tauri-apps/api/core'
-import { logger } from '@shared/logger'
+import { formatLogFields, logger } from '@shared/logger'
 import type {
   Aria2EngineOptions,
   BatchItem,
@@ -38,9 +38,11 @@ import type {
 import { isMagnetUri } from '@/composables/useMagnetFlow'
 import {
   sanitizeBrowserRequestHeaders,
+  sanitizeBrowserRequestHeadersWithDiagnostics,
   sanitizeHttpHeaderOptions,
   sanitizeSingleHeaderValue,
 } from '@shared/utils/headerSanitize'
+import { summarizeHeaderForwarding } from '@shared/utils/externalInputDiagnostics'
 import { getErrorMessage } from '@shared/utils/errorMessage'
 import { buildTaskProxyOptions, getDownloadProxy, type TaskProxyMode } from '@shared/utils/proxyPolicy'
 
@@ -107,9 +109,8 @@ export function buildEngineOptions(form: AddTaskForm, context?: ExternalDownload
   if (headers.userAgent) options['user-agent'] = headers.userAgent
   if (headers.referer) options.referer = headers.referer
 
-  const headerLines: string[] = sanitizeBrowserRequestHeaders(context?.requestHeaders ?? form.requestHeaders).map(
-    (header) => `${header.name}: ${header.value}`,
-  )
+  const browserHeaders = sanitizeBrowserRequestHeaders(context?.requestHeaders ?? form.requestHeaders)
+  const headerLines: string[] = browserHeaders.map((header) => `${header.name}: ${header.value}`)
   if (headers.cookie) headerLines.push(`Cookie: ${headers.cookie}`)
   if (headers.authorization) headerLines.push(`Authorization: ${headers.authorization}`)
   if (headerLines.length > 0) options.header = headerLines
@@ -123,6 +124,12 @@ export function buildEngineOptions(form: AddTaskForm, context?: ExternalDownload
 
   Object.assign(options, buildTaskProxyOptions(form.proxyMode, form.customProxy, form.appProxy))
   return options
+}
+
+function summarizeSubmitHeaderForwarding(form: AddTaskForm, context?: ExternalDownloadContext) {
+  return summarizeHeaderForwarding(
+    sanitizeBrowserRequestHeadersWithDiagnostics(context?.requestHeaders ?? form.requestHeaders).diagnostics,
+  )
 }
 
 /**
@@ -198,7 +205,14 @@ export async function submitManualUris(
   const allUris = normalizeUriLines(form.uris)
   logger.info(
     'submitManualUris',
-    `regular=${allUris.filter((u) => !isMagnetUri(u)).length} magnet=${allUris.filter(isMagnetUri).length}`,
+    formatLogFields({
+      regular: allUris.filter((u) => !isMagnetUri(u)).length,
+      magnet: allUris.filter(isMagnetUri).length,
+      hasUserAgent: Boolean(form.userAgent),
+      hasReferer: Boolean(form.referer),
+      hasCookie: Boolean(form.cookie),
+      ...summarizeSubmitHeaderForwarding(form),
+    }),
   )
 
   // Partition into magnet and regular URIs

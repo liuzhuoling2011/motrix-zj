@@ -16,10 +16,11 @@ import type {
   Ed2kSearchOptions,
   Ed2kSearchResults,
 } from '@shared/types'
-import { logger } from '@shared/logger'
+import { formatLogFields, logger } from '@shared/logger'
 import { resolveDownloadDir } from '@shared/utils/fileCategory'
 import { sanitizeAria2OutHint } from '@shared/utils/batchHelpers'
 import { decodeThunderLink } from '@shared/utils/resource'
+import { summarizeAria2Options, summarizeExternalInput } from '@shared/utils/externalInputDiagnostics'
 
 /**
  * Engine readiness state.
@@ -146,7 +147,15 @@ export async function addUri(params: {
   })
 
   const gids = await Promise.all(tasks)
-  logger.info('aria2.addUri', `added ${gids.length} URI task(s) gids=[${gids.join(',')}]`)
+  logger.info(
+    'aria2.addUri',
+    formatLogFields({
+      added: gids.length,
+      gids: `[${gids.join(',')}]`,
+      first: normalizedUris[0] ? summarizeExternalInput(normalizedUris[0]) : 'none',
+      ...summarizeAria2Options(engineOptions),
+    }),
+  )
   return gids
 }
 

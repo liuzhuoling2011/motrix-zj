@@ -195,7 +195,11 @@ async fn handle_add(
         body.request_headers.len(),
         body.user_agent.as_ref().is_some_and(|v| !v.is_empty()),
         body.cookie.as_ref().is_some_and(|v| !v.is_empty()),
-        body.filename.as_deref().unwrap_or("none"),
+        if body.filename.as_ref().is_some_and(|v| !v.is_empty()) {
+            "present"
+        } else {
+            "none"
+        },
     );
 
     // Route ALL downloads through the frontend — single code path.

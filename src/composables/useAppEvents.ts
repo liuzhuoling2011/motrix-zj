@@ -691,7 +691,8 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
 
     logger.info('ExternalInput', formatLogFields({ traceId, stage: 'route-download', result: 'start' }))
     try {
-      const handlingResult = appStore.handleExternalInputs(inputs)
+      const tracedInputs = inputs.map((input) => ({ ...input, traceId }))
+      const handlingResult = appStore.handleExternalInputs(tracedInputs)
       logger.info(
         'ExternalInput',
         formatLogFields({

@@ -132,7 +132,8 @@ pub async fn resolve_filename(
     }
 
     log::debug!(
-        "resolve_filename: no trusted filename source for {url}; using {UNRESOLVED_FILENAME}"
+        "resolve_filename: no trusted filename source for {}; using {UNRESOLVED_FILENAME}",
+        summarize_url_for_log(&url)
     );
     Ok(Some(UNRESOLVED_FILENAME.to_string()))
 }
@@ -482,7 +483,7 @@ fn decode_rfc2047_filename(filename: String) -> String {
 
 #[tauri::command]
 pub async fn fetch_remote_bytes(url: String, proxy: Option<String>) -> Result<Vec<u8>, AppError> {
-    log::info!("fetch_remote_bytes: url={url:?}");
+    log::info!("fetch_remote_bytes: url={}", summarize_url_for_log(&url));
 
     let builder = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -524,6 +525,39 @@ pub async fn fetch_remote_bytes(url: String, proxy: Option<String>) -> Result<Ve
 
     log::info!("fetch_remote_bytes: downloaded {} bytes", bytes.len());
     Ok(bytes.to_vec())
+}
+
+fn summarize_url_for_log(value: &str) -> String {
+    let lower = value.to_lowercase();
+    if lower.starts_with("magnet:") {
+        return format!("scheme=magnet length={}", value.len());
+    }
+    if lower.starts_with("ed2k://") {
+        return format!("scheme=ed2k length={}", value.len());
+    }
+    if lower.starts_with("thunder://") {
+        return format!("scheme=thunder length={}", value.len());
+    }
+
+    match url::Url::parse(value) {
+        Ok(parsed) => {
+            let scheme = parsed.scheme();
+            let host = parsed.host_str().unwrap_or("none");
+            let ext = parsed
+                .path_segments()
+                .and_then(|mut segments| segments.next_back())
+                .and_then(|name| name.rsplit_once('.').map(|(_, ext)| ext))
+                .filter(|ext| !ext.is_empty() && ext.len() <= 16)
+                .unwrap_or("none");
+            format!(
+                "scheme={scheme} host={host} ext={} has_query={} length={}",
+                ext.to_ascii_lowercase(),
+                parsed.query().is_some(),
+                value.len()
+            )
+        }
+        Err(_) => format!("parseable=false length={}", value.len()),
+    }
 }
 
 #[cfg(test)]

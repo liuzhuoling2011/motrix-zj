@@ -1,5 +1,7 @@
 /** @fileoverview Sanitized diagnostics for external download inputs. */
 import type { LogFields } from '@shared/logger'
+import type { Aria2EngineOptions } from '@shared/types'
+import type { HeaderSanitizeDiagnostics } from './headerSanitize'
 import { isMotrixNewTaskLink, parseMotrixDeepLink } from './motrixDeepLink'
 
 let traceSequence = 0
@@ -73,4 +75,37 @@ export function summarizeExternalInputBatch(urls: string[]): LogFields {
 
 export function createExternalInputTraceId(): string {
   return `external-input-${Date.now().toString(36)}-${nextTraceSequence()}`
+}
+
+export function summarizeHeaderForwarding(diagnostics: HeaderSanitizeDiagnostics): LogFields {
+  return {
+    headerInputCount: diagnostics.inputCount,
+    headerKeptCount: diagnostics.keptCount,
+    headerDroppedCount: diagnostics.droppedCount,
+    headerKeptNames: diagnostics.keptNames.join(',') || 'none',
+    headerDroppedReasons: diagnostics.droppedReasons.join(',') || 'none',
+  }
+}
+
+function extractHeaderNames(headerOption: Aria2EngineOptions['header']): string[] {
+  const lines = Array.isArray(headerOption) ? headerOption : typeof headerOption === 'string' ? [headerOption] : []
+  return lines
+    .flatMap((line) => line.split('\n'))
+    .map((line) => {
+      const index = line.indexOf(':')
+      return index > 0 ? line.slice(0, index).trim() : ''
+    })
+    .filter(Boolean)
+}
+
+export function summarizeAria2Options(options: Aria2EngineOptions): LogFields {
+  const headerNames = extractHeaderNames(options.header)
+  return {
+    hasUserAgent: Boolean(options['user-agent']),
+    hasReferer: Boolean(options.referer),
+    headerCount: headerNames.length,
+    headerNames: headerNames.join(',') || 'none',
+    hasCookieHeader: headerNames.some((name) => name.toLowerCase() === 'cookie'),
+    hasAuthorizationHeader: headerNames.some((name) => name.toLowerCase() === 'authorization'),
+  }
 }

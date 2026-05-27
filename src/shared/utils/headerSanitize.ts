@@ -42,6 +42,21 @@ export interface SanitizedRequestHeader {
   value: string
 }
 
+export type HeaderDropReason = 'invalid-name' | 'forbidden' | 'duplicate' | 'unsafe-value' | 'limit'
+
+export interface HeaderSanitizeDiagnostics {
+  inputCount: number
+  keptCount: number
+  droppedCount: number
+  keptNames: string[]
+  droppedReasons: HeaderDropReason[]
+}
+
+export interface HeaderSanitizeResult {
+  headers: SanitizedRequestHeader[]
+  diagnostics: HeaderSanitizeDiagnostics
+}
+
 const MAX_BROWSER_REQUEST_HEADERS = 32
 const MAX_HEADER_VALUE_LENGTH = 8192
 
@@ -102,18 +117,40 @@ export function sanitizeSingleHeaderValue(value: string | undefined): string {
 }
 
 export function sanitizeBrowserRequestHeaders(headers: readonly RequestHeaderInput[] = []): SanitizedRequestHeader[] {
+  return sanitizeBrowserRequestHeadersWithDiagnostics(headers).headers
+}
+
+export function sanitizeBrowserRequestHeadersWithDiagnostics(
+  headers: readonly RequestHeaderInput[] = [],
+): HeaderSanitizeResult {
   const sanitized: SanitizedRequestHeader[] = []
   const seen = new Set<string>()
+  const droppedReasons: HeaderDropReason[] = []
 
   for (const header of headers) {
-    if (sanitized.length >= MAX_BROWSER_REQUEST_HEADERS) break
+    if (sanitized.length >= MAX_BROWSER_REQUEST_HEADERS) {
+      droppedReasons.push('limit')
+      continue
+    }
     const normalizedName = header.name.trim().toLowerCase()
-    if (!normalizedName || !HTTP_TOKEN_RE.test(header.name.trim())) continue
-    if (isForbiddenBrowserHeaderName(normalizedName)) continue
-    if (seen.has(normalizedName)) continue
+    if (!normalizedName || !HTTP_TOKEN_RE.test(header.name.trim())) {
+      droppedReasons.push('invalid-name')
+      continue
+    }
+    if (isForbiddenBrowserHeaderName(normalizedName)) {
+      droppedReasons.push('forbidden')
+      continue
+    }
+    if (seen.has(normalizedName)) {
+      droppedReasons.push('duplicate')
+      continue
+    }
 
     const value = sanitizeSingleHeaderValue(header.value)
-    if (!value) continue
+    if (!value) {
+      droppedReasons.push('unsafe-value')
+      continue
+    }
 
     seen.add(normalizedName)
     sanitized.push({
@@ -122,7 +159,16 @@ export function sanitizeBrowserRequestHeaders(headers: readonly RequestHeaderInp
     })
   }
 
-  return sanitized
+  return {
+    headers: sanitized,
+    diagnostics: {
+      inputCount: headers.length,
+      keptCount: sanitized.length,
+      droppedCount: droppedReasons.length,
+      keptNames: sanitized.map((header) => header.name),
+      droppedReasons,
+    },
+  }
 }
 
 export function sanitizeHttpHeaderOptions(options: HttpHeaderOptions): HttpHeaderOptions {

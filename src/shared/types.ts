@@ -405,6 +405,7 @@ export interface ExternalDownloadContext {
   cookie?: string
   userAgent?: string
   requestHeaders?: BrowserRequestHeader[]
+  traceId?: string
 }
 
 export interface ExternalDownloadInput extends ExternalDownloadContext {
