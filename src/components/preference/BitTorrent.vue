@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** @fileoverview BitTorrent preference tab: BT settings + tracker management. */
-import { ref, computed, onMounted, h } from 'vue'
+import { ref, computed, onMounted, h, nextTick } from 'vue'
 import type { VNodeChild } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
@@ -29,7 +29,8 @@ import {
   NButton,
   NDivider,
   NIcon,
-  NCollapseTransition,
+  NRadioGroup,
+  NRadioButton,
   useDialog,
 } from 'naive-ui'
 import PreferenceActionBar from './PreferenceActionBar.vue'
@@ -42,6 +43,7 @@ const message = useAppMessage()
 
 const syncingTracker = ref(false)
 const customTrackerInput = ref('')
+const needsRestart = ref(false)
 
 // ── Tracker source management ───────────────────────────────────────
 const presetTrackerValues = new Set(
@@ -113,6 +115,36 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
   buildForm,
   buildSystemConfig: buildBtSystemConfig,
   transformForStore: transformBtForStore,
+  beforeSave: async (f) => {
+    const previousMode = preferenceStore.config.keepSeeding ? 'manual-stop' : 'stop-by-condition'
+    if (f.seedingMode === previousMode) return true
+
+    const ok = await new Promise<boolean>((resolve) => {
+      dialog.warning({
+        title: t('preferences.engine-restart-title'),
+        content: t('preferences.engine-restart-confirm'),
+        positiveText: t('preferences.engine-restart-now'),
+        negativeText: t('app.cancel'),
+        maskClosable: false,
+        onPositiveClick: () => resolve(true),
+        onNegativeClick: () => resolve(false),
+        onClose: () => resolve(false),
+      })
+    })
+    if (!ok) return false
+    needsRestart.value = true
+    return true
+  },
+  afterSave: async () => {
+    if (!needsRestart.value) return
+    needsRestart.value = false
+    const port = (preferenceStore.config.rpcListenPort as number) || ENGINE_RPC_PORT
+    const secret = (preferenceStore.config.rpcSecret as string) || ''
+    message.info(t('preferences.engine-restarting'))
+    await nextTick()
+    await new Promise((r) => requestAnimationFrame(r))
+    await restartEngine({ port, secret })
+  },
 })
 
 // ── Tracker sync ────────────────────────────────────────────────────
@@ -201,16 +233,6 @@ function onAddCustomTracker() {
   customTrackerInput.value = ''
 }
 
-function onKeepSeedingChange(val: boolean) {
-  if (val) {
-    form.value.seedRatio = 0
-    form.value.seedTime = 0
-  } else {
-    form.value.seedRatio = 1
-    form.value.seedTime = 60
-  }
-}
-
 const { restartEngine } = useEngineRestart()
 function handleManualRestart() {
   const port = (preferenceStore.config.rpcListenPort as number) || ENGINE_RPC_PORT
@@ -249,17 +271,23 @@ onMounted(() => {
       <NFormItem :label="t('preferences.bt-force-encryption')">
         <NSwitch v-model:value="form.btForceEncryption" />
       </NFormItem>
-      <NFormItem :label="t('preferences.keep-seeding')">
-        <NSwitch v-model:value="form.keepSeeding" @update:value="onKeepSeedingChange" />
+      <NFormItem :label="t('preferences.seeding-mode')">
+        <NRadioGroup v-model:value="form.seedingMode" size="small">
+          <NRadioButton value="stop-by-condition">{{ t('preferences.seeding-mode-stop-by-condition') }}</NRadioButton>
+          <NRadioButton value="manual-stop">{{ t('preferences.seeding-mode-manual-stop') }}</NRadioButton>
+        </NRadioGroup>
       </NFormItem>
-      <NCollapseTransition :show="!form.keepSeeding" class="collapse-indent">
+      <template v-if="form.seedingMode === 'stop-by-condition'">
         <NFormItem :label="t('preferences.seed-ratio')">
           <NInputNumber v-model:value="form.seedRatio" :min="1" :max="100" :step="0.1" style="width: 120px" />
         </NFormItem>
         <NFormItem :label="t('preferences.seed-time') + ' (' + t('preferences.seed-time-unit') + ')'">
           <NInputNumber v-model:value="form.seedTime" :min="60" :max="525600" style="width: 120px" />
         </NFormItem>
-      </NCollapseTransition>
+      </template>
+      <NFormItem v-else :show-label="false">
+        <div class="info-text">{{ t('preferences.seeding-mode-manual-stop-tips') }}</div>
+      </NFormItem>
 
       <!-- Tracker Management -->
       <NDivider title-placement="left">{{ t('preferences.bt-tracker') }}</NDivider>
@@ -356,10 +384,6 @@ onMounted(() => {
 }
 .form-preference :deep(.n-form-item) {
   padding-left: 50px;
-}
-.form-preference :deep(.collapse-indent) {
-  position: relative;
-  margin-left: 16px;
 }
 .info-text {
   color: var(--m3-on-surface-variant);

@@ -37,7 +37,7 @@ export interface BtForm {
   [key: string]: unknown
   btAutoDownloadContent: boolean
   btForceEncryption: boolean
-  keepSeeding: boolean
+  seedingMode: 'stop-by-condition' | 'manual-stop'
   seedRatio: number
   seedTime: number
   btMaxPeers: number
@@ -57,11 +57,12 @@ export interface BtForm {
 export function buildBtForm(config: AppConfig): BtForm {
   const pauseMetadata = config.pauseMetadata ?? D.pauseMetadata
   const btAutoDownloadContent = !pauseMetadata
+  const keepSeeding = config.keepSeeding ?? D.keepSeeding
 
   return {
     btAutoDownloadContent,
     btForceEncryption: config.btForceEncryption ?? D.btForceEncryption,
-    keepSeeding: config.keepSeeding ?? D.keepSeeding,
+    seedingMode: keepSeeding ? 'manual-stop' : 'stop-by-condition',
     seedRatio: config.seedRatio ?? D.seedRatio,
     seedTime: config.seedTime ?? D.seedTime,
     btMaxPeers: config.btMaxPeers ?? D.btMaxPeers,
@@ -83,15 +84,21 @@ export function buildBtForm(config: AppConfig): BtForm {
  */
 export function buildBtSystemConfig(f: BtForm): Record<string, string> {
   const autoContent = !!f.btAutoDownloadContent
-  return {
+  const keepSeeding = f.seedingMode === 'manual-stop'
+  const config: Record<string, string> = {
     'bt-max-peers': String(f.btMaxPeers),
     'bt-force-encryption': String(!!f.btForceEncryption),
-    'seed-ratio': String(f.seedRatio),
-    'seed-time': String(f.seedTime),
-    'keep-seeding': String(!!f.keepSeeding),
+    'seed-ratio': keepSeeding ? '0' : String(f.seedRatio),
+    'keep-seeding': String(keepSeeding),
     'pause-metadata': String(!autoContent),
     'bt-tracker': convertLineToComma(f.btTracker),
   }
+
+  if (!keepSeeding) {
+    config['seed-time'] = String(f.seedTime)
+  }
+
+  return config
 }
 
 /**
@@ -103,6 +110,7 @@ export function transformBtForStore(f: BtForm): Partial<AppConfig> {
   const data = { ...f } as Partial<AppConfig> & Record<string, unknown>
 
   delete data.btAutoDownloadContent
+  delete data.seedingMode
 
   if (f.btAutoDownloadContent) {
     data.pauseMetadata = false
@@ -110,6 +118,7 @@ export function transformBtForStore(f: BtForm): Partial<AppConfig> {
     data.pauseMetadata = true
   }
 
+  data.keepSeeding = f.seedingMode === 'manual-stop'
   data.btTracker = convertLineToComma(f.btTracker)
 
   return data

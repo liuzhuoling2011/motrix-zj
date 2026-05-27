@@ -50,9 +50,14 @@ describe('buildBtForm', () => {
     expect(form.btForceEncryption).toBe(true)
   })
 
-  it('defaults keepSeeding to false', () => {
+  it('defaults seedingMode to condition-based stopping', () => {
     const form = buildBtForm(emptyConfig)
-    expect(form.keepSeeding).toBe(false)
+    expect(form.seedingMode).toBe('stop-by-condition')
+  })
+
+  it('maps keepSeeding=true to manual-stop mode', () => {
+    const form = buildBtForm({ keepSeeding: true } as AppConfig)
+    expect(form.seedingMode).toBe('manual-stop')
   })
 
   it('defaults seedRatio to 2', () => {
@@ -118,7 +123,7 @@ describe('buildBtForm', () => {
     const expectedFields = [
       'btAutoDownloadContent',
       'btForceEncryption',
-      'keepSeeding',
+      'seedingMode',
       'seedRatio',
       'seedTime',
       'btMaxPeers',
@@ -141,7 +146,7 @@ describe('buildBtSystemConfig', () => {
   const baseForm: BtForm = {
     btAutoDownloadContent: true,
     btForceEncryption: false,
-    keepSeeding: true,
+    seedingMode: 'manual-stop',
     seedRatio: 1,
     seedTime: 60,
     btMaxPeers: 128,
@@ -156,9 +161,31 @@ describe('buildBtSystemConfig', () => {
     const config = buildBtSystemConfig(baseForm)
     expect(config['bt-max-peers']).toBe('128')
     expect(config['bt-force-encryption']).toBe('false')
-    expect(config['seed-ratio']).toBe('1')
-    expect(config['seed-time']).toBe('60')
     expect(config['keep-seeding']).toBe('true')
+  })
+
+  it('condition mode sends both seed stop conditions', () => {
+    const config = buildBtSystemConfig({
+      ...baseForm,
+      seedingMode: 'stop-by-condition',
+      seedRatio: 2,
+      seedTime: 2880,
+    })
+    expect(config['keep-seeding']).toBe('false')
+    expect(config['seed-ratio']).toBe('2')
+    expect(config['seed-time']).toBe('2880')
+  })
+
+  it('manual mode sends unlimited ratio and omits seed-time', () => {
+    const config = buildBtSystemConfig({
+      ...baseForm,
+      seedingMode: 'manual-stop',
+      seedRatio: 2,
+      seedTime: 2880,
+    })
+    expect(config['keep-seeding']).toBe('true')
+    expect(config['seed-ratio']).toBe('0')
+    expect(config).not.toHaveProperty('seed-time')
   })
 
   it('sets pause-metadata=false when auto-content ON', () => {
@@ -210,7 +237,7 @@ describe('transformBtForStore', () => {
   const baseForm: BtForm = {
     btAutoDownloadContent: true,
     btForceEncryption: false,
-    keepSeeding: true,
+    seedingMode: 'manual-stop',
     seedRatio: 1,
     seedTime: 60,
     btMaxPeers: 128,
@@ -255,9 +282,10 @@ describe('transformBtForStore', () => {
   })
 
   it('preserves seeding config through transform', () => {
-    const result = transformBtForStore({ ...baseForm, keepSeeding: true, seedRatio: 2, seedTime: 120 })
+    const result = transformBtForStore({ ...baseForm, seedingMode: 'manual-stop', seedRatio: 2, seedTime: 120 })
     expect(result.keepSeeding).toBe(true)
     expect(result.seedRatio).toBe(2)
     expect(result.seedTime).toBe(120)
+    expect((result as Record<string, unknown>).seedingMode).toBeUndefined()
   })
 })
