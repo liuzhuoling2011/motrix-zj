@@ -360,8 +360,7 @@ export default {
   'connect-timeout': '連線逾時',
   timeout: '傳輸逾時',
   'async-dns': '非同步 DNS',
-  'async-dns-hint':
-    '為一般 URL 下載使用 Aria2 Next 非同步 DNS。變更此項會重新啟動下載引擎。',
+  'async-dns-hint': '可提升效能，但可能不穩定或無法下載。',
   'file-allocation': '檔案預分配',
   'startup-behavior': '啟動',
   'tray-and-dock': '系統匣與 Dock',

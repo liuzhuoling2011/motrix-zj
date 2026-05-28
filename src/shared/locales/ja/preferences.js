@@ -96,7 +96,8 @@ export default {
   'proxy-mode-direct': 'プロキシ無効',
   'proxy-mode-auto': '環境',
   'proxy-mode-manual': '手動プロキシ',
-  'proxy-new-task-only-hint': 'プロキシ設定は新しいタスクにのみ適用され、既存のタスクはタスク詳細で個別に変更する必要があります。',
+  'proxy-new-task-only-hint':
+    'プロキシ設定は新しいタスクにのみ適用され、既存のタスクはタスク詳細で個別に変更する必要があります。',
   'proxy-bypass': 'プロキシ除外',
   'proxy-scope': 'プロキシ適用範囲',
   'proxy-bypass-input-tips': 'プロキシを使用しないホスト（1行に1つ）',
@@ -372,8 +373,7 @@ export default {
   'connect-timeout': '接続タイムアウト',
   timeout: '転送タイムアウト',
   'async-dns': '非同期 DNS',
-  'async-dns-hint':
-    '通常の URL ダウンロードで Aria2 Next の非同期 DNS を使用します。この変更によりダウンロードエンジンが再起動します。',
+  'async-dns-hint': '性能が向上する場合がありますが、不安定になったりダウンロードできないことがあります。',
   'file-allocation': 'ファイル事前割り当て',
   'startup-behavior': '起動',
   'tray-and-dock': 'トレイと Dock',

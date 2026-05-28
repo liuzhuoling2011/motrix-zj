@@ -29,7 +29,8 @@ export default {
   'seeding-mode': 'Megosztási mód',
   'seeding-mode-stop-by-condition': 'Leállítás feltételek után',
   'seeding-mode-manual-stop': 'Kézi leállítás',
-  'seeding-mode-manual-stop-tips': 'A befejezett letöltés addig marad megosztásban, amíg kézzel le nem állítja a feladatot.',
+  'seeding-mode-manual-stop-tips':
+    'A befejezett letöltés addig marad megosztásban, amíg kézzel le nem állítja a feladatot.',
   'seed-ratio': 'Megosztási arány',
   'seed-time': 'Megosztási idő',
   'seed-time-unit': 'perc',
@@ -96,7 +97,8 @@ export default {
   'proxy-mode-direct': 'Proxy kikapcsolva',
   'proxy-mode-auto': 'Környezet',
   'proxy-mode-manual': 'Kézi proxy',
-  'proxy-new-task-only-hint': 'A proxybeállítások csak az új feladatokra érvényesek, a meglévő feladatokat a feladat részleteiben kell módosítani.',
+  'proxy-new-task-only-hint':
+    'A proxybeállítások csak az új feladatokra érvényesek, a meglévő feladatokat a feladat részleteiben kell módosítani.',
   'proxy-bypass': 'Proxy kivétel',
   'proxy-scope': 'Proxy hatóköre',
   'proxy-bypass-input-tips': 'Proxy kihagyása ezeknél a gazdagépeknél, soronként egy',
@@ -371,8 +373,7 @@ export default {
   'connect-timeout': 'Kapcsolódási időtúllépés',
   timeout: 'Átviteli időtúllépés',
   'async-dns': 'Aszinkron DNS',
-  'async-dns-hint':
-    'Az Aria2 Next aszinkron DNS-ét használja a szokásos URL-letöltésekhez. A módosítás újraindítja a letöltőmotort.',
+  'async-dns-hint': 'Javíthatja a teljesítményt, de instabil lehet vagy megakadályozhatja a letöltéseket.',
   'file-allocation': 'Fájl előfoglalás',
   'startup-behavior': 'Indítás',
   'tray-and-dock': 'Tálca és Dock',

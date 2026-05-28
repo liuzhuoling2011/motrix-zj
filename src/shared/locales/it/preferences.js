@@ -30,7 +30,8 @@ export default {
   'seeding-mode': 'Modalità condivisione',
   'seeding-mode-stop-by-condition': 'Ferma al raggiungimento condizioni',
   'seeding-mode-manual-stop': 'Arresto manuale',
-  'seeding-mode-manual-stop-tips': 'Il download completato continuerà a condividere finché non fermerai manualmente l’attività.',
+  'seeding-mode-manual-stop-tips':
+    'Il download completato continuerà a condividere finché non fermerai manualmente l’attività.',
   'seed-ratio': 'Rapporto condivisione',
   'seed-time': 'Tempo condivisione',
   'seed-time-unit': 'minuti',
@@ -97,7 +98,8 @@ export default {
   'proxy-mode-direct': 'Proxy disattivato',
   'proxy-mode-auto': 'Ambiente',
   'proxy-mode-manual': 'Proxy manuale',
-  'proxy-new-task-only-hint': 'Le impostazioni proxy si applicano solo alle nuove attività, le attività esistenti vanno modificate nei dettagli attività.',
+  'proxy-new-task-only-hint':
+    'Le impostazioni proxy si applicano solo alle nuove attività, le attività esistenti vanno modificate nei dettagli attività.',
   'proxy-bypass': 'Eccezione proxy',
   'proxy-scope': 'Ambito proxy',
   'proxy-bypass-input-tips': 'Ignora proxy per questi host, uno per riga',
@@ -376,8 +378,7 @@ export default {
   'connect-timeout': 'Timeout connessione',
   timeout: 'Timeout trasferimento',
   'async-dns': 'DNS asincrono',
-  'async-dns-hint':
-    'Usa il DNS asincrono di Aria2 Next per i download URL ordinari. La modifica riavvia il motore di download.',
+  'async-dns-hint': 'Può migliorare le prestazioni, ma può essere instabile o impedire i download.',
   'file-allocation': 'Pre-allocazione file',
   'startup-behavior': 'Avvio',
   'tray-and-dock': 'Barra e Dock',

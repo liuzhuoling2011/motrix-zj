@@ -401,6 +401,9 @@ onMounted(() => {
         <NInputNumber v-model:value="form.timeout" :min="1" :max="600" style="width: 120px" />
         <NText depth="3" style="font-size: 12px; margin-left: 8px">{{ t('preferences.unit-seconds') }}</NText>
       </NFormItem>
+      <NFormItem :label="t('preferences.file-allocation')">
+        <NSelect v-model:value="form.fileAllocation" :options="fileAllocationOptions" style="width: 140px" />
+      </NFormItem>
       <NFormItem :label="t('preferences.async-dns')">
         <NSwitch
           :value="form.dnsResolver === 'async'"
@@ -409,9 +412,6 @@ onMounted(() => {
       </NFormItem>
       <NFormItem :show-label="false">
         <div class="info-text">{{ t('preferences.async-dns-hint') }}</div>
-      </NFormItem>
-      <NFormItem :label="t('preferences.file-allocation')">
-        <NSelect v-model:value="form.fileAllocation" :options="fileAllocationOptions" style="width: 140px" />
       </NFormItem>
     </NForm>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />

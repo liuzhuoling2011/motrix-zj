@@ -370,8 +370,7 @@ export default {
   'connect-timeout': 'Connection timeout',
   timeout: 'Transfer timeout',
   'async-dns': 'असिंक्रोनस DNS',
-  'async-dns-hint':
-    'सामान्य URL डाउनलोड के लिए Aria2 Next के असिंक्रोनस DNS का उपयोग करें। इसे बदलने पर डाउनलोड इंजन फिर से शुरू होगा।',
+  'async-dns-hint': 'प्रदर्शन बेहतर कर सकता है, लेकिन अस्थिर हो सकता है या डाउनलोड रोक सकता है।',
   'file-allocation': 'File pre-allocation',
   'startup-behavior': 'शुरुआत',
   'tray-and-dock': 'Tray और Dock',

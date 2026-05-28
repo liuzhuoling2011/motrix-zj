@@ -96,7 +96,8 @@ export default {
   'proxy-mode-direct': 'Proxy oprit',
   'proxy-mode-auto': 'Mediu',
   'proxy-mode-manual': 'Proxy manual',
-  'proxy-new-task-only-hint': 'Setările proxy se aplică doar sarcinilor noi, sarcinile existente trebuie schimbate din detaliile sarcinii.',
+  'proxy-new-task-only-hint':
+    'Setările proxy se aplică doar sarcinilor noi, sarcinile existente trebuie schimbate din detaliile sarcinii.',
   'proxy-bypass': 'Excepție proxy',
   'proxy-scope': 'Domeniu proxy',
   'proxy-bypass-input-tips': 'Ocolește proxy pentru aceste gazde, una pe linie',
@@ -373,8 +374,7 @@ export default {
   'connect-timeout': 'Timeout conexiune',
   timeout: 'Timeout transfer',
   'async-dns': 'DNS asincron',
-  'async-dns-hint':
-    'Folosește DNS-ul asincron Aria2 Next pentru descărcări URL obișnuite. Modificarea repornește motorul de descărcare.',
+  'async-dns-hint': 'Poate îmbunătăți performanța, dar poate fi instabil sau poate bloca descărcările.',
   'file-allocation': 'Pre-alocare fișier',
   'startup-behavior': 'Pornire',
   'tray-and-dock': 'Tavă și Dock',

@@ -96,7 +96,8 @@ export default {
   'proxy-mode-direct': 'Proxy av',
   'proxy-mode-auto': 'Miljø',
   'proxy-mode-manual': 'Manuell proxy',
-  'proxy-new-task-only-hint': 'Proxyinnstillinger gjelder bare nye oppgaver, eksisterende oppgaver må endres i oppgavedetaljene.',
+  'proxy-new-task-only-hint':
+    'Proxyinnstillinger gjelder bare nye oppgaver, eksisterende oppgaver må endres i oppgavedetaljene.',
   'proxy-bypass': 'Proxy-unntak',
   'proxy-scope': 'Proxy-omfang',
   'proxy-bypass-input-tips': 'Omgå proxy for disse vertene, én per linje',
@@ -369,8 +370,7 @@ export default {
   'connect-timeout': 'Tilkoblingsavbrudd',
   timeout: 'Overføringsavbrudd',
   'async-dns': 'Asynkron DNS',
-  'async-dns-hint':
-    'Bruk Aria2 Next sin asynkrone DNS for vanlige URL-nedlastinger. Endring av dette starter nedlastingsmotoren på nytt.',
+  'async-dns-hint': 'Kan forbedre ytelsen, men kan være ustabilt eller hindre nedlastinger.',
   'file-allocation': 'Forhåndstildeling av fil',
   'startup-behavior': 'Oppstart',
   'tray-and-dock': 'Systemstatusfeltet og Dock',

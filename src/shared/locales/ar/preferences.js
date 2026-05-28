@@ -95,7 +95,8 @@ export default {
   'proxy-mode-direct': 'إيقاف الوكيل',
   'proxy-mode-auto': 'البيئة',
   'proxy-mode-manual': 'وكيل يدوي',
-  'proxy-new-task-only-hint': 'تنطبق إعدادات الوكيل على المهام الجديدة فقط، ويجب تعديل المهام الحالية من تفاصيل المهمة.',
+  'proxy-new-task-only-hint':
+    'تنطبق إعدادات الوكيل على المهام الجديدة فقط، ويجب تعديل المهام الحالية من تفاصيل المهمة.',
   'proxy-bypass': 'تجاوز الوكيل',
   'proxy-scope': 'نطاق الوكيل',
   'proxy-bypass-input-tips': 'تجاوز الوكيل لهذه المضيفات، واحد لكل سطر',
@@ -367,8 +368,7 @@ export default {
   'connect-timeout': 'مهلة الاتصال',
   timeout: 'مهلة النقل',
   'async-dns': 'DNS غير متزامن',
-  'async-dns-hint':
-    'استخدم DNS غير المتزامن في Aria2 Next لتنزيلات URL العادية. يؤدي تغيير هذا الخيار إلى إعادة تشغيل محرك التنزيل.',
+  'async-dns-hint': 'قد يحسن الأداء، لكنه قد يكون غير مستقر أو يمنع التنزيل.',
   'file-allocation': 'تخصيص الملف المسبق',
   'startup-behavior': 'التشغيل',
   'tray-and-dock': 'شريط المهام والـ Dock',

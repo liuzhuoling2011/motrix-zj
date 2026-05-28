@@ -29,7 +29,8 @@ export default {
   'seeding-mode': 'Tryb udostępniania',
   'seeding-mode-stop-by-condition': 'Zatrzymaj po spełnieniu warunków',
   'seeding-mode-manual-stop': 'Zatrzymaj ręcznie',
-  'seeding-mode-manual-stop-tips': 'Ukończone pobieranie będzie nadal udostępniane, dopóki nie zatrzymasz zadania ręcznie.',
+  'seeding-mode-manual-stop-tips':
+    'Ukończone pobieranie będzie nadal udostępniane, dopóki nie zatrzymasz zadania ręcznie.',
   'seed-ratio': 'Proporcja udostępniania',
   'seed-time': 'Czas udostępniania',
   'seed-time-unit': 'minut',
@@ -96,7 +97,8 @@ export default {
   'proxy-mode-direct': 'Proxy wyłączone',
   'proxy-mode-auto': 'Środowisko',
   'proxy-mode-manual': 'Ręczny proxy',
-  'proxy-new-task-only-hint': 'Ustawienia proxy dotyczą tylko nowych zadań, istniejące zadania trzeba zmienić w szczegółach zadania.',
+  'proxy-new-task-only-hint':
+    'Ustawienia proxy dotyczą tylko nowych zadań, istniejące zadania trzeba zmienić w szczegółach zadania.',
   'proxy-bypass': 'Wyjątki proxy',
   'proxy-scope': 'Zakres proxy',
   'proxy-bypass-input-tips': 'Pomiń proxy dla tych hostów, jeden na linię',
@@ -372,8 +374,7 @@ export default {
   'connect-timeout': 'Limit czasu połączenia',
   timeout: 'Limit czasu transferu',
   'async-dns': 'Asynchroniczny DNS',
-  'async-dns-hint':
-    'Używa asynchronicznego DNS Aria2 Next dla zwykłych pobrań URL. Zmiana tej opcji uruchamia ponownie silnik pobierania.',
+  'async-dns-hint': 'Może poprawić wydajność, ale może być niestabilne lub blokować pobieranie.',
   'file-allocation': 'Wstępna alokacja pliku',
   'startup-behavior': 'Uruchamianie',
   'tray-and-dock': 'Zasobnik i Dock',

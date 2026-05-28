@@ -94,9 +94,10 @@ export default {
   proxy: 'Proxy',
   'proxy-mode': 'Proxy modu',
   'proxy-mode-direct': 'Proxy kapalı',
-  'proxy-mode-auto': 'Ortam proxy\'sini devral',
+  'proxy-mode-auto': "Ortam proxy'sini devral",
   'proxy-mode-manual': 'Manuel proxy',
-  'proxy-new-task-only-hint': 'Proxy ayarları yalnızca yeni görevlere uygulanır, mevcut görevler görev ayrıntılarından değiştirilmelidir.',
+  'proxy-new-task-only-hint':
+    'Proxy ayarları yalnızca yeni görevlere uygulanır, mevcut görevler görev ayrıntılarından değiştirilmelidir.',
   'proxy-bypass': 'Proxy istisnası',
   'proxy-scope': 'Proxy kapsamı',
   'proxy-bypass-input-tips': 'Bu ana makineler için proxy atla, satır başına bir tane',
@@ -372,8 +373,7 @@ export default {
   'connect-timeout': 'Bağlantı zaman aşımı',
   timeout: 'Aktarım zaman aşımı',
   'async-dns': 'Eşzamansız DNS',
-  'async-dns-hint':
-    'Normal URL indirmeleri için Aria2 Next eşzamansız DNS kullanır. Bu ayarı değiştirmek indirme motorunu yeniden başlatır.',
+  'async-dns-hint': 'Performansı artırabilir, ancak kararsız olabilir veya indirmeleri engelleyebilir.',
   'file-allocation': 'Dosya ön tahsisi',
   'startup-behavior': 'Başlangıç',
   'tray-and-dock': 'Tepsi ve Dock',

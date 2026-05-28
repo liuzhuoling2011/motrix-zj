@@ -97,7 +97,8 @@ export default {
   'proxy-mode-direct': 'Proxy desactivado',
   'proxy-mode-auto': 'Entorno',
   'proxy-mode-manual': 'Proxy manual',
-  'proxy-new-task-only-hint': 'La configuración del proxy solo se aplica a las tareas nuevas, las tareas existentes deben cambiarse en los detalles de la tarea.',
+  'proxy-new-task-only-hint':
+    'La configuración del proxy solo se aplica a las tareas nuevas, las tareas existentes deben cambiarse en los detalles de la tarea.',
   'proxy-bypass': 'Excepción de proxy',
   'proxy-scope': 'Alcance del proxy',
   'proxy-bypass-input-tips': 'Omitir proxy para estos hosts, uno por línea',
@@ -378,8 +379,7 @@ export default {
   'connect-timeout': 'Tiempo de espera de conexión',
   timeout: 'Tiempo de espera de transferencia',
   'async-dns': 'DNS asíncrono',
-  'async-dns-hint':
-    'Usa el DNS asíncrono de Aria2 Next para descargas de URL normales. Cambiar esto reinicia el motor de descargas.',
+  'async-dns-hint': 'Puede mejorar el rendimiento, pero puede ser inestable o impedir descargas.',
   'file-allocation': 'Preasignación de archivo',
   'startup-behavior': 'Inicio',
   'tray-and-dock': 'Bandeja y Dock',

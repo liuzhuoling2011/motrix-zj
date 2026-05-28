@@ -96,7 +96,8 @@ export default {
   'proxy-mode-direct': 'Tắt proxy',
   'proxy-mode-auto': 'Môi trường',
   'proxy-mode-manual': 'Proxy thủ công',
-  'proxy-new-task-only-hint': 'Cài đặt proxy chỉ áp dụng cho tác vụ mới, tác vụ hiện có phải đổi trong chi tiết tác vụ.',
+  'proxy-new-task-only-hint':
+    'Cài đặt proxy chỉ áp dụng cho tác vụ mới, tác vụ hiện có phải đổi trong chi tiết tác vụ.',
   'proxy-bypass': 'Bỏ qua proxy',
   'proxy-scope': 'Phạm vi proxy',
   'proxy-bypass-input-tips': 'Bỏ qua proxy cho các máy chủ này, mỗi dòng một máy chủ',
@@ -369,8 +370,7 @@ export default {
   'connect-timeout': 'Hết hạn kết nối',
   timeout: 'Hết hạn truyền tải',
   'async-dns': 'DNS bất đồng bộ',
-  'async-dns-hint':
-    'Dùng DNS bất đồng bộ của Aria2 Next cho các lượt tải URL thông thường. Thay đổi này sẽ khởi động lại trình tải xuống.',
+  'async-dns-hint': 'Có thể tăng hiệu năng, nhưng có thể không ổn định hoặc chặn tải xuống.',
   'file-allocation': 'Phân bổ trước tệp',
   'startup-behavior': 'Khởi động',
   'tray-and-dock': 'Khay hệ thống và Dock',

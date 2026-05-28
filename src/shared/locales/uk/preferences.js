@@ -37,7 +37,7 @@ export default {
   'max-concurrent-downloads': 'Макс. одночасних завдань',
   'max-connection-per-server': "HTTP макс. з'єднань на сервер",
   'split-count': 'Кількість сегментів завантаження',
-  'bt-max-peers': 'Ліміт BT peer-з\'єднань',
+  'bt-max-peers': "Ліміт BT peer-з'єднань",
   'new-task-show-downloading': 'Показувати завантаження після додавання завдання',
   'no-confirm-before-delete-task': 'Не підтверджувати перед видаленням',
   'delete-files-when-skip-confirm': 'Видаляти файли при пропуску підтвердження',
@@ -96,7 +96,8 @@ export default {
   'proxy-mode-direct': 'Проксі вимкнено',
   'proxy-mode-auto': 'Середовище',
   'proxy-mode-manual': 'Ручний проксі',
-  'proxy-new-task-only-hint': 'Налаштування проксі застосовуються лише до нових завдань, наявні завдання потрібно змінювати в деталях завдання.',
+  'proxy-new-task-only-hint':
+    'Налаштування проксі застосовуються лише до нових завдань, наявні завдання потрібно змінювати в деталях завдання.',
   'proxy-bypass': 'Виключення проксі',
   'proxy-scope': 'Область проксі',
   'proxy-bypass-input-tips': 'Обходити проксі для цих хостів, один на рядок',
@@ -371,8 +372,7 @@ export default {
   'connect-timeout': "Тайм-аут з'єднання",
   timeout: 'Тайм-аут передачі',
   'async-dns': 'Асинхронний DNS',
-  'async-dns-hint':
-    'Використовує асинхронний DNS Aria2 Next для звичайних URL-завантажень. Зміна перезапустить рушій завантажень.',
+  'async-dns-hint': 'Може підвищити продуктивність, але може бути нестабільним або заважати завантаженням.',
   'file-allocation': 'Попереднє виділення файлу',
   'startup-behavior': 'Запуск',
   'tray-and-dock': 'Трей та Dock',

@@ -370,8 +370,7 @@ export default {
   'connect-timeout': 'Connection Timeout',
   timeout: 'Transfer Timeout',
   'async-dns': 'Async DNS',
-  'async-dns-hint':
-    'Use Aria2 Next asynchronous DNS for ordinary URL downloads. Changing this restarts the download engine.',
+  'async-dns-hint': 'May improve performance, but can be unstable or prevent downloads.',
   'file-allocation': 'File Pre-allocation',
   'startup-behavior': 'Startup',
   'tray-and-dock': 'Tray & Dock',

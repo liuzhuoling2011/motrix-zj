@@ -96,7 +96,8 @@ export default {
   'proxy-mode-direct': 'Proxy uit',
   'proxy-mode-auto': 'Omgeving',
   'proxy-mode-manual': 'Handmatige proxy',
-  'proxy-new-task-only-hint': 'Proxy-instellingen gelden alleen voor nieuwe taken, bestaande taken moeten in de taakdetails worden aangepast.',
+  'proxy-new-task-only-hint':
+    'Proxy-instellingen gelden alleen voor nieuwe taken, bestaande taken moeten in de taakdetails worden aangepast.',
   'proxy-bypass': 'Proxy-uitzondering',
   'proxy-scope': 'Proxy-bereik',
   'proxy-bypass-input-tips': 'Proxy overslaan voor deze hosts, één per regel',
@@ -373,8 +374,7 @@ export default {
   'connect-timeout': 'Verbindingstime-out',
   timeout: 'Overdrachtstime-out',
   'async-dns': 'Asynchrone DNS',
-  'async-dns-hint':
-    'Gebruik de asynchrone DNS van Aria2 Next voor gewone URL-downloads. Deze wijziging herstart de downloadengine.',
+  'async-dns-hint': 'Kan de prestaties verbeteren, maar kan instabiel zijn of downloads blokkeren.',
   'file-allocation': 'Bestandsvoorallocatie',
   'startup-behavior': 'Opstarten',
   'tray-and-dock': 'Systeemvak en Dock',

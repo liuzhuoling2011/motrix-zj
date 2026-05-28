@@ -96,7 +96,8 @@ export default {
   'proxy-mode-direct': 'Proxy mati',
   'proxy-mode-auto': 'Lingkungan',
   'proxy-mode-manual': 'Proxy manual',
-  'proxy-new-task-only-hint': 'Pengaturan proxy hanya berlaku untuk tugas baru, tugas yang sudah ada harus diubah di detail tugas.',
+  'proxy-new-task-only-hint':
+    'Pengaturan proxy hanya berlaku untuk tugas baru, tugas yang sudah ada harus diubah di detail tugas.',
   'proxy-bypass': 'Lewati proxy',
   'proxy-scope': 'Cakupan proxy',
   'proxy-bypass-input-tips': 'Lewati proxy untuk host ini, satu per baris',
@@ -372,8 +373,7 @@ export default {
   'connect-timeout': 'Batas waktu koneksi',
   timeout: 'Batas waktu transfer',
   'async-dns': 'DNS asinkron',
-  'async-dns-hint':
-    'Gunakan DNS asinkron Aria2 Next untuk unduhan URL biasa. Mengubah ini akan memulai ulang mesin unduhan.',
+  'async-dns-hint': 'Dapat meningkatkan performa, tetapi bisa tidak stabil atau menggagalkan unduhan.',
   'file-allocation': 'Pra-alokasi file',
   'startup-behavior': 'Mulai',
   'tray-and-dock': 'Baki & Dock',

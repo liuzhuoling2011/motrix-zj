@@ -96,7 +96,8 @@ export default {
   'proxy-mode-direct': 'پروکسی خاموش',
   'proxy-mode-auto': 'محیط',
   'proxy-mode-manual': 'پروکسی دستی',
-  'proxy-new-task-only-hint': 'تنظیمات پراکسی فقط برای وظایف جدید اعمال می‌شود، وظایف موجود باید از جزئیات وظیفه تغییر کنند.',
+  'proxy-new-task-only-hint':
+    'تنظیمات پراکسی فقط برای وظایف جدید اعمال می‌شود، وظایف موجود باید از جزئیات وظیفه تغییر کنند.',
   'proxy-bypass': 'دور زدن پروکسی',
   'proxy-scope': 'محدوده پروکسی',
   'proxy-bypass-input-tips': 'دور زدن پروکسی برای این میزبان‌ها، یکی در هر خط',
@@ -370,8 +371,7 @@ export default {
   'connect-timeout': 'مهلت اتصال',
   timeout: 'مهلت انتقال',
   'async-dns': 'DNS ناهمگام',
-  'async-dns-hint':
-    'از DNS ناهمگام Aria2 Next برای دانلودهای URL معمولی استفاده می‌کند. تغییر این گزینه موتور دانلود را دوباره راه‌اندازی می‌کند.',
+  'async-dns-hint': 'ممکن است کارایی را بهبود دهد، اما می‌تواند ناپایدار باشد یا مانع دانلود شود.',
   'file-allocation': 'پیش‌تخصیص فایل',
   'startup-behavior': 'راه‌اندازی',
   'tray-and-dock': 'سینی و Dock',
