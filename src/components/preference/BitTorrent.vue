@@ -308,12 +308,18 @@ onMounted(() => {
     <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
       <!-- BT Settings -->
       <NDivider title-placement="left">{{ t('preferences.bt-settings') }}</NDivider>
+
       <NFormItem :label="t('preferences.bt-auto-download-content')">
         <NSwitch v-model:value="form.btAutoDownloadContent" />
       </NFormItem>
       <NFormItem :label="t('preferences.bt-force-encryption')">
         <NSwitch v-model:value="form.btForceEncryption" />
       </NFormItem>
+      <NFormItem :label="t('preferences.bt-max-peers')">
+        <NInputNumber v-model:value="form.btMaxPeers" :min="0" :max="ENGINE_MAX_BT_MAX_PEERS" style="width: 120px" />
+      </NFormItem>
+
+      <NDivider title-placement="left">{{ t('preferences.bt-discovery-section') }}</NDivider>
       <NFormItem :label="t('preferences.bt-dht')">
         <NSwitch v-model:value="form.btDhtEnabled" />
       </NFormItem>
@@ -323,9 +329,8 @@ onMounted(() => {
       <NFormItem :label="t('preferences.bt-local-peer-discovery')">
         <NSwitch v-model:value="form.btLocalPeerDiscoveryEnabled" />
       </NFormItem>
-      <NFormItem :label="t('preferences.bt-max-peers')">
-        <NInputNumber v-model:value="form.btMaxPeers" :min="0" :max="ENGINE_MAX_BT_MAX_PEERS" style="width: 120px" />
-      </NFormItem>
+
+      <NDivider title-placement="left">{{ t('preferences.bt-seeding-section') }}</NDivider>
       <NFormItem :label="t('preferences.seeding-mode')">
         <NRadioGroup v-model:value="form.seedingMode" size="small">
           <NRadioButton value="stop-by-condition">{{ t('preferences.seeding-mode-stop-by-condition') }}</NRadioButton>
