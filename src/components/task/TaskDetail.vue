@@ -123,7 +123,7 @@ interface TabDef {
   labelKey: string
   icon: typeof InformationCircleOutline
   btOnly?: boolean
-  ed2kOnly?: boolean
+  protocolOnly?: boolean
   uriOnly?: boolean
 }
 const allTabs: TabDef[] = [
@@ -132,15 +132,15 @@ const allTabs: TabDef[] = [
   { key: 'files', labelKey: 'task.task-tab-files', icon: DocumentOutline },
   { key: 'options', labelKey: 'task.task-tab-options', icon: SettingsOutline },
   { key: 'sources', labelKey: 'task.task-tab-sources', icon: ServerOutline, uriOnly: true },
-  { key: 'health', labelKey: 'task.task-tab-health', icon: PulseOutline, btOnly: true },
-  { key: 'ed2k', labelKey: 'task.task-tab-ed2k', icon: ServerOutline, ed2kOnly: true },
+  { key: 'status', labelKey: 'task.task-tab-status', icon: PulseOutline, protocolOnly: true },
   { key: 'peers', labelKey: 'task.task-tab-peers', icon: PeopleOutline, btOnly: true },
   { key: 'trackers', labelKey: 'task.task-tab-trackers', icon: ServerOutline, btOnly: true },
 ]
 
 const visibleTabs = computed(() =>
   allTabs.filter(
-    (tab) => (!tab.btOnly || isBT.value) && (!tab.ed2kOnly || isED2K.value) && (!tab.uriOnly || isURI.value),
+    (tab) =>
+      (!tab.btOnly || isBT.value) && (!tab.protocolOnly || isBT.value || isED2K.value) && (!tab.uriOnly || isURI.value),
   ),
 )
 
@@ -657,7 +657,7 @@ function handleClose() {
           @click="switchTab(tab.key)"
         >
           <NIcon :size="16"><component :is="tab.icon" /></NIcon>
-          <span class="detail-tab-label">{{ tab.key === 'ed2k' ? t('task.task-tab-ed2k') : t(tab.labelKey) }}</span>
+          <span class="detail-tab-label">{{ t(tab.labelKey) }}</span>
         </button>
       </div>
 
@@ -777,7 +777,7 @@ function handleClose() {
             </template>
           </div>
 
-          <div v-else-if="activeTab === 'health'" key="health" class="tab-content">
+          <div v-else-if="activeTab === 'status' && isBT" key="bt-status" class="tab-content">
             <template v-if="task && isBT">
               <NDescriptions
                 :column="1"
@@ -966,7 +966,7 @@ function handleClose() {
             </div>
           </div>
 
-          <div v-else-if="activeTab === 'ed2k'" key="ed2k" class="tab-content">
+          <div v-else-if="activeTab === 'status' && isED2K" key="ed2k-status" class="tab-content">
             <template v-if="ed2kInfo">
               <NDescriptions
                 :column="1"
@@ -1153,7 +1153,9 @@ function handleClose() {
 }
 .muted-inline {
   color: var(--m3-on-surface-variant);
-  font-size: 12px;
+  font-size: inherit;
+  line-height: inherit;
+  vertical-align: baseline;
 }
 .source-table {
   margin-top: 12px;
