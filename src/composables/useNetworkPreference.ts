@@ -95,8 +95,6 @@ export function buildNetworkSystemConfig(f: NetworkForm): Record<string, string>
   return {
     'listen-port': String(f.listenPort),
     'dht-listen-port': String(f.dhtListenPort),
-    'enable-dht': 'true',
-    'enable-peer-exchange': 'true',
     'user-agent': f.userAgent || '',
     'connect-timeout': String(f.connectTimeout),
     timeout: String(f.timeout),

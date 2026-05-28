@@ -7,8 +7,14 @@ import { usePreferenceStore } from '@/stores/preference'
 import { usePreferenceForm } from '@/composables/usePreferenceForm'
 import { useEngineRestart } from '@/composables/useEngineRestart'
 import { convertTrackerDataToLine } from '@shared/utils/tracker'
+import { diffConfig, checkIsNeedRestart } from '@shared/utils/config'
 import { SYNC_MIN_DURATION } from '@shared/timing'
-import { DEFAULT_TRACKER_SOURCE, ENGINE_RPC_PORT } from '@shared/constants'
+import {
+  DEFAULT_TRACKER_SOURCE,
+  ENGINE_MAX_BT_MAX_PEERS,
+  ENGINE_RPC_PORT,
+  SAFE_LIMIT_BT_MAX_PEERS,
+} from '@shared/constants'
 import { logger } from '@shared/logger'
 import { useAppMessage } from '@/composables/useAppMessage'
 import {
@@ -112,13 +118,49 @@ function buildForm() {
   return formData
 }
 
+function buildSafeLimitContent(current: number) {
+  return h('div', { style: 'display: flex; flex-direction: column; gap: 8px' }, [
+    h(
+      'div',
+      { style: 'font-weight: 500' },
+      `${t('preferences.bt-max-peers')}: ${current} (${t('preferences.recommended-limit', {
+        value: SAFE_LIMIT_BT_MAX_PEERS,
+      })})`,
+    ),
+    h('div', { style: 'opacity: 0.75' }, t('preferences.high-bt-peers-reason')),
+  ])
+}
+
+function confirmBtPeerSafeLimit(f: Record<string, unknown>): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const revert = () => {
+      f.btMaxPeers = SAFE_LIMIT_BT_MAX_PEERS
+      resolve(false)
+    }
+    dialog.warning({
+      title: t('preferences.safe-limit-warning-title'),
+      content: () => buildSafeLimitContent(Number(f.btMaxPeers) || 0),
+      positiveText: t('preferences.high-connection-continue'),
+      negativeText: t('app.cancel'),
+      onPositiveClick: () => resolve(true),
+      onNegativeClick: revert,
+      onClose: revert,
+    })
+  })
+}
+
 const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceForm({
   buildForm,
   buildSystemConfig: buildBtSystemConfig,
   transformForStore: transformBtForStore,
   beforeSave: async (f) => {
-    const previousMode = preferenceStore.config.keepSeeding ? 'manual-stop' : 'stop-by-condition'
-    if (f.seedingMode === previousMode) return true
+    if (typeof f.btMaxPeers === 'number' && f.btMaxPeers > SAFE_LIMIT_BT_MAX_PEERS) {
+      const ok = await confirmBtPeerSafeLimit(f)
+      if (!ok) return false
+    }
+
+    const changed = diffConfig(preferenceStore.config, transformBtForStore(f))
+    if (!checkIsNeedRestart(changed)) return true
 
     const ok = await new Promise<boolean>((resolve) => {
       dialog.warning({
@@ -272,6 +314,18 @@ onMounted(() => {
       <NFormItem :label="t('preferences.bt-force-encryption')">
         <NSwitch v-model:value="form.btForceEncryption" />
       </NFormItem>
+      <NFormItem :label="t('preferences.bt-dht')">
+        <NSwitch v-model:value="form.btDhtEnabled" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.bt-peer-exchange')">
+        <NSwitch v-model:value="form.btPeerExchangeEnabled" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.bt-local-peer-discovery')">
+        <NSwitch v-model:value="form.btLocalPeerDiscoveryEnabled" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.bt-max-peers')">
+        <NInputNumber v-model:value="form.btMaxPeers" :min="0" :max="ENGINE_MAX_BT_MAX_PEERS" style="width: 120px" />
+      </NFormItem>
       <NFormItem :label="t('preferences.seeding-mode')">
         <NRadioGroup v-model:value="form.seedingMode" size="small">
           <NRadioButton value="stop-by-condition">{{ t('preferences.seeding-mode-stop-by-condition') }}</NRadioButton>
@@ -349,17 +403,18 @@ onMounted(() => {
       <NFormItem :show-label="false">
         <div class="info-text">
           {{ t('preferences.bt-tracker-tips') }}
-          <a target="_blank" href="https://github.com/ngosang/trackerslist" rel="noopener noreferrer" class="info-link"
-            >ngosang/trackerslist ↗</a
-          >
+          <a target="_blank" href="https://github.com/ngosang/trackerslist" rel="noopener noreferrer" class="info-link">
+            ngosang/trackerslist ↗
+          </a>
           <a
             target="_blank"
             href="https://github.com/XIU2/TrackersListCollection"
             rel="noopener noreferrer"
             class="info-link"
             style="margin-left: 8px"
-            >XIU2/TrackersListCollection ↗</a
           >
+            XIU2/TrackersListCollection ↗
+          </a>
         </div>
       </NFormItem>
       <NFormItem :label="t('preferences.auto-sync-tracker')">

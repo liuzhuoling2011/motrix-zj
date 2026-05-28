@@ -50,6 +50,12 @@ const NON_HOT_RELOADABLE: &[&str] = &[
     "listen-port",
     "rpc-listen-port",
     "rpc-secret",
+    "bt-enable-lpd",
+    "bt-force-encryption",
+    "bt-max-peers",
+    "bt-require-crypto",
+    "enable-dht",
+    "enable-peer-exchange",
     // aria2 docs exclusions
     "checksum",
     "index-out",
@@ -57,7 +63,6 @@ const NON_HOT_RELOADABLE: &[&str] = &[
     "pause",
     "select-file",
     "rpc-save-upload-metadata",
-    "enable-dht",
     // Needs full app relaunch (tauri-plugin-log init)
     "log-level",
 ];
@@ -496,6 +501,11 @@ mod tests {
     #[test]
     fn non_hot_reloadable_contains_startup_only_keys() {
         assert!(NON_HOT_RELOADABLE.contains(&"enable-dht"));
+        assert!(NON_HOT_RELOADABLE.contains(&"enable-peer-exchange"));
+        assert!(NON_HOT_RELOADABLE.contains(&"bt-enable-lpd"));
+        assert!(NON_HOT_RELOADABLE.contains(&"bt-force-encryption"));
+        assert!(NON_HOT_RELOADABLE.contains(&"bt-require-crypto"));
+        assert!(NON_HOT_RELOADABLE.contains(&"bt-max-peers"));
     }
 
     #[test]

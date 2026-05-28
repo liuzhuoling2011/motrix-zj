@@ -141,7 +141,6 @@ const NON_HOT_RELOADABLE = new Set([
   'pause',
   'select-file',
   'rpc-save-upload-metadata',
-  'enable-dht',
   'log-level',
 ])
 

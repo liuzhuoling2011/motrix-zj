@@ -269,6 +269,9 @@ export const DEFAULT_APP_CONFIG = {
 
   // ── BitTorrent (qBT/Transmission/Deluge conventions) ──────────
   btMaxPeers: ENGINE_DEFAULT_BT_MAX_PEERS, // aria2 default=55; qBT=100, Transmission=60, Deluge=200
+  btDhtEnabled: true, // improves peer discovery; also enables UDP tracker support
+  btPeerExchangeEnabled: true, // improves peer discovery inside active swarms
+  btLocalPeerDiscoveryEnabled: true, // aria2.conf legacy default; helps LAN peers
   seedRatio: 2, // old Motrix=2, Transmission=2; 2:1 supports BT ecosystem health
   seedTime: 2880, // old Motrix=2880 (48h); generous default for healthy swarm contribution
   keepSeeding: false, // qBT stops at ratio; safer default for new users

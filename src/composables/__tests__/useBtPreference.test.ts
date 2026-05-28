@@ -45,6 +45,24 @@ describe('buildBtForm', () => {
     expect(form.btForceEncryption).toBe(false)
   })
 
+  it('defaults BT discovery toggles to enabled', () => {
+    const form = buildBtForm(emptyConfig)
+    expect(form.btDhtEnabled).toBe(true)
+    expect(form.btPeerExchangeEnabled).toBe(true)
+    expect(form.btLocalPeerDiscoveryEnabled).toBe(true)
+  })
+
+  it('reads BT discovery toggles from config', () => {
+    const form = buildBtForm({
+      btDhtEnabled: false,
+      btPeerExchangeEnabled: false,
+      btLocalPeerDiscoveryEnabled: false,
+    } as unknown as AppConfig)
+    expect(form.btDhtEnabled).toBe(false)
+    expect(form.btPeerExchangeEnabled).toBe(false)
+    expect(form.btLocalPeerDiscoveryEnabled).toBe(false)
+  })
+
   it('reads btForceEncryption from config', () => {
     const form = buildBtForm({ btForceEncryption: true } as unknown as AppConfig)
     expect(form.btForceEncryption).toBe(true)
@@ -118,11 +136,14 @@ describe('buildBtForm', () => {
 
   // ── Completeness ────────────────────────────────────────────────
 
-  it('returns all 11 form fields', () => {
+  it('returns all 14 form fields', () => {
     const form = buildBtForm(emptyConfig)
     const expectedFields = [
       'btAutoDownloadContent',
       'btForceEncryption',
+      'btDhtEnabled',
+      'btPeerExchangeEnabled',
+      'btLocalPeerDiscoveryEnabled',
       'seedingMode',
       'seedRatio',
       'seedTime',
@@ -146,6 +167,9 @@ describe('buildBtSystemConfig', () => {
   const baseForm: BtForm = {
     btAutoDownloadContent: true,
     btForceEncryption: false,
+    btDhtEnabled: true,
+    btPeerExchangeEnabled: true,
+    btLocalPeerDiscoveryEnabled: true,
     seedingMode: 'manual-stop',
     seedRatio: 1,
     seedTime: 60,
@@ -162,6 +186,24 @@ describe('buildBtSystemConfig', () => {
     expect(config['bt-max-peers']).toBe('128')
     expect(config['bt-force-encryption']).toBe('false')
     expect(config['keep-seeding']).toBe('true')
+  })
+
+  it('maps BT discovery toggles to aria2 config', () => {
+    const config = buildBtSystemConfig({
+      ...baseForm,
+      btDhtEnabled: false,
+      btPeerExchangeEnabled: false,
+      btLocalPeerDiscoveryEnabled: false,
+    })
+    expect(config['enable-dht']).toBe('false')
+    expect(config['enable-peer-exchange']).toBe('false')
+    expect(config['bt-enable-lpd']).toBe('false')
+  })
+
+  it('mirrors force encryption into both aria2 encryption switches', () => {
+    const config = buildBtSystemConfig({ ...baseForm, btForceEncryption: true })
+    expect(config['bt-force-encryption']).toBe('true')
+    expect(config['bt-require-crypto']).toBe('true')
   })
 
   it('condition mode sends both seed stop conditions', () => {
@@ -237,6 +279,9 @@ describe('transformBtForStore', () => {
   const baseForm: BtForm = {
     btAutoDownloadContent: true,
     btForceEncryption: false,
+    btDhtEnabled: true,
+    btPeerExchangeEnabled: true,
+    btLocalPeerDiscoveryEnabled: true,
     seedingMode: 'manual-stop',
     seedRatio: 1,
     seedTime: 60,
@@ -279,6 +324,18 @@ describe('transformBtForStore', () => {
     })
     expect(result.trackerSource).toEqual(customSources)
     expect(result.customTrackerUrls).toEqual(customSources)
+  })
+
+  it('preserves BT discovery toggles through transform', () => {
+    const result = transformBtForStore({
+      ...baseForm,
+      btDhtEnabled: false,
+      btPeerExchangeEnabled: false,
+      btLocalPeerDiscoveryEnabled: false,
+    })
+    expect(result.btDhtEnabled).toBe(false)
+    expect(result.btPeerExchangeEnabled).toBe(false)
+    expect(result.btLocalPeerDiscoveryEnabled).toBe(false)
   })
 
   it('preserves seeding config through transform', () => {

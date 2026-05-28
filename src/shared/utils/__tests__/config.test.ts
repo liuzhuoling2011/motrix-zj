@@ -134,6 +134,13 @@ describe('checkIsNeedRestart', () => {
   it('returns true for dhtListenPort', () => {
     expect(checkIsNeedRestart({ dhtListenPort: 26702 })).toBe(true)
   })
+  it('returns true for BT discovery and encryption session keys', () => {
+    expect(checkIsNeedRestart({ btDhtEnabled: false })).toBe(true)
+    expect(checkIsNeedRestart({ btPeerExchangeEnabled: false })).toBe(true)
+    expect(checkIsNeedRestart({ btLocalPeerDiscoveryEnabled: false })).toBe(true)
+    expect(checkIsNeedRestart({ btForceEncryption: true })).toBe(true)
+    expect(checkIsNeedRestart({ btMaxPeers: 256 })).toBe(true)
+  })
   it('returns true for ED2K restart keys from AppConfig camelCase fields', () => {
     expect(checkIsNeedRestart({ ed2kListenPort: 4663 })).toBe(true)
     expect(checkIsNeedRestart({ ed2kServer: 'server.example:4661' })).toBe(true)
@@ -272,6 +279,11 @@ describe('filterHotReloadableKeys', () => {
       'ed2k-listen-port': '29140',
       'ed2k-udp-listen-port': '29150',
       'enable-dht': 'true',
+      'enable-peer-exchange': 'true',
+      'bt-enable-lpd': 'true',
+      'bt-force-encryption': 'false',
+      'bt-require-crypto': 'false',
+      'bt-max-peers': '128',
     }
     expect(filterHotReloadableKeys(config)).toEqual({})
   })

@@ -2,7 +2,7 @@
  * @fileoverview Pure functions for the BitTorrent preference tab.
  *
  * Manages BT-specific config: auto-download content, encryption, seeding,
- * max peers, and tracker management. Key business logic:
+ * discovery, max peers, and tracker management. Key business logic:
  * - btAutoDownloadContent ↔ pauseMetadata
  * - Tracker comma ↔ newline format conversion
  *
@@ -37,6 +37,9 @@ export interface BtForm {
   [key: string]: unknown
   btAutoDownloadContent: boolean
   btForceEncryption: boolean
+  btDhtEnabled: boolean
+  btPeerExchangeEnabled: boolean
+  btLocalPeerDiscoveryEnabled: boolean
   seedingMode: 'stop-by-condition' | 'manual-stop'
   seedRatio: number
   seedTime: number
@@ -62,6 +65,9 @@ export function buildBtForm(config: AppConfig): BtForm {
   return {
     btAutoDownloadContent,
     btForceEncryption: config.btForceEncryption ?? D.btForceEncryption,
+    btDhtEnabled: config.btDhtEnabled ?? D.btDhtEnabled,
+    btPeerExchangeEnabled: config.btPeerExchangeEnabled ?? D.btPeerExchangeEnabled,
+    btLocalPeerDiscoveryEnabled: config.btLocalPeerDiscoveryEnabled ?? D.btLocalPeerDiscoveryEnabled,
     seedingMode: keepSeeding ? 'manual-stop' : 'stop-by-condition',
     seedRatio: config.seedRatio ?? D.seedRatio,
     seedTime: config.seedTime ?? D.seedTime,
@@ -88,6 +94,10 @@ export function buildBtSystemConfig(f: BtForm): Record<string, string> {
   const config: Record<string, string> = {
     'bt-max-peers': String(f.btMaxPeers),
     'bt-force-encryption': String(!!f.btForceEncryption),
+    'bt-require-crypto': String(!!f.btForceEncryption),
+    'enable-dht': String(!!f.btDhtEnabled),
+    'enable-peer-exchange': String(!!f.btPeerExchangeEnabled),
+    'bt-enable-lpd': String(!!f.btLocalPeerDiscoveryEnabled),
     'seed-ratio': keepSeeding ? '0' : String(f.seedRatio),
     'keep-seeding': String(keepSeeding),
     'pause-metadata': String(!autoContent),

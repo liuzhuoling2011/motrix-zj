@@ -278,8 +278,8 @@ describe('buildNetworkSystemConfig', () => {
     const config = buildNetworkSystemConfig(baseForm)
     expect(config['listen-port']).toBe('29120')
     expect(config['dht-listen-port']).toBe('29130')
-    expect(config['enable-dht']).toBe('true')
-    expect(config['enable-peer-exchange']).toBe('true')
+    expect(config).not.toHaveProperty('enable-dht')
+    expect(config).not.toHaveProperty('enable-peer-exchange')
   })
 
   it('maps transfer parameter keys to aria2 config', () => {

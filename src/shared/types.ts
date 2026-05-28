@@ -281,6 +281,9 @@ export interface AppConfig {
   seedTime: number
   seedRatio: number
   btMaxPeers: number
+  btDhtEnabled: boolean
+  btPeerExchangeEnabled: boolean
+  btLocalPeerDiscoveryEnabled: boolean
   openAtLogin: boolean
   autoCheckUpdate: boolean
   autoHideWindow: boolean

@@ -181,8 +181,6 @@ export function buildAdvancedSystemConfig(f: AdvancedForm): Record<string, strin
   return {
     'rpc-listen-port': String(f.rpcListenPort),
     'rpc-secret': f.rpcSecret,
-    'enable-dht': 'true',
-    'enable-peer-exchange': 'true',
     'listen-port': String(f.listenPort),
     'dht-listen-port': String(f.dhtListenPort),
     'user-agent': f.userAgent || '',
