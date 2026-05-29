@@ -603,7 +603,8 @@ onMounted(async () => {
   {
     const { invoke } = await import('@tauri-apps/api/core')
     const isAutostart: boolean = await invoke('is_autostart_launch')
-    const silentExternalInput = await invoke<boolean>('peek_pending_deep_links_silent')
+    const silentPendingDeepLinks = await invoke<boolean>('peek_pending_deep_links_silent')
+    const silentPendingExternalInputs = await invoke<boolean>('peek_pending_external_inputs_silent')
     // Read autoHideWindow directly from the same Tauri persistent store
     // used by the Rust setup() guard. This keeps the frontend safety net
     // aligned with the native cold-start decision, including WebView
@@ -612,10 +613,11 @@ onMounted(async () => {
     const tauriStore = await load('config.json')
     const prefs = await tauriStore.get<Record<string, unknown>>('preferences')
     const autoHide = !!(prefs?.autoHideWindow ?? false)
+    const silentExternalInput = silentPendingDeepLinks || silentPendingExternalInputs
     const shouldHide = (isAutostart && autoHide) || silentExternalInput
     logger.info(
       'MainLayout.windowVisibility',
-      `autostart=${isAutostart} autoHide=${autoHide} silentExternalInput=${silentExternalInput} -> shouldHide=${shouldHide}`,
+      `autostart=${isAutostart} autoHide=${autoHide} silentDeepLinks=${silentPendingDeepLinks} silentExternalInputs=${silentPendingExternalInputs} -> shouldHide=${shouldHide}`,
     )
     if (!shouldHide) {
       const appWindow = getCurrentWindow()

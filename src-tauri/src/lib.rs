@@ -85,11 +85,11 @@ fn protocol_preferences_from_value(
     const DEFAULTS: [ProtocolPreference; 4] = [
         ProtocolPreference {
             scheme: "magnet",
-            enabled: true,
+            enabled: false,
         },
         ProtocolPreference {
             scheme: "ed2k",
-            enabled: true,
+            enabled: false,
         },
         ProtocolPreference {
             scheme: "thunder",
@@ -942,6 +942,7 @@ pub fn run() {
             commands::refresh_runtime_config,
             commands::restart_http_api,
             commands::peek_pending_deep_links_silent,
+            commands::peek_pending_external_inputs_silent,
             commands::take_pending_deep_links,
             commands::take_pending_external_inputs,
             commands::take_pending_frontend_actions,
@@ -1072,11 +1073,11 @@ mod tests {
             vec![
                 ProtocolPreference {
                     scheme: "magnet",
-                    enabled: true,
+                    enabled: false,
                 },
                 ProtocolPreference {
                     scheme: "ed2k",
-                    enabled: true,
+                    enabled: false,
                 },
                 ProtocolPreference {
                     scheme: "thunder",

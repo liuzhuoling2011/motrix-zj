@@ -346,7 +346,7 @@ export const DEFAULT_APP_CONFIG = {
     bypass: '',
     scope: ['download', 'update-app', 'update-trackers'],
   },
-  protocols: { magnet: true, ed2k: true, thunder: false, motrixnext: true },
+  protocols: { magnet: false, ed2k: false, thunder: false, motrixnext: true },
   clipboard: { enable: true, http: true, ftp: true, magnet: true, ed2k: true, thunder: true, btHash: true },
   autoSubmitFromExtension: true,
   autoSelectAllFilesFromExtension: false,
@@ -354,7 +354,7 @@ export const DEFAULT_APP_CONFIG = {
   userAgent:
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
   logLevel: 'debug', // shared Motrix Next and Aria2 Next log level
-  aria2LogsEnabled: false,
+  aria2LogsEnabled: true,
   cookie: '',
   runMode: '',
   engineBinPath: '',

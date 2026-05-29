@@ -82,6 +82,10 @@ pub fn take_pending_external_inputs(
     }
 }
 
+pub fn peek_pending_external_inputs_silent(state: &PendingExternalInputState) -> bool {
+    state.0.lock().map(|inner| inner.silent).unwrap_or(false)
+}
+
 pub fn mark_frontend_unready(app: &AppHandle) {
     if let Some(state) = app.try_state::<PendingExternalInputState>() {
         state.set_frontend_ready(false);
@@ -201,8 +205,8 @@ fn wake_main_window(app: &AppHandle, source: &'static str, silent: bool) {
 #[cfg(test)]
 mod tests {
     use super::{
-        take_pending_external_inputs, ExternalDownloadInput, ExternalRequestHeader,
-        PendingExternalInputState,
+        peek_pending_external_inputs_silent, take_pending_external_inputs, ExternalDownloadInput,
+        ExternalRequestHeader, PendingExternalInputState,
     };
 
     #[test]
@@ -248,5 +252,34 @@ mod tests {
             "Accept".to_string()
         );
         assert!(take_pending_external_inputs(&state).inputs.is_empty());
+    }
+
+    #[test]
+    fn peek_pending_external_inputs_silent_clears_after_drain() {
+        let state = PendingExternalInputState::new();
+        {
+            let mut inner = state
+                .0
+                .lock()
+                .expect("pending external input state poisoned");
+            inner.queue.push(ExternalDownloadInput {
+                url: "https://example.com/file.zip".to_string(),
+                final_url: None,
+                referer: None,
+                cookie: None,
+                filename: None,
+                user_agent: None,
+                request_headers: vec![],
+                source: Some("http-api".to_string()),
+            });
+            inner.silent = true;
+        }
+
+        assert!(peek_pending_external_inputs_silent(&state));
+
+        let payload = take_pending_external_inputs(&state);
+
+        assert!(payload.silent);
+        assert!(!peek_pending_external_inputs_silent(&state));
     }
 }

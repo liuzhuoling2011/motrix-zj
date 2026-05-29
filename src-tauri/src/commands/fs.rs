@@ -26,7 +26,7 @@ fn config_aria2_logs_enabled(raw: &Value) -> bool {
     raw.get("preferences")
         .and_then(|prefs| prefs.get("aria2LogsEnabled"))
         .and_then(Value::as_bool)
-        .unwrap_or(false)
+        .unwrap_or(true)
 }
 
 fn redact_url_credentials(value: &str) -> String {
@@ -357,8 +357,8 @@ mod export_tests {
     }
 
     #[test]
-    fn config_aria2_logs_enabled_defaults_to_false() {
-        assert!(!config_aria2_logs_enabled(&serde_json::json!({})));
+    fn config_aria2_logs_enabled_defaults_to_true() {
+        assert!(config_aria2_logs_enabled(&serde_json::json!({})));
         assert!(!config_aria2_logs_enabled(&serde_json::json!({
             "preferences": { "aria2LogsEnabled": false }
         })));

@@ -42,7 +42,7 @@ fn read_aria2_logs_enabled(app: &tauri::AppHandle) -> bool {
                 .get("preferences")
                 .and_then(|p| p.get("aria2LogsEnabled")?.as_bool())
         })
-        .unwrap_or(false)
+        .unwrap_or(true)
 }
 
 fn engine_log_config(app: &tauri::AppHandle) -> Result<(String, String, bool), String> {

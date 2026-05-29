@@ -147,6 +147,13 @@ describe('MainLayout.vue — show window from frontend on mount', () => {
     expect(mountedBody).toContain('is_autostart_launch')
   })
 
+  it('checks both pending deep links and structured external inputs before showing', () => {
+    const mountedBody = extractOnMountedBody(source)
+    expect(mountedBody).toBeTruthy()
+    expect(mountedBody).toContain('peek_pending_deep_links_silent')
+    expect(mountedBody).toContain('peek_pending_external_inputs_silent')
+  })
+
   it('reads autoHideWindow directly from Tauri Store IPC, not Pinia', () => {
     // The frontend safety net must read the same persisted value as the
     // Rust setup guard, including lightweight WebView recreation.

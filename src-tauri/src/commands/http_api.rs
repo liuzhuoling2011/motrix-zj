@@ -40,6 +40,13 @@ pub fn peek_pending_deep_links_silent(
     deep_link::peek_pending_deep_links_silent(state.inner())
 }
 
+#[tauri::command]
+pub fn peek_pending_external_inputs_silent(
+    state: tauri::State<'_, external_input::PendingExternalInputState>,
+) -> bool {
+    external_input::peek_pending_external_inputs_silent(state.inner())
+}
+
 /// Drain and return all pending frontend UI actions.
 ///
 /// Called by the frontend during its boot sequence after menu and tray
