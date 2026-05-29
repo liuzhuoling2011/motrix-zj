@@ -45,6 +45,7 @@ import {
 const needsRestart = ref(false)
 import PreferenceActionBar from './PreferenceActionBar.vue'
 import PreferenceCheckboxGrid from './PreferenceCheckboxGrid.vue'
+import PreferenceHintLabel from './PreferenceHintLabel.vue'
 import { SearchOutline, DiceOutline } from '@vicons/ionicons5'
 
 const { t } = useI18n()
@@ -251,20 +252,29 @@ onMounted(() => {
       </NFormItem>
       <div class="proxy-mode-collapse" :class="{ 'proxy-mode-collapse--open': form.proxy.mode !== 'direct' }">
         <div class="proxy-mode-collapse__inner collapse-indent">
-          <NFormItem :label="t('preferences.proxy-mode')">
+          <NFormItem>
+            <template #label>
+              <PreferenceHintLabel
+                :label="t('preferences.proxy-mode')"
+                :hint="t('preferences.proxy-new-task-only-hint')"
+              />
+            </template>
             <NRadioGroup v-model:value="form.proxy.mode" name="download-proxy-mode">
               <NRadio value="auto">{{ t('preferences.proxy-mode-auto') }}</NRadio>
               <NRadio value="manual">{{ t('preferences.proxy-mode-manual') }}</NRadio>
             </NRadioGroup>
           </NFormItem>
-          <NFormItem :show-label="false">
-            <div class="info-text">{{ t('preferences.proxy-new-task-only-hint') }}</div>
-          </NFormItem>
         </div>
       </div>
       <div class="proxy-collapse" :class="{ 'proxy-collapse--open': form.proxy.mode === 'manual' }">
         <div class="proxy-collapse__inner collapse-indent">
-          <NFormItem :label="t('preferences.proxy-server')">
+          <NFormItem>
+            <template #label>
+              <PreferenceHintLabel
+                :label="t('preferences.proxy-server')"
+                :hint="t('preferences.proxy-http-only-hint')"
+              />
+            </template>
             <NInputGroup>
               <NInput v-model:value="form.proxy.server" placeholder="[http://][USER:PASSWORD@]HOST[:PORT]" />
               <NButton :loading="detectingProxy" @click="detectProxy">
@@ -274,9 +284,6 @@ onMounted(() => {
                 {{ t('preferences.detect-system-proxy') }}
               </NButton>
             </NInputGroup>
-          </NFormItem>
-          <NFormItem :show-label="false">
-            <div class="info-text">{{ t('preferences.proxy-http-only-hint') }}</div>
           </NFormItem>
           <NFormItem :label="t('preferences.proxy-bypass')">
             <NInput
@@ -302,7 +309,13 @@ onMounted(() => {
         :class="{ 'port-recovery-collapse--open': form.portConflictRecovery.enabled }"
       >
         <div class="port-recovery-collapse__inner collapse-indent">
-          <NFormItem :label="t('preferences.port-conflict-recovery-range')">
+          <NFormItem>
+            <template #label>
+              <PreferenceHintLabel
+                :label="t('preferences.port-conflict-recovery-range')"
+                :hint="t('preferences.port-conflict-recovery-range-hint')"
+              />
+            </template>
             <NInputGroup>
               <NInputNumber
                 v-model:value="form.portConflictRecovery.rangeStart"
@@ -318,9 +331,6 @@ onMounted(() => {
                 style="width: 140px"
               />
             </NInputGroup>
-          </NFormItem>
-          <NFormItem :show-label="false">
-            <div class="info-text">{{ t('preferences.port-conflict-recovery-range-hint') }}</div>
           </NFormItem>
           <NFormItem :label="t('preferences.port-conflict-recovery-apply-to')">
             <PreferenceCheckboxGrid v-model:value="selectedPortRecoveryTargets" :options="portRecoveryTargetOptions" />
@@ -404,14 +414,14 @@ onMounted(() => {
       <NFormItem :label="t('preferences.file-allocation')">
         <NSelect v-model:value="form.fileAllocation" :options="fileAllocationOptions" style="width: 140px" />
       </NFormItem>
-      <NFormItem :label="t('preferences.async-dns')">
+      <NFormItem>
+        <template #label>
+          <PreferenceHintLabel :label="t('preferences.async-dns')" :hint="t('preferences.async-dns-hint')" />
+        </template>
         <NSwitch
           :value="form.dnsResolver === 'async'"
           @update:value="(enabled: boolean) => (form.dnsResolver = enabled ? 'async' : 'system')"
         />
-      </NFormItem>
-      <NFormItem :show-label="false">
-        <div class="info-text">{{ t('preferences.async-dns-hint') }}</div>
       </NFormItem>
     </NForm>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
@@ -436,27 +446,6 @@ onMounted(() => {
 .form-preference :deep(.collapse-indent) {
   margin-left: 16px;
 }
-.info-text {
-  color: var(--m3-on-surface-variant);
-  font-size: 12px;
-  max-width: 520px;
-  word-wrap: break-word;
-}
-.form-label-with-hint {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-width: 220px;
-  line-height: 1.35;
-  white-space: normal;
-}
-.form-label-with-hint .info-text {
-  max-width: 220px;
-}
-.form-preference :deep(.hinted-form-item) {
-  margin-bottom: 18px;
-}
-
 .proxy-mode-collapse,
 .proxy-collapse {
   display: grid;

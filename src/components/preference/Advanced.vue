@@ -46,6 +46,7 @@ import { DiceOutline, DownloadOutline, FolderOpenOutline, TrashOutline, CopyOutl
 import { logger } from '@shared/logger'
 import PreferenceActionBar from './PreferenceActionBar.vue'
 import PreferenceCheckboxGrid from './PreferenceCheckboxGrid.vue'
+import PreferenceHintLabel from './PreferenceHintLabel.vue'
 
 const { restartEngine } = useEngineRestart()
 
@@ -453,12 +454,12 @@ onMounted(async () => {
         <NFormItem :label="t('preferences.silent-auto-submit-from-extension')">
           <NSwitch v-model:value="form.silentAutoSubmitFromExtension" />
         </NFormItem>
-        <NFormItem class="hinted-form-item">
+        <NFormItem>
           <template #label>
-            <div class="form-label-with-hint">
-              <div>{{ t('preferences.auto-select-all-files-from-extension') }}</div>
-              <div class="info-text">{{ t('preferences.auto-select-all-files-from-extension-hint') }}</div>
-            </div>
+            <PreferenceHintLabel
+              :label="t('preferences.auto-select-all-files-from-extension')"
+              :hint="t('preferences.auto-select-all-files-from-extension-hint')"
+            />
           </template>
           <NSwitch v-model:value="form.autoSelectAllFilesFromExtension" />
         </NFormItem>
@@ -466,10 +467,13 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.extension-api-port')">
         <NInputNumber v-model:value="form.extensionApiPort" :min="1024" :max="65535" style="width: 160px" />
       </NFormItem>
-      <NFormItem
-        :label="t('preferences.extension-api-secret')"
-        :validation-status="form.extensionApiSecret ? undefined : 'warning'"
-      >
+      <NFormItem :validation-status="form.extensionApiSecret ? undefined : 'warning'">
+        <template #label>
+          <PreferenceHintLabel
+            :label="t('preferences.extension-api-secret')"
+            :hint="t('preferences.extension-api-secret-tip')"
+          />
+        </template>
         <NInputGroup>
           <NInput
             v-model:value="form.extensionApiSecret"
@@ -493,9 +497,6 @@ onMounted(async () => {
             </template>
           </NButton>
         </NInputGroup>
-      </NFormItem>
-      <NFormItem :show-label="false">
-        <div class="info-text">{{ t('preferences.extension-api-secret-tip') }}</div>
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.rpc') }}</NDivider>
@@ -636,12 +637,9 @@ onMounted(async () => {
           </NButton>
         </div>
       </NFormItem>
-      <NFormItem class="hinted-form-item">
+      <NFormItem>
         <template #label>
-          <div class="form-label-with-hint">
-            <span>{{ t('preferences.aria2-logs') }}</span>
-            <div class="info-text">{{ t('preferences.aria2-logs-hint') }}</div>
-          </div>
+          <PreferenceHintLabel :label="t('preferences.aria2-logs')" :hint="t('preferences.aria2-logs-hint')" />
         </template>
         <NSwitch v-model:value="form.aria2LogsEnabled" />
       </NFormItem>
@@ -662,11 +660,14 @@ onMounted(async () => {
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.diagnostics-section') }}</NDivider>
-      <NFormItem v-if="isLinux" :label="t('preferences.hardware-rendering')">
+      <NFormItem v-if="isLinux">
+        <template #label>
+          <PreferenceHintLabel
+            :label="t('preferences.hardware-rendering')"
+            :hint="t('preferences.hardware-rendering-hint')"
+          />
+        </template>
         <NSwitch v-model:value="form.hardwareRendering" />
-      </NFormItem>
-      <NFormItem v-if="isLinux" :show-label="false">
-        <div class="info-text">{{ t('preferences.hardware-rendering-hint') }}</div>
       </NFormItem>
       <NFormItem :show-label="false">
         <NSpace>
@@ -755,21 +756,6 @@ onMounted(async () => {
 }
 .form-preference :deep(.n-form-item) {
   padding-left: 50px;
-}
-.info-text {
-  color: var(--m3-on-surface-variant);
-  font-size: 12px;
-  max-width: 520px;
-  word-wrap: break-word;
-}
-.form-label-with-hint {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  line-height: 1.35;
-}
-.form-preference :deep(.hinted-form-item) {
-  margin-bottom: 18px;
 }
 .form-preference :deep(.collapse-indent) {
   position: relative;

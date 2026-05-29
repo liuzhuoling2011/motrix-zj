@@ -41,6 +41,7 @@ import {
   useDialog,
 } from 'naive-ui'
 import PreferenceActionBar from './PreferenceActionBar.vue'
+import PreferenceHintLabel from './PreferenceHintLabel.vue'
 import { SyncOutline, AddCircleOutline, CloseCircleOutline } from '@vicons/ionicons5'
 
 const { t } = useI18n()
@@ -346,8 +347,13 @@ onMounted(() => {
         </NFormItem>
       </NCollapseTransition>
       <NCollapseTransition :show="form.seedingMode === 'manual-stop'" class="collapse-indent">
-        <NFormItem :show-label="false">
-          <div class="info-text">{{ t('preferences.seeding-mode-manual-stop-tips') }}</div>
+        <NFormItem>
+          <template #label>
+            <PreferenceHintLabel
+              :label="t('preferences.seeding-mode-manual-stop')"
+              :hint="t('preferences.seeding-mode-manual-stop-tips')"
+            />
+          </template>
         </NFormItem>
       </NCollapseTransition>
 

@@ -31,7 +31,7 @@ export default {
   'seeding-mode-stop-by-condition': 'Διακοπή όταν πληρούνται οι όροι',
   'seeding-mode-manual-stop': 'Χειροκίνητη διακοπή',
   'seeding-mode-manual-stop-tips':
-    'Η ολοκληρωμένη λήψη θα συνεχίσει να διαμοιράζεται μέχρι να σταματήσετε χειροκίνητα την εργασία.',
+    'Η ολοκληρωμένη λήψη θα συνεχίσει να διαμοιράζεται μέχρι να σταματήσετε χειροκίνητα την εργασία',
   'seed-ratio': 'Αναλογία διαμοιρασμού',
   'seed-time': 'Χρόνος διαμοιρασμού',
   'seed-time-unit': 'λεπτά',
@@ -99,7 +99,7 @@ export default {
   'proxy-mode-auto': 'Περιβάλλον',
   'proxy-mode-manual': 'Χειροκίνητο proxy',
   'proxy-new-task-only-hint':
-    'Οι ρυθμίσεις διακομιστή μεσολάβησης ισχύουν μόνο για νέες εργασίες, οι υπάρχουσες εργασίες αλλάζουν από τις λεπτομέρειες εργασίας.',
+    'Οι ρυθμίσεις διακομιστή μεσολάβησης ισχύουν μόνο για νέες εργασίες, οι υπάρχουσες εργασίες αλλάζουν από τις λεπτομέρειες εργασίας',
   'proxy-bypass': 'Παράκαμψη proxy',
   'proxy-scope': 'Εύρος proxy',
   'proxy-bypass-input-tips': 'Παράκαμψη proxy για αυτούς τους κεντρικούς, ένας ανά γραμμή',
@@ -132,16 +132,16 @@ export default {
   'invalid-proxy-url': 'Invalid proxy URL format',
   'proxy-unsupported-protocol':
     'Μη υποστηριζόμενο πρωτόκολλο proxy. Το Aria2 Next υποστηρίζει μόνο HTTP proxy (http/https/ftp).',
-  'proxy-http-only-hint': 'Το Aria2 Next υποστηρίζει μόνο HTTP proxy. Το SOCKS proxy δεν υποστηρίζεται.',
+  'proxy-http-only-hint': 'Το Aria2 Next υποστηρίζει μόνο HTTP proxy. Το SOCKS proxy δεν υποστηρίζεται',
   'user-agent-string': 'Συμβολοσειρά UA',
   port: 'Θύρες ακρόασης',
   'auto-change-conflicting-ports': 'Αυτόματη αλλαγή θυρών με διένεξη',
-  'auto-change-conflicting-ports-hint': 'Καλύπτει θύρες RPC, API επέκτασης, BT, DHT και ED2K.',
+  'auto-change-conflicting-ports-hint': 'Καλύπτει θύρες RPC, API επέκτασης, BT, DHT και ED2K',
   'port-conflict-recovery': 'Ανάκτηση σύγκρουσης θυρών',
   'port-conflict-recovery-enable': 'Ενεργοποίηση ανάκτησης σύγκρουσης θυρών',
   'port-conflict-recovery-range': 'Εύρος εφεδρικών θυρών',
   'port-conflict-recovery-range-hint':
-    'Χρησιμοποιείται όταν μια διαχειριζόμενη θύρα είναι κατειλημμένη. Η επιλεγμένη θύρα πρέπει να είναι διαθέσιμη τόσο για TCP όσο και για UDP.',
+    'Χρησιμοποιείται όταν μια διαχειριζόμενη θύρα είναι κατειλημμένη. Η επιλεγμένη θύρα πρέπει να είναι διαθέσιμη τόσο για TCP όσο και για UDP',
   'port-conflict-recovery-apply-to': 'Εφαρμογή σε',
   'port-conflict-recovery-bt': 'BitTorrent TCP',
   'port-conflict-recovery-dht': 'DHT UDP',
@@ -231,7 +231,7 @@ export default {
   'log-level': 'Επίπεδο καταγραφής',
   'log-level-restart-confirm': 'Η αλλαγή επιπέδου καταγραφής θα εφαρμοστεί μετά την επανεκκίνηση της εφαρμογής.',
   'aria2-logs': 'Αρχεία καταγραφής Aria2 Next',
-  'aria2-logs-hint': 'Καταγράφει λεπτομερή αρχεία του μηχανισμού για διάγνωση.',
+  'aria2-logs-hint': 'Καταγράφει λεπτομερή αρχεία του μηχανισμού για διάγνωση',
   'restart-now': 'Επανεκκίνηση τώρα',
   'db-integrity-check': 'Έλεγχος ακεραιότητας',
   'db-integrity-check-running': 'Έλεγχος ακεραιότητας βάσης δεδομένων...',
@@ -263,7 +263,7 @@ export default {
   'engine-section': 'Μηχανή λήψης Aria2 Next',
   'hardware-rendering': 'Επιτάχυνση GPU',
   'hardware-rendering-hint':
-    'Η επιτάχυνση WebKitGTK DMA-BUF είναι απενεργοποιημένη από προεπιλογή για καλύτερη σταθερότητα σε Linux και Wayland. Μπορείτε να την ενεργοποιήσετε για υψηλότερη απόδοση rendering, αλλά ορισμένες GPU, οδηγοί ή περιβάλλοντα επιφάνειας εργασίας μπορεί να καταρρεύσουν.',
+    'Η επιτάχυνση WebKitGTK DMA-BUF είναι απενεργοποιημένη από προεπιλογή για καλύτερη σταθερότητα σε Linux και Wayland. Μπορείτε να την ενεργοποιήσετε για υψηλότερη απόδοση rendering, αλλά ορισμένες GPU, οδηγοί ή περιβάλλοντα επιφάνειας εργασίας μπορεί να καταρρεύσουν',
   'hardware-rendering-restart-confirm':
     'Η αλλαγή της επιτάχυνσης WebKitGTK DMA-BUF απαιτεί επανεκκίνηση της εφαρμογής, επειδή πρέπει να οριστεί πριν από την εκκίνηση της διεργασίας. Αν η εφαρμογή καταρρεύσει μετά την ενεργοποίηση, ξεκινήστε τη μία φορά με WEBKIT_DISABLE_DMABUF_RENDERER=1 ή απενεργοποιήστε τη χειροκίνητα στο config.json.',
   'session-path': 'Αρχείο προσωρινής μνήμης εργασιών',
@@ -360,10 +360,10 @@ export default {
   'auto-submit-from-extension': 'Παράκαμψη επιβεβαίωσης για λήψεις επέκτασης',
   'silent-auto-submit-from-extension': 'Να μην ενεργοποιείται το κύριο παράθυρο κατά τη λήψη αιτήματος λήψης',
   'auto-select-all-files-from-extension': 'Λήψη όλων των αρχείων torrent και magnet από προεπιλογή',
-  'auto-select-all-files-from-extension-hint': 'Όταν είναι ενεργό, όλες οι εργασίες θα ξεκινούν αθόρυβα.',
+  'auto-select-all-files-from-extension-hint': 'Όταν είναι ενεργό, όλες οι εργασίες θα ξεκινούν αθόρυβα',
   'extension-api-port': 'Θύρα API επέκτασης',
   'extension-api-secret-tip':
-    'Εισαγάγετε αυτό το κλειδί στις ρυθμίσεις της επέκτασης του προγράμματος περιήγησης για έλεγχο ταυτότητας.',
+    'Εισαγάγετε αυτό το κλειδί στις ρυθμίσεις της επέκτασης του προγράμματος περιήγησης για έλεγχο ταυτότητας',
   'extension-api-secret': 'Κλειδί API επέκτασης',
   'extension-api-port-confirm':
     'Η θύρα API επέκτασης θα αλλάξει σε {port}. Η υπηρεσία επικοινωνίας πρέπει να επανεκκινηθεί. Η επέκταση προγράμματος περιήγησης θα χρειαστεί επανασύνδεση.',
@@ -382,7 +382,7 @@ export default {
   'connect-timeout': 'Χρονικό όριο σύνδεσης',
   timeout: 'Χρονικό όριο μεταφοράς',
   'async-dns': 'Ασύγχρονο DNS',
-  'async-dns-hint': 'Μπορεί να βελτιώσει την απόδοση, αλλά ίσως είναι ασταθές ή εμποδίσει λήψεις.',
+  'async-dns-hint': 'Μπορεί να βελτιώσει την απόδοση, αλλά ίσως είναι ασταθές ή εμποδίσει λήψεις',
   'file-allocation': 'Προ-εκχώρηση αρχείου',
   'startup-behavior': 'Εκκίνηση',
   'tray-and-dock': 'Περιοχή ειδοποιήσεων & Dock',

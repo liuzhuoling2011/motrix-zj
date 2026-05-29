@@ -50,6 +50,7 @@ import {
 } from 'naive-ui'
 import PreferenceActionBar from './PreferenceActionBar.vue'
 import PreferenceCheckboxGrid from './PreferenceCheckboxGrid.vue'
+import PreferenceHintLabel from './PreferenceHintLabel.vue'
 import DirectoryPopover from '@/components/common/DirectoryPopover.vue'
 import { FolderOpenOutline } from '@vicons/ionicons5'
 
@@ -412,7 +413,13 @@ onMounted(async () => {
           @update:value="handleFileTimestampChange"
         />
       </NFormItem>
-      <NFormItem :label="t('preferences.file-category-save')">
+      <NFormItem>
+        <template #label>
+          <PreferenceHintLabel
+            :label="t('preferences.file-category-save')"
+            :hint="t('preferences.file-category-auto-archive-hint')"
+          />
+        </template>
         <NSwitch v-model:value="form.fileCategoryEnabled" />
       </NFormItem>
       <NCollapseTransition :show="form.fileCategoryEnabled">
@@ -468,9 +475,6 @@ onMounted(async () => {
                 ↺ {{ t('preferences.file-category-reset') }}
               </NButton>
             </div>
-            <NText depth="3" style="font-size: 12px; display: block; margin-top: 4px">
-              ⓘ {{ t('preferences.file-category-auto-archive-hint') }}
-            </NText>
           </div>
         </NFormItem>
       </NCollapseTransition>
@@ -480,7 +484,13 @@ onMounted(async () => {
       <NFormItem :label="t('app.speedometer-enable-limit')">
         <NSwitch :value="preferenceStore.config.speedLimitEnabled" @update:value="handleSpeedLimitToggle" />
       </NFormItem>
-      <NFormItem :label="t('preferences.speed-schedule-enabled')">
+      <NFormItem>
+        <template #label>
+          <PreferenceHintLabel
+            :label="t('preferences.speed-schedule-enabled')"
+            :hint="t('preferences.schedule-hint')"
+          />
+        </template>
         <NSwitch :value="preferenceStore.config.speedScheduleEnabled" @update:value="handleScheduleToggle" />
       </NFormItem>
       <NCollapseTransition :show="preferenceStore.config.speedScheduleEnabled" class="collapse-indent">
@@ -500,9 +510,6 @@ onMounted(async () => {
         <NFormItem :label="t('preferences.schedule-days')">
           <NSelect v-model:value="form.speedScheduleDays" :options="scheduleDayOptions" style="width: 160px" />
         </NFormItem>
-        <NText depth="3" style="font-size: 12px; display: block; margin-top: -8px; margin-bottom: 8px">
-          {{ t('preferences.schedule-hint') }}
-        </NText>
       </NCollapseTransition>
       <div>
         <NFormItem :label="t('preferences.transfer-speed-upload')">

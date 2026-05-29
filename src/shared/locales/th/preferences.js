@@ -167,7 +167,7 @@ export default {
   'protocols-thunder': 'Thunder [ thunder:// ]',
   'browser-extensions': 'ส่วนขยาย',
   'baidu-exporter': 'BaiduExporter',
-  'browser-extensions-tips': 'จัดทำโดยชุมชน ',
+  'browser-extensions-tips': 'จัดทำโดยชุมชน',
   'baidu-exporter-help': 'ดูคู่มือการใช้งาน',
   'auto-update': 'อัปเดตอัตโนมัติ',
   'update-channel': 'ช่องทางอัปเดต',

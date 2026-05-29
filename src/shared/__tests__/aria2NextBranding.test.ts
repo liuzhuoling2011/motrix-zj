@@ -28,7 +28,7 @@ describe('Aria2 Next user-facing branding', () => {
     expect(preferences).toContain("'engine-section': 'Aria2 Next Download Engine'")
     expect(preferences).toContain("'engine-restart-title': 'Restart Aria2 Next Engine'")
     expect(preferences).toContain(
-      "'proxy-http-only-hint': 'Aria2 Next supports HTTP proxy only. SOCKS proxy is not supported.'",
+      "'proxy-http-only-hint': 'Aria2 Next supports HTTP proxy only. SOCKS proxy is not supported'",
     )
     expect(task).toContain(
       "'proxy-unsupported-protocol': 'Unsupported proxy protocol. Aria2 Next only supports HTTP proxies.'",

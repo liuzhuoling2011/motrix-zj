@@ -43,6 +43,7 @@ import MTooltip from '@/components/common/MTooltip.vue'
 import { CloudDownloadOutline } from '@vicons/ionicons5'
 import UpdateDialog from '@/components/preference/UpdateDialog.vue'
 import type { UpdateChannel } from '@shared/types'
+import PreferenceHintLabel from './PreferenceHintLabel.vue'
 
 const { t, locale } = useI18n()
 const preferenceStore = usePreferenceStore()
@@ -455,16 +456,15 @@ onMounted(async () => {
       <NFormItem :label="t('preferences.show-progress-bar')">
         <NSwitch v-model:value="form.showProgressBar" />
       </NFormItem>
-      <NFormItem :label="t('preferences.lightweight-mode')">
+      <NFormItem>
+        <template #label>
+          <PreferenceHintLabel
+            :label="t('preferences.lightweight-mode')"
+            :hint="t('preferences.lightweight-mode-hint')"
+          />
+        </template>
         <NSwitch v-model:value="form.lightweightMode" />
       </NFormItem>
-      <NText
-        depth="3"
-        style="font-size: 12px; display: block; margin-top: -8px; margin-bottom: 8px; padding-left: 50px"
-      >
-        ⓘ {{ t('preferences.lightweight-mode') }}:
-        {{ t('preferences.lightweight-mode-hint') }}
-      </NText>
     </NForm>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
   </div>
