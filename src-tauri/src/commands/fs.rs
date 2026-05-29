@@ -154,7 +154,7 @@ fn clear_managed_log_files_in_dir(log_dir: &Path) -> Result<(), AppError> {
     if !log_dir.exists() {
         return Ok(());
     }
-    for entry in std::fs::read_dir(&log_dir)
+    for entry in std::fs::read_dir(log_dir)
         .map_err(|e| AppError::Io(format!("Failed to read log dir: {e}")))?
         .flatten()
     {
