@@ -5,7 +5,7 @@ use tauri_plugin_shell::ShellExt;
 
 use super::args::build_start_args;
 use super::cleanup::cleanup_port;
-use super::state::{log_engine_stdout, path_to_safe_string, EngineState};
+use super::state::{path_to_safe_string, strip_ansi, EngineState};
 use crate::services::port_guard;
 use tauri_plugin_store::StoreExt;
 
@@ -233,7 +233,7 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
             match event {
                 CommandEvent::Stdout(line) => {
                     let text = String::from_utf8_lossy(&line);
-                    log_engine_stdout(&text);
+                    let text = strip_ansi(&text);
                     if let Some(kind) = port_guard::aria2_runtime_bind_error_kind(&text) {
                         recover_runtime_port_conflict(&app_handle, kind);
                     }
@@ -464,7 +464,7 @@ pub fn restart_engine(app: &tauri::AppHandle, _config: &serde_json::Value) -> Re
             match event {
                 CommandEvent::Stdout(line) => {
                     let text = String::from_utf8_lossy(&line);
-                    log_engine_stdout(&text);
+                    let text = strip_ansi(&text);
                     if let Some(kind) = port_guard::aria2_runtime_bind_error_kind(&text) {
                         recover_runtime_port_conflict(&app_handle, kind);
                     }

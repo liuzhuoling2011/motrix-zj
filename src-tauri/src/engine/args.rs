@@ -135,7 +135,7 @@ pub(crate) fn build_start_args(
     };
     args.push(format!("--log-file={engine_log_file}"));
     args.push(format!("--log-level={log_level}"));
-    args.push("--console-level=warn".to_string());
+    args.push("--quiet=true".to_string());
     args.push("--log-max-size=10M".to_string());
     args.push("--log-max-files=2".to_string());
     // Motrix owns torrent parsing and file selection. Remote .torrent URLs
@@ -166,7 +166,7 @@ pub(crate) fn build_start_args(
 
             if matches!(
                 key.as_str(),
-                "log-file" | "log-level" | "console-level" | "log-max-size" | "log-max-files"
+                "log-file" | "log-level" | "log-max-size" | "log-max-files"
             ) {
                 continue;
             }
@@ -254,9 +254,10 @@ mod tests {
 
         assert!(args.iter().any(|a| a == "--log-file=/tmp/aria2-next.log"));
         assert!(args.iter().any(|a| a == "--log-level=warn"));
-        assert!(args.iter().any(|a| a == "--console-level=warn"));
+        assert!(args.iter().any(|a| a == "--quiet=true"));
         assert!(args.iter().any(|a| a == "--log-max-size=10M"));
         assert!(args.iter().any(|a| a == "--log-max-files=2"));
+        assert!(!args.iter().any(|a| a.starts_with("--console-level=")));
     }
 
     #[test]
@@ -265,7 +266,6 @@ mod tests {
             &json!({
                 "log-file": "/tmp/user.log",
                 "log-level": "error",
-                "console-level": "off",
                 "log-max-size": "1M",
                 "log-max-files": "1"
             }),
@@ -279,12 +279,12 @@ mod tests {
 
         assert!(args.iter().any(|a| a == "--log-file=/tmp/managed.log"));
         assert!(args.iter().any(|a| a == "--log-level=debug"));
-        assert!(args.iter().any(|a| a == "--console-level=warn"));
+        assert!(args.iter().any(|a| a == "--quiet=true"));
         assert!(!args.iter().any(|a| a == "--log-file=/tmp/user.log"));
         assert!(!args.iter().any(|a| a == "--log-level=error"));
-        assert!(!args.iter().any(|a| a == "--console-level=off"));
         assert!(!args.iter().any(|a| a == "--log-max-size=1M"));
         assert!(!args.iter().any(|a| a == "--log-max-files=1"));
+        assert!(!args.iter().any(|a| a.starts_with("--console-level=")));
     }
 
     #[test]
@@ -301,9 +301,10 @@ mod tests {
 
         assert!(args.iter().any(|a| a == "--log-file=off"));
         assert!(args.iter().any(|a| a == "--log-level=debug"));
-        assert!(args.iter().any(|a| a == "--console-level=warn"));
+        assert!(args.iter().any(|a| a == "--quiet=true"));
         assert!(args.iter().any(|a| a == "--log-max-size=10M"));
         assert!(args.iter().any(|a| a == "--log-max-files=2"));
+        assert!(!args.iter().any(|a| a.starts_with("--console-level=")));
     }
 
     #[test]

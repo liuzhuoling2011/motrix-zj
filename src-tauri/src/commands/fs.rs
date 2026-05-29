@@ -9,7 +9,7 @@ fn is_motrix_log_file(name: &str) -> bool {
 }
 
 fn is_aria2_log_file(name: &str) -> bool {
-    name == "aria2-next.log" || name.starts_with("aria2-next.log.")
+    (name == "aria2-next.log") || (name.starts_with("aria2-next.") && name.ends_with(".log"))
 }
 
 fn diagnostic_log_zip_path(name: &str, aria2_logs_enabled: bool) -> Option<String> {
@@ -340,10 +340,11 @@ mod export_tests {
             Some("aria2-next/aria2-next.log".to_string())
         );
         assert_eq!(
-            diagnostic_log_zip_path("aria2-next.log.1", true),
-            Some("aria2-next/aria2-next.log.1".to_string())
+            diagnostic_log_zip_path("aria2-next.1.log", true),
+            Some("aria2-next/aria2-next.1.log".to_string())
         );
         assert_eq!(diagnostic_log_zip_path("other.log", true), None);
+        assert_eq!(diagnostic_log_zip_path("aria2-next.log.1", true), None);
     }
 
     #[test]
@@ -353,7 +354,7 @@ mod export_tests {
             Some("motrix-next/motrix-next.log".to_string())
         );
         assert_eq!(diagnostic_log_zip_path("aria2-next.log", false), None);
-        assert_eq!(diagnostic_log_zip_path("aria2-next.log.1", false), None);
+        assert_eq!(diagnostic_log_zip_path("aria2-next.1.log", false), None);
     }
 
     #[test]

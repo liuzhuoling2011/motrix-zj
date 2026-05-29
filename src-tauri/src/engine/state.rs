@@ -27,41 +27,6 @@ pub(crate) fn strip_ansi(input: &str) -> String {
     strip_ansi_escapes::strip_str(input)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum EngineLogSeverity {
-    Error,
-    Warn,
-    Info,
-    Debug,
-}
-
-pub(crate) fn engine_log_severity(line: &str) -> EngineLogSeverity {
-    if line.contains("[critical]") || line.contains("[error]") {
-        EngineLogSeverity::Error
-    } else if line.contains("[warning]") {
-        EngineLogSeverity::Warn
-    } else if line.contains("[info]") {
-        EngineLogSeverity::Info
-    } else {
-        EngineLogSeverity::Debug
-    }
-}
-
-/// Logs Aria2 Next stdout with semantic levels from the spdlog tag.
-pub(crate) fn log_engine_stdout(raw: &str) {
-    let clean = strip_ansi(raw);
-    let trimmed = clean.trim();
-    if trimmed.is_empty() {
-        return;
-    }
-    match engine_log_severity(trimmed) {
-        EngineLogSeverity::Error => log::error!("engine: {}", trimmed),
-        EngineLogSeverity::Warn => log::warn!("engine: {}", trimmed),
-        EngineLogSeverity::Info => log::info!("engine: {}", trimmed),
-        EngineLogSeverity::Debug => log::debug!("engine: {}", trimmed),
-    }
-}
-
 /// Holds the Aria2 Next child process handle, protected by a Mutex for thread-safe access.
 ///
 /// `intentional_stop` distinguishes deliberate kills (restart, update, relaunch)
@@ -136,34 +101,6 @@ mod tests {
         let clean = strip_ansi(input);
         assert!(clean.contains("[error]"));
         assert!(!clean.contains("\x1b"));
-    }
-
-    #[test]
-    fn engine_log_severity_maps_spdlog_levels() {
-        assert_eq!(
-            engine_log_severity("2026-05-29 01:00:00.000 [critical] [main.cc:1] fatal"),
-            EngineLogSeverity::Error
-        );
-        assert_eq!(
-            engine_log_severity("2026-05-29 01:00:00.000 [error] [main.cc:1] failed"),
-            EngineLogSeverity::Error
-        );
-        assert_eq!(
-            engine_log_severity("2026-05-29 01:00:00.000 [warning] [main.cc:1] risky"),
-            EngineLogSeverity::Warn
-        );
-        assert_eq!(
-            engine_log_severity("2026-05-29 01:00:00.000 [info] [main.cc:1] ready"),
-            EngineLogSeverity::Info
-        );
-        assert_eq!(
-            engine_log_severity("2026-05-29 01:00:00.000 [debug] [main.cc:1] detail"),
-            EngineLogSeverity::Debug
-        );
-        assert_eq!(
-            engine_log_severity("2026-05-29 01:00:00.000 [trace] [main.cc:1] detail"),
-            EngineLogSeverity::Debug
-        );
     }
 
     #[test]
