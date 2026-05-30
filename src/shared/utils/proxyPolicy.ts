@@ -48,7 +48,7 @@ export function buildTaskProxyOptions(
 ): Aria2EngineOptions {
   if (mode !== 'manual') return { 'proxy-mode': mode }
 
-  const server = customProxy.trim()
+  const server = customProxy.trim() || (appProxy ? getDownloadProxy(appProxy)?.trim() : '') || ''
   if (!server) return { 'proxy-mode': 'direct' }
 
   const options: Aria2EngineOptions = {

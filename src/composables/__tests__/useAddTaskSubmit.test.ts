@@ -279,6 +279,24 @@ describe('buildEngineOptions', () => {
     expect(opts['all-proxy']).toBeUndefined()
   })
 
+  it('inherits the app download proxy when manual task proxy has no custom address', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      proxyMode: 'manual',
+      customProxy: '',
+      appProxy: {
+        mode: 'manual',
+        enable: true,
+        server: 'http://127.0.0.1:7890',
+        bypass: 'localhost;127.*',
+        scope: ['download'],
+      },
+    })
+    expect(opts['proxy-mode']).toBe('manual')
+    expect(opts['all-proxy']).toBe('http://127.0.0.1:7890')
+    expect(opts['no-proxy']).toBe('localhost;127.*')
+  })
+
   it('does not send all-proxy when proxyMode is direct even with customProxy set', () => {
     const opts = buildEngineOptions({
       ...baseForm,
