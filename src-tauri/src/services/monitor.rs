@@ -138,21 +138,13 @@ impl TaskEvent {
 }
 
 fn is_metadata_task(task: &Aria2Task) -> bool {
-    if task
-        .bittorrent
-        .as_ref()
-        .and_then(|bt| bt.metadata.as_ref())
-        .and_then(|metadata| metadata.state.as_deref())
-        .is_some_and(|state| state == "downloading")
-    {
-        return true;
-    }
-
-    task.bittorrent
-        .as_ref()
-        .and_then(|bt| bt.metadata.as_ref())
-        .and_then(|metadata| metadata.has_metadata)
-        .is_some_and(|has_metadata| !has_metadata)
+    task.bittorrent.is_some()
+        && task
+            .bittorrent
+            .as_ref()
+            .and_then(|bt| bt.info.as_ref())
+            .is_none()
+        && task.following.is_none()
 }
 
 /// Builds the JSON `meta` field for a history record.
@@ -655,7 +647,7 @@ impl TaskMonitorState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aria2::types::{Aria2BtInfo, Aria2BtMetadata, Aria2BtName, Aria2File, Aria2FileUri};
+    use crate::aria2::types::{Aria2BtInfo, Aria2BtName, Aria2File, Aria2FileUri};
 
     fn make_task(gid: &str, status: &str) -> Aria2Task {
         Aria2Task {
@@ -663,7 +655,6 @@ mod tests {
             status: status.to_string(),
             total_length: "1024".to_string(),
             completed_length: "1024".to_string(),
-            in_flight_completed_length: None,
             upload_length: "0".to_string(),
             download_speed: "0".to_string(),
             upload_speed: "0".to_string(),
@@ -701,7 +692,6 @@ mod tests {
             info: Some(Aria2BtName {
                 name: "Ubuntu.iso".to_string(),
             }),
-            metadata: None,
             announce_list: Some(vec![vec!["udp://tracker.example.com:6969".to_string()]]),
             creation_date: None,
             comment: None,
@@ -727,7 +717,6 @@ mod tests {
             status: "active".to_string(),
             total_length: "2048".to_string(),
             completed_length: "2048".to_string(),
-            in_flight_completed_length: None,
             upload_length: "0".to_string(),
             download_speed: "0".to_string(),
             upload_speed: "0".to_string(),
@@ -755,7 +744,6 @@ mod tests {
                 info: Some(Aria2BtName {
                     name: "MyTorrent".to_string(),
                 }),
-                metadata: None,
                 announce_list: Some(vec![
                     vec!["udp://tracker1.example.com:6969".to_string()],
                     vec!["udp://tracker2.example.com:6969".to_string()],
@@ -791,14 +779,7 @@ mod tests {
     fn make_metadata_task(gid: &str) -> Aria2Task {
         let mut task = make_task(gid, "complete");
         task.bittorrent = Some(Aria2BtInfo {
-            info: Some(Aria2BtName {
-                name: "KNOPPIX_V9.1CD-2021-01-25-EN".to_string(),
-            }),
-            metadata: Some(Aria2BtMetadata {
-                state: Some("downloading".to_string()),
-                has_metadata: Some(false),
-                display_name: None,
-            }),
+            info: None,
             announce_list: None,
             creation_date: None,
             comment: None,

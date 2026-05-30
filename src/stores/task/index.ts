@@ -239,7 +239,7 @@ export const useTaskStore = defineStore('task', () => {
    *
    * The global `pause-metadata` setting (controlled by btAutoDownloadContent)
    * determines what happens after metadata resolves:
-   * - pause-metadata=true  → same-GID content task stays paused until selection
+   * - pause-metadata=true  → followedBy content task stays paused until selection
    * - pause-metadata=false → follow-up download starts immediately (no selection)
    *
    * Directly registers the GID for monitoring to avoid caller-chain breaks.

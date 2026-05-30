@@ -304,28 +304,18 @@ describe('buildBtCompletionRecord', () => {
 // ── isMetadataTask ───────────────────────────────────────────────────
 
 describe('isMetadataTask', () => {
-  it('recognizes aria2-next metadata downloading tasks', () => {
+  it('recognizes native aria2 metadata tasks', () => {
     const task = makeTask({
-      bittorrent: {
-        info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' },
-        metadata: {
-          state: 'downloading',
-          hasMetadata: false,
-        },
-      },
+      bittorrent: {},
     })
 
     expect(isMetadataTask(task)).toBe(true)
   })
 
-  it('returns false when aria2-next metadata is ready', () => {
+  it('returns false for resolved native aria2 content tasks', () => {
     const task = makeTask({
       bittorrent: {
         info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' },
-        metadata: {
-          state: 'ready',
-          hasMetadata: true,
-        },
       },
     })
 

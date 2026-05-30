@@ -67,13 +67,28 @@ export function shouldShowFileSelection(config: { pauseMetadata?: boolean | stri
 
 export function getPendingMagnetSelectionGids(tasks: Aria2Task[]): string[] {
   return tasks
-    .filter((task) => {
+    .map((task) => {
       if (!task.bittorrent || task.status !== 'paused') return false
-      if (task.bittorrent.metadata?.hasMetadata !== true) return false
       if (!task.bittorrent.info?.name) return false
-      return task.files.some((file) => Number(file.length) > 0)
+      if (!task.following) return false
+      if (!task.files.some((file) => Number(file.length) > 0)) return false
+      return task.following
     })
-    .map((task) => task.gid)
+    .filter((gid): gid is string => typeof gid === 'string' && gid.length > 0)
+}
+
+export interface MagnetSelectionResolution {
+  metadataGid: string
+  downloadGid: string
+}
+
+export function getResolvedMagnetSelection(task: Aria2Task): MagnetSelectionResolution | null {
+  const downloadGid = task.followedBy?.find((gid) => gid.trim().length > 0)
+  if (!downloadGid) return null
+  return {
+    metadataGid: task.gid,
+    downloadGid,
+  }
 }
 
 /** Actions needed to apply file selection to a download based on its current status. */

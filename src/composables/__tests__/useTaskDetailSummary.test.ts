@@ -79,7 +79,6 @@ describe('buildBtHealthSummary', () => {
       makeTask({
         bittorrent: {
           info: { name: 'Torrent' },
-          metadata: { state: 'ready', hasMetadata: true },
           announceList: [['udp://tracker.example:6969/announce'], ['https://tracker.example/announce']],
         },
         infoHash: 'abc123',
@@ -139,17 +138,16 @@ describe('buildBtHealthSummary', () => {
     expect(summary.selectedLength).toBe(100)
   })
 
-  it('normalizes unexpected BT metadata states to the i18n-backed unknown state', () => {
+  it('marks unresolved native aria2 metadata tasks as downloading', () => {
     const summary = buildBtHealthSummary(
       makeTask({
         bittorrent: {
-          metadata: { state: 'checking-dht', hasMetadata: false },
           announceList: [],
         },
       }),
     )
 
-    expect(summary.metadataState).toBe('unknown')
+    expect(summary.metadataState).toBe('downloading')
   })
 })
 

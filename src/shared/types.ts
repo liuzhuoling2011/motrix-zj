@@ -23,11 +23,6 @@ export interface Aria2File {
 /** BitTorrent metadata attached to a task when the download is a torrent. */
 export interface Aria2BtInfo {
   info?: { name: string }
-  metadata?: {
-    state?: 'downloading' | 'ready' | string
-    hasMetadata?: boolean
-    displayName?: string
-  }
   announceList?: string[][]
   creationDate?: number
   comment?: string
@@ -40,8 +35,6 @@ export interface Aria2Ed2kInfo {
   name?: string
   length?: string
   completedLength?: string
-  inFlightCompletedLength?: string
-  visibleCompletedLength?: string
   partHashCount?: string
   aichRoot?: string
   serverCount?: string
@@ -114,7 +107,6 @@ export interface Aria2Task {
   status: TaskStatus
   totalLength: string
   completedLength: string
-  inFlightCompletedLength?: string
   uploadLength: string
   downloadSpeed: string
   uploadSpeed: string

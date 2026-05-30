@@ -9,8 +9,8 @@
  *
  * All target options are confirmed mutable via `changeOption` in
  * `OptionHandlerFactory.cc` — each has `setChangeOptionForReserved(true)`:
- * - `proxy-mode` — direct / auto / manual
  * - `all-proxy` — HttpProxyOptionHandler, accepts HTTP proxy URLs
+ * - `no-proxy` — bypass list
  * - `user-agent` (L1223) — DefaultOptionHandler
  * - `referer` (L1185) — DefaultOptionHandler
  * - `header` (L1094) — CumulativeOptionHandler, accepts array input
@@ -26,12 +26,7 @@ import { sanitizeHeaderValue, sanitizeHttpHeaderOptions } from '@shared/utils/he
 import { TASK_STATUS } from '@shared/constants'
 import type { Aria2Task, Aria2EngineOptions, ProxyConfig } from '@shared/types'
 import { logger } from '@shared/logger'
-import {
-  buildTaskProxyOptions,
-  hasInvalidManualProxy,
-  normalizeProxyMode,
-  type TaskProxyMode,
-} from '@shared/utils/proxyPolicy'
+import { buildTaskProxyOptions, hasInvalidManualProxy, type TaskProxyMode } from '@shared/utils/proxyPolicy'
 
 // ── Constants ─────────────────────────────────────────────────────
 
@@ -128,10 +123,9 @@ function snapshotForm(source: TaskDetailOptionsForm, target: TaskDetailOptionsFo
 // ── Proxy detection ───────────────────────────────────────────────
 
 function detectProxyMode(opts: Record<string, string>): { mode: ProxyMode; custom: string } {
-  const mode = normalizeProxyMode(opts.proxyMode)
   const allProxy = (opts.allProxy as string) ?? ''
-  if (mode !== 'manual') return { mode, custom: '' }
-  return { mode: 'manual', custom: allProxy }
+  if (allProxy) return { mode: 'manual', custom: allProxy }
+  return { mode: 'direct', custom: '' }
 }
 
 // ── Options loader ────────────────────────────────────────────────

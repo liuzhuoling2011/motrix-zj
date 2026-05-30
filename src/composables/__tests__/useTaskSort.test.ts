@@ -210,18 +210,15 @@ describe('sortTasks', () => {
       expect(gids(tasks)).toEqual(['b', 'a'])
     })
 
-    it('uses ED2K visibleCompletedLength for sorting', () => {
+    it('uses aria2 completedLength for ED2K sorting', () => {
       const tasks = [
         mockTask('http', { totalLength: '1000', completedLength: '500' }),
         mockTask('ed2k', {
           status: 'active',
           totalLength: '1000',
-          completedLength: '0',
-          inFlightCompletedLength: '800',
+          completedLength: '800',
           ed2k: {
-            completedLength: '0',
-            inFlightCompletedLength: '800',
-            visibleCompletedLength: '800',
+            completedLength: '800',
           },
         }),
       ]

@@ -18,14 +18,8 @@ const parseLength = (value: string | number | undefined): number => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
 }
 
-export const getTaskVisibleCompletedLength = (task: Aria2Task): number => {
-  const verified = parseLength(task.completedLength)
-  if (!task.ed2k) return verified
-
-  const total = parseLength(task.totalLength)
-  const visible = parseLength(task.ed2k.visibleCompletedLength)
-
-  return total > 0 ? Math.min(visible, total) : visible
+export const getTaskCompletedLength = (task: Aria2Task): number => {
+  return parseLength(task.completedLength)
 }
 
 /** Calculates upload-to-download ratio for seeding tasks. */
@@ -74,8 +68,6 @@ export const getTaskName = (task: Aria2Task | null, options: { defaultName?: str
 
   if (bittorrent && bittorrent.info && bittorrent.info.name) {
     result = bittorrent.info.name
-  } else if (bittorrent?.metadata?.displayName) {
-    result = bittorrent.metadata.displayName
   } else if (files.length === 1) {
     const name = getFileNameFromFile(files[0])
     result = name || result
@@ -109,11 +101,11 @@ export const isMagnetTask = (task: Aria2Task): boolean => {
   return !!bittorrent && !bittorrent.info
 }
 
-/** Returns true when aria2-next reports a magnet task is still resolving torrent metadata. */
+/** Returns true when native aria2 is still resolving torrent metadata. */
 export const isBtMetadataTask = (task: Aria2Task): boolean => {
-  const metadata = task.bittorrent?.metadata
-  if (!metadata) return false
-  return metadata.state === 'downloading' || metadata.hasMetadata === false
+  if (!task.bittorrent) return false
+  if (task.bittorrent.info) return false
+  return !task.following
 }
 
 /** Returns true if the task is actively seeding (BT upload-only, must be running). */

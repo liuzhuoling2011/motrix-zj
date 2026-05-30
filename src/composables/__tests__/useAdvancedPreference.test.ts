@@ -293,7 +293,7 @@ describe('buildAdvancedSystemConfig', () => {
     expect(config['bt-tracker']).toBe('udp://t1.org:6969,udp://t2.org:6969')
   })
 
-  it('sets manual proxy mode when enabled for downloads', () => {
+  it('sets manual proxy options when enabled for downloads', () => {
     const proxyForm: AdvancedForm = {
       ...baseForm,
       proxy: {
@@ -305,30 +305,30 @@ describe('buildAdvancedSystemConfig', () => {
       },
     }
     const config = buildAdvancedSystemConfig(proxyForm)
-    expect(config['proxy-mode']).toBe('manual')
+    expect(config['proxy-mode']).toBeUndefined()
     expect(config['all-proxy']).toBe('http://proxy:8080')
     expect(config['no-proxy']).toBe('*.local')
   })
 
-  it('forces direct mode when download scope is excluded', () => {
+  it('clears proxy options when download scope is excluded', () => {
     const noProxyForm: AdvancedForm = {
       ...baseForm,
       proxy: { mode: 'manual', enable: true, server: 'http://proxy:8080', bypass: '*.local', scope: ['app'] },
     }
     const config = buildAdvancedSystemConfig(noProxyForm)
-    expect(config['proxy-mode']).toBe('direct')
-    expect(config['all-proxy']).toBeUndefined()
-    expect(config['no-proxy']).toBeUndefined()
+    expect(config['proxy-mode']).toBeUndefined()
+    expect(config['all-proxy']).toBe('')
+    expect(config['no-proxy']).toBe('')
   })
 
-  it('forces direct mode when proxy is direct', () => {
+  it('clears proxy options when proxy is direct', () => {
     const disabledForm: AdvancedForm = {
       ...baseForm,
       proxy: { mode: 'direct', enable: false, server: 'http://proxy:8080', bypass: '', scope: [PROXY_SCOPES.DOWNLOAD] },
     }
     const config = buildAdvancedSystemConfig(disabledForm)
-    expect(config['proxy-mode']).toBe('direct')
-    expect(config['all-proxy']).toBeUndefined()
+    expect(config['proxy-mode']).toBeUndefined()
+    expect(config['all-proxy']).toBe('')
   })
 })
 
@@ -713,12 +713,12 @@ describe('proxy configuration invariants', () => {
     // End-to-end: the exact user flow from issue #81.
     // 1. Fresh install → buildAdvancedForm({}) → form with default scope
     // 2. User selects manual mode and enters server
-    // 3. buildAdvancedSystemConfig → proxy-mode/manual plus all-proxy
+    // 3. buildAdvancedSystemConfig → standard aria2 all-proxy
     const { form } = buildAdvancedForm({} as AppConfig)
     form.proxy.mode = 'manual'
     form.proxy.server = 'http://127.0.0.1:7890'
     const systemConfig = buildAdvancedSystemConfig(form)
-    expect(systemConfig['proxy-mode']).toBe('manual')
+    expect(systemConfig['proxy-mode']).toBeUndefined()
     expect(systemConfig['all-proxy']).toBe('http://127.0.0.1:7890')
     expect(systemConfig['no-proxy']).toBeUndefined()
   })
@@ -765,9 +765,9 @@ describe('proxy configuration invariants', () => {
       fileAllocation: 'prealloc',
     }
     const systemConfig = buildAdvancedSystemConfig(form)
-    expect(systemConfig['proxy-mode']).toBe('direct')
-    expect(systemConfig['all-proxy']).toBeUndefined()
-    expect(systemConfig['no-proxy']).toBeUndefined()
+    expect(systemConfig['proxy-mode']).toBeUndefined()
+    expect(systemConfig['all-proxy']).toBe('')
+    expect(systemConfig['no-proxy']).toBe('')
   })
 
   it('proxy with download scope excluded emits direct mode', () => {
@@ -812,8 +812,8 @@ describe('proxy configuration invariants', () => {
       fileAllocation: 'prealloc',
     }
     const systemConfig = buildAdvancedSystemConfig(form)
-    expect(systemConfig['proxy-mode']).toBe('direct')
-    expect(systemConfig['all-proxy']).toBeUndefined()
+    expect(systemConfig['proxy-mode']).toBeUndefined()
+    expect(systemConfig['all-proxy']).toBe('')
   })
 
   it('proxy bypass value is forwarded to no-proxy when download scope active', () => {
@@ -858,7 +858,7 @@ describe('proxy configuration invariants', () => {
       fileAllocation: 'prealloc',
     }
     const systemConfig = buildAdvancedSystemConfig(form)
-    expect(systemConfig['proxy-mode']).toBe('manual')
+    expect(systemConfig['proxy-mode']).toBeUndefined()
     expect(systemConfig['all-proxy']).toBe('http://proxy:8080')
     expect(systemConfig['no-proxy']).toBe('192.168.0.0/16,*.local')
   })

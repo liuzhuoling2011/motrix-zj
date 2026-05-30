@@ -72,9 +72,9 @@ function hasSpeed(value: string | undefined): boolean {
   return toPositiveInt(value) > 0
 }
 
-function normalizeBtMetadataState(state: string | undefined, hasMetadata: boolean): BtMetadataState {
-  if (hasMetadata || state === 'ready') return 'ready'
-  if (state === 'downloading') return 'downloading'
+function normalizeBtMetadataState(task: Aria2Task | null | undefined, hasMetadata: boolean): BtMetadataState {
+  if (hasMetadata) return 'ready'
+  if (task?.bittorrent && !task.following) return 'downloading'
   return 'unknown'
 }
 
@@ -96,11 +96,10 @@ export function buildBtHealthSummary(task: Aria2Task | null | undefined): BtHeal
   const selected = selectedFiles(files)
   const trackers = task?.bittorrent?.announceList?.flat() ?? []
   const peers = task?.peers ?? []
-  const metadata = task?.bittorrent?.metadata
-  const hasMetadata = metadata?.hasMetadata ?? Boolean(task?.bittorrent?.info)
+  const hasMetadata = Boolean(task?.bittorrent?.info)
 
   return {
-    metadataState: normalizeBtMetadataState(metadata?.state, hasMetadata),
+    metadataState: normalizeBtMetadataState(task, hasMetadata),
     hasMetadata,
     trackerCount: trackers.length,
     unprobeableTrackerCount: trackers.filter(isUnprobeableTracker).length,

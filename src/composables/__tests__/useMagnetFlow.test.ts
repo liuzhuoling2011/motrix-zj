@@ -17,6 +17,8 @@ const {
   parseFilesForSelection,
   shouldShowFileSelection,
   buildStatusAwareConfirmAction,
+  getResolvedMagnetSelection,
+  getPendingMagnetSelectionGids,
 } = await import('@/composables/useMagnetFlow')
 
 describe('useMagnetFlow', () => {
@@ -216,6 +218,85 @@ describe('useMagnetFlow', () => {
     it('returns resume-only for undefined status (safe fallback)', () => {
       const action = buildStatusAwareConfirmAction(undefined)
       expect(action).toEqual({ needsResume: true })
+    })
+  })
+
+  describe('getResolvedMagnetSelection', () => {
+    it('returns the followedBy content task when native aria2 metadata resolves', () => {
+      const result = getResolvedMagnetSelection({
+        gid: 'metadata-gid',
+        status: 'complete',
+        totalLength: '0',
+        completedLength: '0',
+        uploadLength: '0',
+        downloadSpeed: '0',
+        uploadSpeed: '0',
+        connections: '0',
+        dir: '/downloads',
+        files: [],
+        bittorrent: {
+          announceList: [['udp://tracker.example:6969']],
+        },
+        followedBy: ['content-gid'],
+      })
+
+      expect(result).toEqual({ metadataGid: 'metadata-gid', downloadGid: 'content-gid' })
+    })
+
+    it('returns null while metadata has not produced a content task', () => {
+      const result = getResolvedMagnetSelection({
+        gid: 'metadata-gid',
+        status: 'active',
+        totalLength: '0',
+        completedLength: '0',
+        uploadLength: '0',
+        downloadSpeed: '0',
+        uploadSpeed: '0',
+        connections: '1',
+        dir: '/downloads',
+        files: [],
+        bittorrent: {
+          announceList: [['udp://tracker.example:6969']],
+        },
+      })
+
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('getPendingMagnetSelectionGids', () => {
+    it('restores native aria2 metadata parent GIDs from paused content tasks', () => {
+      const gids = getPendingMagnetSelectionGids([
+        {
+          gid: 'content-gid',
+          status: 'paused',
+          totalLength: '1000',
+          completedLength: '0',
+          uploadLength: '0',
+          downloadSpeed: '0',
+          uploadSpeed: '0',
+          connections: '0',
+          dir: '/downloads',
+          files: [
+            {
+              index: '1',
+              path: '/downloads/Movie/video.mkv',
+              length: '1000',
+              completedLength: '0',
+              selected: 'true',
+              uris: [],
+            },
+          ],
+          bittorrent: {
+            info: {
+              name: 'Movie',
+            },
+          },
+          following: 'metadata-gid',
+        },
+      ])
+
+      expect(gids).toEqual(['metadata-gid'])
     })
   })
 })

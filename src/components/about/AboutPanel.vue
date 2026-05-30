@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { NModal, NIcon } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
 import { LogoGithub, HeartOutline, DocumentTextOutline, RocketOutline } from '@vicons/ionicons5'
-import { open } from '@tauri-apps/plugin-shell'
+import { openUrl as openExternalUrl } from '@tauri-apps/plugin-opener'
 import { getVersion } from '@tauri-apps/api/app'
 import { getVersion as getAria2Version } from '@/api/aria2'
 import { useAppMessage } from '@/composables/useAppMessage'
@@ -118,7 +118,7 @@ async function copyToClipboard(text: string, label: string) {
 }
 
 function openUrl(url: string) {
-  open(url)
+  openExternalUrl(url)
 }
 </script>
 

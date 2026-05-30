@@ -7,7 +7,6 @@ pub(crate) const SUPPORTED_ENGINE_KEYS: &[&str] = &[
     "all-proxy-passwd",
     "all-proxy-user",
     "all-proxy",
-    "proxy-mode",
     "allow-overwrite",
     "allow-piece-length-change",
     "always-resume",
@@ -127,14 +126,9 @@ pub(crate) fn build_start_args(
         args.push(format!("--input-file={}", session_path));
     }
 
-    args.push(format!("--log-file={log_file_path}"));
+    args.push(format!("--log={log_file_path}"));
     args.push(format!("--log-level={log_level}"));
     args.push("--quiet=true".to_string());
-    args.push("--log-max-size=10M".to_string());
-    args.push("--log-max-files=2".to_string());
-    // Manual remote .torrent URLs are ordinary file downloads in Motrix.
-    // Keep aria2-next from auto-following them into BT tasks.
-    args.push("--torrent-metadata=save".to_string());
 
     // Check keep-seeding flag (app-level logic, not an engine option).
     // Frontend sends String("true"/"false"), so handle both Bool and String
@@ -154,14 +148,7 @@ pub(crate) fn build_start_args(
                 continue;
             }
 
-            if key == "torrent-metadata" {
-                continue;
-            }
-
-            if matches!(
-                key.as_str(),
-                "log-file" | "log-level" | "log-max-size" | "log-max-files"
-            ) {
+            if matches!(key.as_str(), "log" | "log-file" | "log-level") {
                 continue;
             }
 
@@ -234,7 +221,7 @@ mod tests {
     }
 
     #[test]
-    fn build_args_injects_managed_new_engine_logging_options() {
+    fn build_args_injects_managed_engine_logging_options() {
         let args = build_start_args(
             &json!({}),
             Some("/etc/aria2.conf"),
@@ -244,11 +231,12 @@ mod tests {
             "info",
         );
 
-        assert!(args.iter().any(|a| a == "--log-file=/tmp/aria2-next.log"));
+        assert!(args.iter().any(|a| a == "--log=/tmp/aria2-next.log"));
         assert!(args.iter().any(|a| a == "--log-level=info"));
         assert!(args.iter().any(|a| a == "--quiet=true"));
-        assert!(args.iter().any(|a| a == "--log-max-size=10M"));
-        assert!(args.iter().any(|a| a == "--log-max-files=2"));
+        assert!(!args.iter().any(|a| a.starts_with("--log-file=")));
+        assert!(!args.iter().any(|a| a.starts_with("--log-max-size=")));
+        assert!(!args.iter().any(|a| a.starts_with("--log-max-files=")));
         assert!(!args.iter().any(|a| a.starts_with("--console-level=")));
     }
 
@@ -268,10 +256,11 @@ mod tests {
             "debug",
         );
 
-        assert!(args.iter().any(|a| a == "--log-file=/tmp/managed.log"));
+        assert!(args.iter().any(|a| a == "--log=/tmp/managed.log"));
         assert!(args.iter().any(|a| a == "--log-level=debug"));
         assert!(args.iter().any(|a| a == "--quiet=true"));
         assert!(!args.iter().any(|a| a == "--log-file=/tmp/user.log"));
+        assert!(!args.iter().any(|a| a == "--log=/tmp/user.log"));
         assert!(!args.iter().any(|a| a == "--log-level=error"));
         assert!(!args.iter().any(|a| a == "--log-max-size=1M"));
         assert!(!args.iter().any(|a| a == "--log-max-files=1"));
@@ -289,16 +278,17 @@ mod tests {
             "warn",
         );
 
-        assert!(args.iter().any(|a| a == "--log-file=/tmp/aria2-next.log"));
+        assert!(args.iter().any(|a| a == "--log=/tmp/aria2-next.log"));
         assert!(args.iter().any(|a| a == "--log-level=warn"));
         assert!(args.iter().any(|a| a == "--quiet=true"));
-        assert!(args.iter().any(|a| a == "--log-max-size=10M"));
-        assert!(args.iter().any(|a| a == "--log-max-files=2"));
+        assert!(!args.iter().any(|a| a.starts_with("--log-file=")));
+        assert!(!args.iter().any(|a| a.starts_with("--log-max-size=")));
+        assert!(!args.iter().any(|a| a.starts_with("--log-max-files=")));
         assert!(!args.iter().any(|a| a.starts_with("--console-level=")));
     }
 
     #[test]
-    fn build_args_forces_remote_torrent_urls_to_save_mode() {
+    fn build_args_does_not_emit_removed_torrent_metadata_option() {
         let args = build_start_args(
             &json!({
                 "torrent-metadata": "start"
@@ -310,8 +300,27 @@ mod tests {
             "debug",
         );
 
-        assert!(args.iter().any(|a| a == "--torrent-metadata=save"));
-        assert!(!args.iter().any(|a| a == "--torrent-metadata=start"));
+        assert!(!args.iter().any(|a| a.starts_with("--torrent-metadata=")));
+    }
+
+    #[test]
+    fn build_args_does_not_emit_removed_proxy_mode_option() {
+        let args = build_start_args(
+            &json!({
+                "proxy-mode": "manual",
+                "all-proxy": "http://127.0.0.1:7890"
+            }),
+            None,
+            "/tmp/s.session",
+            false,
+            "/tmp/aria2-next.log",
+            "debug",
+        );
+
+        assert!(!args.iter().any(|a| a.starts_with("--proxy-mode=")));
+        assert!(args
+            .iter()
+            .any(|a| a == "--all-proxy=http://127.0.0.1:7890"));
     }
 
     #[test]

@@ -83,7 +83,6 @@ const systemKeys = [
   'all-proxy-passwd',
   'all-proxy-user',
   'all-proxy',
-  'proxy-mode',
   'allow-overwrite',
   'allow-piece-length-change',
   'always-resume',

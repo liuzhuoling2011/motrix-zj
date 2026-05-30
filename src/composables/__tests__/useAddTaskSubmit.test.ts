@@ -246,17 +246,17 @@ describe('buildEngineOptions', () => {
       ...baseForm,
       proxyMode: 'direct',
     })
-    expect(opts['proxy-mode']).toBe('direct')
-    expect(opts['all-proxy']).toBeUndefined()
+    expect(opts['proxy-mode']).toBeUndefined()
+    expect(opts['all-proxy']).toBe('')
   })
 
-  it('uses auto mode without proxy options when proxyMode is auto', () => {
+  it('clears proxy options when proxyMode is auto', () => {
     const opts = buildEngineOptions({
       ...baseForm,
       proxyMode: 'auto',
     })
-    expect(opts['proxy-mode']).toBe('auto')
-    expect(opts['all-proxy']).toBeUndefined()
+    expect(opts['proxy-mode']).toBeUndefined()
+    expect(opts['all-proxy']).toBe('')
   })
 
   it('sets manual proxy options when proxyMode is manual with valid address', () => {
@@ -265,7 +265,7 @@ describe('buildEngineOptions', () => {
       proxyMode: 'manual',
       customProxy: 'http://10.0.0.1:8080',
     })
-    expect(opts['proxy-mode']).toBe('manual')
+    expect(opts['proxy-mode']).toBeUndefined()
     expect(opts['all-proxy']).toBe('http://10.0.0.1:8080')
   })
 
@@ -275,8 +275,8 @@ describe('buildEngineOptions', () => {
       proxyMode: 'manual',
       customProxy: '',
     })
-    expect(opts['proxy-mode']).toBe('direct')
-    expect(opts['all-proxy']).toBeUndefined()
+    expect(opts['proxy-mode']).toBeUndefined()
+    expect(opts['all-proxy']).toBe('')
   })
 
   it('inherits the app download proxy when manual task proxy has no custom address', () => {
@@ -292,7 +292,7 @@ describe('buildEngineOptions', () => {
         scope: ['download'],
       },
     })
-    expect(opts['proxy-mode']).toBe('manual')
+    expect(opts['proxy-mode']).toBeUndefined()
     expect(opts['all-proxy']).toBe('http://127.0.0.1:7890')
     expect(opts['no-proxy']).toBe('localhost;127.*')
   })
@@ -303,8 +303,8 @@ describe('buildEngineOptions', () => {
       proxyMode: 'direct',
       customProxy: 'http://10.0.0.1:8080',
     })
-    expect(opts['proxy-mode']).toBe('direct')
-    expect(opts['all-proxy']).toBeUndefined()
+    expect(opts['proxy-mode']).toBeUndefined()
+    expect(opts['all-proxy']).toBe('')
   })
 
   it('handles proxy server with authentication credentials', () => {

@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   calcProgress,
   calcRatio,
-  getTaskVisibleCompletedLength,
+  getTaskCompletedLength,
   getTaskName,
   isMagnetTask,
   isBtMetadataTask,
@@ -98,50 +98,16 @@ describe('calcRatio', () => {
   })
 })
 
-describe('getTaskVisibleCompletedLength', () => {
-  it('uses ED2K visibleCompletedLength for display progress', () => {
+describe('getTaskCompletedLength', () => {
+  it('uses aria2 completedLength for display progress', () => {
     const task = createMockTask({
       status: 'paused',
       totalLength: '1000',
-      completedLength: '0',
-      inFlightCompletedLength: '250',
-      ed2k: {
-        completedLength: '300',
-        inFlightCompletedLength: '700',
-        visibleCompletedLength: '800',
-      },
+      completedLength: '300',
+      ed2k: { completedLength: '300' },
     })
 
-    expect(getTaskVisibleCompletedLength(task)).toBe(800)
-  })
-
-  it('clamps ED2K visibleCompletedLength to total length', () => {
-    const task = createMockTask({
-      status: 'active',
-      totalLength: '1000',
-      completedLength: '0',
-      ed2k: {
-        visibleCompletedLength: '2000',
-      },
-    })
-
-    expect(getTaskVisibleCompletedLength(task)).toBe(1000)
-  })
-
-  it('uses ED2K visibleCompletedLength for stopped states', () => {
-    const task = createMockTask({
-      status: 'complete',
-      totalLength: '1000',
-      completedLength: '1000',
-      inFlightCompletedLength: '300',
-      ed2k: {
-        completedLength: '400',
-        inFlightCompletedLength: '500',
-        visibleCompletedLength: '1000',
-      },
-    })
-
-    expect(getTaskVisibleCompletedLength(task)).toBe(1000)
+    expect(getTaskCompletedLength(task)).toBe(300)
   })
 
   it('keeps normal HTTP and BT task progress unchanged', () => {
@@ -149,18 +115,16 @@ describe('getTaskVisibleCompletedLength', () => {
       status: 'active',
       totalLength: '1000',
       completedLength: '200',
-      inFlightCompletedLength: '900',
     })
     const btTask = createMockTask({
       status: 'active',
       totalLength: '1000',
       completedLength: '300',
-      inFlightCompletedLength: '900',
       bittorrent: { info: { name: 'sample.iso' } },
     })
 
-    expect(getTaskVisibleCompletedLength(httpTask)).toBe(200)
-    expect(getTaskVisibleCompletedLength(btTask)).toBe(300)
+    expect(getTaskCompletedLength(httpTask)).toBe(200)
+    expect(getTaskCompletedLength(btTask)).toBe(300)
   })
 })
 
@@ -341,14 +305,6 @@ describe('getTaskDisplayName', () => {
     expect(getTaskDisplayName(task)).toBe('Ubuntu 24.04')
   })
 
-  it('uses BitTorrent metadata display name while magnet metadata is downloading', () => {
-    const task = createMockTask({
-      files: [createMockFile({ path: '/downloads/magnet' })],
-      bittorrent: { metadata: { state: 'downloading', hasMetadata: false, displayName: 'Display Name' } },
-    })
-    expect(getTaskDisplayName(task)).toBe('Display Name')
-  })
-
   it('returns original name for malformed percent sequence', () => {
     const task = createMockTask({
       files: [createMockFile({ path: '/downloads/bad%ZZname.txt' })],
@@ -396,34 +352,28 @@ describe('isMagnetTask', () => {
 })
 
 describe('isBtMetadataTask', () => {
-  it('returns true when aria2-next reports BitTorrent metadata is downloading', () => {
+  it('returns true for native aria2 metadata task without torrent info', () => {
     const task = createMockTask({
-      bittorrent: {
-        info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' },
-        metadata: { state: 'downloading', hasMetadata: false },
-      },
-      files: [createMockFile({ path: '/downloads/KNOPPIX_V9.1CD-2021-01-25-EN.iso' })],
+      bittorrent: {},
+      files: [],
     })
 
     expect(isBtMetadataTask(task)).toBe(true)
   })
 
-  it('returns true when aria2-next reports BitTorrent metadata is missing', () => {
+  it('returns false for native aria2 content task with following parent', () => {
     const task = createMockTask({
-      bittorrent: {
-        info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' },
-        metadata: { state: 'ready', hasMetadata: false },
-      },
+      bittorrent: {},
+      following: 'metadata-gid',
     })
 
-    expect(isBtMetadataTask(task)).toBe(true)
+    expect(isBtMetadataTask(task)).toBe(false)
   })
 
-  it('returns false when aria2-next reports BitTorrent metadata is ready', () => {
+  it('returns false for resolved BitTorrent content task', () => {
     const task = createMockTask({
       bittorrent: {
         info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' },
-        metadata: { state: 'ready', hasMetadata: true },
       },
       files: [createMockFile({ path: '/downloads/KNOPPIX.iso' })],
     })

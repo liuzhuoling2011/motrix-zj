@@ -311,7 +311,7 @@ describe('buildNetworkSystemConfig', () => {
 
   // ── Proxy flow ──────────────────────────────────────────────────
 
-  it('sets manual proxy mode when enabled for downloads', () => {
+  it('sets manual proxy options when enabled for downloads', () => {
     const config = buildNetworkSystemConfig({
       ...baseForm,
       proxy: {
@@ -322,28 +322,28 @@ describe('buildNetworkSystemConfig', () => {
         scope: [PROXY_SCOPES.DOWNLOAD],
       },
     })
-    expect(config['proxy-mode']).toBe('manual')
+    expect(config['proxy-mode']).toBeUndefined()
     expect(config['all-proxy']).toBe('http://proxy:8080')
     expect(config['no-proxy']).toBe('*.local')
   })
 
-  it('forces direct mode when download scope is excluded', () => {
+  it('clears proxy options when download scope is excluded', () => {
     const config = buildNetworkSystemConfig({
       ...baseForm,
       proxy: { mode: 'manual', enable: true, server: 'http://proxy:8080', bypass: '*.local', scope: ['app'] },
     })
-    expect(config['proxy-mode']).toBe('direct')
-    expect(config['all-proxy']).toBeUndefined()
-    expect(config['no-proxy']).toBeUndefined()
+    expect(config['proxy-mode']).toBeUndefined()
+    expect(config['all-proxy']).toBe('')
+    expect(config['no-proxy']).toBe('')
   })
 
-  it('forces direct mode when proxy is direct', () => {
+  it('clears proxy options when proxy is direct', () => {
     const config = buildNetworkSystemConfig({
       ...baseForm,
       proxy: { mode: 'direct', enable: false, server: 'http://proxy:8080', bypass: '', scope: [PROXY_SCOPES.DOWNLOAD] },
     })
-    expect(config['proxy-mode']).toBe('direct')
-    expect(config['all-proxy']).toBeUndefined()
+    expect(config['proxy-mode']).toBeUndefined()
+    expect(config['all-proxy']).toBe('')
   })
 
   it('manual mode with default scope produces non-empty all-proxy', () => {
@@ -351,12 +351,12 @@ describe('buildNetworkSystemConfig', () => {
     form.proxy.mode = 'manual'
     form.proxy.server = 'http://127.0.0.1:7890'
     const config = buildNetworkSystemConfig(form)
-    expect(config['proxy-mode']).toBe('manual')
+    expect(config['proxy-mode']).toBeUndefined()
     expect(config['all-proxy']).toBe('http://127.0.0.1:7890')
     expect(config['no-proxy']).toBeUndefined()
   })
 
-  it('auto mode emits only proxy-mode', () => {
+  it('auto mode clears proxy options until a concrete proxy is resolved', () => {
     const config = buildNetworkSystemConfig({
       ...baseForm,
       proxy: {
@@ -367,8 +367,8 @@ describe('buildNetworkSystemConfig', () => {
         scope: [PROXY_SCOPES.DOWNLOAD],
       },
     })
-    expect(config['proxy-mode']).toBe('auto')
-    expect(config['all-proxy']).toBeUndefined()
+    expect(config['proxy-mode']).toBeUndefined()
+    expect(config['all-proxy']).toBe('')
   })
 
   it('proxy bypass value is forwarded to no-proxy when download scope active', () => {

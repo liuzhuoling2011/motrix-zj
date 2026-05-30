@@ -24,6 +24,8 @@ describe('tauri security config', () => {
     const capability = readJson(DEFAULT_CAPABILITY_PATH) as { permissions?: unknown[] }
 
     expect(capability.permissions).not.toContain('shell:allow-execute')
+    expect(capability.permissions).not.toContain('shell:default')
+    expect(capability.permissions).not.toContain('shell:allow-open')
   })
 
   it('does not grant wildcard filesystem or opener scopes', () => {

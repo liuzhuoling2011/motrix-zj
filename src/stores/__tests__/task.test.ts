@@ -308,14 +308,12 @@ describe('TaskStore', () => {
       expect(gids).toEqual(['fresh', 'old'])
     })
 
-    it('filters out completed aria2-next metadata tasks from the stopped source', async () => {
+    it('filters out completed native aria2 metadata tasks from the stopped source', async () => {
       await store.changeCurrentList('all')
 
       const completedMeta = makeMockTask('meta1', 'complete', {
-        bittorrent: {
-          info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' },
-          metadata: { state: 'downloading', hasMetadata: false },
-        },
+        bittorrent: {},
+        followedBy: ['real-gid'],
       })
       const realTask = makeMockTask('real-gid', 'active')
 
@@ -328,14 +326,11 @@ describe('TaskStore', () => {
       expect(store.taskList[0].gid).toBe('real-gid')
     })
 
-    it('keeps actively-downloading aria2-next metadata tasks visible', async () => {
+    it('keeps actively-downloading native aria2 metadata tasks visible', async () => {
       await store.changeCurrentList('all')
 
       const activeMeta = makeMockTask('meta-active', 'active', {
-        bittorrent: {
-          info: { name: 'KNOPPIX_V9.1CD-2021-01-25-EN' },
-          metadata: { state: 'downloading', hasMetadata: false },
-        },
+        bittorrent: {},
       })
 
       mockApi.fetchTaskList.mockResolvedValueOnce([activeMeta]).mockResolvedValueOnce([]) // stopped

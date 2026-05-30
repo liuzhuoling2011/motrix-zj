@@ -24,17 +24,26 @@ function hasDownloadScope(proxy: Pick<ProxyConfig, 'scope'>): boolean {
   return Array.isArray(proxy.scope) && proxy.scope.includes(PROXY_SCOPES.DOWNLOAD)
 }
 
+function clearProxyOptions(): Aria2EngineOptions {
+  return {
+    'all-proxy': '',
+    'http-proxy': '',
+    'https-proxy': '',
+    'ftp-proxy': '',
+    'no-proxy': '',
+  }
+}
+
 export function buildDownloadProxyOptions(proxy: ProxyConfig): Aria2EngineOptions {
-  if (!hasDownloadScope(proxy)) return { 'proxy-mode': 'direct' }
+  if (!hasDownloadScope(proxy)) return clearProxyOptions()
 
   const mode = normalizeProxyMode(proxy.mode)
-  if (mode !== 'manual') return { 'proxy-mode': mode }
+  if (mode !== 'manual') return clearProxyOptions()
 
   const server = proxy.server.trim()
-  if (!server) return { 'proxy-mode': 'direct' }
+  if (!server) return clearProxyOptions()
 
   const options: Aria2EngineOptions = {
-    'proxy-mode': 'manual',
     'all-proxy': server,
   }
   if (proxy.bypass?.trim()) options['no-proxy'] = proxy.bypass.trim()
@@ -46,13 +55,12 @@ export function buildTaskProxyOptions(
   customProxy: string,
   appProxy?: ProxyConfig,
 ): Aria2EngineOptions {
-  if (mode !== 'manual') return { 'proxy-mode': mode }
+  if (mode !== 'manual') return clearProxyOptions()
 
   const server = customProxy.trim() || (appProxy ? getDownloadProxy(appProxy)?.trim() : '') || ''
-  if (!server) return { 'proxy-mode': 'direct' }
+  if (!server) return clearProxyOptions()
 
   const options: Aria2EngineOptions = {
-    'proxy-mode': 'manual',
     'all-proxy': server,
   }
 

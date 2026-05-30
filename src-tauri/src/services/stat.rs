@@ -64,20 +64,8 @@ fn parse_length(value: Option<&str>) -> u64 {
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows", test))]
-fn visible_completed_length(task: &crate::aria2::types::Aria2Task) -> u64 {
-    let verified = parse_length(Some(&task.completed_length));
-    let Some(ed2k) = &task.ed2k else {
-        return verified;
-    };
-
-    let total = parse_length(Some(&task.total_length));
-    let visible = parse_length(ed2k.visible_completed_length.as_deref());
-
-    if total > 0 {
-        visible.min(total)
-    } else {
-        visible
-    }
+fn completed_length(task: &crate::aria2::types::Aria2Task) -> u64 {
+    parse_length(Some(&task.completed_length))
 }
 
 /// Sets the macOS Dock badge label using `NSApp().dockTile().setBadgeLabel()`.
@@ -547,7 +535,7 @@ async fn stat_loop(
                                 .iter()
                                 .filter_map(|t| t.total_length.parse::<u64>().ok())
                                 .sum();
-                            let completed: u64 = tasks.iter().map(visible_completed_length).sum();
+                            let completed: u64 = tasks.iter().map(completed_length).sum();
                             let pct = if total > 0 {
                                 Some((completed as f64 / total as f64 * 100.0) as u64)
                             } else {
@@ -578,7 +566,7 @@ async fn stat_loop(
                                 .iter()
                                 .filter_map(|t| t.total_length.parse::<u64>().ok())
                                 .sum();
-                            let completed: u64 = tasks.iter().map(visible_completed_length).sum();
+                            let completed: u64 = tasks.iter().map(completed_length).sum();
                             let progress = if total > 0 {
                                 completed as f64 / total as f64
                             } else {
@@ -719,7 +707,6 @@ mod tests {
             status: status.to_string(),
             total_length: "1024".to_string(),
             completed_length: "1024".to_string(),
-            in_flight_completed_length: None,
             upload_length: "0".to_string(),
             download_speed: "0".to_string(),
             upload_speed: "0".to_string(),
@@ -784,91 +771,12 @@ mod tests {
     }
 
     #[test]
-    fn visible_completed_length_uses_ed2k_visible_length() {
-        use crate::aria2::types::Aria2Ed2kInfo;
-
+    fn completed_length_uses_aria2_completed_length() {
         let mut task = make_task("ed2k", "active");
         task.total_length = "1000".to_string();
-        task.completed_length = "0".to_string();
-        task.in_flight_completed_length = Some("250".to_string());
-        task.ed2k = Some(Aria2Ed2kInfo {
-            hash: None,
-            name: None,
-            length: None,
-            completed_length: Some("300".to_string()),
-            in_flight_completed_length: Some("700".to_string()),
-            visible_completed_length: Some("800".to_string()),
-            part_hash_count: None,
-            aich_root: None,
-            server_count: None,
-            connected_server_count: None,
-            peer_count: None,
-            queued_peer_count: None,
-            accepted_peer_count: None,
-            dead_peer_count: None,
-            kad_node_count: None,
-            kad_router_count: None,
-            kad_firewalled: None,
-            kad_observed_address_count: None,
-            search_active: None,
-            search_more_results: None,
-            search_result_count: None,
-            shared_file_count: None,
-            uploading_peer_count: None,
-            waiting_upload_peer_count: None,
-            peer_credit_count: None,
-        });
-
-        assert_eq!(visible_completed_length(&task), 800);
-    }
-
-    #[test]
-    fn visible_completed_length_uses_ed2k_visible_length_for_stopped_tasks() {
-        use crate::aria2::types::Aria2Ed2kInfo;
-
-        let mut task = make_task("ed2k", "complete");
-        task.total_length = "1000".to_string();
-        task.completed_length = "1000".to_string();
-        task.in_flight_completed_length = Some("250".to_string());
-        task.ed2k = Some(Aria2Ed2kInfo {
-            hash: None,
-            name: None,
-            length: None,
-            completed_length: Some("300".to_string()),
-            in_flight_completed_length: Some("700".to_string()),
-            visible_completed_length: Some("1000".to_string()),
-            part_hash_count: None,
-            aich_root: None,
-            server_count: None,
-            connected_server_count: None,
-            peer_count: None,
-            queued_peer_count: None,
-            accepted_peer_count: None,
-            dead_peer_count: None,
-            kad_node_count: None,
-            kad_router_count: None,
-            kad_firewalled: None,
-            kad_observed_address_count: None,
-            search_active: None,
-            search_more_results: None,
-            search_result_count: None,
-            shared_file_count: None,
-            uploading_peer_count: None,
-            waiting_upload_peer_count: None,
-            peer_credit_count: None,
-        });
-
-        assert_eq!(visible_completed_length(&task), 1000);
-    }
-
-    #[test]
-    fn visible_completed_length_keeps_non_ed2k_progress_verified() {
-        let mut task = make_task("http", "active");
-        task.total_length = "1000".to_string();
         task.completed_length = "200".to_string();
-        task.in_flight_completed_length = Some("900".to_string());
 
-        assert_eq!(visible_completed_length(&task), 200);
+        assert_eq!(completed_length(&task), 200);
     }
 
     // ── power guard integration ─────────────────────────────────────

@@ -31,8 +31,6 @@ pub struct Aria2File {
 pub struct Aria2BtInfo {
     #[serde(default)]
     pub info: Option<Aria2BtName>,
-    #[serde(default)]
-    pub metadata: Option<Aria2BtMetadata>,
     #[serde(default, rename = "announceList")]
     pub announce_list: Option<Vec<Vec<String>>>,
     #[serde(default, rename = "creationDate")]
@@ -41,18 +39,6 @@ pub struct Aria2BtInfo {
     pub comment: Option<String>,
     #[serde(default)]
     pub mode: Option<String>,
-}
-
-/// libtorrent metadata phase exposed by aria2-next.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Aria2BtMetadata {
-    #[serde(default)]
-    pub state: Option<String>,
-    #[serde(default)]
-    pub has_metadata: Option<bool>,
-    #[serde(default)]
-    pub display_name: Option<String>,
 }
 
 /// Name sub-object within `Aria2BtInfo.info`.
@@ -89,10 +75,6 @@ pub struct Aria2Ed2kInfo {
     pub length: Option<String>,
     #[serde(default)]
     pub completed_length: Option<String>,
-    #[serde(default)]
-    pub in_flight_completed_length: Option<String>,
-    #[serde(default)]
-    pub visible_completed_length: Option<String>,
     #[serde(default)]
     pub part_hash_count: Option<String>,
     #[serde(default)]
@@ -144,8 +126,6 @@ pub struct Aria2Task {
     pub status: String,
     pub total_length: String,
     pub completed_length: String,
-    #[serde(default)]
-    pub in_flight_completed_length: Option<String>,
     pub upload_length: String,
     pub download_speed: String,
     pub upload_speed: String,
@@ -265,12 +245,7 @@ mod tests {
             "dir": "/downloads",
             "bittorrent": {
                 "info": { "name": "test.torrent" },
-                "mode": "multi",
-                "metadata": {
-                    "state": "downloading",
-                    "hasMetadata": false,
-                    "displayName": "Display Name"
-                }
+                "mode": "multi"
             },
             "infoHash": "abc123def456",
             "seeder": "true",
@@ -280,23 +255,18 @@ mod tests {
         let bt = task.bittorrent.as_ref().unwrap();
         assert_eq!(bt.info.as_ref().unwrap().name, "test.torrent");
         assert_eq!(bt.mode.as_deref(), Some("multi"));
-        let metadata = bt.metadata.as_ref().unwrap();
-        assert_eq!(metadata.state.as_deref(), Some("downloading"));
-        assert_eq!(metadata.has_metadata, Some(false));
-        assert_eq!(metadata.display_name.as_deref(), Some("Display Name"));
         assert_eq!(task.info_hash.as_deref(), Some("abc123def456"));
         assert_eq!(task.seeder.as_deref(), Some("true"));
         assert_eq!(task.num_seeders.as_deref(), Some("5"));
     }
 
     #[test]
-    fn deserialize_ed2k_task_with_visible_progress_fields() {
+    fn deserialize_ed2k_task() {
         let json = serde_json::json!({
             "gid": "ed2k001",
             "status": "active",
             "totalLength": "3389035",
             "completedLength": "0",
-            "inFlightCompletedLength": "1048576",
             "uploadLength": "0",
             "downloadSpeed": "65536",
             "uploadSpeed": "0",
@@ -304,17 +274,16 @@ mod tests {
             "dir": "/downloads",
             "ed2k": {
                 "hash": "3D366ED505B977FC61C9A6EE01E96329",
-                "completedLength": "0",
-                "inFlightCompletedLength": "2097152",
-                "visibleCompletedLength": "3145728"
+                "completedLength": "0"
             }
         });
         let task: Aria2Task = serde_json::from_value(json).expect("deserialize");
         let ed2k = task.ed2k.as_ref().unwrap();
-        assert_eq!(task.in_flight_completed_length.as_deref(), Some("1048576"));
         assert_eq!(ed2k.completed_length.as_deref(), Some("0"));
-        assert_eq!(ed2k.in_flight_completed_length.as_deref(), Some("2097152"));
-        assert_eq!(ed2k.visible_completed_length.as_deref(), Some("3145728"));
+        assert_eq!(
+            ed2k.hash.as_deref(),
+            Some("3D366ED505B977FC61C9A6EE01E96329")
+        );
     }
 
     #[test]

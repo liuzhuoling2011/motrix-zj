@@ -29,6 +29,7 @@ import {
   buildSelectFileOption,
   buildStatusAwareConfirmAction,
   getPendingMagnetSelectionGids,
+  getResolvedMagnetSelection,
 } from '@/composables/useMagnetFlow'
 import type { MagnetFileItem } from '@/composables/useMagnetFlow'
 import aria2Api from '@/api/aria2'
@@ -247,11 +248,10 @@ function stopStatListener() {
 // ── Magnet metadata monitoring (app-level) ──────────────────────────
 
 /**
- * Poll pending magnet tasks for metadata completion.
+ * Poll pending magnet metadata tasks for native aria2 follow-up downloads.
  *
- * aria2-next's libtorrent backend keeps the magnet and content download on
- * the same GID. With pause-metadata=true, metadata resolves first, files become
- * visible through RPC, and the task stays paused until file selection resumes it.
+ * With pause-metadata=true, aria2 resolves metadata on one GID and creates a
+ * paused content task exposed through followedBy.
  *
  * When multiple magnets are added concurrently, only one dialog is shown at
  * a time. The poll pauses while a dialog is open and resumes after the user
@@ -277,8 +277,12 @@ function startMagnetPoll() {
 
     for (const gid of [...gids]) {
       try {
-        const task = await taskStore.fetchTaskStatus(gid)
-        const files = await taskStore.getFiles(gid)
+        const metadataTask = await taskStore.fetchTaskStatus(gid)
+        const resolved = getResolvedMagnetSelection(metadataTask)
+        if (!resolved) continue
+
+        const task = await taskStore.fetchTaskStatus(resolved.downloadGid)
+        const files = await taskStore.getFiles(resolved.downloadGid)
         const realFiles = files.filter((f) => Number(f.length) > 0)
         if (realFiles.length === 0) continue
 
@@ -286,7 +290,7 @@ function startMagnetPoll() {
         appStore.pendingMagnetGids = appStore.pendingMagnetGids.filter((g) => g !== gid)
         const parsed = parseFilesForSelection(realFiles)
         magnetSelectFiles.value = parsed
-        magnetSelectionSession.value = { metadataGid: gid, downloadGid: gid }
+        magnetSelectionSession.value = resolved
         magnetSelectName.value = task.bittorrent?.info?.name || parsed[0]?.name || t('task.magnet-task')
         magnetSelectVisible.value = true
         return // Process one magnet at a time
