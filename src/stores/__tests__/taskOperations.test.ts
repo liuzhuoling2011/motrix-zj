@@ -587,7 +587,7 @@ describe('stopSeeding', () => {
     expect(mockCleanupAria2ControlFile).toHaveBeenCalledWith(task)
   })
 
-  it('keeps cached magnet metadata when stopping seeding', async () => {
+  it('removes cached magnet metadata when stopping seeding', async () => {
     const task = makeTask({
       gid: 'seed-meta',
       dir: '/downloads',
@@ -597,7 +597,7 @@ describe('stopSeeding', () => {
 
     await ops.stopSeeding(task)
 
-    expect(mockCleanupAria2MetadataFiles).not.toHaveBeenCalled()
+    expect(mockCleanupAria2MetadataFiles).toHaveBeenCalledWith('/downloads', 'deadbeef'.repeat(5))
   })
 })
 

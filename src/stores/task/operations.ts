@@ -247,6 +247,13 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       } catch (e) {
         logger.debug('TaskOps.stopSeeding', `cleanupControlFile gid=${gid} skipped: ${e}`)
       }
+      if (task.dir && task.infoHash) {
+        try {
+          await cleanupAria2MetadataFiles(task.dir, task.infoHash)
+        } catch (e) {
+          logger.debug('TaskOps.stopSeeding', `cleanupMetadata gid=${gid} skipped: ${e}`)
+        }
+      }
       logger.info('TaskOps.stopSeeding', `gid=${gid} infoHash=${task.infoHash ?? 'n/a'}`)
     } finally {
       await fetchList()
