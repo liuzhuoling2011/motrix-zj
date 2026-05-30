@@ -24,8 +24,8 @@ function genId(): string {
  *
  *   1. **Scheme-first** — magnet/thunder URIs are always 'uri' tasks
  *      (aria2: `guessTorrentMagnet` checks `magnet:?` prefix).
- *   2. **Remote URLs** — extract `pathname` via the WHATWG `URL` API and
- *      match the extension on the path only.
+ *   2. **Remote URLs** — remain URI downloads. Manual AddTask URL input
+ *      downloads the referenced file itself.
  *   3. **Local paths** — `.torrent` files become torrent tasks.
  *   4. **Fallback** — everything else is a plain 'uri'.
  */
@@ -37,16 +37,8 @@ export function detectKind(source: string): BatchItemKind {
     return 'uri'
   }
 
-  // ── 2. Remote URLs: isolate pathname from query params ────────────
-  if (/^https?:\/\//i.test(lower)) {
-    try {
-      const pathname = new URL(source).pathname.toLowerCase()
-      if (pathname.endsWith('.torrent')) return 'torrent'
-    } catch {
-      // Malformed URL — fall through to 'uri'
-    }
-    return 'uri'
-  }
+  // ── 2. Remote URLs are ordinary downloads ────────────────────────
+  if (/^https?:\/\//i.test(lower)) return 'uri'
 
   if (/^ftp:\/\//i.test(lower)) return 'uri'
 
@@ -55,6 +47,19 @@ export function detectKind(source: string): BatchItemKind {
 
   // ── 4. Fallback ───────────────────────────────────────────────────
   return 'uri'
+}
+
+/** Classify external-capture inputs where remote .torrent means "add BT task". */
+export function detectExternalInputKind(source: string): BatchItemKind {
+  if (/^https?:\/\//i.test(source)) {
+    try {
+      const pathname = new URL(source).pathname.toLowerCase()
+      if (pathname.endsWith('.torrent')) return 'torrent'
+    } catch {
+      return 'uri'
+    }
+  }
+  return detectKind(source)
 }
 
 /**

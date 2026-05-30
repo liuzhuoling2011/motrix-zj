@@ -496,9 +496,8 @@ describe('submitManualUris', () => {
     expect(call.options).toEqual({ dir: '/dl' })
   })
 
-  it('submits manual remote torrent URLs through addTorrent', async () => {
+  it('submits manual remote torrent URLs as ordinary URI downloads', async () => {
     const { invoke } = await import('@tauri-apps/api/core')
-    ;(invoke as ReturnType<typeof vi.fn>).mockResolvedValueOnce([1, 2, 3])
 
     await submitManualUris(
       { ...baseForm, uris: 'https://example.com/linux.torrent?token=abc' },
@@ -506,19 +505,13 @@ describe('submitManualUris', () => {
       mockTaskStore,
     )
 
-    expect(invoke).toHaveBeenCalledWith('fetch_remote_bytes', {
-      url: 'https://example.com/linux.torrent?token=abc',
-      proxy: null,
-      referer: '',
-      cookie: '',
-      userAgent: '',
-      requestHeaders: [],
-    })
-    expect(mockTaskStore.addTorrent).toHaveBeenCalledWith({
-      torrent: 'AQID',
+    expect(invoke).not.toHaveBeenCalledWith('fetch_remote_bytes', expect.anything())
+    expect(mockTaskStore.addTorrent).not.toHaveBeenCalled()
+    expect(mockTaskStore.addUri).toHaveBeenCalledWith({
+      uris: ['https://example.com/linux.torrent?token=abc'],
+      outs: [''],
       options: { dir: '/dl' },
     })
-    expect(mockTaskStore.addUri).not.toHaveBeenCalled()
   })
 
   it('decodes Thunder links before submitting manual URI tasks', async () => {

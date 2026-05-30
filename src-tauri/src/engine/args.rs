@@ -132,8 +132,8 @@ pub(crate) fn build_start_args(
     args.push("--quiet=true".to_string());
     args.push("--log-max-size=10M".to_string());
     args.push("--log-max-files=2".to_string());
-    // Motrix resolves remote .torrent URLs itself so AddTask can show file selection.
-    // Keep aria2-next from auto-following plain URI submissions into BT tasks.
+    // Manual remote .torrent URLs are ordinary file downloads in Motrix.
+    // Keep aria2-next from auto-following them into BT tasks.
     args.push("--torrent-metadata=save".to_string());
 
     // Check keep-seeding flag (app-level logic, not an engine option).

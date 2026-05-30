@@ -15,7 +15,12 @@ import { listen } from '@tauri-apps/api/event'
 import { decodeThunderLink } from '@shared/utils'
 import { formatLogFields, logger } from '@shared/logger'
 import { STAT_BASE_INTERVAL, STAT_PER_TASK_INTERVAL, STAT_MIN_INTERVAL, STAT_MAX_INTERVAL } from '@shared/timing'
-import { detectKind, createBatchItem, resolveExternalFilenameHint } from '@shared/utils/batchHelpers'
+import {
+  detectExternalInputKind,
+  detectKind,
+  createBatchItem,
+  resolveExternalFilenameHint,
+} from '@shared/utils/batchHelpers'
 import { summarizeExternalInput } from '@shared/utils/externalInputDiagnostics'
 import { parseMotrixDeepLink } from '@shared/utils/motrixDeepLink'
 import { buildEngineOptions, submitBatchItems, submitManualUris } from '@/composables/useAddTaskSubmit'
@@ -353,7 +358,7 @@ export const useAppStore = defineStore('app', () => {
       } else if (lower.startsWith('thunder://')) {
         items.push(createBatchItem('uri', decodeThunderLink(url)))
       } else if (isRemoteUri) {
-        const kind = detectKind(url)
+        const kind = detectExternalInputKind(url)
         items.push(createBatchItem(kind, url))
       }
     }
@@ -409,7 +414,7 @@ export const useAppStore = defineStore('app', () => {
     items: BatchItem[],
   ): Pick<DeepLinkHandlingResult, 'autoSubmitted' | 'ignored'> {
     const downloadUrl = input.finalUrl || input.url
-    const kind = detectKind(downloadUrl)
+    const kind = detectExternalInputKind(downloadUrl)
     const resolvedHint = resolveExternalFilenameHint(downloadUrl, input.filename ?? '')
     const context = buildExternalContext(input)
 
