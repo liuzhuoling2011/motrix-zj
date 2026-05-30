@@ -14,7 +14,7 @@ static BT_PORT_RECOVERY_IN_FLIGHT: std::sync::atomic::AtomicBool =
 
 const ENGINE_SIDECAR_NAME: &str = "motrix-next-engine";
 const DEFAULT_RPC_PORT_STR: &str = "29100";
-const DEFAULT_ARIA2_LOG_LEVEL: &str = "warn";
+const DEFAULT_ARIA2_LOG_LEVEL: &str = "info";
 const VALID_ENGINE_LOG_LEVELS: &[&str] = &["error", "warn", "info", "debug"];
 
 fn read_aria2_log_level(app: &tauri::AppHandle) -> String {

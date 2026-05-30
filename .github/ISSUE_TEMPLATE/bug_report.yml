@@ -68,8 +68,8 @@ body:
     attributes:
       label: Diagnostic Logs
       description: |
-        Please export logs via **Advanced Settings → Export Diagnostic Logs** (keep the log level at the default `debug`).
-        You can upload the exported `.zip` file directly here — no need to extract it. Just drag-and-drop and you're all set!
+        Please export logs via **Advanced Settings → Export Diagnostic Logs**. Keep **Motrix Next Log Level** at `debug` and **Aria2 Next Log Level** at `info` unless maintainers ask otherwise.
+        You can upload the exported `.zip` file directly here — no need to extract it.
     validations:
       required: true
 

@@ -13,9 +13,11 @@ import type { BatchItem } from '@shared/types'
 
 // ── Mock Rust IPC local file read ───────────────────────────────────
 const mockReadFile = vi.fn()
+const mockFetchRemoteBytes = vi.fn()
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: (cmd: string, args?: { path?: string }) => {
     if (cmd === 'read_local_file') return mockReadFile(args?.path)
+    if (cmd === 'fetch_remote_bytes') return mockFetchRemoteBytes(args)
     return Promise.reject(new Error(`Unexpected invoke: ${cmd}`))
   },
 }))
@@ -42,7 +44,11 @@ vi.mock('@shared/logger', () => ({
 // ── Mock batch helpers ─────────────────────────────────────────────
 vi.mock('@shared/utils/batchHelpers', () => ({
   detectKind: (path: string) => {
-    if (path.endsWith('.torrent')) return 'torrent'
+    try {
+      if (new URL(path).pathname.endsWith('.torrent')) return 'torrent'
+    } catch {
+      if (path.endsWith('.torrent')) return 'torrent'
+    }
     return 'uri'
   },
   createBatchItem: (kind: string, source: string) => ({
@@ -171,6 +177,7 @@ describe('resolveUnresolvedItems', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockReadFile.mockResolvedValue(new Uint8Array([10, 20]))
+    mockFetchRemoteBytes.mockResolvedValue([30, 40])
     mockUint8ToBase64.mockReturnValue('resolved-base64')
     mockParseTorrentBuffer.mockResolvedValue(null)
   })
@@ -184,6 +191,32 @@ describe('resolveUnresolvedItems', () => {
     })
     await resolveUnresolvedItems([item], mockT)
     expect(mockReadFile).toHaveBeenCalledWith('/test.torrent')
+    expect(item.payload).toBe('resolved-base64')
+  })
+
+  it('resolves remote torrent items with browser request context', async () => {
+    const item = makeBatchItem({
+      source: 'https://example.com/linux.torrent?token=abc',
+      payload: 'https://example.com/linux.torrent?token=abc',
+      browserContext: {
+        referer: 'https://example.com/page',
+        cookie: 'sid=1',
+        userAgent: 'Mozilla/5.0',
+        requestHeaders: [{ name: 'Accept-Language', value: 'en-US' }],
+      },
+    })
+
+    await resolveUnresolvedItems([item], mockT, 'http://127.0.0.1:7890')
+
+    expect(mockReadFile).not.toHaveBeenCalled()
+    expect(mockFetchRemoteBytes).toHaveBeenCalledWith({
+      url: 'https://example.com/linux.torrent?token=abc',
+      proxy: 'http://127.0.0.1:7890',
+      referer: 'https://example.com/page',
+      cookie: 'sid=1',
+      userAgent: 'Mozilla/5.0',
+      requestHeaders: [{ name: 'Accept-Language', value: 'en-US' }],
+    })
     expect(item.payload).toBe('resolved-base64')
   })
 

@@ -122,7 +122,7 @@ How to split a large change:
 |-----------|-----------|
 | "Add error notification system" (1000 LOC) | PR 1: `errorNormalizer.ts` + tests → PR 2: `useAppNotification.ts` + tests → PR 3: integrate into components |
 | "Add feature + fix lint + update config" | PR 1: lint/config fixes → PR 2: the feature |
-| "Update i18n for 3 features" | One PR per feature, each updating all 26 locales |
+| "Update i18n for 3 features" | One PR per feature, each updating all 27 locales |
 
 ### Before you start
 
@@ -159,7 +159,7 @@ cd src-tauri && cargo test --all-targets
 
 ### i18n changes
 
-If you add or modify i18n keys, **all 26 locales must be updated** using a batch Python script. Partial updates (e.g., only `en-US` and `zh-CN`) break the app for other languages and will not be accepted. See `AGENTS.md` Section D for the script template and the full list of locale directories.
+If you add or modify i18n keys, **all 27 locales must be updated** using a batch Python script. Partial updates (e.g., only `en-US` and `zh-CN`) break the app for other languages and will not be accepted. See `AGENTS.md` Section D for the script template and the full list of locale directories.
 
 ### AI-assisted development
 

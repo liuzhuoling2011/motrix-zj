@@ -65,7 +65,7 @@ If AI was used, specify the tool: <!-- e.g., GitHub Copilot, Claude, ChatGPT -->
 
 - [ ] New feature was discussed and approved in an issue before implementation
 - [ ] Tests written **before** implementation (TDD: red → green → refactor)
-- [ ] i18n keys updated in **all 26 locales** via batch Python script (see AGENTS.md §D)
+- [ ] i18n keys updated in **all 27 locales** via batch Python script (see AGENTS.md §D)
 - [ ] New config key follows the full checklist in AGENTS.md §C
 - [ ] Rust changes compile with `cargo clippy` (zero warnings)
 

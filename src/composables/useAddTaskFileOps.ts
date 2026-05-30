@@ -9,6 +9,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@shared/logger'
 import { parseTorrentBuffer, uint8ToBase64 } from '@/composables/useTorrentParser'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
+import { sanitizeBrowserRequestHeaders, sanitizeHttpHeaderOptions } from '@shared/utils/headerSanitize'
 import type { BatchItem } from '@shared/types'
 
 interface FileOpsDeps {
@@ -48,13 +49,59 @@ export async function resolveFileItem(item: BatchItem, t: (key: string) => strin
   }
 }
 
+/** Resolves a remote .torrent URL by downloading bytes through Rust IPC. */
+export async function resolveRemoteFileItem(item: BatchItem, t: (key: string) => string, downloadProxy?: string) {
+  try {
+    const context = item.browserContext
+    const sanitizedHeaders = sanitizeHttpHeaderOptions({
+      referer: context?.referer,
+      cookie: context?.cookie,
+      userAgent: context?.userAgent,
+    })
+    const bytes = await invoke<number[]>('fetch_remote_bytes', {
+      url: item.source,
+      proxy: downloadProxy ?? null,
+      referer: sanitizedHeaders.referer,
+      cookie: sanitizedHeaders.cookie,
+      userAgent: sanitizedHeaders.userAgent,
+      requestHeaders: sanitizeBrowserRequestHeaders(context?.requestHeaders ?? []),
+    })
+    const uint8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+    item.payload = uint8ToBase64(uint8)
+
+    if (item.kind === 'torrent') {
+      try {
+        const meta = await parseTorrentBuffer(uint8)
+        if (meta) {
+          item.torrentMeta = meta
+          item.selectedFileIndices = meta.files.map((f) => f.idx)
+        }
+      } catch (e) {
+        logger.debug('AddTask.parseRemoteTorrent', e)
+      }
+    }
+  } catch (e) {
+    logger.error('AddTask.resolveRemoteFileItem', e)
+    item.status = 'failed'
+    item.error = t('task.file-load-failed')
+  }
+}
+
+export function isRemoteTorrentSource(source: string): boolean {
+  return /^https?:\/\//i.test(source) && detectKind(source) === 'torrent'
+}
+
 /**
  * Resolves all unresolved local file-based batch items by reading their files.
  */
-export async function resolveUnresolvedItems(batch: BatchItem[], t: (key: string) => string) {
+export async function resolveUnresolvedItems(batch: BatchItem[], t: (key: string) => string, downloadProxy?: string) {
   for (const item of batch) {
     if (item.kind !== 'uri' && item.status === 'pending' && item.payload === item.source) {
-      await resolveFileItem(item, t)
+      if (isRemoteTorrentSource(item.source)) {
+        await resolveRemoteFileItem(item, t, downloadProxy)
+      } else {
+        await resolveFileItem(item, t)
+      }
     }
   }
 }

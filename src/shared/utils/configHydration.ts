@@ -216,6 +216,8 @@ export function hydrateAppConfig(saved?: Partial<AppConfig> | null): HydratedApp
   const repairs: string[] = []
   const record = merged as Record<string, unknown>
 
+  delete record.autoSelectAllMagnetFilesFromExtension
+
   merged.proxy = normalizeProxy(input?.proxy ?? merged.proxy, repairs)
   merged.protocols = normalizeProtocols(input?.protocols ?? merged.protocols)
   merged.clipboard = normalizeClipboard(input?.clipboard ?? merged.clipboard)

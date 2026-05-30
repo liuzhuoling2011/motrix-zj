@@ -380,7 +380,7 @@ fn should_silent_route_extension_input(app: &AppHandle, req: &AddRequest) -> boo
                 .and_then(serde_json::Value::as_bool)
                 .unwrap_or(true);
             let auto_select_all = p
-                .get("autoSelectAllMagnetFilesFromExtension")
+                .get("autoSelectAllBtFilesFromExtension")
                 .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
             let pause_metadata = p
@@ -416,7 +416,18 @@ fn should_silent_route_url(
         }
         return !pause_metadata;
     }
+    if is_remote_torrent_url(raw_url) {
+        return auto_select_all;
+    }
     true
+}
+
+fn is_remote_torrent_url(raw_url: &str) -> bool {
+    let Ok(url) = url::Url::parse(raw_url) else {
+        return false;
+    };
+    matches!(url.scheme(), "http" | "https")
+        && url.path().to_ascii_lowercase().ends_with(".torrent")
 }
 
 /// Build a `motrixnext://new?url=X&referer=Y&cookie=Z` deep-link URL.

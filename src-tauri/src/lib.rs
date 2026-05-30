@@ -936,6 +936,7 @@ pub fn run() {
             commands::set_default_protocol_client,
             commands::remove_as_default_protocol_client,
             commands::resolve_filename,
+            commands::fetch_remote_bytes,
             commands::get_system_proxy,
             commands::lookup_peer_ips,
             commands::refresh_runtime_config,

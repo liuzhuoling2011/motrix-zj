@@ -24,9 +24,8 @@ function genId(): string {
  *
  *   1. **Scheme-first** — magnet/thunder URIs are always 'uri' tasks
  *      (aria2: `guessTorrentMagnet` checks `magnet:?` prefix).
- *   2. **Remote URLs** — always remain URI downloads. A remote `.torrent`
- *      link downloads the torrent file itself; users can open that local file
- *      later if they want to create a BT task.
+ *   2. **Remote URLs** — extract `pathname` via the WHATWG `URL` API and
+ *      match the extension on the path only.
  *   3. **Local paths** — `.torrent` files become torrent tasks.
  *   4. **Fallback** — everything else is a plain 'uri'.
  */
@@ -38,8 +37,16 @@ export function detectKind(source: string): BatchItemKind {
     return 'uri'
   }
 
-  // ── 2. Remote URLs are ordinary downloads ────────────────────────
-  if (/^https?:\/\//i.test(lower)) return 'uri'
+  // ── 2. Remote URLs: isolate pathname from query params ────────────
+  if (/^https?:\/\//i.test(lower)) {
+    try {
+      const pathname = new URL(source).pathname.toLowerCase()
+      if (pathname.endsWith('.torrent')) return 'torrent'
+    } catch {
+      // Malformed URL — fall through to 'uri'
+    }
+    return 'uri'
+  }
 
   if (/^ftp:\/\//i.test(lower)) return 'uri'
 

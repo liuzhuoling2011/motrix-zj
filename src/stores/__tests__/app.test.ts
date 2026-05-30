@@ -417,11 +417,11 @@ describe('useAppStore', () => {
       usePreferenceStore().config.autoSubmitFromExtension = false
     })
 
-    it('treats remote .torrent URLs as ordinary URI downloads', () => {
+    it('treats remote .torrent URLs as torrent tasks', () => {
       const store = useAppStore()
       store.handleDeepLinkUrls(['https://example.com/linux.torrent'])
       expect(store.pendingBatch.map((i) => ({ kind: i.kind, source: i.source }))).toEqual([
-        { kind: 'uri', source: 'https://example.com/linux.torrent' },
+        { kind: 'torrent', source: 'https://example.com/linux.torrent' },
       ])
     })
 
@@ -746,20 +746,37 @@ describe('useAppStore', () => {
       expect(store.addTaskVisible).toBe(true)
     })
 
-    it('auto-submits remote .torrent URLs as ordinary downloads', async () => {
+    it('shows AddTask for remote .torrent URLs when BT auto-select is disabled', async () => {
       const store = useAppStore()
       const { usePreferenceStore } = await import('@/stores/preference')
       const prefStore = usePreferenceStore()
       prefStore.config.autoSubmitFromExtension = true
+      prefStore.config.autoSelectAllBtFilesFromExtension = false
+
+      store.handleDeepLinkUrls([buildDeepLink('https://example.com/linux.torrent')])
+
+      expect(store.pendingBatch).toHaveLength(1)
+      expect(store.pendingBatch[0].kind).toBe('torrent')
+      expect(store.addTaskVisible).toBe(true)
+      expect(submitManualUrisMock).not.toHaveBeenCalled()
+      expect(resolveUnresolvedItemsMock).not.toHaveBeenCalled()
+      expect(submitBatchItemsMock).not.toHaveBeenCalled()
+    })
+
+    it('auto-submits remote .torrent URLs when BT auto-select is enabled', async () => {
+      const store = useAppStore()
+      const { usePreferenceStore } = await import('@/stores/preference')
+      const prefStore = usePreferenceStore()
+      prefStore.config.autoSubmitFromExtension = true
+      prefStore.config.autoSelectAllBtFilesFromExtension = true
 
       store.handleDeepLinkUrls([buildDeepLink('https://example.com/linux.torrent')])
       await new Promise((resolve) => setTimeout(resolve, 0))
 
       expect(store.pendingBatch).toHaveLength(0)
       expect(store.addTaskVisible).toBe(false)
-      expect(submitManualUrisMock).toHaveBeenCalledTimes(1)
-      expect(resolveUnresolvedItemsMock).not.toHaveBeenCalled()
-      expect(submitBatchItemsMock).not.toHaveBeenCalled()
+      expect(resolveUnresolvedItemsMock).toHaveBeenCalledTimes(1)
+      expect(submitBatchItemsMock).toHaveBeenCalledTimes(1)
     })
 
     it('auto-submits magnet URLs with metadata pause disabled when file auto-select is enabled', async () => {
@@ -767,7 +784,7 @@ describe('useAppStore', () => {
       const { usePreferenceStore } = await import('@/stores/preference')
       const prefStore = usePreferenceStore()
       prefStore.config.autoSubmitFromExtension = true
-      prefStore.config.autoSelectAllMagnetFilesFromExtension = true
+      prefStore.config.autoSelectAllBtFilesFromExtension = true
 
       store.handleDeepLinkUrls([buildDeepLink('magnet:?xt=urn:btih:abc123')])
       await new Promise((resolve) => setTimeout(resolve, 0))
@@ -782,15 +799,17 @@ describe('useAppStore', () => {
       const { usePreferenceStore } = await import('@/stores/preference')
       const prefStore = usePreferenceStore()
       prefStore.config.autoSubmitFromExtension = true
+      prefStore.config.autoSelectAllBtFilesFromExtension = false
 
       store.handleDeepLinkUrls([
         buildDeepLink('https://example.com/file.zip'),
         buildDeepLink('https://example.com/linux.torrent'),
       ])
 
-      expect(store.pendingBatch).toHaveLength(0)
-      expect(store.addTaskVisible).toBe(false)
-      expect(submitManualUrisMock).toHaveBeenCalledTimes(2)
+      expect(store.pendingBatch).toHaveLength(1)
+      expect(store.pendingBatch[0].kind).toBe('torrent')
+      expect(store.addTaskVisible).toBe(true)
+      expect(submitManualUrisMock).toHaveBeenCalledTimes(1)
     })
 
     it('does not open dialog when all items are auto-submitted', async () => {
