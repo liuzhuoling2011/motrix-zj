@@ -17,7 +17,7 @@ import {
 } from '@/composables/useTaskLifecycle'
 import { setArchivedPath, resolveTaskFilePath, requestFileRecheck } from '@/composables/useArchivedPaths'
 import { handleTaskComplete, handleBtComplete, handleTaskError } from '@/composables/useTaskNotifyHandlers'
-import { shouldDeleteTorrent, trashTorrentFile, cleanupAria2MetadataFiles } from '@/composables/useDownloadCleanup'
+import { shouldDeleteTorrent, trashTorrentFile } from '@/composables/useDownloadCleanup'
 import { cleanupAria2ControlFile } from '@/composables/useFileDelete'
 import { getTaskDisplayName, resolveOpenTarget, checkTaskIsSeeder } from '@shared/utils'
 import type { Aria2Task } from '@shared/types'
@@ -706,14 +706,6 @@ onMounted(async () => {
       // (seed-ratio or seed-time threshold reached). Best-effort, never throws.
       if (task.bittorrent) {
         cleanupAria2ControlFile(task).catch((e) => logger.debug('Lifecycle.aria2ControlCleanup', e))
-        // Also clean hex40 .torrent metadata. Covers session-restore case
-        // where onBtComplete was suppressed by initialScanDone — the metadata
-        // wasn't deleted at download-complete time, so we catch it here.
-        if (task.dir && task.infoHash) {
-          cleanupAria2MetadataFiles(task.dir, task.infoHash).catch((e) =>
-            logger.debug('Lifecycle.metadataCleanup.complete', e),
-          )
-        }
       }
 
       // ── Auto-shutdown: check after task completion ──
@@ -751,9 +743,6 @@ onMounted(async () => {
           const taskName = getTaskDisplayName(task)
           message.success(t('task.torrent-trashed', { taskName }))
         }
-      }
-      if (task.dir && task.infoHash) {
-        cleanupAria2MetadataFiles(task.dir, task.infoHash).catch((e) => logger.debug('Lifecycle.metadataCleanup', e))
       }
     },
   })

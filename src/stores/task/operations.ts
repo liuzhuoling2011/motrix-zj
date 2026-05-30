@@ -242,20 +242,10 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
         await historyStore.removeByInfoHash(task.infoHash, task.gid)
       }
       await historyStore.addRecord(record)
-      // Best-effort metadata cleanup must never block fetchList/saveSession.
       try {
         await cleanupAria2ControlFile(task)
       } catch (e) {
         logger.debug('TaskOps.stopSeeding', `cleanupControlFile gid=${gid} skipped: ${e}`)
-      }
-      // Clean up hex40-named .torrent metadata left by rpc-save-upload-metadata.
-      // Covers session-restore case where onBtComplete was suppressed by initialScanDone.
-      if (task.dir && task.infoHash) {
-        try {
-          await cleanupAria2MetadataFiles(task.dir, task.infoHash)
-        } catch (e) {
-          logger.debug('TaskOps.stopSeeding', `cleanupMetadata gid=${gid} skipped: ${e}`)
-        }
       }
       logger.info('TaskOps.stopSeeding', `gid=${gid} infoHash=${task.infoHash ?? 'n/a'}`)
     } finally {

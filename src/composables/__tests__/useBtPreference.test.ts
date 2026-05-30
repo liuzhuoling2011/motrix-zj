@@ -255,6 +255,15 @@ describe('buildBtSystemConfig', () => {
     expect(config).not.toHaveProperty('force-save')
   })
 
+  it('keeps magnet metadata cache options managed by aria2.conf only', () => {
+    const config = buildBtSystemConfig(baseForm)
+    expect(config).not.toHaveProperty('bt-save-metadata')
+    expect(config).not.toHaveProperty('bt-load-saved-metadata')
+    expect(config).not.toHaveProperty('bt-seed-unverified')
+    expect(config).not.toHaveProperty('bt-hash-check-seed')
+    expect(config).not.toHaveProperty('bt-remove-unselected-file')
+  })
+
   it('does NOT include force-save regardless of keepSeeding value', () => {
     const withSeeding = buildBtSystemConfig({ ...baseForm, keepSeeding: true })
     const withoutSeeding = buildBtSystemConfig({ ...baseForm, keepSeeding: false })

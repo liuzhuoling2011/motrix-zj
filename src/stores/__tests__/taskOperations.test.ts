@@ -587,7 +587,7 @@ describe('stopSeeding', () => {
     expect(mockCleanupAria2ControlFile).toHaveBeenCalledWith(task)
   })
 
-  it('calls cleanupAria2MetadataFiles with task.dir and task.infoHash', async () => {
+  it('keeps cached magnet metadata when stopping seeding', async () => {
     const task = makeTask({
       gid: 'seed-meta',
       dir: '/downloads',
@@ -597,31 +597,7 @@ describe('stopSeeding', () => {
 
     await ops.stopSeeding(task)
 
-    expect(mockCleanupAria2MetadataFiles).toHaveBeenCalledWith('/downloads', 'deadbeef'.repeat(5))
-  })
-
-  it('skips cleanupAria2MetadataFiles when dir or infoHash missing', async () => {
-    const task = makeTask({
-      gid: 'seed-no-hash',
-      bittorrent: { info: { name: 'movie.mkv' } },
-      // no infoHash, no dir
-    } as Partial<Aria2Task>)
-
-    await ops.stopSeeding(task)
-
     expect(mockCleanupAria2MetadataFiles).not.toHaveBeenCalled()
-  })
-
-  it('does not throw if cleanupAria2MetadataFiles fails', async () => {
-    mockCleanupAria2MetadataFiles.mockRejectedValueOnce(new Error('metadata cleanup failed'))
-    const task = makeTask({
-      gid: 'seed-meta-fail',
-      dir: '/downloads',
-      bittorrent: { info: { name: 'movie.mkv' } },
-      infoHash: 'abcdef12'.repeat(5),
-    } as Partial<Aria2Task>)
-
-    await expect(ops.stopSeeding(task)).resolves.not.toThrow()
   })
 })
 

@@ -304,6 +304,34 @@ mod tests {
     }
 
     #[test]
+    fn build_args_keeps_magnet_metadata_cache_options_conf_managed() {
+        let args = build_start_args(
+            &json!({
+                "bt-save-metadata": "false",
+                "bt-load-saved-metadata": "false",
+                "bt-seed-unverified": "false",
+                "bt-hash-check-seed": "false",
+                "bt-remove-unselected-file": "false"
+            }),
+            Some("/tmp/aria2.conf"),
+            "/tmp/s.session",
+            false,
+            "/tmp/aria2-next.log",
+            "debug",
+        );
+
+        assert!(!args.iter().any(|a| a.starts_with("--bt-save-metadata=")));
+        assert!(!args
+            .iter()
+            .any(|a| a.starts_with("--bt-load-saved-metadata=")));
+        assert!(!args.iter().any(|a| a.starts_with("--bt-seed-unverified=")));
+        assert!(!args.iter().any(|a| a.starts_with("--bt-hash-check-seed=")));
+        assert!(!args
+            .iter()
+            .any(|a| a.starts_with("--bt-remove-unselected-file=")));
+    }
+
+    #[test]
     fn build_args_does_not_emit_removed_proxy_mode_option() {
         let args = build_start_args(
             &json!({

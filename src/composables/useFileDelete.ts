@@ -13,7 +13,7 @@
  * `removePath()` permanently deletes files via the Rust `remove_file` command.
  * Used exclusively for internal aria2 metadata that has no user value:
  * - `.aria2` control files (piece bitmap + checksums)
- * - hex40-named `.torrent` metadata (rpc-save-upload-metadata)
+ * - hex40-named `.torrent` metadata (bt-save-metadata / rpc-save-upload-metadata)
  *
  * This mirrors aria2's native `removeControlFile()` behavior for stale
  * metadata cleanup.
@@ -51,7 +51,7 @@ export async function trashPath(path: string): Promise<boolean> {
  *
  * Used exclusively for internal aria2 metadata files:
  * - `.aria2` control files (piece bitmap + checksum — no user value)
- * - hex40-named `.torrent` metadata (aria2 rpc-save-upload-metadata cache)
+ * - hex40-named `.torrent` metadata (aria2 bt-save-metadata / rpc-save-upload-metadata cache)
  *
  * Silent no-op when the path is empty, doesn't exist, or fails.
  * Returns `true` if the file was successfully removed.
