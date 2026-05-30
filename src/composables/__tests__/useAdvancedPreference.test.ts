@@ -11,7 +11,6 @@ import {
   buildAdvancedSystemConfig,
   transformAdvancedForStore,
   validateAdvancedForm,
-  applyProtocolStatusToForm,
   isValidAria2ProxyUrl,
   isValidTrackerSourceUrl,
   randomRpcPort,
@@ -179,10 +178,6 @@ describe('buildAdvancedForm', () => {
     expect(form.dhtListenPort).toBe(29130)
     expect(form.logLevel).toBe('debug')
     expect(form.aria2LogLevel).toBe('info')
-    expect(form.protocolMagnet).toBe(false)
-    expect(form.protocolEd2k).toBe(false)
-    expect(form.protocolThunder).toBe(false)
-    expect(form.protocolMotrixnext).toBe(true)
     expect(form.enableUpnp).toBe(true)
   })
 
@@ -277,10 +272,6 @@ describe('buildAdvancedSystemConfig', () => {
     clipboardEd2k: true,
     clipboardThunder: false,
     clipboardBtHash: true,
-    protocolMagnet: false,
-    protocolEd2k: true,
-    protocolThunder: false,
-    protocolMotrixnext: true,
     connectTimeout: 60,
     timeout: 60,
     fileAllocation: 'prealloc',
@@ -375,10 +366,6 @@ describe('transformAdvancedForStore', () => {
       clipboardEd2k: true,
       clipboardThunder: false,
       clipboardBtHash: true,
-      protocolMagnet: false,
-      protocolEd2k: true,
-      protocolThunder: false,
-      protocolMotrixnext: true,
       connectTimeout: 60,
       timeout: 60,
       fileAllocation: 'prealloc',
@@ -387,7 +374,7 @@ describe('transformAdvancedForStore', () => {
     expect(result.btTracker).toBe('udp://a,udp://b')
   })
 
-  it('persists ED2K clipboard and protocol toggles', () => {
+  it('persists ED2K clipboard toggle', () => {
     const form: AdvancedForm = {
       proxy: { mode: 'direct', enable: false, server: '', bypass: '', scope: [] },
       trackerSource: [],
@@ -418,10 +405,6 @@ describe('transformAdvancedForStore', () => {
       clipboardEd2k: false,
       clipboardThunder: false,
       clipboardBtHash: true,
-      protocolMagnet: false,
-      protocolEd2k: true,
-      protocolThunder: false,
-      protocolMotrixnext: true,
       connectTimeout: 60,
       timeout: 60,
       fileAllocation: 'prealloc',
@@ -430,7 +413,6 @@ describe('transformAdvancedForStore', () => {
     const result = transformAdvancedForStore(form)
 
     expect(result.clipboard).toMatchObject({ ed2k: false })
-    expect(result.protocols).toMatchObject({ ed2k: true })
   })
 
   it('preserves port numbers as numbers (not strings)', () => {
@@ -464,10 +446,6 @@ describe('transformAdvancedForStore', () => {
       clipboardEd2k: true,
       clipboardThunder: false,
       clipboardBtHash: true,
-      protocolMagnet: false,
-      protocolEd2k: true,
-      protocolThunder: false,
-      protocolMotrixnext: true,
       connectTimeout: 60,
       timeout: 60,
       fileAllocation: 'prealloc',
@@ -503,26 +481,6 @@ describe('transformAdvancedForStore', () => {
     expect(diff).not.toHaveProperty('dhtListenPort')
     expect(diff).not.toHaveProperty('rpcListenPort')
     expect(diff).not.toHaveProperty('rpcSecret')
-  })
-})
-
-// ── applyProtocolStatusToForm ───────────────────────────────────────
-
-describe('applyProtocolStatusToForm', () => {
-  it('copies OS protocol status into the form fields', () => {
-    const form = buildAdvancedForm({ ...DEFAULT_APP_CONFIG } as AppConfig).form
-
-    applyProtocolStatusToForm(form, {
-      magnet: true,
-      ed2k: false,
-      thunder: true,
-      motrixnext: false,
-    })
-
-    expect(form.protocolMagnet).toBe(true)
-    expect(form.protocolEd2k).toBe(false)
-    expect(form.protocolThunder).toBe(true)
-    expect(form.protocolMotrixnext).toBe(false)
   })
 })
 
@@ -631,10 +589,6 @@ describe('validateAdvancedForm', () => {
     clipboardEd2k: true,
     clipboardThunder: false,
     clipboardBtHash: true,
-    protocolMagnet: false,
-    protocolEd2k: true,
-    protocolThunder: false,
-    protocolMotrixnext: true,
     connectTimeout: 60,
     timeout: 60,
     fileAllocation: 'prealloc',
@@ -806,10 +760,6 @@ describe('proxy configuration invariants', () => {
       clipboardEd2k: true,
       clipboardThunder: false,
       clipboardBtHash: true,
-      protocolMagnet: false,
-      protocolEd2k: true,
-      protocolThunder: false,
-      protocolMotrixnext: true,
       connectTimeout: 60,
       timeout: 60,
       fileAllocation: 'prealloc',
@@ -857,10 +807,6 @@ describe('proxy configuration invariants', () => {
       clipboardEd2k: true,
       clipboardThunder: false,
       clipboardBtHash: true,
-      protocolMagnet: false,
-      protocolEd2k: true,
-      protocolThunder: false,
-      protocolMotrixnext: true,
       connectTimeout: 60,
       timeout: 60,
       fileAllocation: 'prealloc',
@@ -907,10 +853,6 @@ describe('proxy configuration invariants', () => {
       clipboardEd2k: true,
       clipboardThunder: false,
       clipboardBtHash: true,
-      protocolMagnet: false,
-      protocolEd2k: true,
-      protocolThunder: false,
-      protocolMotrixnext: true,
       connectTimeout: 60,
       timeout: 60,
       fileAllocation: 'prealloc',
@@ -975,10 +917,6 @@ describe('transformAdvancedForStore — hardwareRendering', () => {
       clipboardEd2k: true,
       clipboardThunder: false,
       clipboardBtHash: true,
-      protocolMagnet: false,
-      protocolEd2k: true,
-      protocolThunder: false,
-      protocolMotrixnext: true,
       connectTimeout: 60,
       timeout: 60,
       fileAllocation: 'prealloc',

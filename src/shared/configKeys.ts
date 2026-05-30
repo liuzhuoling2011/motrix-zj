@@ -56,7 +56,6 @@ const userKeys = [
   'no-confirm-before-delete-task',
   'open-at-login',
   'port-conflict-recovery',
-  'protocols',
   'proxy',
   'resume-all-when-app-launched',
   'retry-wait',

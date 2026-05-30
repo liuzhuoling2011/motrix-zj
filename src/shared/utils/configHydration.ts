@@ -9,13 +9,7 @@ import {
 } from '@shared/constants'
 import { runMigrations, type MigrationResult } from '@shared/utils/configMigration'
 import { normalizeProxyMode } from '@shared/utils/proxyPolicy'
-import type {
-  AppConfig,
-  ClipboardConfig,
-  PortConflictRecoveryConfig,
-  ProtocolsConfig,
-  ProxyConfig,
-} from '@shared/types'
+import type { AppConfig, ClipboardConfig, PortConflictRecoveryConfig, ProxyConfig } from '@shared/types'
 
 export interface HydratedAppConfig {
   config: AppConfig
@@ -89,17 +83,6 @@ function normalizeProxy(value: unknown, repairs: string[]): ProxyConfig {
     server: typeof merged.server === 'string' ? merged.server : defaults.server,
     bypass: typeof merged.bypass === 'string' ? merged.bypass : defaults.bypass,
     scope: scope.length ? scope : [...PROXY_SCOPE_OPTIONS],
-  }
-}
-
-function normalizeProtocols(value: unknown): ProtocolsConfig {
-  const defaults = DEFAULT_APP_CONFIG.protocols
-  const saved = isRecord(value) ? value : {}
-  return {
-    magnet: typeof saved.magnet === 'boolean' ? saved.magnet : defaults.magnet,
-    ed2k: typeof saved.ed2k === 'boolean' ? saved.ed2k : defaults.ed2k,
-    thunder: typeof saved.thunder === 'boolean' ? saved.thunder : defaults.thunder,
-    motrixnext: typeof saved.motrixnext === 'boolean' ? saved.motrixnext : defaults.motrixnext,
   }
 }
 
@@ -217,9 +200,9 @@ export function hydrateAppConfig(saved?: Partial<AppConfig> | null): HydratedApp
   const record = merged as Record<string, unknown>
 
   delete record.autoSelectAllMagnetFilesFromExtension
+  delete record.protocols
 
   merged.proxy = normalizeProxy(input?.proxy ?? merged.proxy, repairs)
-  merged.protocols = normalizeProtocols(input?.protocols ?? merged.protocols)
   merged.clipboard = normalizeClipboard(input?.clipboard ?? merged.clipboard)
   merged.portConflictRecovery = normalizePortRecovery(
     input?.portConflictRecovery ?? merged.portConflictRecovery,

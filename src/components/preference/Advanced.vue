@@ -1,6 +1,6 @@
 <script setup lang="ts">
-/** @fileoverview Advanced preference tab: RPC, extension, clipboard, protocols, engine, log, history, diagnostics. */
-import { ref, computed, nextTick, onMounted, h } from 'vue'
+/** @fileoverview Advanced preference tab: RPC, extension, clipboard, default programs, engine, log, history, diagnostics. */
+import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { usePlatform } from '@/composables/usePlatform'
@@ -11,6 +11,7 @@ import { useEngineRestart } from '@/composables/useEngineRestart'
 import { useTaskStore } from '@/stores/task'
 import { useHistoryStore } from '@/stores/history'
 import { useAdvancedActions } from '@/composables/useAdvancedActions'
+import { useProtocolHandlers, type ProtocolKey } from '@/composables/useProtocolHandlers'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { useIpc } from '@/composables/useIpc'
 import { appDataDir, appLogDir, join, tempDir } from '@tauri-apps/api/path'
@@ -21,8 +22,6 @@ import {
   buildAdvancedSystemConfig,
   transformAdvancedForStore,
   validateAdvancedForm,
-  applyProtocolStatusToForm,
-  type ProtocolStatus,
   randomRpcPort,
 } from '@/composables/useAdvancedPreference'
 import {
@@ -58,6 +57,9 @@ const taskStore = useTaskStore()
 const historyStore = useHistoryStore()
 const message = useAppMessage()
 const dialog = useDialog()
+const protocolHandlers = useProtocolHandlers()
+const protocolStatus = protocolHandlers.status
+const protocolPending = protocolHandlers.pending
 
 const { isLinux } = usePlatform()
 
@@ -76,12 +78,6 @@ const clipboardTypeOptions = computed(() => [
   { label: t('preferences.clipboard-thunder'), value: 'thunder' },
   { label: t('preferences.clipboard-bt-hash'), value: 'btHash' },
 ])
-const protocolEntries = [
-  ['magnet', 'protocolMagnet'],
-  ['ed2k', 'protocolEd2k'],
-  ['thunder', 'protocolThunder'],
-  ['motrixnext', 'protocolMotrixnext'],
-] as const
 const clipboardFieldByType: Record<ClipboardType, keyof typeof form.value> = {
   http: 'clipboardHttp',
   ftp: 'clipboardFtp',
@@ -99,9 +95,6 @@ const selectedClipboardTypes = computed<string[]>({
     }
   },
 })
-
-const MANUAL_PROTOCOL_CHANGE_REQUIRED = 'manual_change_required'
-const defaultProtocols = { magnet: false, ed2k: false, thunder: false, motrixnext: true }
 
 const aria2ConfPath = ref('')
 const sessionPath = ref('')
@@ -176,44 +169,6 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
       if (!ok) return false
     }
 
-    // Protocol disable confirmation — single merged dialog.
-    const prev = preferenceStore.config.protocols
-    const disabledLinks: string[] = []
-    if (prev.magnet && !f.protocolMagnet) disabledLinks.push('magnet')
-    if (prev.ed2k && !f.protocolEd2k) disabledLinks.push('ed2k')
-    if (prev.thunder && !f.protocolThunder) disabledLinks.push('thunder')
-    const disabledExt = prev.motrixnext && !f.protocolMotrixnext
-
-    if (disabledLinks.length > 0 || disabledExt) {
-      const items: ReturnType<typeof h>[] = []
-      for (const p of disabledLinks) {
-        items.push(h('div', `• ${t('preferences.protocol-disable-link-warning', { protocols: `${p}://` })}`))
-      }
-      if (disabledExt) {
-        items.push(h('div', `• ${t('preferences.protocol-disable-ext-warning')}`))
-      }
-      const content =
-        items.length > 1
-          ? () =>
-              h('div', { style: 'display: flex; flex-direction: column; gap: 8px' }, [
-                h('div', t('preferences.protocol-disable-intro')),
-                ...items,
-              ])
-          : () => h('div', items)
-      const ok = await new Promise<boolean>((resolve) => {
-        dialog.warning({
-          title: t('preferences.protocol-disable-title'),
-          content,
-          positiveText: t('preferences.protocol-disable-confirm'),
-          negativeText: t('app.cancel'),
-          onPositiveClick: () => resolve(true),
-          onNegativeClick: () => resolve(false),
-          onClose: () => resolve(false),
-        })
-      })
-      if (!ok) return false
-    }
-
     return true
   },
   afterSave: async (f, prevConfig) => {
@@ -278,8 +233,6 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
         logger.warn('Advanced.extensionApi', `restart_http_api port=${newPort} failed: ${e}`)
       }
     }
-
-    await reconcileProtocolHandlers(f, prevConfig.protocols ?? defaultProtocols)
   },
 })
 
@@ -299,64 +252,8 @@ function loadForm() {
   Object.assign(form.value, buildForm())
 }
 
-async function readProtocolStatus(): Promise<ProtocolStatus> {
-  const entries = await Promise.all(
-    protocolEntries.map(async ([protocol]) => {
-      const enabled = await invoke<boolean>('is_default_protocol_client', { protocol })
-      return [protocol, enabled] as const
-    }),
-  )
-  return Object.fromEntries(entries) as unknown as ProtocolStatus
-}
-
-async function refreshProtocolStatus(target = form.value, persist = false) {
-  const status = await readProtocolStatus()
-  applyProtocolStatusToForm(target, status)
-  if (persist) {
-    await preferenceStore.updateAndSave({ protocols: status })
-  }
-  resetSnapshot()
-}
-
-async function reconcileProtocolHandlers(target: typeof form.value, previous: ProtocolStatus) {
-  for (const [protocol, formKey] of protocolEntries) {
-    const enabled = target[formKey] as boolean
-    if (enabled === previous[protocol]) continue
-    try {
-      await applyProtocolHandler(protocol, enabled)
-    } catch (e) {
-      showProtocolError(protocol, enabled, e)
-    }
-  }
-  await refreshProtocolStatus(target, true)
-}
-
-async function applyProtocolHandler(protocol: keyof ProtocolStatus, enabled: boolean) {
-  if (enabled) {
-    const isDefault = await invoke<boolean>('is_default_protocol_client', { protocol })
-    if (!isDefault) {
-      await invoke('set_default_protocol_client', { protocol })
-      message.success(t('preferences.protocol-registered', { protocol }))
-    }
-    return
-  }
-  await invoke('remove_as_default_protocol_client', { protocol })
-  message.success(t('preferences.protocol-unregistered', { protocol }))
-}
-
-function showProtocolError(protocol: keyof ProtocolStatus, enabled: boolean, error: unknown) {
-  const reason =
-    error instanceof Error
-      ? error.message
-      : typeof error === 'object' && error !== null
-        ? Object.values(error as Record<string, unknown>).join(': ')
-        : String(error)
-  logger.warn('Advanced.protocol', `Failed to ${enabled ? 'register' : 'unregister'} ${protocol}: ${reason}`)
-  if (!enabled && reason.includes(MANUAL_PROTOCOL_CHANGE_REQUIRED)) {
-    message.warning(t('preferences.protocol-unregister-manual-required'))
-  } else {
-    message.error(t('preferences.protocol-failed', { protocol, reason }))
-  }
+async function handleProtocolToggle(protocol: ProtocolKey, enabled: boolean) {
+  await protocolHandlers.setProtocolEnabled(protocol, enabled)
 }
 
 async function loadPaths() {
@@ -455,14 +352,23 @@ onMounted(async () => {
   resetSnapshot()
   loadPaths()
 
-  // Read actual OS registration state for protocol toggles (all platforms).
-  // Uses custom Rust commands that support macOS NSWorkspace + Windows/Linux deep-link.
-  // This ensures the switches reflect reality even if another app has taken
-  // over the protocol association since Motrix last ran.
   try {
-    await refreshProtocolStatus()
+    await protocolHandlers.refreshAll()
   } catch (e) {
     logger.debug('Advanced.protocolCheck', e)
+  }
+})
+
+watch(protocolHandlers.lastError, (error) => {
+  if (!error) return
+  logger.warn(
+    'Advanced.protocol',
+    `Failed to ${error.enabled ? 'register' : 'unregister'} ${error.protocol}: ${error.reason}`,
+  )
+  if (!error.enabled && error.reason.includes('manual_change_required')) {
+    message.warning(t('preferences.protocol-unregister-manual-required'))
+  } else {
+    message.error(t('preferences.protocol-failed', { protocol: error.protocol, reason: error.reason }))
   }
 })
 </script>
@@ -729,16 +635,32 @@ onMounted(async () => {
       <!-- Default Programs (migrated from Basic) -->
       <NDivider title-placement="left">{{ t('preferences.default-programs') }}</NDivider>
       <NFormItem :label="t('preferences.protocol-magnet')">
-        <NSwitch v-model:value="form.protocolMagnet" />
+        <NSwitch
+          :value="protocolStatus.magnet"
+          :loading="protocolPending === 'magnet'"
+          @update:value="(value) => handleProtocolToggle('magnet', value)"
+        />
       </NFormItem>
       <NFormItem :label="t('preferences.protocol-ed2k')">
-        <NSwitch v-model:value="form.protocolEd2k" />
+        <NSwitch
+          :value="protocolStatus.ed2k"
+          :loading="protocolPending === 'ed2k'"
+          @update:value="(value) => handleProtocolToggle('ed2k', value)"
+        />
       </NFormItem>
       <NFormItem :label="t('preferences.protocol-thunder')">
-        <NSwitch v-model:value="form.protocolThunder" />
+        <NSwitch
+          :value="protocolStatus.thunder"
+          :loading="protocolPending === 'thunder'"
+          @update:value="(value) => handleProtocolToggle('thunder', value)"
+        />
       </NFormItem>
       <NFormItem :label="t('preferences.protocol-motrixnext')">
-        <NSwitch v-model:value="form.protocolMotrixnext" />
+        <NSwitch
+          :value="protocolStatus.motrixnext"
+          :loading="protocolPending === 'motrixnext'"
+          @update:value="(value) => handleProtocolToggle('motrixnext', value)"
+        />
       </NFormItem>
     </NForm>
 

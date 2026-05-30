@@ -169,15 +169,8 @@ const migrations: Migration[] = [
   },
 
   // ── v4 → v5 ──────────────────────────────────────────────────────
-  // Add ED2K as a first-class URI protocol surface.
-  //
-  // Existing users already have nested protocols/clipboard objects persisted,
-  // so default merging alone cannot add the new nested keys reliably.
+  // Add ED2K to clipboard detection.
   function migrateV5(config: Partial<AppConfig>): void {
-    if (config.protocols && config.protocols.ed2k === undefined) {
-      config.protocols.ed2k = true
-      logger.info('ConfigMigration', 'v5: backfilled protocols.ed2k')
-    }
     if (config.clipboard && config.clipboard.ed2k === undefined) {
       config.clipboard.ed2k = true
       logger.info('ConfigMigration', 'v5: backfilled clipboard.ed2k')

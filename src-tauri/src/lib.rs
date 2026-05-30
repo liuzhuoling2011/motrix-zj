@@ -71,58 +71,6 @@ pub struct AppLifecycleState {
     is_cold_start: std::sync::atomic::AtomicBool,
 }
 
-#[cfg(any(target_os = "linux", test))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct ProtocolPreference {
-    scheme: &'static str,
-    enabled: bool,
-}
-
-#[cfg(any(target_os = "linux", test))]
-fn protocol_preferences_from_value(
-    preferences: Option<&serde_json::Value>,
-) -> Vec<ProtocolPreference> {
-    const DEFAULTS: [ProtocolPreference; 4] = [
-        ProtocolPreference {
-            scheme: "magnet",
-            enabled: false,
-        },
-        ProtocolPreference {
-            scheme: "ed2k",
-            enabled: false,
-        },
-        ProtocolPreference {
-            scheme: "thunder",
-            enabled: false,
-        },
-        ProtocolPreference {
-            scheme: "motrixnext",
-            enabled: true,
-        },
-    ];
-
-    let protocols = preferences.and_then(|p| p.get("protocols"));
-    DEFAULTS
-        .iter()
-        .map(|pref| ProtocolPreference {
-            scheme: pref.scheme,
-            enabled: protocols
-                .and_then(|p| p.get(pref.scheme))
-                .and_then(serde_json::Value::as_bool)
-                .unwrap_or(pref.enabled),
-        })
-        .collect()
-}
-
-#[cfg(target_os = "linux")]
-fn protocol_preferences_from_store(app: &tauri::AppHandle) -> Vec<ProtocolPreference> {
-    let store_prefs = app
-        .store("config.json")
-        .ok()
-        .and_then(|s| s.get("preferences"));
-    protocol_preferences_from_value(store_prefs.as_ref())
-}
-
 impl Default for AppLifecycleState {
     fn default() -> Self {
         Self::new()
@@ -380,34 +328,6 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             let urls: Vec<String> = event.urls().iter().map(ToString::to_string).collect();
             services::deep_link::route_external_inputs(&app_handle, urls, "macos-open-url");
         });
-    }
-
-    // Sync enabled deep-link schemes at startup on Linux.
-    //
-    // The .deb bundler installs `motrix-next.desktop` in /usr/share/applications/,
-    // but the deep-link plugin's `is_registered()` expects a runtime-created
-    // `motrix-next-handler.desktop` in ~/.local/share/applications/.  Without
-    // this call, `is_registered()` always returns false on .deb installs,
-    // causing protocol toggles to appear disabled (see issue #180).
-    //
-    // This must honor the user's saved protocol toggles. Calling
-    // `register_all()` would re-enable disabled schemes on every startup.
-    //
-    // On macOS and Windows this is compile-time excluded: those platforms use
-    // native registration APIs in commands/protocol.rs instead.
-    #[cfg(target_os = "linux")]
-    {
-        for preference in protocol_preferences_from_store(handle) {
-            if !preference.enabled {
-                continue;
-            }
-            if let Err(e) = app.deep_link().register(preference.scheme) {
-                log::warn!(
-                    "deep-link: register {} failed (non-fatal): {e}",
-                    preference.scheme
-                );
-            }
-        }
     }
 
     // The window-state plugin is registered with skip_initial_state("main"),
@@ -1063,65 +983,10 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use serde_json::json;
+    use super::AppLifecycleState;
 
     #[test]
-    fn protocol_preferences_default_to_supported_startup_values() {
-        assert_eq!(
-            protocol_preferences_from_value(None),
-            vec![
-                ProtocolPreference {
-                    scheme: "magnet",
-                    enabled: false,
-                },
-                ProtocolPreference {
-                    scheme: "ed2k",
-                    enabled: false,
-                },
-                ProtocolPreference {
-                    scheme: "thunder",
-                    enabled: false,
-                },
-                ProtocolPreference {
-                    scheme: "motrixnext",
-                    enabled: true,
-                },
-            ]
-        );
-    }
-
-    #[test]
-    fn protocol_preferences_honor_saved_disabled_schemes() {
-        let preferences = json!({
-            "protocols": {
-                "magnet": false,
-                "ed2k": true,
-                "thunder": false,
-                "motrixnext": false
-            }
-        });
-
-        assert_eq!(
-            protocol_preferences_from_value(Some(&preferences)),
-            vec![
-                ProtocolPreference {
-                    scheme: "magnet",
-                    enabled: false,
-                },
-                ProtocolPreference {
-                    scheme: "ed2k",
-                    enabled: true,
-                },
-                ProtocolPreference {
-                    scheme: "thunder",
-                    enabled: false,
-                },
-                ProtocolPreference {
-                    scheme: "motrixnext",
-                    enabled: false,
-                },
-            ]
-        );
+    fn app_lifecycle_starts_cold() {
+        assert!(AppLifecycleState::new().is_cold_start());
     }
 }

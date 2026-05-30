@@ -452,20 +452,9 @@ describe('v4 migration — path separator normalization and category auto-popula
   })
 })
 
-// ── v5 Migration: ED2K protocol and clipboard defaults ────────────
+// ── v5 Migration: ED2K clipboard default ──────────────────────────
 
-describe('v5 migration — ED2K protocol and clipboard backfill', () => {
-  it('backfills protocols.ed2k when protocols already exists', () => {
-    const config = {
-      configVersion: 4,
-      protocols: { magnet: true, thunder: false, motrixnext: true },
-    } as Partial<AppConfig>
-
-    runMigrations(config)
-
-    expect(config.protocols?.ed2k).toBe(true)
-  })
-
+describe('v5 migration — ED2K clipboard backfill', () => {
   it('backfills clipboard.ed2k when clipboard already exists', () => {
     const config = {
       configVersion: 4,
@@ -480,13 +469,11 @@ describe('v5 migration — ED2K protocol and clipboard backfill', () => {
   it('preserves explicit ed2k=false values', () => {
     const config = {
       configVersion: 4,
-      protocols: { magnet: true, thunder: false, motrixnext: true, ed2k: false },
       clipboard: { enable: true, http: true, ftp: true, magnet: true, ed2k: false, thunder: true, btHash: true },
     } as Partial<AppConfig>
 
     runMigrations(config)
 
-    expect(config.protocols?.ed2k).toBe(false)
     expect(config.clipboard?.ed2k).toBe(false)
   })
 })
@@ -504,7 +491,6 @@ describe('v0 → v5 full migration path', () => {
       dir: 'C:\\Users\\test\\Downloads',
       fileCategoryEnabled: true,
       fileCategories: [],
-      protocols: { magnet: true, thunder: false, motrixnext: true },
       clipboard: { enable: true, http: true, ftp: true, magnet: true, thunder: true, btHash: true },
     } as unknown as Partial<AppConfig>
 
@@ -521,8 +507,7 @@ describe('v0 → v5 full migration path', () => {
     expect(config.dir).toBe('C:/Users/test/Downloads')
     expect(config.fileCategories!.length).toBeGreaterThan(0)
     expect(config.fileCategories![0].directory).toMatch(/^C:\/Users\/test\/Downloads\//)
-    // v5: ED2K protocol surfaces backfilled
-    expect(config.protocols?.ed2k).toBe(true)
+    // v5: ED2K clipboard surface backfilled
     expect(config.clipboard?.ed2k).toBe(true)
     // Both split and maxConnectionPerServer preserved
     expect(config.split).toBe(64)

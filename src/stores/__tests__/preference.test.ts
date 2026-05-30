@@ -67,14 +67,12 @@ describe('PreferenceStore', () => {
   it('loadPreference hydrates missing nested config fields', async () => {
     mockStoreData.set('preferences', {
       configVersion: CONFIG_VERSION,
-      protocols: { magnet: false },
       clipboard: { enable: false },
       proxy: { mode: 'manual', enable: true, server: 'http://127.0.0.1:7890' },
     })
 
     await store.loadPreference()
 
-    expect(store.config.protocols).toEqual({ ...DEFAULT_APP_CONFIG.protocols, magnet: false })
     expect(store.config.clipboard).toEqual({ ...DEFAULT_APP_CONFIG.clipboard, enable: false })
     expect(store.config.proxy).toEqual({
       ...DEFAULT_APP_CONFIG.proxy,

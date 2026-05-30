@@ -346,7 +346,6 @@ export const DEFAULT_APP_CONFIG = {
     bypass: '',
     scope: ['download', 'update-app', 'update-trackers'],
   },
-  protocols: { magnet: false, ed2k: false, thunder: false, motrixnext: true },
   clipboard: { enable: true, http: true, ftp: true, magnet: true, ed2k: true, thunder: true, btHash: true },
   autoSubmitFromExtension: true,
   autoSelectAllBtFilesFromExtension: false,

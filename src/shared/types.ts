@@ -188,14 +188,6 @@ export interface SystemProxyInfo {
 export type UpdateChannel = 'stable' | 'beta' | 'latest'
 export type ResolvedUpdateChannel = Exclude<UpdateChannel, 'latest'>
 
-/** Protocol handler registration settings (system-level). */
-export interface ProtocolsConfig {
-  magnet: boolean
-  ed2k: boolean
-  thunder: boolean
-  motrixnext: boolean
-}
-
 /** Clipboard auto-detection filter: controls which protocol families
  *  trigger the "new task" dialog when a URL is detected in the clipboard. */
 export interface ClipboardConfig {
@@ -313,7 +305,6 @@ export interface AppConfig {
   tempFilesDir: string
   cookie: string
   proxy: ProxyConfig
-  protocols: ProtocolsConfig
   clipboard: ClipboardConfig
   /** When true, extension-intercepted URI downloads bypass the AddTask dialog. */
   autoSubmitFromExtension: boolean
