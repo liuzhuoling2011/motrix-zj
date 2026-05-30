@@ -43,12 +43,16 @@ vi.mock('@shared/logger', () => ({
 
 // ── Mock batch helpers ─────────────────────────────────────────────
 vi.mock('@shared/utils/batchHelpers', () => ({
-  detectKind: (path: string) => {
+  detectExternalInputKind: (path: string) => {
     try {
       if (new URL(path).pathname.endsWith('.torrent')) return 'torrent'
     } catch {
-      if (path.endsWith('.torrent')) return 'torrent'
+      return 'uri'
     }
+    return 'uri'
+  },
+  detectKind: (path: string) => {
+    if (path.endsWith('.torrent')) return 'torrent'
     return 'uri'
   },
   createBatchItem: (kind: string, source: string) => ({

@@ -8,7 +8,7 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@shared/logger'
 import { parseTorrentBuffer, uint8ToBase64 } from '@/composables/useTorrentParser'
-import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
+import { createBatchItem, detectExternalInputKind, detectKind } from '@shared/utils/batchHelpers'
 import { sanitizeBrowserRequestHeaders, sanitizeHttpHeaderOptions } from '@shared/utils/headerSanitize'
 import type { BatchItem } from '@shared/types'
 
@@ -88,7 +88,7 @@ export async function resolveRemoteFileItem(item: BatchItem, t: (key: string) =>
 }
 
 export function isRemoteTorrentSource(source: string): boolean {
-  return /^https?:\/\//i.test(source) && detectKind(source) === 'torrent'
+  return /^https?:\/\//i.test(source) && detectExternalInputKind(source) === 'torrent'
 }
 
 /**
