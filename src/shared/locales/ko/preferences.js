@@ -361,7 +361,7 @@ export default {
   timeout: '전송 시간 초과',
   'file-allocation': '파일 사전 할당',
   'async-dns': '비동기 DNS',
-  'async-dns-hint': 'c-ares를 사용해 DNS를 비동기로 확인합니다. 시스템 DNS가 느리거나 멈추는 경우가 아니면 꺼 두세요.',
+  'async-dns-hint': '켜면 DNS 확인 성능이 향상될 수 있지만 다운로드가 불안정해질 수도 있습니다',
   'startup-behavior': '시작',
   'tray-and-dock': '트레이 및 Dock',
   'unit-seconds': '초',

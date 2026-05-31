@@ -368,7 +368,7 @@ export default {
   'file-allocation': 'Pra-alokasi file',
   'async-dns': 'DNS asinkron',
   'async-dns-hint':
-    'Menggunakan c-ares untuk resolusi DNS asinkron. Biarkan nonaktif kecuali DNS sistem lambat atau macet.',
+    'Saat diaktifkan, dapat meningkatkan kinerja resolusi DNS, tetapi juga dapat membuat unduhan tidak stabil',
   'startup-behavior': 'Mulai',
   'tray-and-dock': 'Baki & Dock',
   'unit-seconds': 'dtk',

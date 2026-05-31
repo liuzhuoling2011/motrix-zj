@@ -368,7 +368,7 @@ export default {
   'file-allocation': 'ファイル事前割り当て',
   'async-dns': '非同期 DNS',
   'async-dns-hint':
-    'c-ares を使って DNS を非同期に解決します。システム DNS が遅い、または停止する場合以外はオフのままにしてください。',
+    '有効にすると DNS 解決の性能が向上する場合がありますが、ダウンロードが不安定になることもあります',
   'startup-behavior': '起動',
   'tray-and-dock': 'トレイと Dock',
   'unit-seconds': '秒',

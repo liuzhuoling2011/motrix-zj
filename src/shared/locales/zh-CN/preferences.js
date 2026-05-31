@@ -353,7 +353,7 @@ export default {
   timeout: '传输超时',
   'file-allocation': '文件预分配',
   'async-dns': '异步 DNS',
-  'async-dns-hint': '使用 c-ares 进行异步 DNS 解析。除非系统 DNS 解析慢或卡住，否则保持关闭。',
+  'async-dns-hint': '开启后可能提升 DNS 解析性能，但也可能导致下载不稳定',
   'startup-behavior': '启动',
   'tray-and-dock': '托盘与 Dock',
   'unit-seconds': '秒',

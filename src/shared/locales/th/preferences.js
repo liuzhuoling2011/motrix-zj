@@ -360,7 +360,7 @@ export default {
   timeout: 'หมดเวลาถ่ายโอน',
   'file-allocation': 'จัดสรรไฟล์ล่วงหน้า',
   'async-dns': 'DNS แบบอะซิงโครนัส',
-  'async-dns-hint': 'ใช้ c-ares สำหรับการแก้ชื่อ DNS แบบอะซิงโครนัส ปิดไว้เว้นแต่ DNS ของระบบช้าหรือค้าง',
+  'async-dns-hint': 'เมื่อเปิดใช้งาน อาจช่วยเพิ่มประสิทธิภาพการแปลง DNS แต่ก็อาจทำให้การดาวน์โหลดไม่เสถียร',
   'startup-behavior': 'การเริ่มต้น',
   'tray-and-dock': 'ถาดและ Dock',
   'unit-seconds': 'วินาที',

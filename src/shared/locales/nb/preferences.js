@@ -365,7 +365,7 @@ export default {
   'file-allocation': 'Forhåndstildeling av fil',
   'async-dns': 'Asynkron DNS',
   'async-dns-hint':
-    'Bruker c-ares for asynkron DNS-oppløsning. La den være av med mindre system-DNS er treg eller stopper.',
+    'Kan forbedre ytelsen for DNS-oppslag når det er aktivert, men kan også gjøre nedlastinger ustabile',
   'startup-behavior': 'Oppstart',
   'tray-and-dock': 'Systemstatusfeltet og Dock',
   'unit-seconds': 'sek',

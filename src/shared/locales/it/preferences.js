@@ -373,7 +373,7 @@ export default {
   'file-allocation': 'Pre-allocazione file',
   'async-dns': 'DNS asincrono',
   'async-dns-hint':
-    'Usa c-ares per la risoluzione DNS asincrona. Lascialo disattivato salvo che il DNS di sistema sia lento o si blocchi.',
+    'Può migliorare le prestazioni della risoluzione DNS quando attivato, ma può anche rendere instabili i download',
   'startup-behavior': 'Avvio',
   'tray-and-dock': 'Barra e Dock',
   'unit-seconds': 'sec',

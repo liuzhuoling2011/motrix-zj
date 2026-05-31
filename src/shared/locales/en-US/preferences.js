@@ -365,7 +365,7 @@ export default {
   'file-allocation': 'File Pre-allocation',
   'async-dns': 'Async DNS',
   'async-dns-hint':
-    'Uses c-ares for asynchronous DNS resolution. Keep it off unless system DNS resolution is slow or stalls.',
+    'May improve DNS resolution performance when enabled, but may also make downloads unstable',
   'startup-behavior': 'Startup',
   'tray-and-dock': 'Tray & Dock',
   'unit-seconds': 'sec',

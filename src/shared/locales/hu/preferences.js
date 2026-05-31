@@ -368,7 +368,7 @@ export default {
   'file-allocation': 'Fájl előfoglalás',
   'async-dns': 'Aszinkron DNS',
   'async-dns-hint':
-    'c-ares használata aszinkron DNS-feloldáshoz. Hagyja kikapcsolva, kivéve ha a rendszer DNS lassú vagy elakad.',
+    'Bekapcsolva javíthatja a DNS-feloldás teljesítményét, de instabillá teheti a letöltéseket',
   'startup-behavior': 'Indítás',
   'tray-and-dock': 'Tálca és Dock',
   'unit-seconds': 'mp',

@@ -371,7 +371,7 @@ export default {
   'file-allocation': 'Datei-Vorabzuweisung',
   'async-dns': 'Asynchrones DNS',
   'async-dns-hint':
-    'Verwendet c-ares für asynchrone DNS-Auflösung. Lassen Sie es deaktiviert, sofern die System-DNS-Auflösung nicht langsam ist oder hängt.',
+    'Kann nach dem Aktivieren die DNS-Auflösung beschleunigen, Downloads aber instabil machen',
   'startup-behavior': 'Autostart',
   'tray-and-dock': 'Taskleiste & Dock',
   'unit-seconds': 'Sek',

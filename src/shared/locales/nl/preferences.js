@@ -369,7 +369,7 @@ export default {
   'file-allocation': 'Bestandsvoorallocatie',
   'async-dns': 'Asynchrone DNS',
   'async-dns-hint':
-    'Gebruikt c-ares voor asynchrone DNS-resolutie. Laat dit uit tenzij systeem-DNS traag is of vastloopt.',
+    'Kan na inschakelen de prestaties van DNS-resolutie verbeteren, maar kan downloads ook instabiel maken',
   'startup-behavior': 'Opstarten',
   'tray-and-dock': 'Systeemvak en Dock',
   'unit-seconds': 'sec',

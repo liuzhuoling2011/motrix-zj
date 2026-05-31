@@ -369,7 +369,7 @@ export default {
   'file-allocation': 'Pre-alocare fișier',
   'async-dns': 'DNS asincron',
   'async-dns-hint':
-    'Folosește c-ares pentru rezolvare DNS asincronă. Lasă dezactivat dacă DNS-ul sistemului nu este lent sau blocat.',
+    'După activare poate îmbunătăți performanța rezolvării DNS, dar poate face descărcările instabile',
   'startup-behavior': 'Pornire',
   'tray-and-dock': 'Tavă și Dock',
   'unit-seconds': 'sec',

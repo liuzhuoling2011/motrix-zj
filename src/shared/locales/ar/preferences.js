@@ -361,7 +361,7 @@ export default {
   timeout: 'مهلة النقل',
   'file-allocation': 'تخصيص الملف المسبق',
   'async-dns': 'DNS غير المتزامن',
-  'async-dns-hint': 'يستخدم c-ares لحل DNS غير المتزامن. اتركه متوقفا إلا إذا كان حل DNS في النظام بطيئا أو يعلق.',
+  'async-dns-hint': 'قد يحسّن أداء تحليل DNS بعد تفعيله، لكنه قد يجعل التنزيل غير مستقر',
   'startup-behavior': 'التشغيل',
   'tray-and-dock': 'شريط المهام والـ Dock',
   'unit-seconds': 'ثانية',

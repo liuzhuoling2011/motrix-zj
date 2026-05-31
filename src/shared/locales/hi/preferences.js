@@ -365,7 +365,7 @@ export default {
   'file-allocation': 'File pre-allocation',
   'async-dns': 'Async DNS',
   'async-dns-hint':
-    'Asynchronous DNS resolution के लिए c-ares इस्तेमाल करता है। System DNS slow या stuck न हो तो इसे off रखें।',
+    'चालू करने पर DNS रिज़ॉल्यूशन प्रदर्शन बेहतर हो सकता है, लेकिन डाउनलोड अस्थिर भी हो सकते हैं',
   'startup-behavior': 'शुरुआत',
   'tray-and-dock': 'Tray और Dock',
   'unit-seconds': 'सेकंड',

@@ -369,7 +369,7 @@ export default {
   'file-allocation': 'Wstępna alokacja pliku',
   'async-dns': 'Asynchroniczny DNS',
   'async-dns-hint':
-    'Używa c-ares do asynchronicznego rozwiązywania DNS. Zostaw wyłączone, chyba że systemowy DNS jest wolny lub się zawiesza.',
+    'Po włączeniu może poprawić wydajność rozwiązywania DNS, ale może też powodować niestabilne pobieranie',
   'startup-behavior': 'Uruchamianie',
   'tray-and-dock': 'Zasobnik i Dock',
   'unit-seconds': 'sek',

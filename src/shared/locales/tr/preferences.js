@@ -368,7 +368,7 @@ export default {
   'file-allocation': 'Dosya ön tahsisi',
   'async-dns': 'Asenkron DNS',
   'async-dns-hint':
-    'Asenkron DNS çözümlemesi için c-ares kullanır. Sistem DNS yavaşlamıyor veya takılmıyorsa kapalı tutun.',
+    'Etkinleştirildiğinde DNS çözümleme performansını artırabilir, ancak indirmeleri kararsız hale de getirebilir',
   'startup-behavior': 'Başlangıç',
   'tray-and-dock': 'Tepsi ve Dock',
   'unit-seconds': 'sn',

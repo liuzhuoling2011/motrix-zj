@@ -354,7 +354,7 @@ export default {
   timeout: '傳輸逾時',
   'file-allocation': '檔案預分配',
   'async-dns': '非同步 DNS',
-  'async-dns-hint': '使用 c-ares 進行非同步 DNS 解析。除非系統 DNS 解析很慢或卡住，否則保持關閉。',
+  'async-dns-hint': '開啟後可能提升 DNS 解析效能，但也可能導致下載不穩定',
   'startup-behavior': '啟動',
   'tray-and-dock': '系統匣與 Dock',
   'unit-seconds': '秒',

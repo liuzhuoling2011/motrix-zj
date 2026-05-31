@@ -371,7 +371,7 @@ export default {
   'file-allocation': 'Preasignació de fitxer',
   'async-dns': 'DNS asíncron',
   'async-dns-hint':
-    'Utilitza c-ares per a la resolució DNS asíncrona. Deixa-ho desactivat llevat que el DNS del sistema sigui lent o es bloquegi.',
+    'En activar-ho, pot millorar el rendiment de la resolució DNS, però també pot fer que les baixades siguin inestables',
   'startup-behavior': 'Inici',
   'tray-and-dock': 'Safata i Dock',
   'unit-seconds': 'seg',

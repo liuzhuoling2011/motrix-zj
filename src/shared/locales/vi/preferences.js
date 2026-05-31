@@ -363,7 +363,7 @@ export default {
   timeout: 'Hết hạn truyền tải',
   'file-allocation': 'Phân bổ trước tệp',
   'async-dns': 'DNS bất đồng bộ',
-  'async-dns-hint': 'Dùng c-ares để phân giải DNS bất đồng bộ. Hãy tắt nếu DNS hệ thống không chậm hoặc bị treo.',
+  'async-dns-hint': 'Khi bật, có thể cải thiện hiệu năng phân giải DNS, nhưng cũng có thể làm tải xuống không ổn định',
   'startup-behavior': 'Khởi động',
   'tray-and-dock': 'Khay hệ thống và Dock',
   'unit-seconds': 'giây',
