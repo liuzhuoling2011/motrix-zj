@@ -5,6 +5,7 @@
  * progress calculations, version direction detection, and proxy resolution.
  */
 import { isDowngrade } from '@shared/utils/semver'
+import { buildProxyUrlWithCredentials } from '@shared/utils/proxyUrl'
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -18,6 +19,8 @@ export interface DownloadUpdateResult {
 export interface UpdateProxyConfig {
   enable?: boolean
   server?: string
+  username?: string
+  password?: string
   scope?: string[]
 }
 
@@ -92,7 +95,7 @@ export function getUpdateProxy(proxyConfig: UpdateProxyConfig | undefined): stri
   if (!proxyConfig?.enable || !proxyConfig.server) return null
   const scope = proxyConfig.scope || []
   if (!scope.includes('update-app')) return null
-  return proxyConfig.server
+  return buildProxyUrlWithCredentials(proxyConfig)
 }
 
 // ── Error Formatting ────────────────────────────────────────────────

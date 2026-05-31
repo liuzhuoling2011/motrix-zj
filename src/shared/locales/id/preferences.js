@@ -127,6 +127,8 @@ export default {
   'bt-tracker-sync-failed-sources': 'Sumber berikut gagal:',
   'bt-tracker-content': 'Daftar tracker',
   'proxy-server': 'Server proxy',
+  'proxy-username': 'Nama pengguna proxy',
+  'proxy-password': 'Kata sandi proxy',
   'invalid-proxy-url': 'Invalid proxy URL format',
   'proxy-unsupported-protocol':
     'Protokol proxy tidak didukung. Aria2 Next hanya mendukung proxy HTTP (http/https/ftp).',
@@ -364,6 +366,9 @@ export default {
   'connect-timeout': 'Batas waktu koneksi',
   timeout: 'Batas waktu transfer',
   'file-allocation': 'Pra-alokasi file',
+  'async-dns': 'DNS asinkron',
+  'async-dns-hint':
+    'Menggunakan c-ares untuk resolusi DNS asinkron. Biarkan nonaktif kecuali DNS sistem lambat atau macet.',
   'startup-behavior': 'Mulai',
   'tray-and-dock': 'Baki & Dock',
   'unit-seconds': 'dtk',

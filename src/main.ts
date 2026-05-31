@@ -20,6 +20,7 @@ import { convertTrackerDataToLine, convertTrackerDataToComma, reduceTrackerStrin
 import { logger } from '@shared/logger'
 import { getErrorMessage } from '@shared/utils/errorMessage'
 import { resolveUserVisibleDownloadDir, shouldPersistResolvedDownloadDir } from '@shared/utils/userVisibleDirectory'
+import { getUpdateProxy } from '@/composables/useUpdateFlow'
 import type { AppConfig, TauriUpdate } from '@shared/types'
 import App from './App.vue'
 import 'virtual:uno.css'
@@ -89,9 +90,7 @@ if (import.meta.env.PROD) {
     try {
       const { invoke } = await import('@tauri-apps/api/core')
       const channel = config.updateChannel || 'stable'
-      const proxy = config.proxy
-      const proxyServer =
-        proxy?.enable && proxy.server && (proxy.scope || []).includes('update-app') ? proxy.server : null
+      const proxyServer = getUpdateProxy(config.proxy)
       const update = await invoke<TauriUpdate | null>('check_for_update', { channel, proxy: proxyServer })
       if (update) {
         appStore.pendingUpdate = update

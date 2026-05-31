@@ -432,7 +432,7 @@ describe('aria2 API (invoke transport)', () => {
       expect(result).toBe('gid-torrent')
       expect(mockInvoke).toHaveBeenCalledWith('aria2_add_torrent', {
         torrent: 'base64data',
-        options: { 'force-save': 'true' },
+        options: { 'force-save': 'true', 'check-integrity': 'true' },
       })
     })
 
@@ -442,6 +442,7 @@ describe('aria2 API (invoke transport)', () => {
       const callArgs = mockInvoke.mock.calls[0][1] as Record<string, unknown>
       const options = callArgs.options as Record<string, string>
       expect(options['force-save']).toBe('true')
+      expect(options['check-integrity']).toBe('true')
       expect(options.dir).toBe('/custom')
       expect(options.split).toBe('4')
     })

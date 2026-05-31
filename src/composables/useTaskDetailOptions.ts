@@ -47,6 +47,8 @@ export interface TaskDetailOptionsForm {
   httpAuthPassword: string
   proxyMode: ProxyMode
   customProxy: string
+  customProxyUsername: string
+  customProxyPassword: string
 }
 
 export interface UseTaskDetailOptionsConfig {
@@ -113,6 +115,8 @@ function createEmptyForm(): TaskDetailOptionsForm {
     httpAuthPassword: '',
     proxyMode: 'direct',
     customProxy: '',
+    customProxyUsername: '',
+    customProxyPassword: '',
   }
 }
 
@@ -144,6 +148,8 @@ function populateFormFromResponse(opts: Record<string, string>, form: TaskDetail
   const detected = detectProxyMode(opts)
   form.proxyMode = detected.mode
   form.customProxy = detected.custom
+  form.customProxyUsername = (opts.allProxyUser as string) ?? ''
+  form.customProxyPassword = (opts.allProxyPasswd as string) ?? ''
 }
 
 // ── Changed-options diff builder ──────────────────────────────────
@@ -175,7 +181,12 @@ function buildChangedOptions(
     options['http-user'] = username
     options['http-passwd'] = sanitizeHeaderValue(form.httpAuthPassword)
   }
-  if (form.proxyMode !== loaded.proxyMode || form.customProxy !== loaded.customProxy) {
+  if (
+    form.proxyMode !== loaded.proxyMode ||
+    form.customProxy !== loaded.customProxy ||
+    form.customProxyUsername !== loaded.customProxyUsername ||
+    form.customProxyPassword !== loaded.customProxyPassword
+  ) {
     Object.assign(options, proxyOptions)
   }
 
@@ -205,7 +216,9 @@ export function useTaskDetailOptions(config: UseTaskDetailOptionsConfig) {
       form.httpAuthUsername !== loaded.httpAuthUsername ||
       form.httpAuthPassword !== loaded.httpAuthPassword ||
       form.proxyMode !== loaded.proxyMode ||
-      form.customProxy !== loaded.customProxy,
+      form.customProxy !== loaded.customProxy ||
+      form.customProxyUsername !== loaded.customProxyUsername ||
+      form.customProxyPassword !== loaded.customProxyPassword,
   )
 
   function resetForm() {
@@ -235,7 +248,13 @@ export function useTaskDetailOptions(config: UseTaskDetailOptionsConfig) {
     if (applying.value || !task.value || !dirty.value) return
     applying.value = true
     try {
-      const proxyOptions = buildTaskProxyOptions(form.proxyMode, form.customProxy, proxyConfig())
+      const proxyOptions = buildTaskProxyOptions(
+        form.proxyMode,
+        form.customProxy,
+        proxyConfig(),
+        form.customProxyUsername,
+        form.customProxyPassword,
+      )
 
       // Validate proxy format before sending to aria2 — prevents errorCode=28 crash
       if (hasInvalidManualProxy(proxyOptions)) {

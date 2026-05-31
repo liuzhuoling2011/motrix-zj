@@ -127,6 +127,8 @@ export default {
   'bt-tracker-sync-failed-sources': 'Următoarele surse au eșuat:',
   'bt-tracker-content': 'Lista de trackere',
   'proxy-server': 'Server proxy',
+  'proxy-username': 'Nume utilizator proxy',
+  'proxy-password': 'Parolă proxy',
   'invalid-proxy-url': 'Invalid proxy URL format',
   'proxy-unsupported-protocol': 'Protocol proxy nesuportat. Aria2 Next acceptă doar proxy HTTP (http/https/ftp).',
   'proxy-http-only-hint': 'Aria2 Next acceptă doar proxy HTTP. Proxy SOCKS nu este suportat',
@@ -365,6 +367,9 @@ export default {
   'connect-timeout': 'Timeout conexiune',
   timeout: 'Timeout transfer',
   'file-allocation': 'Pre-alocare fișier',
+  'async-dns': 'DNS asincron',
+  'async-dns-hint':
+    'Folosește c-ares pentru rezolvare DNS asincronă. Lasă dezactivat dacă DNS-ul sistemului nu este lent sau blocat.',
   'startup-behavior': 'Pornire',
   'tray-and-dock': 'Tavă și Dock',
   'unit-seconds': 'sec',

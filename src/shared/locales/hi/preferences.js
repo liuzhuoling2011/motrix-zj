@@ -127,6 +127,8 @@ export default {
   'bt-tracker-sync-failed-sources': 'निम्न sources विफल रहे:',
   'bt-tracker-content': 'Tracker list',
   'proxy-server': 'Proxy server',
+  'proxy-username': 'Proxy username',
+  'proxy-password': 'Proxy password',
   'invalid-proxy-url': 'Proxy URL format अमान्य है',
   'proxy-unsupported-protocol':
     'Unsupported proxy protocol. Aria2 Next केवल HTTP proxies (http/https/ftp) support करता है।',
@@ -361,6 +363,9 @@ export default {
   'connect-timeout': 'Connection timeout',
   timeout: 'Transfer timeout',
   'file-allocation': 'File pre-allocation',
+  'async-dns': 'Async DNS',
+  'async-dns-hint':
+    'Asynchronous DNS resolution के लिए c-ares इस्तेमाल करता है। System DNS slow या stuck न हो तो इसे off रखें।',
   'startup-behavior': 'शुरुआत',
   'tray-and-dock': 'Tray और Dock',
   'unit-seconds': 'सेकंड',

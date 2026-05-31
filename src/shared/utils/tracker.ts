@@ -4,6 +4,7 @@ import type { ProxyConfig } from '@shared/types'
 import { invoke } from '@tauri-apps/api/core'
 import { MAX_BT_TRACKER_LENGTH, PROXY_SCOPES } from '@shared/constants'
 import { logger } from '@shared/logger'
+import { buildProxyUrlWithCredentials } from '@shared/utils/proxyUrl'
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -28,7 +29,9 @@ export interface FetchTrackerSourcesResult {
  */
 export function computeTrackerProxyServer(proxyConfig: Partial<ProxyConfig>): string | null {
   const { enable, server, scope = [] as string[] } = proxyConfig
-  return enable && server && scope.includes(PROXY_SCOPES.UPDATE_TRACKERS) ? server : null
+  return enable && server && scope.includes(PROXY_SCOPES.UPDATE_TRACKERS)
+    ? buildProxyUrlWithCredentials(proxyConfig)
+    : null
 }
 
 // ── Core fetch ──────────────────────────────────────────────────

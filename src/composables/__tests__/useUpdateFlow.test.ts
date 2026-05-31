@@ -210,6 +210,18 @@ describe('getUpdateProxy', () => {
     expect(getUpdateProxy({ enable: true, server: 'http://p:8080', scope: ['update-app'] })).toBe('http://p:8080')
   })
 
+  it('adds encoded proxy credentials when configured', () => {
+    expect(
+      getUpdateProxy({
+        enable: true,
+        server: 'http://p:8080',
+        username: 'user@example.com',
+        password: 'pa:ss word',
+        scope: ['update-app'],
+      }),
+    ).toBe('http://user%40example.com:pa%3Ass%20word@p:8080/')
+  })
+
   it('returns null when scope is missing', () => {
     expect(getUpdateProxy({ enable: true, server: 'http://p:8080' })).toBeNull()
   })

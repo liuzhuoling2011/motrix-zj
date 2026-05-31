@@ -10,6 +10,7 @@ pub(crate) const SUPPORTED_ENGINE_KEYS: &[&str] = &[
     "allow-overwrite",
     "allow-piece-length-change",
     "always-resume",
+    "async-dns",
     "auto-file-renaming",
     "bt-enable-lpd",
     "bt-exclude-tracker",
@@ -207,7 +208,7 @@ mod tests {
 
     #[test]
     fn build_args_passes_whitelisted_keys() {
-        let config = json!({ "dir": "/tmp", "split": 16 });
+        let config = json!({ "dir": "/tmp", "split": 16, "async-dns": "false" });
         let args = build_start_args(
             &config,
             None,
@@ -218,6 +219,7 @@ mod tests {
         );
         assert!(args.iter().any(|a| a == "--dir=/tmp"));
         assert!(args.iter().any(|a| a == "--split=16"));
+        assert!(args.iter().any(|a| a == "--async-dns=false"));
     }
 
     #[test]
@@ -489,6 +491,13 @@ mod tests {
         const BUNDLED_CONF: &str = include_str!("../../binaries/aria2.conf");
         assert!(BUNDLED_CONF.contains("rpc-listen-all=true"));
         assert!(BUNDLED_CONF.contains("rpc-allow-origin-all=true"));
+    }
+
+    #[test]
+    fn bundled_conf_does_not_seed_unverified_bt_files() {
+        const BUNDLED_CONF: &str = include_str!("../../binaries/aria2.conf");
+        assert!(BUNDLED_CONF.contains("bt-seed-unverified=false"));
+        assert!(!BUNDLED_CONF.contains("bt-seed-unverified=true"));
     }
 
     #[test]

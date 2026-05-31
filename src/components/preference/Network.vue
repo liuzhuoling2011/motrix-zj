@@ -276,7 +276,7 @@ onMounted(() => {
               />
             </template>
             <NInputGroup>
-              <NInput v-model:value="form.proxy.server" placeholder="[http://][USER:PASSWORD@]HOST[:PORT]" />
+              <NInput v-model:value="form.proxy.server" placeholder="http://host:port" />
               <NButton :loading="detectingProxy" @click="detectProxy">
                 <template #icon>
                   <NIcon><SearchOutline /></NIcon>
@@ -284,6 +284,12 @@ onMounted(() => {
                 {{ t('preferences.detect-system-proxy') }}
               </NButton>
             </NInputGroup>
+          </NFormItem>
+          <NFormItem :label="t('preferences.proxy-username')">
+            <NInput v-model:value="form.proxy.username" />
+          </NFormItem>
+          <NFormItem :label="t('preferences.proxy-password')">
+            <NInput v-model:value="form.proxy.password" type="password" show-password-on="click" />
           </NFormItem>
           <NFormItem :label="t('preferences.proxy-bypass')">
             <NInput
@@ -413,6 +419,12 @@ onMounted(() => {
       </NFormItem>
       <NFormItem :label="t('preferences.file-allocation')">
         <NSelect v-model:value="form.fileAllocation" :options="fileAllocationOptions" style="width: 140px" />
+      </NFormItem>
+      <NFormItem>
+        <template #label>
+          <PreferenceHintLabel :label="t('preferences.async-dns')" :hint="t('preferences.async-dns-hint')" />
+        </template>
+        <NSwitch v-model:value="form.asyncDns" />
       </NFormItem>
     </NForm>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />

@@ -2,8 +2,8 @@
  * @fileoverview Pure functions for the Network preference tab.
  *
  * Manages: proxy, port mapping (UPnP, BT/DHT ports), transfer parameters
- * (connect-timeout, timeout, file-allocation), and User-Agent. All keys
- * here map to aria2 engine options via buildNetworkSystemConfig.
+ * (connect-timeout, timeout, file-allocation, async DNS), and User-Agent.
+ * All keys here map to aria2 engine options via buildNetworkSystemConfig.
  *
  * Proxy validation logic is co-located here since it is only used in
  * this tab's save flow.
@@ -29,6 +29,8 @@ export interface NetworkForm {
     mode: EngineProxyMode
     enable: boolean
     server: string
+    username?: string
+    password?: string
     bypass: string
     scope: string[]
   }
@@ -40,6 +42,7 @@ export interface NetworkForm {
   connectTimeout: number
   timeout: number
   fileAllocation: string
+  asyncDns: boolean
   userAgent: string
 }
 
@@ -72,6 +75,8 @@ export function buildNetworkForm(config: AppConfig): NetworkForm {
       mode: normalizeProxyMode(proxy.mode),
       enable: proxy.enable ?? D.proxy.enable,
       server: proxy.server ?? D.proxy.server,
+      username: proxy.username ?? D.proxy.username,
+      password: proxy.password ?? D.proxy.password,
       bypass: proxy.bypass ?? D.proxy.bypass,
       scope: proxy.scope ?? [...PROXY_SCOPE_OPTIONS],
     },
@@ -83,6 +88,7 @@ export function buildNetworkForm(config: AppConfig): NetworkForm {
     connectTimeout: config.connectTimeout ?? D.connectTimeout,
     timeout: config.timeout ?? D.timeout,
     fileAllocation: config.fileAllocation ?? D.fileAllocation,
+    asyncDns: config.asyncDns ?? D.asyncDns,
     userAgent: config.userAgent ?? D.userAgent,
   }
 }
@@ -99,6 +105,7 @@ export function buildNetworkSystemConfig(f: NetworkForm): Record<string, string>
     'connect-timeout': String(f.connectTimeout),
     timeout: String(f.timeout),
     'file-allocation': f.fileAllocation || 'prealloc',
+    'async-dns': String(!!f.asyncDns),
     ...buildDownloadProxyOptions(f.proxy),
   }
 }

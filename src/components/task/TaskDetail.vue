@@ -942,6 +942,18 @@ function handleClose() {
                         :readonly="!optCanModify"
                         :placeholder="'http://host:port'"
                       />
+                      <NInput
+                        v-model:value="optForm.customProxyUsername"
+                        :readonly="!optCanModify"
+                        :placeholder="t('preferences.proxy-username') || ''"
+                      />
+                      <NInput
+                        v-model:value="optForm.customProxyPassword"
+                        type="password"
+                        show-password-on="click"
+                        :readonly="!optCanModify"
+                        :placeholder="t('preferences.proxy-password') || ''"
+                      />
                       <NButton :loading="detectingProxy" :disabled="!optCanModify" size="small" @click="detectProxy">
                         <template #icon>
                           <NIcon><SearchOutline /></NIcon>

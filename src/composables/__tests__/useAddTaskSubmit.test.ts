@@ -269,6 +269,21 @@ describe('buildEngineOptions', () => {
     expect(opts['all-proxy']).toBe('http://10.0.0.1:8080')
   })
 
+  it('sets structured proxy authentication options for manual task proxy', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      proxyMode: 'manual',
+      customProxy: 'http://10.0.0.1:8080',
+      customProxyUsername: 'proxy-user',
+      customProxyPassword: 'proxy-pass',
+    })
+    expect(opts['all-proxy']).toBe('http://10.0.0.1:8080')
+    expect(opts['all-proxy-user']).toBe('proxy-user')
+    expect(opts['all-proxy-passwd']).toBe('proxy-pass')
+    expect(opts['http-user']).toBeUndefined()
+    expect(opts['http-passwd']).toBeUndefined()
+  })
+
   it('falls back to direct when proxyMode is manual but customProxy is empty', () => {
     const opts = buildEngineOptions({
       ...baseForm,
@@ -288,12 +303,16 @@ describe('buildEngineOptions', () => {
         mode: 'manual',
         enable: true,
         server: 'http://127.0.0.1:7890',
+        username: 'global-user',
+        password: 'global-pass',
         bypass: 'localhost;127.*',
         scope: ['download'],
       },
     })
     expect(opts['proxy-mode']).toBeUndefined()
     expect(opts['all-proxy']).toBe('http://127.0.0.1:7890')
+    expect(opts['all-proxy-user']).toBe('global-user')
+    expect(opts['all-proxy-passwd']).toBe('global-pass')
     expect(opts['no-proxy']).toBe('localhost;127.*')
   })
 
@@ -307,13 +326,15 @@ describe('buildEngineOptions', () => {
     expect(opts['all-proxy']).toBe('')
   })
 
-  it('handles proxy server with authentication credentials', () => {
+  it('does not treat userinfo in proxy server as the credential source', () => {
     const opts = buildEngineOptions({
       ...baseForm,
       proxyMode: 'manual',
       customProxy: 'http://user:pass@proxy.example.com:8080',
     })
     expect(opts['all-proxy']).toBe('http://user:pass@proxy.example.com:8080')
+    expect(opts['all-proxy-user']).toBeUndefined()
+    expect(opts['all-proxy-passwd']).toBeUndefined()
   })
 })
 

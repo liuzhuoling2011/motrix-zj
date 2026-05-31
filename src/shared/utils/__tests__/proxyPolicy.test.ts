@@ -20,9 +20,17 @@ describe('proxyPolicy', () => {
   it('clears standard aria2 proxy keys for direct task mode', () => {
     expect(buildTaskProxyOptions('direct', '')).toEqual({
       'all-proxy': '',
+      'all-proxy-user': '',
+      'all-proxy-passwd': '',
       'http-proxy': '',
+      'http-proxy-user': '',
+      'http-proxy-passwd': '',
       'https-proxy': '',
+      'https-proxy-user': '',
+      'https-proxy-passwd': '',
       'ftp-proxy': '',
+      'ftp-proxy-user': '',
+      'ftp-proxy-passwd': '',
       'no-proxy': '',
     })
   })

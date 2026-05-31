@@ -430,6 +430,17 @@ describe('TaskStore', () => {
     expect(mockApi.fetchTaskList).toHaveBeenCalled()
   })
 
+  it('addMagnetUri forces integrity checking for the follow-up BitTorrent download', async () => {
+    const gid = await store.addMagnetUri({ uri: 'magnet:?xt=urn:btih:abc123', options: { dir: '/dl' } })
+
+    expect(gid).toBe('gid3')
+    expect(mockApi.addUri).toHaveBeenCalledWith({
+      uris: ['magnet:?xt=urn:btih:abc123'],
+      outs: [],
+      options: { dir: '/dl', 'pause-metadata': 'true', 'check-integrity': 'true', 'force-save': 'true' },
+    })
+  })
+
   // ─── pauseAllTask / resumeAllTask ───────────────────────
 
   it('pauseAllTask pauses non-seeding tasks individually via forcePauseTask', async () => {

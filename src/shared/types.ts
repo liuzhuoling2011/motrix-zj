@@ -162,6 +162,8 @@ export interface ProxyConfig {
   mode?: import('@shared/utils/proxyPolicy').EngineProxyMode
   enable: boolean
   server: string
+  username?: string
+  password?: string
   bypass?: string
   scope?: string[]
 }
@@ -371,6 +373,8 @@ export interface AppConfig {
   /** Disk space pre-allocation method. Maps to aria2 --file-allocation.
    *  Values: 'none' | 'trunc' | 'prealloc' | 'falloc' */
   fileAllocation: string
+  /** Enables c-ares based asynchronous DNS resolution. Maps to aria2 --async-dns. */
+  asyncDns: boolean
   /** Per-tab sort configuration (field + direction), persisted independently per tab. */
   taskSort: import('@/composables/useTaskSort').TaskSortConfig
   [key: string]: unknown

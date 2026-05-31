@@ -127,6 +127,8 @@ export default {
   'bt-tracker-sync-failed-sources': 'Følgende kilder mislyktes:',
   'bt-tracker-content': 'Trackerliste',
   'proxy-server': 'Proxyserver',
+  'proxy-username': 'Proxy-brukernavn',
+  'proxy-password': 'Proxy-passord',
   'invalid-proxy-url': 'Invalid proxy URL format',
   'proxy-unsupported-protocol': 'Proxy-protokollen støttes ikke. Aria2 Next støtter kun HTTP-proxy (http/https/ftp).',
   'proxy-http-only-hint': 'Aria2 Next støtter kun HTTP-proxy. SOCKS-proxy støttes ikke',
@@ -361,6 +363,9 @@ export default {
   'connect-timeout': 'Tilkoblingsavbrudd',
   timeout: 'Overføringsavbrudd',
   'file-allocation': 'Forhåndstildeling av fil',
+  'async-dns': 'Asynkron DNS',
+  'async-dns-hint':
+    'Bruker c-ares for asynkron DNS-oppløsning. La den være av med mindre system-DNS er treg eller stopper.',
   'startup-behavior': 'Oppstart',
   'tray-and-dock': 'Systemstatusfeltet og Dock',
   'unit-seconds': 'sek',

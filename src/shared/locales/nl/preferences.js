@@ -127,6 +127,8 @@ export default {
   'bt-tracker-sync-failed-sources': 'De volgende bronnen zijn mislukt:',
   'bt-tracker-content': 'Trackerlijst',
   'proxy-server': 'Proxyserver',
+  'proxy-username': 'Proxy-gebruikersnaam',
+  'proxy-password': 'Proxy-wachtwoord',
   'invalid-proxy-url': 'Invalid proxy URL format',
   'proxy-unsupported-protocol':
     'Niet-ondersteund proxyprotocol. Aria2 Next ondersteunt alleen HTTP-proxy (http/https/ftp).',
@@ -365,6 +367,9 @@ export default {
   'connect-timeout': 'Verbindingstime-out',
   timeout: 'Overdrachtstime-out',
   'file-allocation': 'Bestandsvoorallocatie',
+  'async-dns': 'Asynchrone DNS',
+  'async-dns-hint':
+    'Gebruikt c-ares voor asynchrone DNS-resolutie. Laat dit uit tenzij systeem-DNS traag is of vastloopt.',
   'startup-behavior': 'Opstarten',
   'tray-and-dock': 'Systeemvak en Dock',
   'unit-seconds': 'sec',

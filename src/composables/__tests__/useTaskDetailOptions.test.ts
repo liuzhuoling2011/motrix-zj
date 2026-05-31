@@ -205,12 +205,18 @@ describe('useTaskDetailOptions', () => {
 
     it('sets proxyMode to manual when allProxy is present', async () => {
       const mocks = createMocks({
-        getTaskOption: vi.fn().mockResolvedValue({ allProxy: 'http://127.0.0.1:7890' }),
+        getTaskOption: vi.fn().mockResolvedValue({
+          allProxy: 'http://127.0.0.1:7890',
+          allProxyUser: 'proxy-user',
+          allProxyPasswd: 'proxy-pass',
+        }),
       })
       const { form } = setup(mocks)
       await nextTick()
       expect(form.proxyMode).toBe('manual')
       expect(form.customProxy).toBe('http://127.0.0.1:7890')
+      expect(form.customProxyUsername).toBe('proxy-user')
+      expect(form.customProxyPassword).toBe('proxy-pass')
     })
   })
 
@@ -228,6 +234,8 @@ describe('useTaskDetailOptions', () => {
       ['authorization', 'Bearer new'],
       ['httpAuthUsername', 'demo'],
       ['httpAuthPassword', 'secret'],
+      ['customProxyUsername', 'proxy-user'],
+      ['customProxyPassword', 'proxy-pass'],
     ] as const)('dirty becomes true when %s changes', async (field, value) => {
       const { form, dirty } = setup(createMocks())
       await nextTick()
@@ -296,10 +304,16 @@ describe('useTaskDetailOptions', () => {
       await nextTick()
       form.proxyMode = 'manual'
       form.customProxy = 'http://10.0.0.1:8080'
+      form.customProxyUsername = 'proxy-user'
+      form.customProxyPassword = 'proxy-pass'
       await applyOptions()
       expect(mocks.changeTaskOption).toHaveBeenCalledWith({
         gid: 'abc123',
-        options: expect.objectContaining({ 'all-proxy': 'http://10.0.0.1:8080' }),
+        options: expect.objectContaining({
+          'all-proxy': 'http://10.0.0.1:8080',
+          'all-proxy-user': 'proxy-user',
+          'all-proxy-passwd': 'proxy-pass',
+        }),
       })
       expect(mocks.changeTaskOption.mock.calls[0][0].options['proxy-mode']).toBeUndefined()
     })
@@ -335,7 +349,11 @@ describe('useTaskDetailOptions', () => {
       await applyOptions()
       expect(mocks.changeTaskOption).toHaveBeenCalledWith({
         gid: 'abc123',
-        options: expect.objectContaining({ 'all-proxy': '' }),
+        options: expect.objectContaining({
+          'all-proxy': '',
+          'all-proxy-user': '',
+          'all-proxy-passwd': '',
+        }),
       })
       expect(mocks.changeTaskOption.mock.calls[0][0].options['proxy-mode']).toBeUndefined()
     })

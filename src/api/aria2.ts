@@ -48,9 +48,12 @@ function normalizeUriForEngine(uri: string): string {
   return decoded
 }
 
-function withBtSessionPersistence(options: Aria2EngineOptions): Aria2EngineOptions {
-  if (options['force-save'] !== undefined) return options
-  return { ...options, 'force-save': 'true' }
+function withBtSafetyOptions(options: Aria2EngineOptions): Aria2EngineOptions {
+  return {
+    ...options,
+    'check-integrity': options['check-integrity'] ?? 'true',
+    'force-save': options['force-save'] ?? 'true',
+  }
 }
 
 /** Retrieves aria2 engine version and list of enabled features. */
@@ -173,7 +176,7 @@ export async function addUriAtomic(params: { uris: string[]; options: Record<str
 
 /** Adds a torrent download from a base64-encoded .torrent file. */
 export async function addTorrent(params: { torrent: string; options: Aria2EngineOptions }): Promise<string> {
-  const engineOptions = formatOptionsForEngine(withBtSessionPersistence(params.options))
+  const engineOptions = formatOptionsForEngine(withBtSafetyOptions(params.options))
   const gid = await invoke<string>('aria2_add_torrent', { torrent: params.torrent, options: engineOptions })
   logger.info('aria2.addTorrent', `gid=${gid}`)
   return gid

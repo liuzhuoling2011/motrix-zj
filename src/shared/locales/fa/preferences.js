@@ -127,6 +127,8 @@ export default {
   'bt-tracker-sync-failed-sources': 'منابع زیر ناموفق بودند:',
   'bt-tracker-content': 'لیست ردیاب‌ها',
   'proxy-server': 'سرور پروکسی',
+  'proxy-username': 'نام کاربری پروکسی',
+  'proxy-password': 'گذرواژه پروکسی',
   'invalid-proxy-url': 'Invalid proxy URL format',
   'proxy-unsupported-protocol':
     'پروتکل پروکسی پشتیبانی نمی‌شود. Aria2 Next فقط از پروکسی HTTP پشتیبانی می‌کند (http/https/ftp).',
@@ -362,6 +364,9 @@ export default {
   'connect-timeout': 'مهلت اتصال',
   timeout: 'مهلت انتقال',
   'file-allocation': 'پیش‌تخصیص فایل',
+  'async-dns': 'DNS ناهمگام',
+  'async-dns-hint':
+    'برای حل DNS ناهمگام از c-ares استفاده می‌کند. مگر وقتی DNS سیستم کند است یا گیر می‌کند، خاموش بماند.',
   'startup-behavior': 'راه‌اندازی',
   'tray-and-dock': 'سینی و Dock',
   'unit-seconds': 'ثانیه',

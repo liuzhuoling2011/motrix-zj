@@ -119,11 +119,21 @@ describe('buildNetworkForm', () => {
 
   it('preserves proxy configuration from config', () => {
     const config = {
-      proxy: { mode: 'manual', enable: true, server: 'http://127.0.0.1:7890', bypass: '*.local', scope: ['download'] },
+      proxy: {
+        mode: 'manual',
+        enable: true,
+        server: 'http://127.0.0.1:7890',
+        username: 'proxy-user',
+        password: 'proxy-pass',
+        bypass: '*.local',
+        scope: ['download'],
+      },
     } as AppConfig
     const form = buildNetworkForm(config)
     expect(form.proxy.enable).toBe(true)
     expect(form.proxy.server).toBe('http://127.0.0.1:7890')
+    expect(form.proxy.username).toBe('proxy-user')
+    expect(form.proxy.password).toBe('proxy-pass')
     expect(form.proxy.bypass).toBe('*.local')
     expect(form.proxy.scope).toEqual(['download'])
   })
@@ -214,6 +224,17 @@ describe('buildNetworkForm', () => {
     expect(form.userAgent).toBe(DEFAULT_APP_CONFIG.userAgent)
   })
 
+  it('defaults asyncDns to false', () => {
+    const form = buildNetworkForm(emptyConfig)
+    expect(form.asyncDns).toBe(false)
+  })
+
+  it('reads asyncDns from config', () => {
+    const config = { asyncDns: true } as AppConfig
+    const form = buildNetworkForm(config)
+    expect(form.asyncDns).toBe(true)
+  })
+
   it('reads userAgent from config', () => {
     const config = { userAgent: 'Mozilla/5.0 Custom' } as AppConfig
     const form = buildNetworkForm(config)
@@ -234,6 +255,7 @@ describe('buildNetworkForm', () => {
     expect(form).toHaveProperty('timeout')
     expect(form).toHaveProperty('fileAllocation')
     expect(form).toHaveProperty('userAgent')
+    expect(form).toHaveProperty('asyncDns')
   })
 
   it('defaults port conflict recovery to enabled for every managed port type', () => {
@@ -271,6 +293,7 @@ describe('buildNetworkSystemConfig', () => {
     timeout: 10,
     fileAllocation: 'none',
     userAgent: '',
+    asyncDns: false,
   }
 
   it('maps port and protocol keys to aria2 config', () => {
@@ -309,6 +332,11 @@ describe('buildNetworkSystemConfig', () => {
     expect(config['user-agent']).toBe('Custom/1.0')
   })
 
+  it('maps async-dns to aria2 config', () => {
+    expect(buildNetworkSystemConfig(baseForm)['async-dns']).toBe('false')
+    expect(buildNetworkSystemConfig({ ...baseForm, asyncDns: true })['async-dns']).toBe('true')
+  })
+
   // ── Proxy flow ──────────────────────────────────────────────────
 
   it('sets manual proxy options when enabled for downloads', () => {
@@ -327,6 +355,24 @@ describe('buildNetworkSystemConfig', () => {
     expect(config['no-proxy']).toBe('*.local')
   })
 
+  it('emits structured proxy authentication options', () => {
+    const config = buildNetworkSystemConfig({
+      ...baseForm,
+      proxy: {
+        mode: 'manual',
+        enable: true,
+        server: 'http://proxy:8080',
+        username: 'proxy-user',
+        password: 'proxy-pass',
+        bypass: '',
+        scope: [PROXY_SCOPES.DOWNLOAD],
+      },
+    })
+    expect(config['all-proxy']).toBe('http://proxy:8080')
+    expect(config['all-proxy-user']).toBe('proxy-user')
+    expect(config['all-proxy-passwd']).toBe('proxy-pass')
+  })
+
   it('clears proxy options when download scope is excluded', () => {
     const config = buildNetworkSystemConfig({
       ...baseForm,
@@ -334,6 +380,8 @@ describe('buildNetworkSystemConfig', () => {
     })
     expect(config['proxy-mode']).toBeUndefined()
     expect(config['all-proxy']).toBe('')
+    expect(config['all-proxy-user']).toBe('')
+    expect(config['all-proxy-passwd']).toBe('')
     expect(config['no-proxy']).toBe('')
   })
 
@@ -401,6 +449,7 @@ describe('transformNetworkForStore', () => {
     timeout: 10,
     fileAllocation: 'none',
     userAgent: '',
+    asyncDns: false,
   }
 
   it('preserves port numbers as numbers (not strings)', () => {
@@ -444,6 +493,11 @@ describe('transformNetworkForStore', () => {
     const result = transformNetworkForStore({ ...baseForm, fileAllocation: 'prealloc' })
     expect(result.fileAllocation).toBe('prealloc')
   })
+
+  it('preserves asyncDns through transform', () => {
+    const result = transformNetworkForStore({ ...baseForm, asyncDns: true })
+    expect(result.asyncDns).toBe(true)
+  })
 })
 
 // ── validateNetworkForm ─────────────────────────────────────────────
@@ -460,6 +514,7 @@ describe('validateNetworkForm', () => {
     timeout: 10,
     fileAllocation: 'none',
     userAgent: '',
+    asyncDns: false,
   }
 
   it('returns null for valid form', () => {

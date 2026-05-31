@@ -45,6 +45,8 @@ export interface AdvancedForm {
     mode: EngineProxyMode
     enable: boolean
     server: string
+    username?: string
+    password?: string
     bypass: string
     scope: string[]
   }
@@ -123,6 +125,8 @@ export function buildAdvancedForm(config: AppConfig): {
         mode: normalizeProxyMode(proxy.mode),
         enable: proxy.enable ?? D.proxy.enable,
         server: proxy.server ?? D.proxy.server,
+        username: proxy.username ?? D.proxy.username,
+        password: proxy.password ?? D.proxy.password,
         bypass: proxy.bypass ?? D.proxy.bypass,
         scope: proxy.scope ?? [...PROXY_SCOPE_OPTIONS],
       },

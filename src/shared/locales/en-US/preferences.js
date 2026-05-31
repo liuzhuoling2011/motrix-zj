@@ -127,6 +127,8 @@ export default {
   'bt-tracker-sync-failed-sources': 'The following sources failed:',
   'bt-tracker-content': 'Tracker List',
   'proxy-server': 'Proxy Server',
+  'proxy-username': 'Proxy Username',
+  'proxy-password': 'Proxy Password',
   'invalid-proxy-url': 'Invalid proxy URL format',
   'proxy-unsupported-protocol': 'Unsupported proxy protocol. Aria2 Next only supports HTTP proxies (http/https/ftp).',
   'proxy-http-only-hint': 'Aria2 Next supports HTTP proxy only. SOCKS proxy is not supported',
@@ -361,6 +363,9 @@ export default {
   'connect-timeout': 'Connection Timeout',
   timeout: 'Transfer Timeout',
   'file-allocation': 'File Pre-allocation',
+  'async-dns': 'Async DNS',
+  'async-dns-hint':
+    'Uses c-ares for asynchronous DNS resolution. Keep it off unless system DNS resolution is slow or stalls.',
   'startup-behavior': 'Startup',
   'tray-and-dock': 'Tray & Dock',
   'unit-seconds': 'sec',

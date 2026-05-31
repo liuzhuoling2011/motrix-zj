@@ -32,6 +32,18 @@ describe('computeTrackerProxyServer', () => {
     ).toBe('http://proxy.example.com:8080')
   })
 
+  it('adds encoded proxy credentials for app-side tracker requests', () => {
+    expect(
+      computeTrackerProxyServer({
+        enable: true,
+        server: 'http://proxy.example.com:8080',
+        username: 'user@example.com',
+        password: 'pa:ss word',
+        scope: [PROXY_SCOPES.UPDATE_TRACKERS],
+      }),
+    ).toBe('http://user%40example.com:pa%3Ass%20word@proxy.example.com:8080/')
+  })
+
   it('returns server when scope has multiple entries including UPDATE_TRACKERS', () => {
     expect(
       computeTrackerProxyServer({

@@ -127,6 +127,8 @@ export default {
   'bt-tracker-sync-failed-sources': '以下のソースが失敗しました：',
   'bt-tracker-content': 'Tracker リスト',
   'proxy-server': 'プロキシサーバー',
+  'proxy-username': 'プロキシユーザー名',
+  'proxy-password': 'プロキシパスワード',
   'invalid-proxy-url': 'Invalid proxy URL format',
   'proxy-unsupported-protocol':
     'サポートされていないプロキシプロトコルです。Aria2 NextはHTTPプロキシのみ対応しています（http/https/ftp）。',
@@ -364,6 +366,9 @@ export default {
   'connect-timeout': '接続タイムアウト',
   timeout: '転送タイムアウト',
   'file-allocation': 'ファイル事前割り当て',
+  'async-dns': '非同期 DNS',
+  'async-dns-hint':
+    'c-ares を使って DNS を非同期に解決します。システム DNS が遅い、または停止する場合以外はオフのままにしてください。',
   'startup-behavior': '起動',
   'tray-and-dock': 'トレイと Dock',
   'unit-seconds': '秒',

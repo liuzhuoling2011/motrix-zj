@@ -64,6 +64,8 @@ export interface AddTaskForm {
   proxyMode: TaskProxyMode
   /** User-entered proxy address when proxyMode is 'manual'. */
   customProxy: string
+  customProxyUsername?: string
+  customProxyPassword?: string
   /** Injected from the preference store; used for manual proxy bypass inheritance. */
   appProxy?: ProxyConfig
   requestHeaders: BrowserRequestHeader[]
@@ -122,7 +124,16 @@ export function buildEngineOptions(form: AddTaskForm, context?: ExternalDownload
     options['http-passwd'] = httpAuthPassword
   }
 
-  Object.assign(options, buildTaskProxyOptions(form.proxyMode, form.customProxy, form.appProxy))
+  Object.assign(
+    options,
+    buildTaskProxyOptions(
+      form.proxyMode,
+      form.customProxy,
+      form.appProxy,
+      form.customProxyUsername,
+      form.customProxyPassword,
+    ),
+  )
   return options
 }
 

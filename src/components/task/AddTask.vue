@@ -94,10 +94,16 @@ const submitting = ref(false)
 const selectedBatchIndex = ref(0)
 const defaultTaskProxyMode = () => normalizeProxyMode(preferenceStore.config.proxy.mode)
 const defaultTaskProxyServer = () => (defaultTaskProxyMode() === 'manual' ? preferenceStore.config.proxy.server : '')
+const defaultTaskProxyUsername = () =>
+  defaultTaskProxyMode() === 'manual' ? preferenceStore.config.proxy.username || '' : ''
+const defaultTaskProxyPassword = () =>
+  defaultTaskProxyMode() === 'manual' ? preferenceStore.config.proxy.password || '' : ''
 
 function syncDefaultTaskProxy() {
   form.value.proxyMode = defaultTaskProxyMode()
   form.value.customProxy = defaultTaskProxyServer()
+  form.value.customProxyUsername = defaultTaskProxyUsername()
+  form.value.customProxyPassword = defaultTaskProxyPassword()
   form.value.appProxy = preferenceStore.config.proxy
 }
 
@@ -123,6 +129,8 @@ const form = ref<AddTaskForm>({
   cookie: '',
   proxyMode: defaultTaskProxyMode(),
   customProxy: defaultTaskProxyServer(),
+  customProxyUsername: defaultTaskProxyUsername(),
+  customProxyPassword: defaultTaskProxyPassword(),
   appProxy: preferenceStore.config.proxy,
   requestHeaders: [],
   uriRequestContexts: {},
@@ -416,6 +424,8 @@ function handleClose() {
     saveHttpAuth: true,
     referer: '',
     cookie: '',
+    customProxyUsername: '',
+    customProxyPassword: '',
     requestHeaders: [],
     uriRequestContexts: {},
   })
@@ -710,6 +720,8 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
             v-model:cookie="form.cookie"
             v-model:proxy-mode="form.proxyMode"
             v-model:custom-proxy="form.customProxy"
+            v-model:custom-proxy-username="form.customProxyUsername"
+            v-model:custom-proxy-password="form.customProxyPassword"
           />
         </div>
       </NForm>

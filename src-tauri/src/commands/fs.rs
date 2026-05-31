@@ -97,6 +97,9 @@ fn sanitize_config_snapshot(raw: &Value) -> Value {
                     *server_value = Value::String(redact_url_credentials(server));
                 }
             }
+            if let Some(password) = proxy.get_mut("password") {
+                *password = Value::String("[REDACTED]".into());
+            }
         }
     }
     sanitized
@@ -340,7 +343,8 @@ mod export_tests {
                 "extensionApiSecret": "api-secret",
                 "cookie": "session=abc",
                 "proxy": {
-                    "server": "http://user:pass@example.com:8080"
+                    "server": "http://user:pass@example.com:8080",
+                    "password": "proxy-secret"
                 }
             }
         });
@@ -368,6 +372,14 @@ mod export_tests {
                 .and_then(|proxy| proxy.get("server"))
                 .and_then(Value::as_str),
             Some("http://[REDACTED]@example.com:8080")
+        );
+        assert_eq!(
+            prefs
+                .get("proxy")
+                .and_then(Value::as_object)
+                .and_then(|proxy| proxy.get("password"))
+                .and_then(Value::as_str),
+            Some("[REDACTED]")
         );
     }
 

@@ -23,6 +23,7 @@ const mockPauseAllTask = vi.fn().mockResolvedValue(undefined)
 const mockPurgeTaskRecord = vi.fn().mockResolvedValue(undefined)
 const mockBatchRemoveTask = vi.fn().mockResolvedValue(undefined)
 const mockStopAllSeeding = vi.fn().mockResolvedValue(2)
+const mockDeleteTaskFiles = vi.fn().mockResolvedValue(undefined)
 
 // Dialog mock: captures onPositiveClick so we can invoke it in tests
 let lastDialogOptions: Record<string, unknown> | null = null
@@ -142,7 +143,7 @@ vi.mock('@/composables/useAppMessage', () => ({
 }))
 
 vi.mock('@/composables/useFileDelete', () => ({
-  deleteTaskFiles: vi.fn().mockResolvedValue(undefined),
+  deleteTaskFiles: (...args: unknown[]) => mockDeleteTaskFiles(...args),
 }))
 
 import TaskActions from '../TaskActions.vue'
@@ -752,6 +753,35 @@ describe('TaskActions', () => {
       // Last button = Purge
       const purgeBtn = wrapper.findAll('button')[7]
       expect(purgeBtn).toBeDefined()
+    })
+
+    it('Purge Records in all view only deletes files for stopped records', async () => {
+      const taskStore = useTaskStore()
+      taskStore.currentList = 'all'
+      taskStore.taskList = [
+        { gid: 'a1', status: 'active' },
+        { gid: 'p1', status: 'paused' },
+        { gid: 'c1', status: 'complete' },
+        { gid: 'e1', status: 'error' },
+      ] as never
+
+      const wrapper = createWrapper()
+      await clickButton(wrapper, 7)
+
+      const content = lastDialogOptions!.content as () => unknown
+      const checkbox = Array.isArray((content() as { children?: unknown[] }).children)
+        ? ((content() as { children: Array<{ props?: Record<string, unknown> }> }).children[1]?.props ?? {})
+        : {}
+      ;(checkbox['onUpdate:checked'] as (value: boolean) => void)(true)
+
+      const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
+      const promise = onPositiveClick()
+      await vi.advanceTimersByTimeAsync(100)
+      await promise
+
+      expect(mockDeleteTaskFiles).toHaveBeenCalledTimes(2)
+      expect(mockDeleteTaskFiles.mock.calls.map((call) => (call[0] as { gid: string }).gid)).toEqual(['c1', 'e1'])
+      expect(mockPurgeTaskRecord).toHaveBeenCalledOnce()
     })
 
     it('Resume All works in all view when paused tasks exist', async () => {

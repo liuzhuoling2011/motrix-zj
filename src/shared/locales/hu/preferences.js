@@ -128,6 +128,8 @@ export default {
   'bt-tracker-sync-failed-sources': 'A következő források sikertelenek:',
   'bt-tracker-content': 'Tracker lista',
   'proxy-server': 'Proxy szerver',
+  'proxy-username': 'Proxy felhasználónév',
+  'proxy-password': 'Proxy jelszó',
   'invalid-proxy-url': 'Invalid proxy URL format',
   'proxy-unsupported-protocol':
     'Nem támogatott proxy protokoll. Az Aria2 Next csak HTTP proxyt támogat (http/https/ftp).',
@@ -364,6 +366,9 @@ export default {
   'connect-timeout': 'Kapcsolódási időtúllépés',
   timeout: 'Átviteli időtúllépés',
   'file-allocation': 'Fájl előfoglalás',
+  'async-dns': 'Aszinkron DNS',
+  'async-dns-hint':
+    'c-ares használata aszinkron DNS-feloldáshoz. Hagyja kikapcsolva, kivéve ha a rendszer DNS lassú vagy elakad.',
   'startup-behavior': 'Indítás',
   'tray-and-dock': 'Tálca és Dock',
   'unit-seconds': 'mp',

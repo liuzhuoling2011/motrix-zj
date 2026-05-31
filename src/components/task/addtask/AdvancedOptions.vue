@@ -24,6 +24,8 @@ const props = defineProps<{
   proxyMode: TaskProxyMode
   /** Custom proxy address when proxyMode is 'manual'. */
   customProxy: string
+  customProxyUsername?: string
+  customProxyPassword?: string
 }>()
 
 const emit = defineEmits<{
@@ -37,6 +39,8 @@ const emit = defineEmits<{
   'update:cookie': [value: string]
   'update:proxyMode': [value: TaskProxyMode]
   'update:customProxy': [value: string]
+  'update:customProxyUsername': [value: string]
+  'update:customProxyPassword': [value: string]
 }>()
 
 const uaHasIssue = computed(() => !!props.userAgent && hasUnsafeHeaderChars(props.userAgent))
@@ -152,6 +156,18 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
                 :value="customProxy"
                 placeholder="http://host:port"
                 @update:value="$emit('update:customProxy', $event)"
+              />
+              <NInput
+                :value="customProxyUsername"
+                :placeholder="t('preferences.proxy-username')"
+                @update:value="$emit('update:customProxyUsername', $event)"
+              />
+              <NInput
+                :value="customProxyPassword"
+                type="password"
+                show-password-on="click"
+                :placeholder="t('preferences.proxy-password')"
+                @update:value="$emit('update:customProxyPassword', $event)"
               />
               <NButton :loading="detectingProxy" size="small" @click="detectProxy">
                 <template #icon>

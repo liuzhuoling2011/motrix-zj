@@ -270,6 +270,7 @@ describe('filterHotReloadableKeys', () => {
       'max-concurrent-downloads': '10',
       'max-connection-per-server': '16',
       'max-overall-download-limit': '0',
+      'async-dns': 'false',
       dir: '/downloads',
     }
     expect(filterHotReloadableKeys(config)).toEqual(config)

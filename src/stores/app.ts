@@ -529,6 +529,8 @@ export const useAppStore = defineStore('app', () => {
       cookie: context.cookie ?? '',
       proxyMode: normalizeProxyMode(preferenceStore.config.proxy.mode),
       customProxy: '',
+      customProxyUsername: '',
+      customProxyPassword: '',
       appProxy: preferenceStore.config.proxy,
       requestHeaders: context.requestHeaders ?? [],
       uriRequestContexts: {

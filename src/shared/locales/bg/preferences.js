@@ -127,6 +127,8 @@ export default {
   'bt-tracker-sync-failed-sources': 'Следните източници се провалиха:',
   'bt-tracker-content': 'Списък с тракери',
   'proxy-server': 'Прокси сървър',
+  'proxy-username': 'Потребителско име за прокси',
+  'proxy-password': 'Парола за прокси',
   'invalid-proxy-url': 'Invalid proxy URL format',
   'proxy-unsupported-protocol': 'Неподдържан прокси протокол. Aria2 Next поддържа само HTTP прокси (http/https/ftp).',
   'proxy-http-only-hint': 'Aria2 Next поддържа само HTTP прокси, SOCKS не се поддържа',
@@ -362,6 +364,9 @@ export default {
   'connect-timeout': 'Времеви лимит за свързване',
   timeout: 'Времеви лимит за трансфер',
   'file-allocation': 'Предварително разпределяне на файл',
+  'async-dns': 'Асинхронен DNS',
+  'async-dns-hint':
+    'Използва c-ares за асинхронно DNS разрешаване. Оставете го изключен, освен ако системният DNS е бавен или блокира.',
   'startup-behavior': 'Стартиране',
   'tray-and-dock': 'Трей и Dock',
   'unit-seconds': 'сек',

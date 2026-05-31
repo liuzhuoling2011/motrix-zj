@@ -127,6 +127,8 @@ export default {
   'bt-tracker-sync-failed-sources': 'Aşağıdaki kaynaklar başarısız oldu:',
   'bt-tracker-content': 'Tracker listesi',
   'proxy-server': 'Proxy sunucusu',
+  'proxy-username': 'Proxy kullanıcı adı',
+  'proxy-password': 'Proxy parolası',
   'invalid-proxy-url': 'Invalid proxy URL format',
   'proxy-unsupported-protocol':
     'Desteklenmeyen proxy protokolü. Aria2 Next yalnızca HTTP proxy destekler (http/https/ftp).',
@@ -364,6 +366,9 @@ export default {
   'connect-timeout': 'Bağlantı zaman aşımı',
   timeout: 'Aktarım zaman aşımı',
   'file-allocation': 'Dosya ön tahsisi',
+  'async-dns': 'Asenkron DNS',
+  'async-dns-hint':
+    'Asenkron DNS çözümlemesi için c-ares kullanır. Sistem DNS yavaşlamıyor veya takılmıyorsa kapalı tutun.',
   'startup-behavior': 'Başlangıç',
   'tray-and-dock': 'Tepsi ve Dock',
   'unit-seconds': 'sn',

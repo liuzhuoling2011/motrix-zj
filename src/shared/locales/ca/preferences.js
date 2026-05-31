@@ -128,6 +128,8 @@ export default {
   'bt-tracker-sync-failed-sources': 'Les fonts següents han fallat:',
   'bt-tracker-content': 'Llista de trackers',
   'proxy-server': 'Servidor proxy',
+  'proxy-username': "Nom d'usuari del proxy",
+  'proxy-password': 'Contrasenya del proxy',
   'invalid-proxy-url': 'Invalid proxy URL format',
   'proxy-unsupported-protocol': 'Protocol proxy no compatible. Aria2 Next només admet proxy HTTP (http/https/ftp).',
   'proxy-http-only-hint': 'Aria2 Next només admet proxy HTTP. El proxy SOCKS no és compatible',
@@ -367,6 +369,9 @@ export default {
   'connect-timeout': "Temps d'espera de connexió",
   timeout: "Temps d'espera de transferència",
   'file-allocation': 'Preasignació de fitxer',
+  'async-dns': 'DNS asíncron',
+  'async-dns-hint':
+    'Utilitza c-ares per a la resolució DNS asíncrona. Deixa-ho desactivat llevat que el DNS del sistema sigui lent o es bloquegi.',
   'startup-behavior': 'Inici',
   'tray-and-dock': 'Safata i Dock',
   'unit-seconds': 'seg',

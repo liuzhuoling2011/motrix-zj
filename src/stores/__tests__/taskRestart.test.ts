@@ -14,6 +14,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { restartTask } from '../task/restart'
 import type { Aria2Task, TaskStatus } from '@shared/types'
 
+vi.mock('@/stores/preference', () => ({
+  usePreferenceStore: () => ({ config: { pauseMetadata: false } }),
+}))
+
 const makeMockTask = (gid: string, status: TaskStatus = 'active', extra: Partial<Aria2Task> = {}): Aria2Task => ({
   gid,
   status,
@@ -237,6 +241,30 @@ describe('restartTask', () => {
       uris: ['http://x.com/f.zip'],
       options: { dir: '/dl', 'max-download-limit': '1M', header: 'X-Custom: value' },
     })
+  })
+
+  it('forces integrity checking when restarting BitTorrent tasks', async () => {
+    const task = makeMockTask('gid1', 'error', {
+      bittorrent: { info: { name: 'ubuntu.iso' } },
+      infoHash: '0123456789abcdef0123456789abcdef01234567',
+      files: [
+        {
+          index: '1',
+          path: '/ubuntu.iso',
+          length: '100',
+          completedLength: '0',
+          selected: 'true',
+          uris: [{ uri: 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567', status: 'used' }],
+        },
+      ],
+    })
+    api.getOption.mockResolvedValue({ dir: '/dl' })
+
+    await restartTask(task, api, mockHistoryFns)
+
+    const call = api.addUriAtomic.mock.calls[0][0]
+    expect(call.uris[0]).toContain('xt=urn:btih:0123456789abcdef0123456789abcdef01234567')
+    expect(call.options).toEqual({ dir: '/dl', 'check-integrity': 'true', 'force-save': 'true' })
   })
 
   it('falls back to task.dir when getOption fails', async () => {

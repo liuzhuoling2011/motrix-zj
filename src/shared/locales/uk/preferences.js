@@ -127,6 +127,8 @@ export default {
   'bt-tracker-sync-failed-sources': 'Наступні джерела зазнали помилки:',
   'bt-tracker-content': 'Список трекерів',
   'proxy-server': 'Проксі-сервер',
+  'proxy-username': "Ім'я користувача проксі",
+  'proxy-password': 'Пароль проксі',
   'invalid-proxy-url': 'Invalid proxy URL format',
   'proxy-unsupported-protocol':
     'Непідтримуваний протокол проксі. Aria2 Next підтримує лише HTTP-проксі (http/https/ftp).',
@@ -363,6 +365,9 @@ export default {
   'connect-timeout': "Тайм-аут з'єднання",
   timeout: 'Тайм-аут передачі',
   'file-allocation': 'Попереднє виділення файлу',
+  'async-dns': 'Асинхронний DNS',
+  'async-dns-hint':
+    'Використовує c-ares для асинхронного DNS. Залиште вимкненим, якщо системний DNS не повільний і не зависає.',
   'startup-behavior': 'Запуск',
   'tray-and-dock': 'Трей та Dock',
   'unit-seconds': 'сек',

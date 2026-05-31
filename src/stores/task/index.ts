@@ -252,8 +252,8 @@ export const useTaskStore = defineStore('task', () => {
       typeof pauseMetadataOption === 'string' ? pauseMetadataOption : preferenceStore.config.pauseMetadata
     const showFileSelection = shouldShowFileSelection({ pauseMetadata })
     const options = showFileSelection
-      ? { ...buildMetadataOnlyOptions(data.options), 'force-save': 'true' }
-      : { ...data.options, 'pause-metadata': 'false', 'force-save': 'true' }
+      ? { ...buildMetadataOnlyOptions(data.options), 'check-integrity': 'true', 'force-save': 'true' }
+      : { ...data.options, 'pause-metadata': 'false', 'check-integrity': 'true', 'force-save': 'true' }
 
     const gids = await api.addUri({
       uris: [data.uri],

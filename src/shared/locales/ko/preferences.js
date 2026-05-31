@@ -125,6 +125,8 @@ export default {
   'bt-tracker-sync-failed-sources': '다음 소스가 실패했습니다:',
   'bt-tracker-content': '트래커 목록',
   'proxy-server': '프록시 서버',
+  'proxy-username': '프록시 사용자 이름',
+  'proxy-password': '프록시 비밀번호',
   'invalid-proxy-url': 'Invalid proxy URL format',
   'proxy-unsupported-protocol':
     '지원하지 않는 프록시 프로토콜입니다. Aria2 Next는 HTTP 프록시만 지원합니다 (http/https/ftp).',
@@ -358,6 +360,8 @@ export default {
   'connect-timeout': '연결 시간 초과',
   timeout: '전송 시간 초과',
   'file-allocation': '파일 사전 할당',
+  'async-dns': '비동기 DNS',
+  'async-dns-hint': 'c-ares를 사용해 DNS를 비동기로 확인합니다. 시스템 DNS가 느리거나 멈추는 경우가 아니면 꺼 두세요.',
   'startup-behavior': '시작',
   'tray-and-dock': '트레이 및 Dock',
   'unit-seconds': '초',

@@ -1,6 +1,7 @@
 import { PROXY_SCOPES } from '@shared/constants'
 import type { Aria2EngineOptions, ProxyConfig } from '@shared/types'
 import { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
+import { hasProxyScope } from '@shared/utils/proxyUrl'
 
 export const ENGINE_PROXY_MODES = ['direct', 'auto', 'manual'] as const
 export type EngineProxyMode = (typeof ENGINE_PROXY_MODES)[number]
@@ -21,17 +22,33 @@ export function proxySwitchValueToMode(enabled: boolean, currentMode: EngineProx
 }
 
 function hasDownloadScope(proxy: Pick<ProxyConfig, 'scope'>): boolean {
-  return Array.isArray(proxy.scope) && proxy.scope.includes(PROXY_SCOPES.DOWNLOAD)
+  return hasProxyScope(proxy, PROXY_SCOPES.DOWNLOAD)
 }
 
 function clearProxyOptions(): Aria2EngineOptions {
   return {
     'all-proxy': '',
+    'all-proxy-user': '',
+    'all-proxy-passwd': '',
     'http-proxy': '',
+    'http-proxy-user': '',
+    'http-proxy-passwd': '',
     'https-proxy': '',
+    'https-proxy-user': '',
+    'https-proxy-passwd': '',
     'ftp-proxy': '',
+    'ftp-proxy-user': '',
+    'ftp-proxy-passwd': '',
     'no-proxy': '',
   }
+}
+
+function addProxyCredentials(options: Aria2EngineOptions, username?: string, password?: string): void {
+  const cleanUsername = username?.trim() ?? ''
+  const cleanPassword = password ?? ''
+  if (!cleanUsername && !cleanPassword) return
+  options['all-proxy-user'] = cleanUsername
+  options['all-proxy-passwd'] = cleanPassword
 }
 
 export function buildDownloadProxyOptions(proxy: ProxyConfig): Aria2EngineOptions {
@@ -46,6 +63,7 @@ export function buildDownloadProxyOptions(proxy: ProxyConfig): Aria2EngineOption
   const options: Aria2EngineOptions = {
     'all-proxy': server,
   }
+  addProxyCredentials(options, proxy.username, proxy.password)
   if (proxy.bypass?.trim()) options['no-proxy'] = proxy.bypass.trim()
   return options
 }
@@ -54,14 +72,22 @@ export function buildTaskProxyOptions(
   mode: TaskProxyMode,
   customProxy: string,
   appProxy?: ProxyConfig,
+  customProxyUsername?: string,
+  customProxyPassword?: string,
 ): Aria2EngineOptions {
   if (mode !== 'manual') return clearProxyOptions()
 
-  const server = customProxy.trim() || (appProxy ? getDownloadProxy(appProxy)?.trim() : '') || ''
+  const useCustomProxy = !!customProxy.trim()
+  const server = useCustomProxy ? customProxy.trim() : (appProxy ? getDownloadProxy(appProxy)?.trim() : '') || ''
   if (!server) return clearProxyOptions()
 
   const options: Aria2EngineOptions = {
     'all-proxy': server,
+  }
+  if (useCustomProxy) {
+    addProxyCredentials(options, customProxyUsername, customProxyPassword)
+  } else if (appProxy) {
+    addProxyCredentials(options, appProxy.username, appProxy.password)
   }
 
   const bypass = appProxy?.bypass?.trim()

@@ -126,9 +126,11 @@ const showStoppedActions = computed(() => currentList.value === 'stopped' || cur
 
 /** GIDs of live (aria2-managed) tasks only — used by Delete All in 'all' view */
 const LIVE_STATUSES = new Set([TASK_STATUS.ACTIVE, TASK_STATUS.WAITING, TASK_STATUS.PAUSED])
+const TERMINAL_STATUSES = new Set([TASK_STATUS.COMPLETE, TASK_STATUS.ERROR, TASK_STATUS.REMOVED])
 const liveGids = computed(() =>
   taskStore.taskList.filter((t: { status: string }) => LIVE_STATUSES.has(t.status)).map((t: { gid: string }) => t.gid),
 )
+const terminalTasks = computed(() => taskStore.taskList.filter((t: Aria2Task) => TERMINAL_STATUSES.has(t.status)))
 
 /** Queue clear disabled state: in 'all' view, check live tasks; otherwise check all tasks */
 const deleteAllDisabled = computed(() =>
@@ -184,14 +186,15 @@ function onDeleteAll() {
       await new Promise((r) => setTimeout(r, 50))
       // Capture task references BEFORE removal — the store list mutates after
       // batchRemoveTask, so we'd lose the dir/path info needed for file deletion.
-      const tasksToDelete = deleteFiles.value ? taskStore.taskList.filter((t) => gids.includes(t.gid)) : []
+      const targetTasks = taskStore.taskList.filter((t) => gids.includes(t.gid))
+      const tasksToDelete = deleteFiles.value ? targetTasks : []
       // Remove task records FIRST, then delete files.
       // This matches the safer order used in single-task delete (TaskView.vue).
       // If file deletion fails, tasks are already cleaned up from aria2;
       // the reverse order would leave orphaned tasks with missing files.
       await taskStore.batchRemoveTask(gids)
       for (const task of tasksToDelete) {
-        await deleteTaskFiles(task)
+        await deleteTaskFiles(task, { protectedTasks: [...targetTasks, ...taskStore.taskList] })
       }
       message.success(t('task.batch-delete-task-success'))
     },
@@ -354,13 +357,13 @@ function purgeRecord() {
       await new Promise((r) => setTimeout(r, 50))
 
       // Capture task refs BEFORE purge — the store list mutates after purgeTaskRecord
-      const tasksToClean = deleteFiles.value ? [...taskStore.taskList] : []
+      const tasksToClean = deleteFiles.value ? [...terminalTasks.value] : []
 
       await taskStore
         .purgeTaskRecord()
         .then(async () => {
           for (const task of tasksToClean) {
-            await deleteTaskFiles(task)
+            await deleteTaskFiles(task, { protectedTasks: [...tasksToClean, ...taskStore.taskList] })
           }
           message.success(t('task.purge-record-success'))
         })

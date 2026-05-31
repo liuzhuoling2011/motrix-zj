@@ -25,6 +25,7 @@ interface TaskActionsDeps {
     stopSeeding: (task: Aria2Task) => Promise<unknown>
     showTaskDetail: (task: Aria2Task) => void
     fetchList: () => Promise<unknown>
+    taskList: Aria2Task[]
   }
   preferenceConfig: () => AppConfig
   t: (key: string, params?: Record<string, unknown>) => string
@@ -85,7 +86,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
       taskStore
         .removeTask(task)
         .then(async () => {
-          if (alsoDeleteFiles) await deleteTaskFiles(task)
+          if (alsoDeleteFiles) await deleteTaskFiles(task, { protectedTasks: [task, ...taskStore.taskList] })
         })
         .catch((e: unknown) => logger.error('TaskView', e))
       return
@@ -119,7 +120,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
         try {
           await taskStore.removeTask(task)
           if (deleteFiles.value) {
-            await deleteTaskFiles(task)
+            await deleteTaskFiles(task, { protectedTasks: [task, ...taskStore.taskList] })
           }
           message.success(t('task.delete-task-success', { taskName: name }))
         } catch (e) {
@@ -138,7 +139,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
       taskStore
         .removeTaskRecord(task)
         .then(async () => {
-          if (alsoDeleteFiles) await deleteTaskFiles(taskRef)
+          if (alsoDeleteFiles) await deleteTaskFiles(taskRef, { protectedTasks: [taskRef, ...taskStore.taskList] })
           message.success(
             t('task.remove-record-success', { taskName: getTaskDisplayName(taskRef, { defaultName: 'Unknown' }) }),
           )
@@ -174,7 +175,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
         await new Promise((r) => setTimeout(r, 50))
         try {
           if (deleteFiles.value) {
-            await deleteTaskFiles(task)
+            await deleteTaskFiles(task, { protectedTasks: [task, ...taskStore.taskList] })
           }
           await taskStore.removeTaskRecord(task)
           message.success(t('task.delete-task-success', { taskName: name }))
