@@ -194,7 +194,7 @@ function onDeleteAll() {
       // the reverse order would leave orphaned tasks with missing files.
       await taskStore.batchRemoveTask(gids)
       for (const task of tasksToDelete) {
-        await deleteTaskFiles(task, { protectedTasks: [...targetTasks, ...taskStore.taskList] })
+        await deleteTaskFiles(task)
       }
       message.success(t('task.batch-delete-task-success'))
     },
@@ -363,7 +363,7 @@ function purgeRecord() {
         .purgeTaskRecord()
         .then(async () => {
           for (const task of tasksToClean) {
-            await deleteTaskFiles(task, { protectedTasks: [...tasksToClean, ...taskStore.taskList] })
+            await deleteTaskFiles(task)
           }
           message.success(t('task.purge-record-success'))
         })

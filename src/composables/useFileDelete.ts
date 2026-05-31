@@ -27,10 +27,6 @@ import { resolveOpenTarget } from '@shared/utils'
 import { cleanupAria2MetadataFiles } from '@/composables/useDownloadCleanup'
 import type { Aria2Task } from '@shared/types'
 
-export interface DeleteTaskFilesOptions {
-  protectedTasks?: Aria2Task[]
-}
-
 /**
  * Move a file or directory to the OS trash / recycle bin.
  *
@@ -133,35 +129,31 @@ export async function cleanupAria2ControlFile(task: Aria2Task): Promise<void> {
  * Safety: the download directory itself is NEVER trashed — `resolveOpenTarget`
  * returns `dir` only as a fallback, and that case delegates to per-file trash.
  */
-export async function deleteTaskFiles(task: Aria2Task, options: DeleteTaskFilesOptions = {}): Promise<void> {
+export async function deleteTaskFiles(task: Aria2Task): Promise<void> {
   const target = await resolveOpenTarget(task)
-  const ownership = buildPathOwnership(options.protectedTasks ?? [])
 
   // Fallback: resolveOpenTarget returned the bare download directory,
   // meaning no specific file/folder could be resolved — trash individually.
   if (!target || target === task.dir) {
-    await trashFilesIndividually(task, ownership)
+    await trashFilesIndividually(task)
     return
   }
 
-  if (isOwnedByAnotherTask(target, task.gid, ownership)) return
-
   const isDir = await invoke<boolean>('check_path_is_dir', { path: target })
   if (isDir) {
-    if (containsPathOwnedByAnotherTask(target, task.gid, ownership)) return
     // Folder task: trash the entire directory in a single OS call
     await trashPath(target)
     // External .aria2 control file sits alongside the folder (e.g., "My Torrent.aria2")
     await trashPath(target + '.aria2')
   } else {
     // Single-file task: trash the file + companion .aria2 control file
-    await trashOwnedPath(target, task.gid, ownership)
-    await trashOwnedPath(target + '.aria2', task.gid, ownership)
+    await trashPath(target)
+    await trashPath(target + '.aria2')
   }
 
   // BT tasks: clean up the hex40-named .torrent metadata file in the download dir
   if (task.dir && task.infoHash) {
-    await trashOwnedPath(`${task.dir}/${task.infoHash}.aria2`, task.gid, ownership)
+    await trashPath(`${task.dir}/${task.infoHash}.aria2`)
     await cleanupAria2MetadataFiles(task.dir, task.infoHash)
   }
 }
@@ -171,55 +163,10 @@ export async function deleteTaskFiles(task: Aria2Task, options: DeleteTaskFilesO
  * Used when `resolveOpenTarget` cannot determine a specific target
  * (e.g., magnet still resolving metadata, or task with empty file list).
  */
-async function trashFilesIndividually(task: Aria2Task, ownership: PathOwnership): Promise<void> {
+async function trashFilesIndividually(task: Aria2Task): Promise<void> {
   for (const f of task.files || []) {
     if (!f.path) continue
-    await trashOwnedPath(f.path, task.gid, ownership)
-    await trashOwnedPath(f.path + '.aria2', task.gid, ownership)
+    await trashPath(f.path)
+    await trashPath(f.path + '.aria2')
   }
-}
-
-type PathOwnership = Map<string, Set<string>>
-
-function buildPathOwnership(tasks: Aria2Task[]): PathOwnership {
-  const ownership: PathOwnership = new Map()
-  for (const task of tasks) {
-    for (const file of task.files ?? []) {
-      addOwnedPath(ownership, file.path, task.gid)
-      addOwnedPath(ownership, file.path ? `${file.path}.aria2` : '', task.gid)
-    }
-  }
-  return ownership
-}
-
-function addOwnedPath(ownership: PathOwnership, path: string, gid: string) {
-  const key = normalizeOwnedPath(path)
-  if (!key) return
-  const gids = ownership.get(key) ?? new Set<string>()
-  gids.add(gid)
-  ownership.set(key, gids)
-}
-
-function isOwnedByAnotherTask(path: string, currentGid: string, ownership: PathOwnership): boolean {
-  const gids = ownership.get(normalizeOwnedPath(path))
-  if (!gids) return false
-  return [...gids].some((gid) => gid !== currentGid)
-}
-
-function containsPathOwnedByAnotherTask(path: string, currentGid: string, ownership: PathOwnership): boolean {
-  const dir = `${normalizeOwnedPath(path)}/`
-  for (const [ownedPath, gids] of ownership) {
-    if (!ownedPath.startsWith(dir)) continue
-    if ([...gids].some((gid) => gid !== currentGid)) return true
-  }
-  return false
-}
-
-async function trashOwnedPath(path: string, currentGid: string, ownership: PathOwnership): Promise<boolean> {
-  if (isOwnedByAnotherTask(path, currentGid, ownership)) return false
-  return trashPath(path)
-}
-
-function normalizeOwnedPath(path: string): string {
-  return path.trim().replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '')
 }

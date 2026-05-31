@@ -86,7 +86,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
       taskStore
         .removeTask(task)
         .then(async () => {
-          if (alsoDeleteFiles) await deleteTaskFiles(task, { protectedTasks: [task, ...taskStore.taskList] })
+          if (alsoDeleteFiles) await deleteTaskFiles(task)
         })
         .catch((e: unknown) => logger.error('TaskView', e))
       return
@@ -120,7 +120,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
         try {
           await taskStore.removeTask(task)
           if (deleteFiles.value) {
-            await deleteTaskFiles(task, { protectedTasks: [task, ...taskStore.taskList] })
+            await deleteTaskFiles(task)
           }
           message.success(t('task.delete-task-success', { taskName: name }))
         } catch (e) {
@@ -139,7 +139,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
       taskStore
         .removeTaskRecord(task)
         .then(async () => {
-          if (alsoDeleteFiles) await deleteTaskFiles(taskRef, { protectedTasks: [taskRef, ...taskStore.taskList] })
+          if (alsoDeleteFiles) await deleteTaskFiles(taskRef)
           message.success(
             t('task.remove-record-success', { taskName: getTaskDisplayName(taskRef, { defaultName: 'Unknown' }) }),
           )
@@ -175,7 +175,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
         await new Promise((r) => setTimeout(r, 50))
         try {
           if (deleteFiles.value) {
-            await deleteTaskFiles(task, { protectedTasks: [task, ...taskStore.taskList] })
+            await deleteTaskFiles(task)
           }
           await taskStore.removeTaskRecord(task)
           message.success(t('task.delete-task-success', { taskName: name }))
