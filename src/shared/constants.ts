@@ -268,14 +268,16 @@ export const DEFAULT_APP_CONFIG = {
   fileCategoryEnabled: false, // opt-in: does not affect existing users until enabled
   fileCategories: [] as import('@shared/types').FileCategory[],
 
+  // ── P2P Sharing (BT + ED2K) ────────────────────────────────────
+  shareRatio: 2, // Transmission/qBT-style default for healthy P2P contribution
+  shareTime: 2880, // 48h default sharing window
+  keepSharing: false, // stop by condition by default
+
   // ── BitTorrent (qBT/Transmission/Deluge conventions) ──────────
   btMaxPeers: ENGINE_DEFAULT_BT_MAX_PEERS, // aria2 default=55; qBT=100, Transmission=60, Deluge=200
   btDhtEnabled: true, // improves peer discovery; also enables UDP tracker support
   btPeerExchangeEnabled: true, // improves peer discovery inside active swarms
   btLocalPeerDiscoveryEnabled: true, // aria2.conf legacy default; helps LAN peers
-  seedRatio: 2, // old Motrix=2, Transmission=2; 2:1 supports BT ecosystem health
-  seedTime: 2880, // old Motrix=2880 (48h); generous default for healthy swarm contribution
-  keepSeeding: false, // qBT stops at ratio; safer default for new users
   btForceEncryption: false, // qBT default "Allow", not "Force"; forcing reduces peers
   pauseMetadata: true, // pause follow-up download after metadata — let user select files first
   continue: true, // aria2 default=true; resume incomplete downloads

@@ -228,6 +228,18 @@ describe('buildNetworkForm', () => {
     expect(form.asyncDns).toBe(false)
   })
 
+  it('defaults P2P sharing to condition-based stopping', () => {
+    const form = buildNetworkForm(emptyConfig)
+    expect(form.sharingMode).toBe('stop-by-condition')
+    expect(form.shareRatio).toBe(2)
+    expect(form.shareTime).toBe(2880)
+  })
+
+  it('maps keepSharing=true to manual stop mode', () => {
+    const form = buildNetworkForm({ keepSharing: true } as AppConfig)
+    expect(form.sharingMode).toBe('manual-stop')
+  })
+
   it('reads asyncDns from config', () => {
     const config = { asyncDns: true } as AppConfig
     const form = buildNetworkForm(config)
@@ -255,6 +267,9 @@ describe('buildNetworkForm', () => {
     expect(form).toHaveProperty('fileAllocation')
     expect(form).toHaveProperty('userAgent')
     expect(form).toHaveProperty('asyncDns')
+    expect(form).toHaveProperty('sharingMode')
+    expect(form).toHaveProperty('shareRatio')
+    expect(form).toHaveProperty('shareTime')
   })
 
   it('defaults port conflict recovery to enabled for every managed port type', () => {
@@ -293,6 +308,9 @@ describe('buildNetworkSystemConfig', () => {
     fileAllocation: 'none',
     userAgent: '',
     asyncDns: false,
+    sharingMode: 'stop-by-condition',
+    shareRatio: 2,
+    shareTime: 2880,
   }
 
   it('maps port and protocol keys to aria2 config', () => {
@@ -334,6 +352,32 @@ describe('buildNetworkSystemConfig', () => {
   it('maps async-dns to aria2 config', () => {
     expect(buildNetworkSystemConfig(baseForm)['async-dns']).toBe('false')
     expect(buildNetworkSystemConfig({ ...baseForm, asyncDns: true })['async-dns']).toBe('true')
+  })
+
+  it('condition mode emits P2P sharing stop conditions', () => {
+    const config = buildNetworkSystemConfig({
+      ...baseForm,
+      sharingMode: 'stop-by-condition',
+      shareRatio: 3,
+      shareTime: 1440,
+    })
+    expect(config['detach-share-only']).toBe('true')
+    expect(config['keep-sharing']).toBe('false')
+    expect(config['seed-ratio']).toBe('3')
+    expect(config['seed-time']).toBe('1440')
+  })
+
+  it('manual mode keeps sharing until manual stop', () => {
+    const config = buildNetworkSystemConfig({
+      ...baseForm,
+      sharingMode: 'manual-stop',
+      shareRatio: 3,
+      shareTime: 1440,
+    })
+    expect(config['detach-share-only']).toBe('true')
+    expect(config['keep-sharing']).toBe('true')
+    expect(config['seed-ratio']).toBe('0')
+    expect(config['seed-time']).toBe('')
   })
 
   // ── Proxy flow ──────────────────────────────────────────────────
@@ -445,6 +489,9 @@ describe('transformNetworkForStore', () => {
     fileAllocation: 'none',
     userAgent: '',
     asyncDns: false,
+    sharingMode: 'stop-by-condition',
+    shareRatio: 2,
+    shareTime: 2880,
   }
 
   it('preserves port numbers as numbers (not strings)', () => {
@@ -492,6 +539,19 @@ describe('transformNetworkForStore', () => {
     const result = transformNetworkForStore({ ...baseForm, asyncDns: true })
     expect(result.asyncDns).toBe(true)
   })
+
+  it('stores P2P sharing config with app-level naming', () => {
+    const result = transformNetworkForStore({
+      ...baseForm,
+      sharingMode: 'manual-stop',
+      shareRatio: 4,
+      shareTime: 720,
+    })
+    expect(result.keepSharing).toBe(true)
+    expect(result.shareRatio).toBe(4)
+    expect(result.shareTime).toBe(720)
+    expect((result as Record<string, unknown>).sharingMode).toBeUndefined()
+  })
 })
 
 // ── validateNetworkForm ─────────────────────────────────────────────
@@ -509,6 +569,9 @@ describe('validateNetworkForm', () => {
     fileAllocation: 'none',
     userAgent: '',
     asyncDns: false,
+    sharingMode: 'stop-by-condition',
+    shareRatio: 2,
+    shareTime: 2880,
   }
 
   it('returns null for valid form', () => {

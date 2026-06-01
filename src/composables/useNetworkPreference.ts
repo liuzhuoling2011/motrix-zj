@@ -1,8 +1,8 @@
 /**
  * @fileoverview Pure functions for the Network preference tab.
  *
- * Manages: proxy, port mapping (UPnP, BT/DHT ports), transfer parameters
- * (connect-timeout, timeout, file-allocation, async DNS), and User-Agent.
+ * Manages: proxy, port mapping (UPnP, BT/DHT ports), P2P sharing policy,
+ * transfer parameters (connect-timeout, timeout, file-allocation, async DNS), and User-Agent.
  * All keys here map to aria2 engine options via buildNetworkSystemConfig.
  *
  * Proxy validation logic is co-located here since it is only used in
@@ -38,6 +38,9 @@ export interface NetworkForm {
   portConflictRecovery: PortConflictRecoveryConfig
   listenPort: number
   dhtListenPort: number
+  sharingMode: 'stop-by-condition' | 'manual-stop'
+  shareRatio: number
+  shareTime: number
   connectTimeout: number
   timeout: number
   fileAllocation: string
@@ -83,6 +86,9 @@ export function buildNetworkForm(config: AppConfig): NetworkForm {
     portConflictRecovery: buildPortConflictRecovery(config),
     listenPort: Number(config.listenPort ?? D.listenPort),
     dhtListenPort: Number(config.dhtListenPort ?? D.dhtListenPort),
+    sharingMode: (config.keepSharing ?? D.keepSharing) ? 'manual-stop' : 'stop-by-condition',
+    shareRatio: config.shareRatio ?? D.shareRatio,
+    shareTime: config.shareTime ?? D.shareTime,
     connectTimeout: config.connectTimeout ?? D.connectTimeout,
     timeout: config.timeout ?? D.timeout,
     fileAllocation: config.fileAllocation ?? D.fileAllocation,
@@ -96,9 +102,13 @@ export function buildNetworkForm(config: AppConfig): NetworkForm {
  * Handles proxy scope filtering: only sets all-proxy if download scope is active.
  */
 export function buildNetworkSystemConfig(f: NetworkForm): Record<string, string> {
-  return {
+  const keepSharing = f.sharingMode === 'manual-stop'
+  const config: Record<string, string> = {
     'listen-port': String(f.listenPort),
     'dht-listen-port': String(f.dhtListenPort),
+    'detach-share-only': 'true',
+    'seed-ratio': keepSharing ? '0' : String(f.shareRatio),
+    'keep-sharing': String(keepSharing),
     'user-agent': f.userAgent || '',
     'connect-timeout': String(f.connectTimeout),
     timeout: String(f.timeout),
@@ -106,6 +116,10 @@ export function buildNetworkSystemConfig(f: NetworkForm): Record<string, string>
     'async-dns': String(!!f.asyncDns),
     ...buildDownloadProxyOptions(f.proxy),
   }
+
+  config['seed-time'] = keepSharing ? '' : String(f.shareTime)
+
+  return config
 }
 
 /**
@@ -113,8 +127,11 @@ export function buildNetworkSystemConfig(f: NetworkForm): Record<string, string>
  * Preserves port values as numbers and proxy as nested object.
  */
 export function transformNetworkForStore(f: NetworkForm): Partial<AppConfig> {
+  const data = { ...f } as Partial<AppConfig> & Record<string, unknown>
+  delete data.sharingMode
+  data.keepSharing = f.sharingMode === 'manual-stop'
   return {
-    ...f,
+    ...data,
     autoChangeConflictingPorts: f.portConflictRecovery.enabled,
   }
 }

@@ -35,13 +35,9 @@ import {
   NButton,
   NDivider,
   NIcon,
-  NCollapseTransition,
-  NRadioGroup,
-  NRadioButton,
   useDialog,
 } from 'naive-ui'
 import PreferenceActionBar from './PreferenceActionBar.vue'
-import PreferenceHintLabel from './PreferenceHintLabel.vue'
 import { SyncOutline, AddCircleOutline, CloseCircleOutline } from '@vicons/ionicons5'
 
 const { t } = useI18n()
@@ -330,32 +326,6 @@ onMounted(() => {
       <NFormItem :label="t('preferences.bt-local-peer-discovery')">
         <NSwitch v-model:value="form.btLocalPeerDiscoveryEnabled" />
       </NFormItem>
-
-      <NDivider title-placement="left">{{ t('preferences.bt-seeding-section') }}</NDivider>
-      <NFormItem :label="t('preferences.seeding-mode')">
-        <NRadioGroup v-model:value="form.seedingMode" size="small">
-          <NRadioButton value="stop-by-condition">{{ t('preferences.seeding-mode-stop-by-condition') }}</NRadioButton>
-          <NRadioButton value="manual-stop">{{ t('preferences.seeding-mode-manual-stop') }}</NRadioButton>
-        </NRadioGroup>
-      </NFormItem>
-      <NCollapseTransition :show="form.seedingMode === 'stop-by-condition'" class="collapse-indent">
-        <NFormItem :label="t('preferences.seed-ratio')">
-          <NInputNumber v-model:value="form.seedRatio" :min="1" :max="100" :step="0.1" style="width: 120px" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.seed-time') + ' (' + t('preferences.seed-time-unit') + ')'">
-          <NInputNumber v-model:value="form.seedTime" :min="60" :max="525600" style="width: 120px" />
-        </NFormItem>
-      </NCollapseTransition>
-      <NCollapseTransition :show="form.seedingMode === 'manual-stop'" class="collapse-indent">
-        <NFormItem>
-          <template #label>
-            <PreferenceHintLabel
-              :label="t('preferences.seeding-mode-manual-stop')"
-              :hint="t('preferences.seeding-mode-manual-stop-tips')"
-            />
-          </template>
-        </NFormItem>
-      </NCollapseTransition>
 
       <!-- Tracker Management -->
       <NDivider title-placement="left">{{ t('preferences.bt-tracker') }}</NDivider>

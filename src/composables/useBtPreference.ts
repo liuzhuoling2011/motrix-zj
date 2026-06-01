@@ -1,7 +1,7 @@
 /**
  * @fileoverview Pure functions for the BitTorrent preference tab.
  *
- * Manages BT-specific config: auto-download content, encryption, seeding,
+ * Manages BT-specific config: auto-download content, encryption,
  * discovery, max peers, and tracker management. Key business logic:
  * - btAutoDownloadContent ↔ pauseMetadata
  * - Tracker comma ↔ newline format conversion
@@ -40,9 +40,6 @@ export interface BtForm {
   btDhtEnabled: boolean
   btPeerExchangeEnabled: boolean
   btLocalPeerDiscoveryEnabled: boolean
-  seedingMode: 'stop-by-condition' | 'manual-stop'
-  seedRatio: number
-  seedTime: number
   btMaxPeers: number
   trackerSource: string[]
   customTrackerUrls: string[]
@@ -60,7 +57,6 @@ export interface BtForm {
 export function buildBtForm(config: AppConfig): BtForm {
   const pauseMetadata = config.pauseMetadata ?? D.pauseMetadata
   const btAutoDownloadContent = !pauseMetadata
-  const keepSeeding = config.keepSeeding ?? D.keepSeeding
 
   return {
     btAutoDownloadContent,
@@ -68,9 +64,6 @@ export function buildBtForm(config: AppConfig): BtForm {
     btDhtEnabled: config.btDhtEnabled ?? D.btDhtEnabled,
     btPeerExchangeEnabled: config.btPeerExchangeEnabled ?? D.btPeerExchangeEnabled,
     btLocalPeerDiscoveryEnabled: config.btLocalPeerDiscoveryEnabled ?? D.btLocalPeerDiscoveryEnabled,
-    seedingMode: keepSeeding ? 'manual-stop' : 'stop-by-condition',
-    seedRatio: config.seedRatio ?? D.seedRatio,
-    seedTime: config.seedTime ?? D.seedTime,
     btMaxPeers: config.btMaxPeers ?? D.btMaxPeers,
     trackerSource: config.trackerSource ?? [...D.trackerSource],
     customTrackerUrls: config.customTrackerUrls ?? [...D.customTrackerUrls],
@@ -90,25 +83,16 @@ export function buildBtForm(config: AppConfig): BtForm {
  */
 export function buildBtSystemConfig(f: BtForm): Record<string, string> {
   const autoContent = !!f.btAutoDownloadContent
-  const keepSeeding = f.seedingMode === 'manual-stop'
-  const config: Record<string, string> = {
+  return {
     'bt-max-peers': String(f.btMaxPeers),
     'bt-force-encryption': String(!!f.btForceEncryption),
     'bt-require-crypto': String(!!f.btForceEncryption),
     'enable-dht': String(!!f.btDhtEnabled),
     'enable-peer-exchange': String(!!f.btPeerExchangeEnabled),
     'bt-enable-lpd': String(!!f.btLocalPeerDiscoveryEnabled),
-    'seed-ratio': keepSeeding ? '0' : String(f.seedRatio),
-    'keep-seeding': String(keepSeeding),
     'pause-metadata': String(!autoContent),
     'bt-tracker': convertLineToComma(f.btTracker),
   }
-
-  if (!keepSeeding) {
-    config['seed-time'] = String(f.seedTime)
-  }
-
-  return config
 }
 
 /**
@@ -120,7 +104,6 @@ export function transformBtForStore(f: BtForm): Partial<AppConfig> {
   const data = { ...f } as Partial<AppConfig> & Record<string, unknown>
 
   delete data.btAutoDownloadContent
-  delete data.seedingMode
 
   if (f.btAutoDownloadContent) {
     data.pauseMetadata = false
@@ -128,7 +111,6 @@ export function transformBtForStore(f: BtForm): Partial<AppConfig> {
     data.pauseMetadata = true
   }
 
-  data.keepSeeding = f.seedingMode === 'manual-stop'
   data.btTracker = convertLineToComma(f.btTracker)
 
   return data

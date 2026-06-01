@@ -1,7 +1,7 @@
 /// Builds the CLI argument list for spawning the bundled Motrix Next engine sidecar.
 ///
 /// Whitelists only valid Aria2 Next options from the config object and handles
-/// the `keep-seeding` app-level flag. Options managed exclusively by
+/// the `keep-sharing` app-level flag. Options managed exclusively by
 /// `aria2.conf` are excluded from the whitelist to prevent store overrides.
 pub(crate) const SUPPORTED_ENGINE_KEYS: &[&str] = &[
     "all-proxy-passwd",
@@ -25,6 +25,7 @@ pub(crate) const SUPPORTED_ENGINE_KEYS: &[&str] = &[
     "connect-timeout",
     "content-disposition-default-utf8",
     "continue",
+    "detach-share-only",
     "dht-listen-port",
     "dir",
     "dry-run",
@@ -122,7 +123,7 @@ const PROXY_CLEAR_KEYS: &[&str] = &[
 ];
 
 fn preserves_empty_value(key: &str) -> bool {
-    PROXY_CLEAR_KEYS.contains(&key)
+    PROXY_CLEAR_KEYS.contains(&key) || key == "seed-time"
 }
 
 pub(crate) fn build_start_args(
@@ -150,10 +151,10 @@ pub(crate) fn build_start_args(
     args.push(format!("--log-level={log_level}"));
     args.push("--quiet=true".to_string());
 
-    // Check keep-seeding flag (app-level logic, not an engine option).
+    // Check keep-sharing flag (app-level logic, not an engine option).
     // Frontend sends String("true"/"false"), so handle both Bool and String
-    let keep_seeding = config
-        .get("keep-seeding")
+    let keep_sharing = config
+        .get("keep-sharing")
         .map(|v| match v {
             serde_json::Value::Bool(b) => *b,
             serde_json::Value::String(s) => s == "true",
@@ -172,17 +173,18 @@ pub(crate) fn build_start_args(
                 continue;
             }
 
-            // Handle keep-seeding: skip seed-time if keep_seeding is true
-            if keep_seeding && key == "seed-time" {
-                continue;
-            }
-
             let val_str = match value {
                 serde_json::Value::String(s) => s.clone(),
                 serde_json::Value::Number(n) => n.to_string(),
                 serde_json::Value::Bool(b) => b.to_string(),
                 _ => continue,
             };
+
+            // Handle keep-sharing: skip seed-time if keep_sharing is true,
+            // except an empty value, which clears a stored condition.
+            if keep_sharing && key == "seed-time" && !val_str.is_empty() {
+                continue;
+            }
 
             // Skip empty values except proxy clear values. Empty proxy args
             // intentionally override environment proxy variables at startup.
@@ -201,8 +203,8 @@ pub(crate) fn build_start_args(
                 continue;
             }
 
-            // Handle keep-seeding: override seed-ratio to 0
-            if keep_seeding && key == "seed-ratio" {
+            // Handle keep-sharing: override seed-ratio to 0
+            if keep_sharing && key == "seed-ratio" {
                 args.push("--seed-ratio=0".to_string());
                 continue;
             }
@@ -375,7 +377,7 @@ mod tests {
 
     #[test]
     fn build_args_rejects_non_whitelisted_keys() {
-        let config = json!({ "dir": "/tmp", "not-a-real-key": "value", "keep-seeding": true });
+        let config = json!({ "dir": "/tmp", "not-a-real-key": "value", "keep-sharing": true });
         let args = build_start_args(
             &config,
             None,
@@ -385,7 +387,7 @@ mod tests {
             "debug",
         );
         assert!(!args.iter().any(|a| a.contains("not-a-real-key")));
-        assert!(!args.iter().any(|a| a.contains("keep-seeding")));
+        assert!(!args.iter().any(|a| a.contains("keep-sharing")));
     }
 
     #[test]
@@ -409,8 +411,8 @@ mod tests {
     }
 
     #[test]
-    fn build_args_keep_seeding_skips_seed_time() {
-        let config = json!({ "keep-seeding": true, "seed-time": "60" });
+    fn build_args_keep_sharing_skips_seed_time() {
+        let config = json!({ "keep-sharing": true, "seed-time": "60" });
         let args = build_start_args(
             &config,
             None,
@@ -423,8 +425,22 @@ mod tests {
     }
 
     #[test]
-    fn build_args_keep_seeding_overrides_seed_ratio() {
-        let config = json!({ "keep-seeding": true, "seed-ratio": "1.0" });
+    fn build_args_keep_sharing_preserves_empty_seed_time_clear() {
+        let config = json!({ "keep-sharing": true, "seed-time": "" });
+        let args = build_start_args(
+            &config,
+            None,
+            "/tmp/s.session",
+            false,
+            "/tmp/aria2-next.log",
+            "debug",
+        );
+        assert!(args.iter().any(|a| a == "--seed-time="));
+    }
+
+    #[test]
+    fn build_args_keep_sharing_overrides_seed_ratio() {
+        let config = json!({ "keep-sharing": true, "seed-ratio": "1.0" });
         let args = build_start_args(
             &config,
             None,
@@ -434,6 +450,20 @@ mod tests {
             "debug",
         );
         assert!(args.iter().any(|a| a == "--seed-ratio=0"));
+    }
+
+    #[test]
+    fn build_args_passes_detach_share_only() {
+        let config = json!({ "detach-share-only": "true" });
+        let args = build_start_args(
+            &config,
+            None,
+            "/tmp/s.session",
+            false,
+            "/tmp/aria2-next.log",
+            "debug",
+        );
+        assert!(args.iter().any(|a| a == "--detach-share-only=true"));
     }
 
     #[test]
@@ -569,9 +599,9 @@ mod tests {
     }
 
     #[test]
-    fn build_args_keep_seeding_string_true() {
+    fn build_args_keep_sharing_string_true() {
         // Frontend sends String("true"), not Bool(true)
-        let config = json!({ "keep-seeding": "true", "seed-time": "30", "seed-ratio": "1.5" });
+        let config = json!({ "keep-sharing": "true", "seed-time": "30", "seed-ratio": "1.5" });
         let args = build_start_args(
             &config,
             None,
@@ -585,8 +615,8 @@ mod tests {
     }
 
     #[test]
-    fn build_args_keep_seeding_string_false_passes_seed_values() {
-        let config = json!({ "keep-seeding": "false", "seed-time": "30", "seed-ratio": "1.5" });
+    fn build_args_keep_sharing_string_false_passes_seed_values() {
+        let config = json!({ "keep-sharing": "false", "seed-time": "30", "seed-ratio": "1.5" });
         let args = build_start_args(
             &config,
             None,
@@ -600,8 +630,8 @@ mod tests {
     }
 
     #[test]
-    fn build_args_no_keep_seeding_passes_seed_values() {
-        // When keep-seeding is absent entirely, seed values should pass through
+    fn build_args_no_keep_sharing_passes_seed_values() {
+        // When keep-sharing is absent entirely, seed values should pass through
         let config = json!({ "seed-time": "60", "seed-ratio": "2.0" });
         let args = build_start_args(
             &config,

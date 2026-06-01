@@ -225,8 +225,8 @@ describe('formatOptionsForEngine', () => {
     expect(result.referer).toBe('')
   })
   it('keeps numeric 0 value (converted to string)', () => {
-    const result = formatOptionsForEngine({ seedTime: 0 })
-    expect(result['seed-time']).toBe('0')
+    const result = formatOptionsForEngine({ shareTime: 0 })
+    expect(result['share-time']).toBe('0')
   })
   it('converts boolean to string', () => {
     const result = formatOptionsForEngine({ checkIntegrity: true })

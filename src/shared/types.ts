@@ -262,8 +262,8 @@ export interface AppConfig {
   fileCategoryEnabled: boolean
   /** User-configurable file classification rules. */
   fileCategories: FileCategory[]
-  seedTime: number
-  seedRatio: number
+  shareTime: number
+  shareRatio: number
   btMaxPeers: number
   btDhtEnabled: boolean
   btPeerExchangeEnabled: boolean
@@ -275,7 +275,7 @@ export interface AppConfig {
   hideDockOnMinimize: boolean
   lightweightMode: boolean
   autoSyncTracker: boolean
-  keepSeeding: boolean
+  keepSharing: boolean
   keepWindowState: boolean
 
   newTaskShowDownloading: boolean

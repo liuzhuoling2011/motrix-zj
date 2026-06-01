@@ -2,7 +2,7 @@
  * @fileoverview Tests for useBtPreference pure functions.
  *
  * The BT tab manages BitTorrent-specific config: auto-download, encryption,
- * seeding, max peers, and tracker management. Key business logic:
+ * discovery, max peers, and tracker management. Key business logic:
  * - btAutoDownloadContent ↔ pauseMetadata mapping
  * - Tracker comma ↔ newline conversion
  * - force-save must NOT appear in global config (per-download only)
@@ -68,26 +68,6 @@ describe('buildBtForm', () => {
     expect(form.btForceEncryption).toBe(true)
   })
 
-  it('defaults seedingMode to condition-based stopping', () => {
-    const form = buildBtForm(emptyConfig)
-    expect(form.seedingMode).toBe('stop-by-condition')
-  })
-
-  it('maps keepSeeding=true to manual-stop mode', () => {
-    const form = buildBtForm({ keepSeeding: true } as AppConfig)
-    expect(form.seedingMode).toBe('manual-stop')
-  })
-
-  it('defaults seedRatio to 2', () => {
-    const form = buildBtForm(emptyConfig)
-    expect(form.seedRatio).toBe(2)
-  })
-
-  it('defaults seedTime to 2880', () => {
-    const form = buildBtForm(emptyConfig)
-    expect(form.seedTime).toBe(2880)
-  })
-
   it('defaults btMaxPeers to ENGINE_DEFAULT_BT_MAX_PEERS', () => {
     const form = buildBtForm(emptyConfig)
     expect(form.btMaxPeers).toBe(ENGINE_DEFAULT_BT_MAX_PEERS)
@@ -136,7 +116,7 @@ describe('buildBtForm', () => {
 
   // ── Completeness ────────────────────────────────────────────────
 
-  it('returns all 14 form fields', () => {
+  it('returns all 11 form fields', () => {
     const form = buildBtForm(emptyConfig)
     const expectedFields = [
       'btAutoDownloadContent',
@@ -144,9 +124,6 @@ describe('buildBtForm', () => {
       'btDhtEnabled',
       'btPeerExchangeEnabled',
       'btLocalPeerDiscoveryEnabled',
-      'seedingMode',
-      'seedRatio',
-      'seedTime',
       'btMaxPeers',
       'trackerSource',
       'customTrackerUrls',
@@ -170,9 +147,6 @@ describe('buildBtSystemConfig', () => {
     btDhtEnabled: true,
     btPeerExchangeEnabled: true,
     btLocalPeerDiscoveryEnabled: true,
-    seedingMode: 'manual-stop',
-    seedRatio: 1,
-    seedTime: 60,
     btMaxPeers: 128,
     trackerSource: [],
     customTrackerUrls: [],
@@ -185,7 +159,10 @@ describe('buildBtSystemConfig', () => {
     const config = buildBtSystemConfig(baseForm)
     expect(config['bt-max-peers']).toBe('128')
     expect(config['bt-force-encryption']).toBe('false')
-    expect(config['keep-seeding']).toBe('true')
+    expect(config).not.toHaveProperty('keep-sharing')
+    expect(config).not.toHaveProperty('seed-ratio')
+    expect(config).not.toHaveProperty('seed-time')
+    expect(config).not.toHaveProperty('detach-share-only')
   })
 
   it('maps BT discovery toggles to aria2 config', () => {
@@ -204,30 +181,6 @@ describe('buildBtSystemConfig', () => {
     const config = buildBtSystemConfig({ ...baseForm, btForceEncryption: true })
     expect(config['bt-force-encryption']).toBe('true')
     expect(config['bt-require-crypto']).toBe('true')
-  })
-
-  it('condition mode sends both seed stop conditions', () => {
-    const config = buildBtSystemConfig({
-      ...baseForm,
-      seedingMode: 'stop-by-condition',
-      seedRatio: 2,
-      seedTime: 2880,
-    })
-    expect(config['keep-seeding']).toBe('false')
-    expect(config['seed-ratio']).toBe('2')
-    expect(config['seed-time']).toBe('2880')
-  })
-
-  it('manual mode sends unlimited ratio and omits seed-time', () => {
-    const config = buildBtSystemConfig({
-      ...baseForm,
-      seedingMode: 'manual-stop',
-      seedRatio: 2,
-      seedTime: 2880,
-    })
-    expect(config['keep-seeding']).toBe('true')
-    expect(config['seed-ratio']).toBe('0')
-    expect(config).not.toHaveProperty('seed-time')
   })
 
   it('sets pause-metadata=false when auto-content ON', () => {
@@ -264,13 +217,6 @@ describe('buildBtSystemConfig', () => {
     expect(config).not.toHaveProperty('bt-remove-unselected-file')
   })
 
-  it('does NOT include force-save regardless of keepSeeding value', () => {
-    const withSeeding = buildBtSystemConfig({ ...baseForm, keepSeeding: true })
-    const withoutSeeding = buildBtSystemConfig({ ...baseForm, keepSeeding: false })
-    expect(withSeeding).not.toHaveProperty('force-save')
-    expect(withoutSeeding).not.toHaveProperty('force-save')
-  })
-
   // ── Boundary: tracker/sync keys must NOT leak into aria2 config ─
 
   it('does NOT include tracker management keys in aria2 config', () => {
@@ -291,9 +237,6 @@ describe('transformBtForStore', () => {
     btDhtEnabled: true,
     btPeerExchangeEnabled: true,
     btLocalPeerDiscoveryEnabled: true,
-    seedingMode: 'manual-stop',
-    seedRatio: 1,
-    seedTime: 60,
     btMaxPeers: 128,
     trackerSource: [],
     customTrackerUrls: [],
@@ -347,11 +290,10 @@ describe('transformBtForStore', () => {
     expect(result.btLocalPeerDiscoveryEnabled).toBe(false)
   })
 
-  it('preserves seeding config through transform', () => {
-    const result = transformBtForStore({ ...baseForm, seedingMode: 'manual-stop', seedRatio: 2, seedTime: 120 })
-    expect(result.keepSeeding).toBe(true)
-    expect(result.seedRatio).toBe(2)
-    expect(result.seedTime).toBe(120)
-    expect((result as Record<string, unknown>).seedingMode).toBeUndefined()
+  it('does not persist global P2P sharing config from BT transform', () => {
+    const result = transformBtForStore(baseForm)
+    expect(result).not.toHaveProperty('keepSharing')
+    expect(result).not.toHaveProperty('shareRatio')
+    expect(result).not.toHaveProperty('shareTime')
   })
 })

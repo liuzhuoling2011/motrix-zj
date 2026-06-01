@@ -38,6 +38,9 @@ import {
   NDivider,
   NIcon,
   NText,
+  NCollapseTransition,
+  NRadioButton,
+  NRadioGroup,
   useDialog,
 } from 'naive-ui'
 const needsRestart = ref(false)
@@ -353,6 +356,41 @@ onMounted(() => {
           </NButton>
         </NInputGroup>
       </NFormItem>
+
+      <!-- P2P Sharing -->
+      <NDivider title-placement="left">{{ t('preferences.p2p-sharing-section') }}</NDivider>
+      <NFormItem>
+        <template #label>
+          <PreferenceHintLabel
+            :label="t('preferences.sharing-mode')"
+            :hint="t('preferences.sharing-mode-scope-hint')"
+          />
+        </template>
+        <NRadioGroup v-model:value="form.sharingMode" size="small">
+          <NRadioButton value="stop-by-condition">
+            {{ t('preferences.sharing-mode-stop-by-condition') }}
+          </NRadioButton>
+          <NRadioButton value="manual-stop">{{ t('preferences.sharing-mode-manual-stop') }}</NRadioButton>
+        </NRadioGroup>
+      </NFormItem>
+      <NCollapseTransition :show="form.sharingMode === 'stop-by-condition'" class="collapse-indent">
+        <NFormItem :label="t('preferences.share-ratio')">
+          <NInputNumber v-model:value="form.shareRatio" :min="1" :max="100" :step="0.1" style="width: 120px" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.share-time') + ' (' + t('preferences.share-time-unit') + ')'">
+          <NInputNumber v-model:value="form.shareTime" :min="60" :max="525600" style="width: 120px" />
+        </NFormItem>
+      </NCollapseTransition>
+      <NCollapseTransition :show="form.sharingMode === 'manual-stop'" class="collapse-indent">
+        <NFormItem>
+          <template #label>
+            <PreferenceHintLabel
+              :label="t('preferences.sharing-mode-manual-stop')"
+              :hint="t('preferences.sharing-mode-manual-stop-tips')"
+            />
+          </template>
+        </NFormItem>
+      </NCollapseTransition>
 
       <!-- User-Agent -->
       <NDivider title-placement="left">{{ t('preferences.user-agent') }}</NDivider>
