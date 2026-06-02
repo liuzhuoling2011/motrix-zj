@@ -334,7 +334,7 @@ onMounted(() => {
         <NSwitch v-model:value="form.btForceEncryption" />
       </NFormItem>
       <NFormItem :label="t('preferences.bt-max-peers')">
-        <NInputNumber v-model:value="form.btMaxPeers" :min="0" :max="ENGINE_MAX_BT_MAX_PEERS" style="width: 120px" />
+        <NInputNumber v-model:value="form.btMaxPeers" :min="0" :max="ENGINE_MAX_BT_MAX_PEERS" class="pref-number" />
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.bt-discovery-section') }}</NDivider>
@@ -366,9 +366,10 @@ onMounted(() => {
             v-model:value="customTrackerInput"
             :placeholder="t('preferences.bt-tracker-source-custom-placeholder')"
             clearable
+            class="pref-control-full"
             @keydown.enter="onAddCustomTracker"
           />
-          <NButton size="small" style="flex-shrink: 0" @click="onAddCustomTracker">
+          <NButton size="small" class="pref-input-group-action" @click="onAddCustomTracker">
             <template #icon>
               <NIcon><AddCircleOutline /></NIcon>
             </template>
@@ -387,12 +388,12 @@ onMounted(() => {
         />
       </NFormItem>
       <NFormItem label=" ">
-        <div class="tracker-sync-actions">
+        <div class="pref-inline-row">
           <NButton
+            class="pref-action-button"
             :loading="syncingTracker"
             type="primary"
             secondary
-            style="min-width: 100px"
             @click="handleSyncTracker"
           >
             <template #icon>
@@ -400,7 +401,7 @@ onMounted(() => {
             </template>
             {{ t('preferences.bt-tracker-sync') }}
           </NButton>
-          <span class="sync-time">
+          <span class="pref-inline-row__meta">
             {{ t('preferences.last-sync-time') }}
             {{ form.lastSyncTrackerTime ? new Date(form.lastSyncTrackerTime as number).toLocaleString() : '—' }}
           </span>
@@ -424,8 +425,7 @@ onMounted(() => {
             target="_blank"
             href="https://github.com/XIU2/TrackersListCollection"
             rel="noopener noreferrer"
-            class="info-link"
-            style="margin-left: 8px"
+            class="info-link pref-meta-link"
           >
             XIU2/TrackersListCollection ↗
           </a>
@@ -435,7 +435,11 @@ onMounted(() => {
         <NSwitch v-model:value="form.btTrackerAutoSync" />
       </NFormItem>
       <NFormItem v-if="form.btTrackerAutoSync" :label="t('preferences.sync-frequency')">
-        <NSelect v-model:value="form.btTrackerSyncIntervalHours" :options="syncIntervalOptions" style="width: 200px" />
+        <NSelect
+          v-model:value="form.btTrackerSyncIntervalHours"
+          :options="syncIntervalOptions"
+          class="pref-control-auto"
+        />
       </NFormItem>
     </NForm>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
@@ -443,24 +447,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.preference-form-wrapper {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-.form-preference {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 16px 30px 64px 36px;
-}
-.form-preference :deep(.n-form-item) {
-  padding-left: 50px;
-}
-.form-preference :deep(.collapse-indent) {
-  position: relative;
-  margin-left: 16px;
-}
 .info-text {
   color: var(--m3-on-surface-variant);
   font-size: 12px;
@@ -474,17 +460,5 @@ onMounted(() => {
 }
 .info-link:hover {
   text-decoration: underline;
-}
-.tracker-sync-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-height: 34px;
-}
-.sync-time {
-  color: var(--m3-on-surface-variant);
-  font-size: 13px;
-  line-height: 1.4;
-  white-space: nowrap;
 }
 </style>

@@ -263,8 +263,8 @@ onMounted(() => {
               />
             </template>
             <NInputGroup>
-              <NInput v-model:value="form.proxy.server" placeholder="http://host:port" />
-              <NButton :loading="detectingProxy" @click="detectProxy">
+              <NInput v-model:value="form.proxy.server" class="pref-control-full" placeholder="http://host:port" />
+              <NButton class="pref-action-button" :loading="detectingProxy" @click="detectProxy">
                 <template #icon>
                   <NIcon><SearchOutline /></NIcon>
                 </template>
@@ -287,7 +287,7 @@ onMounted(() => {
             />
           </NFormItem>
           <NFormItem :label="t('preferences.proxy-scope')">
-            <NSelect v-model:value="form.proxy.scope" :options="proxyScopeOptions" multiple style="width: 100%" />
+            <NSelect v-model:value="form.proxy.scope" :options="proxyScopeOptions" multiple class="pref-control-full" />
           </NFormItem>
         </div>
       </div>
@@ -314,14 +314,14 @@ onMounted(() => {
                 v-model:value="form.portConflictRecovery.rangeStart"
                 :min="1024"
                 :max="65535"
-                style="width: 140px"
+                class="pref-port"
               />
               <span class="port-range-separator">to</span>
               <NInputNumber
                 v-model:value="form.portConflictRecovery.rangeEnd"
                 :min="1024"
                 :max="65535"
-                style="width: 140px"
+                class="pref-port"
               />
             </NInputGroup>
           </NFormItem>
@@ -338,8 +338,8 @@ onMounted(() => {
       </NFormItem>
       <NFormItem :label="t('preferences.bt-port')">
         <NInputGroup>
-          <NInputNumber v-model:value="form.listenPort" :min="1024" :max="65535" style="width: 160px" />
-          <NButton style="padding: 0 10px" @click="onBtPortDice">
+          <NInputNumber v-model:value="form.listenPort" :min="1024" :max="65535" class="pref-port" />
+          <NButton class="pref-icon-button" @click="onBtPortDice">
             <template #icon>
               <NIcon :size="14"><DiceOutline /></NIcon>
             </template>
@@ -348,8 +348,8 @@ onMounted(() => {
       </NFormItem>
       <NFormItem :label="t('preferences.dht-port')">
         <NInputGroup>
-          <NInputNumber v-model:value="form.dhtListenPort" :min="1024" :max="65535" style="width: 160px" />
-          <NButton style="padding: 0 10px" @click="onDhtPortDice">
+          <NInputNumber v-model:value="form.dhtListenPort" :min="1024" :max="65535" class="pref-port" />
+          <NButton class="pref-icon-button" @click="onDhtPortDice">
             <template #icon>
               <NIcon :size="14"><DiceOutline /></NIcon>
             </template>
@@ -375,10 +375,10 @@ onMounted(() => {
       </NFormItem>
       <NCollapseTransition :show="form.sharingMode === 'stop-by-condition'" class="collapse-indent">
         <NFormItem :label="t('preferences.share-ratio')">
-          <NInputNumber v-model:value="form.shareRatio" :min="1" :max="100" :step="0.1" style="width: 120px" />
+          <NInputNumber v-model:value="form.shareRatio" :min="1" :max="100" :step="0.1" class="pref-number" />
         </NFormItem>
         <NFormItem :label="t('preferences.share-time') + ' (' + t('preferences.share-time-unit') + ')'">
-          <NInputNumber v-model:value="form.shareTime" :min="60" :max="525600" style="width: 120px" />
+          <NInputNumber v-model:value="form.shareTime" :min="60" :max="525600" class="pref-number" />
         </NFormItem>
       </NCollapseTransition>
       <NCollapseTransition :show="form.sharingMode === 'manual-stop'" class="collapse-indent">
@@ -432,15 +432,15 @@ onMounted(() => {
       <!-- Timeout & Disk -->
       <NDivider title-placement="left">{{ t('preferences.transfer-params') }}</NDivider>
       <NFormItem :label="t('preferences.connect-timeout')">
-        <NInputNumber v-model:value="form.connectTimeout" :min="1" :max="600" style="width: 120px" />
-        <NText depth="3" style="font-size: 12px; margin-left: 8px">{{ t('preferences.unit-seconds') }}</NText>
+        <NInputNumber v-model:value="form.connectTimeout" :min="1" :max="600" class="pref-number" />
+        <NText depth="3" class="pref-inline-note">{{ t('preferences.unit-seconds') }}</NText>
       </NFormItem>
       <NFormItem :label="t('preferences.timeout')">
-        <NInputNumber v-model:value="form.timeout" :min="1" :max="600" style="width: 120px" />
-        <NText depth="3" style="font-size: 12px; margin-left: 8px">{{ t('preferences.unit-seconds') }}</NText>
+        <NInputNumber v-model:value="form.timeout" :min="1" :max="600" class="pref-number" />
+        <NText depth="3" class="pref-inline-note">{{ t('preferences.unit-seconds') }}</NText>
       </NFormItem>
       <NFormItem :label="t('preferences.file-allocation')">
-        <NSelect v-model:value="form.fileAllocation" :options="fileAllocationOptions" style="width: 140px" />
+        <NSelect v-model:value="form.fileAllocation" :options="fileAllocationOptions" class="pref-control-auto" />
       </NFormItem>
       <NFormItem>
         <template #label>
@@ -454,23 +454,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.preference-form-wrapper {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-.form-preference {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 16px 30px 64px 36px;
-}
-.form-preference :deep(.n-form-item) {
-  padding-left: 50px;
-}
-.form-preference :deep(.collapse-indent) {
-  margin-left: 16px;
-}
 .proxy-collapse {
   display: grid;
   grid-template-rows: 0fr;

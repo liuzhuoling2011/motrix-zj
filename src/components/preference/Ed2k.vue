@@ -434,8 +434,8 @@ onMounted(() => {
       <NDivider title-placement="left">{{ t('preferences.ed2k-settings') }}</NDivider>
       <NFormItem :label="t('preferences.ed2k-listen-port')">
         <NInputGroup>
-          <NInputNumber v-model:value="form.ed2kListenPort" :min="0" :max="65535" style="width: 160px" />
-          <NButton secondary @click="onPortDice">
+          <NInputNumber v-model:value="form.ed2kListenPort" :min="0" :max="65535" class="pref-port" />
+          <NButton secondary class="pref-action-button pref-action-button--compact" @click="onPortDice">
             <template #icon>
               <NIcon><DiceOutline /></NIcon>
             </template>
@@ -445,8 +445,8 @@ onMounted(() => {
       </NFormItem>
       <NFormItem :label="t('preferences.ed2k-udp-listen-port')">
         <NInputGroup>
-          <NInputNumber v-model:value="form.ed2kUdpListenPort" :min="0" :max="65535" style="width: 160px" />
-          <NButton secondary @click="onUdpPortDice">
+          <NInputNumber v-model:value="form.ed2kUdpListenPort" :min="0" :max="65535" class="pref-port" />
+          <NButton secondary class="pref-action-button pref-action-button--compact" @click="onUdpPortDice">
             <template #icon>
               <NIcon><DiceOutline /></NIcon>
             </template>
@@ -455,7 +455,7 @@ onMounted(() => {
         </NInputGroup>
       </NFormItem>
       <NFormItem :label="t('preferences.ed2k-upload-slots')">
-        <NInputNumber v-model:value="form.ed2kUploadSlots" :min="1" :max="100" style="width: 160px" />
+        <NInputNumber v-model:value="form.ed2kUploadSlots" :min="1" :max="100" class="pref-port" />
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.ed2k-bootstrap') }}</NDivider>
@@ -492,16 +492,16 @@ onMounted(() => {
         <NSelect
           v-model:value="form.ed2kBootstrapSyncIntervalHours"
           :options="syncIntervalOptions"
-          style="width: 200px"
+          class="pref-control-auto"
         />
       </NFormItem>
       <NFormItem label=" ">
-        <div class="ed2k-bootstrap-actions">
+        <div class="pref-inline-row">
           <NButton
+            class="pref-action-button"
             :loading="bootstrapSyncing"
             type="primary"
             secondary
-            style="min-width: 100px"
             @click="handleSyncBootstrapFiles"
           >
             <template #icon>
@@ -509,7 +509,7 @@ onMounted(() => {
             </template>
             {{ t('preferences.ed2k-bootstrap-sync') }}
           </NButton>
-          <NText depth="3" class="ed2k-bootstrap-last-sync">
+          <NText depth="3" class="pref-inline-row__meta">
             {{ t('preferences.last-sync-time') }} {{ bootstrapLastSyncText }}
           </NText>
         </div>
@@ -552,14 +552,14 @@ onMounted(() => {
         </div>
       </NFormItem>
       <NFormItem :label="t('preferences.ed2k-search-type')">
-        <NSelect v-model:value="searchFileType" :options="fileTypeOptions" style="width: 220px" />
+        <NSelect v-model:value="searchFileType" :options="fileTypeOptions" class="pref-control-auto" />
       </NFormItem>
       <NFormItem :label="t('preferences.ed2k-search-min-sources')">
-        <NInputNumber v-model:value="searchMinSources" :min="1" :max="9999" style="width: 160px" />
+        <NInputNumber v-model:value="searchMinSources" :min="1" :max="9999" class="pref-port" />
       </NFormItem>
       <NFormItem :label="t('preferences.ed2k-search-timeout')">
-        <NInputNumber v-model:value="form.ed2kSearchTimeout" :min="10" :max="600" style="width: 160px" />
-        <NText depth="3" style="font-size: 12px; margin-left: 8px">{{ t('preferences.unit-seconds') }}</NText>
+        <NInputNumber v-model:value="form.ed2kSearchTimeout" :min="10" :max="600" class="pref-port" />
+        <NText depth="3" class="pref-inline-note">{{ t('preferences.unit-seconds') }}</NText>
       </NFormItem>
       <NFormItem :show-label="false">
         <NDataTable
@@ -577,20 +577,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.preference-form-wrapper {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-.form-preference {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 16px 30px 64px 36px;
-}
-.form-preference :deep(.n-form-item) {
-  padding-left: 50px;
-}
 .search-results {
   width: 100%;
   min-width: 0;
@@ -604,17 +590,6 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
   min-height: 34px;
-}
-.ed2k-bootstrap-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-height: 34px;
-}
-.ed2k-bootstrap-last-sync {
-  font-size: 13px;
-  line-height: 1.4;
-  white-space: nowrap;
 }
 .ed2k-search-status {
   display: inline-flex;

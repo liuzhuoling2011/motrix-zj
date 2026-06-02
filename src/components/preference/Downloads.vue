@@ -358,35 +358,30 @@ onMounted(async () => {
       <!-- Concurrency & Segments -->
       <NDivider title-placement="left">{{ t('preferences.concurrency-and-segments') }}</NDivider>
       <NFormItem :label="t('preferences.max-concurrent-downloads')">
-        <NInputNumber v-model:value="form.maxConcurrentDownloads" :min="1" :max="10" style="width: 120px" />
+        <NInputNumber v-model:value="form.maxConcurrentDownloads" :min="1" :max="10" class="pref-number" />
       </NFormItem>
       <NFormItem :label="t('preferences.split-count')">
-        <NInputNumber
-          v-model:value="form.split"
-          :min="1"
-          :max="ENGINE_MAX_CONNECTION_PER_SERVER"
-          style="width: 120px"
-        />
+        <NInputNumber v-model:value="form.split" :min="1" :max="ENGINE_MAX_CONNECTION_PER_SERVER" class="pref-number" />
       </NFormItem>
       <NFormItem :label="t('preferences.max-connection-per-server')">
         <NInputNumber
           v-model:value="form.maxConnectionPerServer"
           :min="1"
           :max="ENGINE_MAX_CONNECTION_PER_SERVER"
-          style="width: 120px"
+          class="pref-number"
         />
       </NFormItem>
       <!-- Retry & File Options -->
       <NDivider title-placement="left">{{ t('preferences.retry-and-file-behavior') }}</NDivider>
       <NFormItem :label="t('preferences.max-tries')">
-        <NInputNumber v-model:value="form.maxTries" :min="0" :max="60" style="width: 120px" />
-        <NText depth="3" style="font-size: 12px; margin-left: 8px">
+        <NInputNumber v-model:value="form.maxTries" :min="0" :max="60" class="pref-number" />
+        <NText depth="3" class="pref-inline-note">
           {{ t('preferences.max-tries-hint') }}
         </NText>
       </NFormItem>
       <NFormItem :label="t('preferences.retry-wait')">
-        <NInputNumber v-model:value="form.retryWait" :min="0" :max="600" style="width: 120px" />
-        <NText depth="3" style="font-size: 12px; margin-left: 8px">{{ t('preferences.unit-seconds') }}</NText>
+        <NInputNumber v-model:value="form.retryWait" :min="0" :max="600" class="pref-number" />
+        <NText depth="3" class="pref-inline-note">{{ t('preferences.unit-seconds') }}</NText>
       </NFormItem>
       <NFormItem :label="t('preferences.continue')">
         <NSwitch v-model:value="form.continue" />
@@ -396,8 +391,8 @@ onMounted(async () => {
       <NDivider title-placement="left">{{ t('preferences.download-path') }}</NDivider>
       <NFormItem :label="t('preferences.default-path')">
         <NInputGroup>
-          <NInput v-model:value="form.dir" style="flex: 1" />
-          <NButton style="padding: 0 12px" @click="handleSelectDir">
+          <NInput v-model:value="form.dir" class="pref-control-full" />
+          <NButton class="pref-icon-button" @click="handleSelectDir">
             <template #icon>
               <NIcon :size="16"><FolderOpenOutline /></NIcon>
             </template>
@@ -409,7 +404,7 @@ onMounted(async () => {
         <NSelect
           :value="fileTimestampValue"
           :options="fileTimestampOptions"
-          style="width: 260px"
+          class="pref-control-auto"
           @update:value="handleFileTimestampChange"
         />
       </NFormItem>
@@ -434,14 +429,13 @@ onMounted(async () => {
                     :value="cat.label"
                     size="small"
                     :placeholder="t('preferences.file-category-custom-label')"
-                    style="width: 120px"
+                    class="pref-number"
                     @update:value="(v: string) => handleCategoryLabelChange(idx, v)"
                   />
                   <NButton
-                    class="ghost-btn--danger"
+                    class="ghost-btn--danger file-category-delete-button"
                     size="tiny"
                     ghost
-                    style="margin-left: auto"
                     @click="handleDeleteCategory(idx)"
                   >
                     {{ t('edit.delete') }}
@@ -456,10 +450,10 @@ onMounted(async () => {
                   <NInput
                     :value="cat.directory"
                     size="small"
-                    style="flex: 1"
+                    class="pref-control-full"
                     @update:value="(v: string) => handleCategoryDirInput(idx, v)"
                   />
-                  <NButton size="small" style="padding: 0 8px" @click="handleSelectCategoryDir(idx)">
+                  <NButton size="small" class="pref-icon-button-sm" @click="handleSelectCategoryDir(idx)">
                     <template #icon>
                       <NIcon :size="14"><FolderOpenOutline /></NIcon>
                     </template>
@@ -496,19 +490,19 @@ onMounted(async () => {
       <NCollapseTransition :show="preferenceStore.config.speedScheduleEnabled" class="collapse-indent">
         <Transition name="schedule-warn">
           <NFormItem v-if="!preferenceStore.config.speedLimitEnabled" :show-label="false">
-            <NText depth="3" type="warning" style="font-size: 12px">
+            <NText depth="3" type="warning" class="pref-inline-note pref-inline-note--warning">
               {{ t('preferences.schedule-needs-limit') }}
             </NText>
           </NFormItem>
         </Transition>
         <NFormItem :label="t('preferences.schedule-from')">
-          <NSelect v-model:value="form.speedScheduleFrom" :options="timeOptions" style="width: 120px" />
+          <NSelect v-model:value="form.speedScheduleFrom" :options="timeOptions" class="pref-control-auto" />
         </NFormItem>
         <NFormItem :label="t('preferences.schedule-to')">
-          <NSelect v-model:value="form.speedScheduleTo" :options="timeOptions" style="width: 120px" />
+          <NSelect v-model:value="form.speedScheduleTo" :options="timeOptions" class="pref-control-auto" />
         </NFormItem>
         <NFormItem :label="t('preferences.schedule-days')">
-          <NSelect v-model:value="form.speedScheduleDays" :options="scheduleDayOptions" style="width: 160px" />
+          <NSelect v-model:value="form.speedScheduleDays" :options="scheduleDayOptions" class="pref-control-auto" />
         </NFormItem>
       </NCollapseTransition>
       <div>
@@ -519,13 +513,13 @@ onMounted(async () => {
               :min="0"
               :max="65535"
               :step="1"
-              style="width: 140px"
+              class="pref-port"
               @update:value="handleUploadValueChange"
             />
             <NSelect
               :value="uploadUnit"
               :options="speedUnitOptions"
-              style="width: 100px"
+              class="pref-control-auto pref-control-compact"
               @update:value="handleUploadUnitChange"
             />
           </NInputGroup>
@@ -537,13 +531,13 @@ onMounted(async () => {
               :min="0"
               :max="65535"
               :step="1"
-              style="width: 140px"
+              class="pref-port"
               @update:value="handleDownloadValueChange"
             />
             <NSelect
               :value="downloadUnit"
               :options="speedUnitOptions"
-              style="width: 100px"
+              class="pref-control-auto pref-control-compact"
               @update:value="handleDownloadUnitChange"
             />
           </NInputGroup>
@@ -595,13 +589,13 @@ onMounted(async () => {
         <NSelect
           v-model:value="completedRecordRetentionSelectValue"
           :options="completedRecordRetentionOptions"
-          style="width: 180px"
+          class="pref-control-auto"
         />
       </NFormItem>
       <NCollapseTransition :show="completedRecordRetentionSelectValue === -1">
         <NFormItem :label="t('preferences.completed-record-retention-custom-days')">
-          <NInputNumber v-model:value="form.completedRecordRetentionDays" :min="1" :max="3650" style="width: 120px" />
-          <NText depth="3" style="font-size: 12px; margin-left: 8px">
+          <NInputNumber v-model:value="form.completedRecordRetentionDays" :min="1" :max="3650" class="pref-number" />
+          <NText depth="3" class="pref-inline-note">
             {{ t('preferences.completed-record-retention-days-unit') }}
           </NText>
         </NFormItem>
@@ -612,24 +606,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.preference-form-wrapper {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-.form-preference {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 16px 30px 64px 36px;
-}
-.form-preference :deep(.n-form-item) {
-  padding-left: 50px;
-}
-.form-preference :deep(.collapse-indent) {
-  position: relative;
-  margin-left: 16px;
-}
 .schedule-warn-enter-active,
 .schedule-warn-leave-active {
   transition:
@@ -680,6 +656,9 @@ onMounted(async () => {
   align-items: center;
   gap: 8px;
 }
+.file-category-delete-button {
+  margin-left: auto;
+}
 .file-category-label {
   font-size: 13px;
   font-weight: 500;
@@ -689,22 +668,5 @@ onMounted(async () => {
   gap: 8px;
   align-items: center;
   margin-top: 4px;
-}
-.ghost-btn--danger {
-  --btn-tint: var(--m3-error, #c97070);
-  color: var(--btn-tint) !important;
-  border-color: var(--btn-tint) !important;
-  transition:
-    color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.ghost-btn--danger:hover {
-  background-color: color-mix(in srgb, var(--btn-tint) 12%, transparent) !important;
-}
-.ghost-btn--danger :deep(.n-button__border),
-.ghost-btn--danger :deep(.n-button__state-border) {
-  border-color: var(--btn-tint) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 </style>

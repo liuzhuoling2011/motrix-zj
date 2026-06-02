@@ -396,7 +396,7 @@ watch(protocolHandlers.lastError, (error) => {
         </NFormItem>
       </NCollapseTransition>
       <NFormItem :label="t('preferences.extension-api-port')">
-        <NInputNumber v-model:value="form.extensionApiPort" :min="1024" :max="65535" style="width: 160px" />
+        <NInputNumber v-model:value="form.extensionApiPort" :min="1024" :max="65535" class="pref-port" />
       </NFormItem>
       <NFormItem :validation-status="form.extensionApiSecret ? undefined : 'warning'">
         <template #label>
@@ -411,18 +411,18 @@ watch(protocolHandlers.lastError, (error) => {
             type="password"
             show-password-on="click"
             :placeholder="t('preferences.extension-api-secret')"
-            style="flex: 1"
+            class="pref-control-full"
             :status="form.extensionApiSecret ? undefined : 'warning'"
           />
           <NButton
-            style="padding: 0 10px"
+            class="pref-icon-button"
             @click="copyToClipboard(form.extensionApiSecret, t('preferences.extension-api-secret'))"
           >
             <template #icon>
               <NIcon :size="14"><CopyOutline /></NIcon>
             </template>
           </NButton>
-          <NButton style="padding: 0 10px" @click="onApiSecretDice">
+          <NButton class="pref-icon-button" @click="onApiSecretDice">
             <template #icon>
               <NIcon :size="14"><DiceOutline /></NIcon>
             </template>
@@ -433,16 +433,16 @@ watch(protocolHandlers.lastError, (error) => {
       <NDivider title-placement="left">{{ t('preferences.rpc') }}</NDivider>
       <NFormItem :label="t('preferences.rpc-listen-port')">
         <NInputGroup>
-          <NInputNumber v-model:value="form.rpcListenPort" :min="1024" :max="65535" style="width: 160px" />
+          <NInputNumber v-model:value="form.rpcListenPort" :min="1024" :max="65535" class="pref-port" />
           <NButton
-            style="padding: 0 10px"
+            class="pref-icon-button"
             @click="copyToClipboard(String(form.rpcListenPort), t('preferences.rpc-listen-port'))"
           >
             <template #icon>
               <NIcon :size="14"><CopyOutline /></NIcon>
             </template>
           </NButton>
-          <NButton style="padding: 0 10px" @click="onRpcPortDice">
+          <NButton class="pref-icon-button" @click="onRpcPortDice">
             <template #icon>
               <NIcon :size="14"><DiceOutline /></NIcon>
             </template>
@@ -456,15 +456,15 @@ watch(protocolHandlers.lastError, (error) => {
             type="password"
             show-password-on="click"
             :placeholder="t('preferences.rpc-secret')"
-            style="flex: 1"
+            class="pref-control-full"
             :status="form.rpcSecret ? undefined : 'warning'"
           />
-          <NButton style="padding: 0 10px" @click="copyToClipboard(form.rpcSecret, t('preferences.rpc-secret'))">
+          <NButton class="pref-icon-button" @click="copyToClipboard(form.rpcSecret, t('preferences.rpc-secret'))">
             <template #icon>
               <NIcon :size="14"><CopyOutline /></NIcon>
             </template>
           </NButton>
-          <NButton style="padding: 0 10px" @click="onRpcSecretDice">
+          <NButton class="pref-icon-button" @click="onRpcSecretDice">
             <template #icon>
               <NIcon :size="14"><DiceOutline /></NIcon>
             </template>
@@ -478,36 +478,36 @@ watch(protocolHandlers.lastError, (error) => {
           <NInput
             :value="form.tempFilesDir || defaultTempPath"
             readonly
-            style="flex: 1"
+            class="pref-control-full"
             :placeholder="defaultTempPath"
           />
           <NButton
-            style="padding: 0 10px"
+            class="pref-icon-button"
             @click="copyToClipboard(form.tempFilesDir || defaultTempPath, t('preferences.temp-files-dir'))"
           >
             <template #icon>
               <NIcon :size="14"><CopyOutline /></NIcon>
             </template>
           </NButton>
-          <NButton style="padding: 0 10px" @click="handleSelectTempDir">
+          <NButton class="pref-icon-button" @click="handleSelectTempDir">
             <template #icon>
               <NIcon :size="14"><FolderOpenOutline /></NIcon>
             </template>
           </NButton>
-          <NButton v-if="form.tempFilesDir" quaternary style="padding: 0 10px" @click="handleClearTempDir">
+          <NButton v-if="form.tempFilesDir" quaternary class="pref-icon-button" @click="handleClearTempDir">
             {{ t('preferences.ua-reset') }}
           </NButton>
         </NInputGroup>
       </NFormItem>
       <NFormItem :label="t('preferences.aria2-conf-path')">
         <NInputGroup>
-          <NInput :value="aria2ConfPath" readonly style="flex: 1" />
-          <NButton style="padding: 0 10px" @click="copyToClipboard(aria2ConfPath, t('preferences.aria2-conf-path'))">
+          <NInput :value="aria2ConfPath" readonly class="pref-control-full" />
+          <NButton class="pref-icon-button" @click="copyToClipboard(aria2ConfPath, t('preferences.aria2-conf-path'))">
             <template #icon>
               <NIcon :size="14"><CopyOutline /></NIcon>
             </template>
           </NButton>
-          <NButton style="padding: 0 10px" @click="handleRevealPath(aria2ConfPath)">
+          <NButton class="pref-icon-button" @click="handleRevealPath(aria2ConfPath)">
             <template #icon>
               <NIcon :size="14"><FolderOpenOutline /></NIcon>
             </template>
@@ -516,13 +516,13 @@ watch(protocolHandlers.lastError, (error) => {
       </NFormItem>
       <NFormItem :label="t('preferences.session-path')">
         <NInputGroup>
-          <NInput :value="sessionPath" readonly style="flex: 1" />
-          <NButton style="padding: 0 10px" @click="copyToClipboard(sessionPath, t('preferences.session-path'))">
+          <NInput :value="sessionPath" readonly class="pref-control-full" />
+          <NButton class="pref-icon-button" @click="copyToClipboard(sessionPath, t('preferences.session-path'))">
             <template #icon>
               <NIcon :size="14"><CopyOutline /></NIcon>
             </template>
           </NButton>
-          <NButton style="padding: 0 10px" @click="handleRevealPath(sessionPath)">
+          <NButton class="pref-icon-button" @click="handleRevealPath(sessionPath)">
             <template #icon>
               <NIcon :size="14"><FolderOpenOutline /></NIcon>
             </template>
@@ -538,13 +538,13 @@ watch(protocolHandlers.lastError, (error) => {
       <NDivider title-placement="left">{{ t('preferences.log-section') }}</NDivider>
       <NFormItem :label="t('preferences.log-path')">
         <NInputGroup>
-          <NInput :value="logPath" readonly style="flex: 1" />
-          <NButton style="padding: 0 10px" @click="copyToClipboard(logPath, t('preferences.log-path'))">
+          <NInput :value="logPath" readonly class="pref-control-full" />
+          <NButton class="pref-icon-button" @click="copyToClipboard(logPath, t('preferences.log-path'))">
             <template #icon>
               <NIcon :size="14"><CopyOutline /></NIcon>
             </template>
           </NButton>
-          <NButton style="padding: 0 10px" @click="handleRevealPath(logPath)">
+          <NButton class="pref-icon-button" @click="handleRevealPath(logPath)">
             <template #icon>
               <NIcon :size="14"><FolderOpenOutline /></NIcon>
             </template>
@@ -555,11 +555,11 @@ watch(protocolHandlers.lastError, (error) => {
         <div class="log-level-row">
           <div class="log-level-control">
             <span class="log-level-control__label">{{ t('preferences.motrix-next') }}</span>
-            <NSelect v-model:value="form.logLevel" :options="appLogLevelOptions" style="width: 110px" />
+            <NSelect v-model:value="form.logLevel" :options="appLogLevelOptions" class="pref-control-auto" />
           </div>
           <div class="log-level-control">
             <span class="log-level-control__label">{{ t('preferences.aria2-next') }}</span>
-            <NSelect v-model:value="form.aria2LogLevel" :options="aria2LogLevelOptions" style="width: 110px" />
+            <NSelect v-model:value="form.aria2LogLevel" :options="aria2LogLevelOptions" class="pref-control-auto" />
           </div>
         </div>
       </NFormItem>
@@ -670,7 +670,7 @@ watch(protocolHandlers.lastError, (error) => {
       v-model:show="showDbBrowse"
       preset="card"
       :title="t('preferences.db-browse-title')"
-      style="width: 800px; max-width: 90vw"
+      class="db-record-modal"
       :mask-closable="true"
     >
       <NDataTable
@@ -686,7 +686,7 @@ watch(protocolHandlers.lastError, (error) => {
           <NEmpty :description="t('preferences.db-record-count', { count: 0 })" />
         </template>
       </NDataTable>
-      <div v-if="dbRecords.length > 0" style="margin-top: 12px; text-align: right; opacity: 0.6; font-size: 13px">
+      <div v-if="dbRecords.length > 0" class="db-record-count">
         {{ t('preferences.db-record-count', { count: dbRecords.length }) }}
       </div>
     </NModal>
@@ -695,24 +695,6 @@ watch(protocolHandlers.lastError, (error) => {
 </template>
 
 <style scoped>
-.preference-form-wrapper {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-.form-preference {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 16px 30px 64px 36px;
-}
-.form-preference :deep(.n-form-item) {
-  padding-left: 50px;
-}
-.form-preference :deep(.collapse-indent) {
-  position: relative;
-  margin-left: 16px;
-}
 .info-link {
   color: var(--color-primary);
   text-decoration: none;
@@ -730,71 +712,22 @@ watch(protocolHandlers.lastError, (error) => {
 .action-link:hover {
   text-decoration: underline;
 }
-.form-actions {
-  padding: 16px 24px 16px 40px;
-}
-
-/* ── Ghost button variants — shared tinted styles with M3 easing ──── */
-.ghost-btn--danger {
-  --btn-tint: var(--m3-error, #c97070);
-  color: var(--btn-tint) !important;
-  border-color: var(--btn-tint) !important;
-  transition:
-    color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.ghost-btn--danger:hover {
-  background-color: color-mix(in srgb, var(--btn-tint) 12%, transparent) !important;
-}
-.ghost-btn--danger :deep(.n-button__border),
-.ghost-btn--danger :deep(.n-button__state-border) {
-  border-color: var(--btn-tint) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-
-.ghost-btn--warning {
-  --btn-tint: var(--m3-tertiary, #c9a055);
-  color: var(--btn-tint) !important;
-  border-color: var(--btn-tint) !important;
-  transition:
-    color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.ghost-btn--warning:hover {
-  background-color: color-mix(in srgb, var(--btn-tint) 12%, transparent) !important;
-}
-.ghost-btn--warning :deep(.n-button__border),
-.ghost-btn--warning :deep(.n-button__state-border) {
-  border-color: var(--btn-tint) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-
-.ghost-btn--primary {
-  --btn-tint: var(--color-primary, #5b93d5);
-  color: var(--btn-tint) !important;
-  border-color: var(--btn-tint) !important;
-  transition:
-    color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.ghost-btn--primary:hover {
-  background-color: color-mix(in srgb, var(--btn-tint) 12%, transparent) !important;
-}
-.ghost-btn--primary :deep(.n-button__border),
-.ghost-btn--primary :deep(.n-button__state-border) {
-  border-color: var(--btn-tint) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-
 .log-level-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 16px;
   width: 100%;
+}
+.db-record-modal {
+  width: 800px;
+  max-width: 90vw;
+}
+.db-record-count {
+  margin-top: 12px;
+  text-align: right;
+  opacity: 0.6;
+  font-size: 13px;
 }
 .log-level-control {
   display: inline-flex;
@@ -895,10 +828,5 @@ watch(protocolHandlers.lastError, (error) => {
 }
 .proxy-collapse__inner {
   overflow: hidden;
-}
-
-/* ── Collapse indent: subordinate toggle hierarchy ────────────────── */
-.form-preference :deep(.collapse-indent) {
-  margin-left: 16px;
 }
 </style>

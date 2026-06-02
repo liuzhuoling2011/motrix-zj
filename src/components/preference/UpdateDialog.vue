@@ -314,7 +314,7 @@ defineExpose({ open })
                 indicator-placement="inside"
                 processing
               />
-              <NText depth="3" class="update-hint" style="margin-top: 6px">
+              <NText depth="3" class="update-hint update-progress-meta">
                 {{ downloadedMB }} / {{ totalMB }} MB · {{ progressPercent }}%
               </NText>
             </div>
@@ -345,7 +345,7 @@ defineExpose({ open })
       </div>
       <!-- Fixed action footer — always rendered with 2 buttons -->
       <div class="update-dialog-footer">
-        <NButton style="min-width: 120px" :disabled="!dialogClosable" @click="close">
+        <NButton class="update-dialog-close-action" :disabled="!dialogClosable" @click="close">
           {{ t('app.close') }}
         </NButton>
         <NButton
@@ -353,7 +353,6 @@ defineExpose({ open })
           :class="{ 'action-btn--active': !actionDisabled }"
           :type="actionType"
           :disabled="actionDisabled"
-          style="min-width: 180px"
           @click="handleActionClick"
         >
           {{ t(actionLabel) }}
@@ -414,7 +413,14 @@ defineExpose({ open })
   padding: 16px 30px 22px;
   border-top: 1px solid var(--m3-outline-variant);
 }
+.update-progress-meta {
+  margin-top: 6px;
+}
+.update-dialog-close-action {
+  min-width: 120px;
+}
 .action-btn {
+  min-width: 180px;
   transition: all 0.4s ease;
   opacity: 0.5;
 }
