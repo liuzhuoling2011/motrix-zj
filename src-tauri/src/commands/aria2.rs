@@ -192,6 +192,7 @@ fn sanitize_out_option(raw: &str) -> Option<String> {
 /// per-URI `out` filename override and file-category directory resolution.
 #[tauri::command]
 pub async fn aria2_add_uri(
+    app: AppHandle,
     state: State<'_, Aria2State>,
     uris: Vec<String>,
     mut options: serde_json::Value,
@@ -212,6 +213,13 @@ pub async fn aria2_add_uri(
                 _ => {} // already a clean filename — no action needed
             }
         }
+    }
+    if uris.iter().any(|uri| {
+        uri.trim_start()
+            .to_ascii_lowercase()
+            .starts_with("ed2k://|file|")
+    }) {
+        crate::commands::ed2k::inject_managed_ed2k_bootstrap_options(&app, &mut options)?;
     }
     log::info!("aria2:add-uri count={}", uris.len());
     state.0.add_uri(uris, options).await
@@ -247,6 +255,7 @@ pub async fn aria2_ed2k_search(
         "dir".to_string(),
         serde_json::Value::String(crate::engine::path_to_safe_string(&search_dir)),
     );
+    crate::commands::ed2k::inject_managed_ed2k_bootstrap_options(&app, &mut options)?;
     let gid = match state.0.ed2k_search(keyword, options).await {
         Ok(gid) => gid,
         Err(e) => {

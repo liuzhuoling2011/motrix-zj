@@ -9,6 +9,8 @@ import type { AppConfig } from '@shared/types'
 import { PORT_RECOVERY_RANGE_END, PORT_RECOVERY_RANGE_START, DEFAULT_APP_CONFIG as D } from '@shared/constants'
 import { convertCommaToLine, convertLineToComma, generateRandomInt } from '@shared/utils'
 
+export const DEFAULT_ED2K_SERVER_MET_URL = 'https://upd.emule-security.org/server.met'
+export const DEFAULT_ED2K_NODES_DAT_URL = 'https://upd.emule-security.org/nodes.dat'
 export const ED2K_SEARCH_POLL_INTERVAL_MS = 1000
 export const ED2K_SEARCH_MAX_DURATION_MS = 90000
 export const ED2K_SEARCH_MIN_TIMEOUT_SECONDS = 10
@@ -21,8 +23,8 @@ export interface Ed2kForm {
   ed2kListenPort: number
   ed2kUdpListenPort: number
   ed2kServer: string
-  ed2kServerList: string
-  ed2kNodeList: string
+  ed2kServerMetUrl: string
+  ed2kNodesDatUrl: string
   ed2kUploadSlots: number
   ed2kSearchTimeout: number
 }
@@ -43,8 +45,8 @@ export function buildEd2kForm(config: AppConfig): Ed2kForm {
     ed2kListenPort: Number(config.ed2kListenPort ?? D.ed2kListenPort),
     ed2kUdpListenPort: Number(config.ed2kUdpListenPort ?? D.ed2kUdpListenPort),
     ed2kServer: convertCommaToLine(config.ed2kServer ?? D.ed2kServer),
-    ed2kServerList: config.ed2kServerList ?? D.ed2kServerList,
-    ed2kNodeList: config.ed2kNodeList ?? D.ed2kNodeList,
+    ed2kServerMetUrl: String(config.ed2kServerMetUrl ?? DEFAULT_ED2K_SERVER_MET_URL),
+    ed2kNodesDatUrl: String(config.ed2kNodesDatUrl ?? DEFAULT_ED2K_NODES_DAT_URL),
     ed2kUploadSlots: Number(config.ed2kUploadSlots ?? D.ed2kUploadSlots),
     ed2kSearchTimeout: Number(config.ed2kSearchTimeout ?? D.ed2kSearchTimeout),
   }
@@ -55,8 +57,6 @@ export function buildEd2kSystemConfig(f: Ed2kForm): Record<string, string> {
     'ed2k-listen-port': String(f.ed2kListenPort),
     'ed2k-udp-listen-port': String(f.ed2kUdpListenPort),
     'ed2k-server': convertLineToComma(joinLines(f.ed2kServer)),
-    'ed2k-server-list': String(f.ed2kServerList).trim(),
-    'ed2k-node-list': String(f.ed2kNodeList).trim(),
     'ed2k-upload-slots': String(f.ed2kUploadSlots),
   }
 }
@@ -66,8 +66,8 @@ export function transformEd2kForStore(f: Ed2kForm): Partial<AppConfig> {
     ed2kListenPort: Number(f.ed2kListenPort),
     ed2kUdpListenPort: Number(f.ed2kUdpListenPort),
     ed2kServer: convertLineToComma(joinLines(f.ed2kServer)),
-    ed2kServerList: String(f.ed2kServerList).trim(),
-    ed2kNodeList: String(f.ed2kNodeList).trim(),
+    ed2kServerMetUrl: String(f.ed2kServerMetUrl).trim(),
+    ed2kNodesDatUrl: String(f.ed2kNodesDatUrl).trim(),
     ed2kUploadSlots: Number(f.ed2kUploadSlots),
     ed2kSearchTimeout: Number(f.ed2kSearchTimeout),
   }
@@ -81,6 +81,15 @@ export function validateServerLines(value: string): boolean {
     const port = Number(line.slice(separator + 1))
     return !!host && Number.isInteger(port) && port > 0 && port <= 65535
   })
+}
+
+function validateHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value.trim())
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
 }
 
 export function validateEd2kForm(f: Ed2kForm): string | null {
@@ -102,6 +111,9 @@ export function validateEd2kForm(f: Ed2kForm): string | null {
   }
   if (!validateServerLines(f.ed2kServer)) {
     return 'preferences.ed2k-invalid-server'
+  }
+  if (!validateHttpUrl(f.ed2kServerMetUrl) || !validateHttpUrl(f.ed2kNodesDatUrl)) {
+    return 'preferences.ed2k-invalid-bootstrap-url'
   }
   return null
 }

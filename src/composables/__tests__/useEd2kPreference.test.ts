@@ -23,8 +23,8 @@ const baseForm: Ed2kForm = {
   ed2kListenPort: 29140,
   ed2kUdpListenPort: 29150,
   ed2kServer: '',
-  ed2kServerList: '',
-  ed2kNodeList: '',
+  ed2kServerMetUrl: 'https://upd.emule-security.org/server.met',
+  ed2kNodesDatUrl: 'https://upd.emule-security.org/nodes.dat',
   ed2kUploadSlots: 3,
   ed2kSearchTimeout: 20,
 }
@@ -36,8 +36,8 @@ describe('buildEd2kForm', () => {
     expect(form.ed2kListenPort).toBe(29140)
     expect(form.ed2kUdpListenPort).toBe(29150)
     expect(form.ed2kServer).toBe('')
-    expect(form.ed2kServerList).toBe('')
-    expect(form.ed2kNodeList).toBe('')
+    expect(form.ed2kServerMetUrl).toBe('https://upd.emule-security.org/server.met')
+    expect(form.ed2kNodesDatUrl).toBe('https://upd.emule-security.org/nodes.dat')
     expect(form.ed2kUploadSlots).toBe(3)
     expect(form.ed2kSearchTimeout).toBe(20)
   })
@@ -56,16 +56,12 @@ describe('buildEd2kSystemConfig', () => {
     const config = buildEd2kSystemConfig({
       ...baseForm,
       ed2kServer: 'server-one.example:4661\nserver-two.example:4661',
-      ed2kServerList: '/lists/server.met',
-      ed2kNodeList: '/lists/nodes.dat',
     })
 
     expect(config).toEqual({
       'ed2k-listen-port': '29140',
       'ed2k-udp-listen-port': '29150',
       'ed2k-server': 'server-one.example:4661,server-two.example:4661',
-      'ed2k-server-list': '/lists/server.met',
-      'ed2k-node-list': '/lists/nodes.dat',
       'ed2k-upload-slots': '3',
     })
   })
@@ -76,8 +72,8 @@ describe('transformEd2kForStore', () => {
     const result = transformEd2kForStore({
       ...baseForm,
       ed2kServer: ' server-one.example:4661 \n\nserver-two.example:4661 ',
-      ed2kServerList: ' /lists/server.met ',
-      ed2kNodeList: ' /lists/nodes.dat ',
+      ed2kServerMetUrl: ' https://example.test/server.met ',
+      ed2kNodesDatUrl: ' https://example.test/nodes.dat ',
       ed2kSearchTimeout: 120,
     })
 
@@ -85,8 +81,8 @@ describe('transformEd2kForStore', () => {
       ed2kListenPort: 29140,
       ed2kUdpListenPort: 29150,
       ed2kServer: 'server-one.example:4661,server-two.example:4661',
-      ed2kServerList: '/lists/server.met',
-      ed2kNodeList: '/lists/nodes.dat',
+      ed2kServerMetUrl: 'https://example.test/server.met',
+      ed2kNodesDatUrl: 'https://example.test/nodes.dat',
       ed2kUploadSlots: 3,
       ed2kSearchTimeout: 120,
     })
@@ -118,6 +114,15 @@ describe('validateEd2kForm', () => {
   it('rejects malformed ED2K server endpoints', () => {
     expect(validateEd2kForm({ ...baseForm, ed2kServer: 'server.example:not-a-port' })).toBe(
       'preferences.ed2k-invalid-server',
+    )
+  })
+
+  it('rejects invalid bootstrap URLs', () => {
+    expect(validateEd2kForm({ ...baseForm, ed2kServerMetUrl: 'ftp://example.test/server.met' })).toBe(
+      'preferences.ed2k-invalid-bootstrap-url',
+    )
+    expect(validateEd2kForm({ ...baseForm, ed2kNodesDatUrl: 'not-a-url' })).toBe(
+      'preferences.ed2k-invalid-bootstrap-url',
     )
   })
 })

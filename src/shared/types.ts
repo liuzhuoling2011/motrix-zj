@@ -337,8 +337,8 @@ export interface AppConfig {
   ed2kListenPort: number
   ed2kUdpListenPort: number
   ed2kServer: string
-  ed2kServerList: string
-  ed2kNodeList: string
+  ed2kServerMetUrl: string
+  ed2kNodesDatUrl: string
   ed2kUploadSlots: number
   ed2kSearchTimeout: number
   btTracker: string

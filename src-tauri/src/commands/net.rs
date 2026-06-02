@@ -18,27 +18,6 @@ pub struct RemoteRequestHeader {
     pub value: String,
 }
 
-/// Applies an optional proxy to a `reqwest::ClientBuilder`.
-///
-/// Mirrors the pattern in `tracker.rs::fetch_tracker_sources`: when the
-/// frontend passes `Some("http://...")`, all requests go through the proxy;
-/// `None` or empty string means direct connection.
-fn apply_optional_proxy(
-    builder: reqwest::ClientBuilder,
-    proxy: &Option<String>,
-) -> reqwest::ClientBuilder {
-    log::debug!("apply_optional_proxy: proxy={proxy:?}");
-    if let Some(ref server) = proxy {
-        if !server.is_empty() {
-            match reqwest::Proxy::all(server) {
-                Ok(p) => return builder.proxy(p),
-                Err(e) => log::warn!("apply_optional_proxy: invalid proxy '{server}': {e}"),
-            }
-        }
-    }
-    builder
-}
-
 /// Timeout for HEAD requests in `resolve_filename`.  Short enough to avoid
 /// blocking the UI, long enough for CDN edge nodes to respond.
 pub(crate) const HEAD_TIMEOUT_SECS: u64 = 5;
@@ -74,7 +53,7 @@ pub async fn resolve_filename(
     let builder = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(HEAD_TIMEOUT_SECS))
         .redirect(reqwest::redirect::Policy::limited(5));
-    let client = apply_optional_proxy(builder, &proxy)
+    let client = crate::commands::http_client::apply_explicit_proxy(builder, &proxy, "resolve_filename")
         .build()
         .map_err(|e| AppError::Io(format!("HEAD client init failed: {e}")))?;
 
@@ -245,7 +224,7 @@ pub async fn fetch_remote_bytes(
     let builder = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .redirect(reqwest::redirect::Policy::limited(5));
-    let client = apply_optional_proxy(builder, &proxy)
+    let client = crate::commands::http_client::apply_explicit_proxy(builder, &proxy, "fetch_remote_bytes")
         .build()
         .map_err(|e| AppError::Io(format!("GET client init failed: {e}")))?;
 

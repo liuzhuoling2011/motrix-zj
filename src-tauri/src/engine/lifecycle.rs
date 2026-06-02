@@ -3,7 +3,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
-use super::args::build_start_args;
+use super::args::build_start_args_with_ed2k_bootstrap;
 use super::cleanup::cleanup_port;
 use super::state::{path_to_safe_string, strip_ansi, EngineState};
 use super::{valid_aria2_log_level, DEFAULT_ARIA2_LOG_LEVEL};
@@ -194,7 +194,9 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
     }
 
     let (log_file_path, log_level) = engine_log_config(app)?;
-    let args = build_start_args(
+    let ed2k_bootstrap = crate::commands::ed2k::ensure_ed2k_bootstrap_cache(app)
+        .map_err(|e| format!("Failed to prepare ED2K bootstrap cache: {e}"))?;
+    let args = build_start_args_with_ed2k_bootstrap(
         &config,
         if conf_path.exists() {
             log::info!("loading engine config: {}", conf_str);
@@ -210,6 +212,7 @@ pub fn start_engine(app: &tauri::AppHandle, config: &serde_json::Value) -> Resul
         session_path.exists(),
         &log_file_path,
         &log_level,
+        Some((ed2k_bootstrap.0.as_str(), ed2k_bootstrap.1.as_str())),
     );
 
     let sidecar = app
@@ -419,7 +422,9 @@ pub fn restart_engine(app: &tauri::AppHandle, _config: &serde_json::Value) -> Re
     }
 
     let (log_file_path, log_level) = engine_log_config(app)?;
-    let args = build_start_args(
+    let ed2k_bootstrap = crate::commands::ed2k::ensure_ed2k_bootstrap_cache(app)
+        .map_err(|e| format!("Failed to prepare ED2K bootstrap cache: {e}"))?;
+    let args = build_start_args_with_ed2k_bootstrap(
         &config,
         if conf_path.exists() {
             log::info!("restart: loading engine config: {}", conf_str);
@@ -435,6 +440,7 @@ pub fn restart_engine(app: &tauri::AppHandle, _config: &serde_json::Value) -> Re
         session_path.exists(),
         &log_file_path,
         &log_level,
+        Some((ed2k_bootstrap.0.as_str(), ed2k_bootstrap.1.as_str())),
     );
 
     let sidecar = app

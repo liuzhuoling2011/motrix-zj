@@ -30,9 +30,7 @@ pub(crate) const SUPPORTED_ENGINE_KEYS: &[&str] = &[
     "dir",
     "dry-run",
     "ed2k-listen-port",
-    "ed2k-node-list",
     "ed2k-server",
-    "ed2k-server-list",
     "ed2k-udp-listen-port",
     "ed2k-upload-slots",
     "enable-dht",
@@ -126,6 +124,7 @@ fn preserves_empty_value(key: &str) -> bool {
     PROXY_CLEAR_KEYS.contains(&key) || key == "seed-time"
 }
 
+#[cfg(test)]
 pub(crate) fn build_start_args(
     config: &serde_json::Value,
     conf_path: Option<&str>,
@@ -133,6 +132,46 @@ pub(crate) fn build_start_args(
     session_exists: bool,
     log_file_path: &str,
     log_level: &str,
+) -> Vec<String> {
+    build_start_args_impl(
+        config,
+        conf_path,
+        session_path,
+        session_exists,
+        log_file_path,
+        log_level,
+        None,
+    )
+}
+
+pub(crate) fn build_start_args_with_ed2k_bootstrap(
+    config: &serde_json::Value,
+    conf_path: Option<&str>,
+    session_path: &str,
+    session_exists: bool,
+    log_file_path: &str,
+    log_level: &str,
+    ed2k_bootstrap_paths: Option<(&str, &str)>,
+) -> Vec<String> {
+    build_start_args_impl(
+        config,
+        conf_path,
+        session_path,
+        session_exists,
+        log_file_path,
+        log_level,
+        ed2k_bootstrap_paths,
+    )
+}
+
+fn build_start_args_impl(
+    config: &serde_json::Value,
+    conf_path: Option<&str>,
+    session_path: &str,
+    session_exists: bool,
+    log_file_path: &str,
+    log_level: &str,
+    ed2k_bootstrap_paths: Option<(&str, &str)>,
 ) -> Vec<String> {
     let mut args: Vec<String> = Vec::new();
 
@@ -213,6 +252,11 @@ pub(crate) fn build_start_args(
         }
     }
 
+    if let Some((server_met_path, nodes_dat_path)) = ed2k_bootstrap_paths {
+        args.push(format!("--ed2k-server-list={server_met_path}"));
+        args.push(format!("--ed2k-node-list={nodes_dat_path}"));
+    }
+
     // If no conf file, ensure RPC is enabled
     if conf_path.is_none() {
         args.push("--enable-rpc=true".to_string());
@@ -242,6 +286,33 @@ mod tests {
         assert!(args.iter().any(|a| a == "--dir=/tmp"));
         assert!(args.iter().any(|a| a == "--split=16"));
         assert!(args.iter().any(|a| a == "--async-dns=false"));
+    }
+
+    #[test]
+    fn build_args_injects_managed_ed2k_bootstrap_paths() {
+        let args = build_start_args_with_ed2k_bootstrap(
+            &json!({
+                "ed2k-server-list": "/user/server.met",
+                "ed2k-node-list": "/user/nodes.dat"
+            }),
+            None,
+            "/tmp/s.session",
+            false,
+            "/tmp/aria2-next.log",
+            "debug",
+            Some(("/cache/server.met", "/cache/nodes.dat")),
+        );
+
+        assert!(!args
+            .iter()
+            .any(|a| a == "--ed2k-server-list=/user/server.met"));
+        assert!(!args.iter().any(|a| a == "--ed2k-node-list=/user/nodes.dat"));
+        assert!(args
+            .iter()
+            .any(|a| a == "--ed2k-server-list=/cache/server.met"));
+        assert!(args
+            .iter()
+            .any(|a| a == "--ed2k-node-list=/cache/nodes.dat"));
     }
 
     #[test]

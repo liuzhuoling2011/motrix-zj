@@ -5,7 +5,8 @@
  * progress calculations, version direction detection, and proxy resolution.
  */
 import { isDowngrade } from '@shared/utils/semver'
-import { buildProxyUrlWithCredentials } from '@shared/utils/proxyUrl'
+import { PROXY_SCOPES } from '@shared/constants'
+import { resolveAppProxyUrl } from '@shared/utils/appProxyPolicy'
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -93,10 +94,7 @@ export function bytesToMB(bytes: number): string {
 
 /** Returns the proxy server URL if proxy is enabled for app updates. */
 export function getUpdateProxy(proxyConfig: UpdateProxyConfig | undefined): string | null {
-  if (proxyConfig?.mode !== 'manual' || !proxyConfig.server) return null
-  const scope = proxyConfig.scope || []
-  if (!scope.includes('update-app')) return null
-  return buildProxyUrlWithCredentials(proxyConfig)
+  return resolveAppProxyUrl(proxyConfig, PROXY_SCOPES.UPDATE_APP)
 }
 
 // ── Error Formatting ────────────────────────────────────────────────

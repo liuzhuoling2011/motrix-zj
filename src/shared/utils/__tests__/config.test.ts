@@ -34,9 +34,11 @@ describe('changeKeysToKebabCase', () => {
   })
 
   it('keeps ED2K as one aria2 option prefix', () => {
-    expect(changeKeysToKebabCase({ ed2kListenPort: 4663, ed2kServerList: '/tmp/server.met' })).toEqual({
+    expect(
+      changeKeysToKebabCase({ ed2kListenPort: 4663, ed2kServerMetUrl: 'https://example.test/server.met' }),
+    ).toEqual({
       'ed2k-listen-port': 4663,
-      'ed2k-server-list': '/tmp/server.met',
+      'ed2k-server-met-url': 'https://example.test/server.met',
     })
   })
 
@@ -149,8 +151,6 @@ describe('checkIsNeedRestart', () => {
   it('returns true for ED2K restart keys from AppConfig camelCase fields', () => {
     expect(checkIsNeedRestart({ ed2kListenPort: 4663 })).toBe(true)
     expect(checkIsNeedRestart({ ed2kServer: 'server.example:4661' })).toBe(true)
-    expect(checkIsNeedRestart({ ed2kServerList: '/tmp/server.met' })).toBe(true)
-    expect(checkIsNeedRestart({ ed2kNodeList: '/tmp/nodes.dat' })).toBe(true)
     expect(checkIsNeedRestart({ ed2kUploadSlots: 4 })).toBe(true)
   })
   it('returns false for non-restart keys', () => {
@@ -202,12 +202,12 @@ describe('formatOptionsForEngine', () => {
     const result = formatOptionsForEngine({
       ed2kListenPort: 4663,
       ed2kUdpListenPort: 4673,
-      ed2kServerList: '/tmp/server.met',
+      ed2kServerMetUrl: 'https://example.test/server.met',
     })
     expect(result).toEqual({
       'ed2k-listen-port': '4663',
       'ed2k-udp-listen-port': '4673',
-      'ed2k-server-list': '/tmp/server.met',
+      'ed2k-server-met-url': 'https://example.test/server.met',
     })
   })
   it('joins arrays with newline', () => {

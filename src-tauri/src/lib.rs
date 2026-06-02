@@ -833,6 +833,8 @@ pub fn run() {
             commands::start_upnp_mapping,
             commands::stop_upnp_mapping,
             commands::get_upnp_status,
+            commands::get_ed2k_bootstrap_status,
+            commands::sync_ed2k_bootstrap_files,
             commands::set_dock_visible,
             commands::minimize_to_tray,
             commands::probe_trackers,

@@ -2,7 +2,6 @@
 /** @fileoverview ED2K preference tab: engine options, server discovery, and search. */
 import { ref, computed, nextTick, onMounted, h } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useI18n } from 'vue-i18n'
 import { useDialog } from 'naive-ui'
 import {
@@ -18,7 +17,7 @@ import {
   NSelect,
   NText,
 } from 'naive-ui'
-import { CloseOutline, DiceOutline, DownloadOutline, FolderOpenOutline, SearchOutline } from '@vicons/ionicons5'
+import { DiceOutline, DownloadOutline, RefreshOutline, SearchOutline } from '@vicons/ionicons5'
 import { usePreferenceStore } from '@/stores/preference'
 import { useTaskStore } from '@/stores/task'
 import { usePreferenceForm } from '@/composables/usePreferenceForm'
@@ -35,13 +34,15 @@ import {
   validateEd2kForm,
 } from '@/composables/useEd2kPreference'
 import { cleanupEd2kSearch, ed2kSearch, getEd2kSearchResults } from '@/api/aria2'
-import { BT_LISTEN_PORT, DHT_LISTEN_PORT, ENGINE_RPC_PORT } from '@shared/constants'
+import { BT_LISTEN_PORT, DHT_LISTEN_PORT, ENGINE_RPC_PORT, PROXY_SCOPES } from '@shared/constants'
 import { diffConfig, checkIsNeedRestart } from '@shared/utils/config'
-import { bytesToSize } from '@shared/utils'
+import { bytesToSize, localeDateTimeFormat } from '@shared/utils'
+import { resolveAppProxyUrl } from '@shared/utils/appProxyPolicy'
 import { getErrorMessage } from '@shared/utils/errorMessage'
 import { logger } from '@shared/logger'
 import type { Ed2kSearchResult } from '@shared/types'
 import PreferenceActionBar from './PreferenceActionBar.vue'
+import PreferenceHintLabel from './PreferenceHintLabel.vue'
 
 const { t } = useI18n()
 const preferenceStore = usePreferenceStore()
@@ -62,6 +63,24 @@ const searchCancelled = ref(false)
 const searchCleanupDone = ref(false)
 const searchResults = ref<Ed2kSearchResult[]>([])
 const searchElapsedMs = ref(0)
+const bootstrapSyncing = ref(false)
+const bootstrapStatus = ref<Ed2kBootstrapStatus>({
+  serverMetSize: null,
+  nodesDatSize: null,
+  serverMetModified: null,
+  nodesDatModified: null,
+})
+
+interface Ed2kBootstrapStatus {
+  serverMetSize: number | null
+  nodesDatSize: number | null
+  serverMetModified: number | null
+  nodesDatModified: number | null
+}
+
+interface Ed2kBootstrapSyncResult {
+  status: Ed2kBootstrapStatus
+}
 
 const searchActive = computed(() => searchState.value !== 'idle')
 const searchButtonText = computed(() =>
@@ -78,6 +97,19 @@ const searchStatusText = computed(() =>
       })
     : t('preferences.ed2k-search-ready', { total: Math.floor(searchMaxDurationMs.value / 1000) }),
 )
+const bootstrapCacheText = computed(() => {
+  const server = bootstrapStatus.value.serverMetSize
+  const nodes = bootstrapStatus.value.nodesDatSize
+  if (!server && !nodes) return t('preferences.ed2k-bootstrap-not-synced')
+  const parts = []
+  if (server) parts.push(`server.met ${bytesToSize(server)}`)
+  if (nodes) parts.push(`nodes.dat ${bytesToSize(nodes)}`)
+  return parts.join(' · ')
+})
+const bootstrapLastSyncText = computed(() => {
+  const latest = Math.max(bootstrapStatus.value.serverMetModified ?? 0, bootstrapStatus.value.nodesDatModified ?? 0)
+  return latest > 0 ? localeDateTimeFormat(latest, preferenceStore.resolvedLocale) : '-'
+})
 
 const fileTypeOptions = computed(() => [
   { label: t('preferences.ed2k-search-type-any'), value: '' },
@@ -279,24 +311,6 @@ async function handleCancelSearch() {
   }
 }
 
-async function handleSelectServerList() {
-  const selected = await openDialog({
-    directory: false,
-    multiple: false,
-    filters: [{ name: 'server.met', extensions: ['met'] }],
-  })
-  if (typeof selected === 'string') form.value.ed2kServerList = selected
-}
-
-async function handleSelectNodeList() {
-  const selected = await openDialog({
-    directory: false,
-    multiple: false,
-    filters: [{ name: 'nodes.dat', extensions: ['dat'] }],
-  })
-  if (typeof selected === 'string') form.value.ed2kNodeList = selected
-}
-
 async function handleDownload(row: Ed2kSearchResult) {
   if (!row.ed2kLink) return
   try {
@@ -313,6 +327,40 @@ async function handleDownload(row: Ed2kSearchResult) {
   } catch (e) {
     logger.debug('ED2K.download', e)
     message.error(t('preferences.ed2k-search-failed'))
+  }
+}
+
+async function refreshBootstrapStatus() {
+  try {
+    bootstrapStatus.value = await invoke<Ed2kBootstrapStatus>('get_ed2k_bootstrap_status')
+  } catch (e) {
+    logger.debug('ED2K.bootstrapStatus', e)
+  }
+}
+
+async function handleSyncBootstrapFiles() {
+  const validationKey = validateEd2kForm(form.value)
+  if (validationKey) {
+    message.error(t(validationKey))
+    return
+  }
+  bootstrapSyncing.value = true
+  try {
+    const proxyUrl = resolveAppProxyUrl(preferenceStore.config.proxy, PROXY_SCOPES.UPDATE_TRACKERS) ?? undefined
+    const result = await invoke<Ed2kBootstrapSyncResult>('sync_ed2k_bootstrap_files', {
+      serverMetUrl: form.value.ed2kServerMetUrl,
+      nodesDatUrl: form.value.ed2kNodesDatUrl,
+      proxy: proxyUrl,
+    })
+    bootstrapStatus.value = result.status
+    await preferenceStore.updateAndSave(transformEd2kForStore(form.value))
+    resetSnapshot()
+    message.success(t('preferences.ed2k-bootstrap-sync-succeed'))
+  } catch (e) {
+    logger.debug('ED2K.bootstrapSync', e)
+    message.error(t('preferences.ed2k-bootstrap-sync-failed'))
+  } finally {
+    bootstrapSyncing.value = false
   }
 }
 
@@ -379,6 +427,7 @@ function handleManualRestart() {
 onMounted(() => {
   Object.assign(form.value, buildForm())
   resetSnapshot()
+  void refreshBootstrapStatus()
 })
 </script>
 
@@ -408,6 +457,39 @@ onMounted(() => {
           </NButton>
         </NInputGroup>
       </NFormItem>
+      <NFormItem :label="t('preferences.ed2k-upload-slots')">
+        <NInputNumber v-model:value="form.ed2kUploadSlots" :min="1" :max="100" style="width: 160px" />
+      </NFormItem>
+
+      <NDivider title-placement="left">{{ t('preferences.ed2k-bootstrap') }}</NDivider>
+      <NFormItem>
+        <template #label>
+          <PreferenceHintLabel
+            :label="t('preferences.ed2k-server-met-url')"
+            :hint="t('preferences.ed2k-bootstrap-hint')"
+          />
+        </template>
+        <NInput v-model:value="form.ed2kServerMetUrl" />
+      </NFormItem>
+      <NFormItem :label="t('preferences.ed2k-nodes-dat-url')">
+        <NInput v-model:value="form.ed2kNodesDatUrl" />
+      </NFormItem>
+      <NFormItem label=" ">
+        <NButton :loading="bootstrapSyncing" secondary @click="handleSyncBootstrapFiles">
+          <template #icon>
+            <NIcon><RefreshOutline /></NIcon>
+          </template>
+          {{ t('preferences.ed2k-bootstrap-sync') }}
+        </NButton>
+      </NFormItem>
+      <NFormItem :label="t('preferences.ed2k-bootstrap-cache')">
+        <NText depth="3">{{ bootstrapCacheText }}</NText>
+      </NFormItem>
+      <NFormItem :label="t('preferences.ed2k-bootstrap-last-sync')">
+        <NText depth="3">{{ bootstrapLastSyncText }}</NText>
+      </NFormItem>
+
+      <NDivider title-placement="left">{{ t('preferences.ed2k-manual-servers') }}</NDivider>
       <NFormItem :label="t('preferences.ed2k-server')">
         <NInput
           v-model:value="form.ed2kServer"
@@ -415,39 +497,6 @@ onMounted(() => {
           :autosize="{ minRows: 2, maxRows: 5 }"
           :placeholder="t('preferences.ed2k-server-placeholder')"
         />
-      </NFormItem>
-      <NFormItem :label="t('preferences.ed2k-server-list')">
-        <NInputGroup>
-          <NInput v-model:value="form.ed2kServerList" readonly style="flex: 1" placeholder="/path/to/server.met" />
-          <NButton style="padding: 0 12px" @click="handleSelectServerList">
-            <template #icon>
-              <NIcon :size="16"><FolderOpenOutline /></NIcon>
-            </template>
-          </NButton>
-          <NButton v-if="form.ed2kServerList" quaternary style="padding: 0 10px" @click="form.ed2kServerList = ''">
-            <template #icon>
-              <NIcon :size="16"><CloseOutline /></NIcon>
-            </template>
-          </NButton>
-        </NInputGroup>
-      </NFormItem>
-      <NFormItem :label="t('preferences.ed2k-node-list')">
-        <NInputGroup>
-          <NInput v-model:value="form.ed2kNodeList" readonly style="flex: 1" placeholder="/path/to/nodes.dat" />
-          <NButton style="padding: 0 12px" @click="handleSelectNodeList">
-            <template #icon>
-              <NIcon :size="16"><FolderOpenOutline /></NIcon>
-            </template>
-          </NButton>
-          <NButton v-if="form.ed2kNodeList" quaternary style="padding: 0 10px" @click="form.ed2kNodeList = ''">
-            <template #icon>
-              <NIcon :size="16"><CloseOutline /></NIcon>
-            </template>
-          </NButton>
-        </NInputGroup>
-      </NFormItem>
-      <NFormItem :label="t('preferences.ed2k-upload-slots')">
-        <NInputNumber v-model:value="form.ed2kUploadSlots" :min="1" :max="100" style="width: 160px" />
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.ed2k-search') }}</NDivider>

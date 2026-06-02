@@ -1,9 +1,11 @@
 pub mod aria2;
 pub mod config;
+pub mod ed2k;
 pub mod engine;
 pub mod fs;
 pub mod geoip;
 pub mod history;
+mod http_client;
 pub mod http_api;
 pub mod net;
 pub mod notification;
@@ -18,6 +20,7 @@ pub mod upnp;
 
 pub use aria2::*;
 pub use config::*;
+pub use ed2k::*;
 pub use engine::*;
 pub use fs::*;
 pub use geoip::*;

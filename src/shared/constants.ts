@@ -76,6 +76,8 @@ export const BT_LISTEN_PORT = 29120
 export const DHT_LISTEN_PORT = 29130
 export const ED2K_LISTEN_PORT = 29140
 export const ED2K_UDP_LISTEN_PORT = 29150
+export const ED2K_SERVER_MET_URL = 'https://upd.emule-security.org/server.met'
+export const ED2K_NODES_DAT_URL = 'https://upd.emule-security.org/nodes.dat'
 export const PORT_RECOVERY_RANGE_START = 29000
 export const PORT_RECOVERY_RANGE_END = 29999
 export const ENGINE_MAX_CONCURRENT_DOWNLOADS = 10
@@ -337,8 +339,8 @@ export const DEFAULT_APP_CONFIG = {
   ed2kListenPort: ED2K_LISTEN_PORT,
   ed2kUdpListenPort: ED2K_UDP_LISTEN_PORT,
   ed2kServer: '',
-  ed2kServerList: '',
-  ed2kNodeList: '',
+  ed2kServerMetUrl: ED2K_SERVER_MET_URL,
+  ed2kNodesDatUrl: ED2K_NODES_DAT_URL,
   ed2kUploadSlots: 3,
   ed2kSearchTimeout: 20,
   proxy: {

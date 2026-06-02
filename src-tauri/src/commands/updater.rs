@@ -287,7 +287,11 @@ fn build_updater(
             let proxy_url = Url::parse(p)
                 .map_err(|e| AppError::Updater(format!("Invalid update proxy config: {e}")))?;
             builder = builder.proxy(proxy_url);
+        } else {
+            builder = builder.no_proxy();
         }
+    } else {
+        builder = builder.no_proxy();
     }
 
     // Allow cross-channel switching (e.g. beta → stable, even if it is
