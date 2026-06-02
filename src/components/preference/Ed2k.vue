@@ -15,6 +15,7 @@ import {
   NInputGroup,
   NInputNumber,
   NSelect,
+  NSwitch,
   NText,
 } from 'naive-ui'
 import { DiceOutline, DownloadOutline, RefreshOutline, SearchOutline } from '@vicons/ionicons5'
@@ -101,6 +102,13 @@ const bootstrapLastSyncText = computed(() => {
   const latest = Math.max(bootstrapStatus.value.serverMetModified ?? 0, bootstrapStatus.value.nodesDatModified ?? 0)
   return latest > 0 ? new Date(latest).toLocaleString() : '-'
 })
+const syncIntervalOptions = computed(() => [
+  { label: t('preferences.interval-every-startup'), value: 0 },
+  { label: t('preferences.interval-6-hours'), value: 6 },
+  { label: t('preferences.interval-12-hours'), value: 12 },
+  { label: t('preferences.interval-daily'), value: 24 },
+  { label: t('preferences.interval-weekly'), value: 168 },
+])
 
 const fileTypeOptions = computed(() => [
   { label: t('preferences.ed2k-search-type-any'), value: '' },
@@ -344,8 +352,6 @@ async function handleSyncBootstrapFiles() {
       proxy: proxyUrl,
     })
     bootstrapStatus.value = result.status
-    await preferenceStore.updateAndSave(transformEd2kForStore(form.value))
-    resetSnapshot()
     message.success(t('preferences.ed2k-bootstrap-sync-succeed'))
   } catch (e) {
     logger.debug('ED2K.bootstrapSync', e)
@@ -479,6 +485,16 @@ onMounted(() => {
           :placeholder="t('preferences.ed2k-server-placeholder')"
         />
       </NFormItem>
+      <NFormItem :label="t('preferences.auto-sync')">
+        <NSwitch v-model:value="form.ed2kBootstrapAutoSync" />
+      </NFormItem>
+      <NFormItem v-if="form.ed2kBootstrapAutoSync" :label="t('preferences.sync-frequency')">
+        <NSelect
+          v-model:value="form.ed2kBootstrapSyncIntervalHours"
+          :options="syncIntervalOptions"
+          style="width: 200px"
+        />
+      </NFormItem>
       <NFormItem label=" ">
         <div class="ed2k-bootstrap-actions">
           <NButton
@@ -494,7 +510,7 @@ onMounted(() => {
             {{ t('preferences.ed2k-bootstrap-sync') }}
           </NButton>
           <NText depth="3" class="ed2k-bootstrap-last-sync">
-            {{ t('preferences.ed2k-bootstrap-last-sync') }} {{ bootstrapLastSyncText }}
+            {{ t('preferences.last-sync-time') }} {{ bootstrapLastSyncText }}
           </NText>
         </div>
       </NFormItem>

@@ -25,6 +25,8 @@ export interface Ed2kForm {
   ed2kServer: string
   ed2kServerMetUrl: string
   ed2kNodesDatUrl: string
+  ed2kBootstrapAutoSync: boolean
+  ed2kBootstrapSyncIntervalHours: number
   ed2kUploadSlots: number
   ed2kSearchTimeout: number
 }
@@ -47,6 +49,8 @@ export function buildEd2kForm(config: AppConfig): Ed2kForm {
     ed2kServer: convertCommaToLine(config.ed2kServer ?? D.ed2kServer),
     ed2kServerMetUrl: String(config.ed2kServerMetUrl ?? DEFAULT_ED2K_SERVER_MET_URL),
     ed2kNodesDatUrl: String(config.ed2kNodesDatUrl ?? DEFAULT_ED2K_NODES_DAT_URL),
+    ed2kBootstrapAutoSync: config.ed2kBootstrapAutoSync ?? D.ed2kBootstrapAutoSync,
+    ed2kBootstrapSyncIntervalHours: Number(config.ed2kBootstrapSyncIntervalHours ?? D.ed2kBootstrapSyncIntervalHours),
     ed2kUploadSlots: Number(config.ed2kUploadSlots ?? D.ed2kUploadSlots),
     ed2kSearchTimeout: Number(config.ed2kSearchTimeout ?? D.ed2kSearchTimeout),
   }
@@ -68,6 +72,8 @@ export function transformEd2kForStore(f: Ed2kForm): Partial<AppConfig> {
     ed2kServer: convertLineToComma(joinLines(f.ed2kServer)),
     ed2kServerMetUrl: String(f.ed2kServerMetUrl).trim(),
     ed2kNodesDatUrl: String(f.ed2kNodesDatUrl).trim(),
+    ed2kBootstrapAutoSync: !!f.ed2kBootstrapAutoSync,
+    ed2kBootstrapSyncIntervalHours: Number(f.ed2kBootstrapSyncIntervalHours),
     ed2kUploadSlots: Number(f.ed2kUploadSlots),
     ed2kSearchTimeout: Number(f.ed2kSearchTimeout),
   }

@@ -9,7 +9,6 @@ import {
   separateConfig,
   diffConfig,
   checkIsNeedRestart,
-  checkIsNeedRun,
   buildRpcUrl,
   formatOptionsForEngine,
   parseHeader,
@@ -168,18 +167,6 @@ describe('checkIsNeedRestart', () => {
       { listenPort: 29120, dhtListenPort: 29130, rpcListenPort: 29100, rpcSecret: 'abc' },
     )
     expect(checkIsNeedRestart(changed)).toBe(false)
-  })
-})
-
-describe('checkIsNeedRun', () => {
-  it('returns false when disabled', () => {
-    expect(checkIsNeedRun(false, 0, 1000)).toBe(false)
-  })
-  it('returns true when interval exceeded', () => {
-    expect(checkIsNeedRun(true, Date.now() - 10000, 5000)).toBe(true)
-  })
-  it('returns false when within interval', () => {
-    expect(checkIsNeedRun(true, Date.now() - 1000, 5000)).toBe(false)
   })
 })
 

@@ -10,17 +10,19 @@ import { useAppStore } from './stores/app'
 import { useHistoryStore } from './stores/history'
 import aria2Api from './api/aria2'
 import {
-  AUTO_SYNC_TRACKER_INTERVAL,
   BT_LISTEN_PORT,
   DEFAULT_TRACKER_SOURCE,
   DHT_LISTEN_PORT,
   ENGINE_RPC_PORT,
+  PROXY_SCOPES,
 } from '@shared/constants'
 import { convertTrackerDataToLine, convertTrackerDataToComma, reduceTrackerString } from '@shared/utils/tracker'
 import { logger } from '@shared/logger'
 import { getErrorMessage } from '@shared/utils/errorMessage'
 import { resolveUserVisibleDownloadDir, shouldPersistResolvedDownloadDir } from '@shared/utils/userVisibleDirectory'
 import { getUpdateProxy } from '@/composables/useUpdateFlow'
+import { resolveAppProxyUrl } from '@shared/utils/appProxyPolicy'
+import { checkSyncDue } from '@shared/utils/syncSchedule'
 import type { AppConfig, TauriUpdate } from '@shared/types'
 import App from './App.vue'
 import 'virtual:uno.css'
@@ -101,12 +103,23 @@ if (import.meta.env.PROD) {
     }
   }
 
-  async function autoSyncTrackerOnStartup() {
-    const config = preferenceStore.config
-    if (!config.autoSyncTracker) return
+  function emitAppToast(payload: { type: 'success' | 'info' | 'warning' | 'error'; key: string }): void {
+    window.dispatchEvent(new CustomEvent('app:toast', { detail: payload }))
+  }
 
-    const lastSync = config.lastSyncTrackerTime || 0
-    if (Date.now() - lastSync < AUTO_SYNC_TRACKER_INTERVAL) return
+  async function syncBtTrackersIfDue(startup: boolean) {
+    const config = preferenceStore.config
+    if (
+      !checkSyncDue({
+        enabled: !!config.btTrackerAutoSync,
+        intervalHours: Number(config.btTrackerSyncIntervalHours),
+        lastSyncTime: Number(config.lastSyncTrackerTime),
+        now: Date.now(),
+        startup,
+      })
+    ) {
+      return
+    }
 
     const sources = config.trackerSource?.length ? config.trackerSource : DEFAULT_TRACKER_SOURCE
     try {
@@ -117,16 +130,57 @@ if (import.meta.env.PROD) {
       const comma = convertTrackerDataToComma(result.data)
       await preferenceStore.updateAndSave({
         btTracker: comma,
-        trackerSource: sources,
         lastSyncTrackerTime: Date.now(),
       })
 
       const { invoke } = await import('@tauri-apps/api/core')
-      await invoke('save_system_config', { config: { 'bt-tracker': reduceTrackerString(comma) } })
+      const reduced = reduceTrackerString(comma)
+      await invoke('save_system_config', { config: { 'bt-tracker': reduced } })
+      if (appStore.engineReady) {
+        await aria2Api.changeGlobalOption({ 'bt-tracker': reduced } as Partial<AppConfig>)
+      }
       logger.info('Tracker', `Auto-synced: ${result.data.length}/${sources.length} source(s) succeeded`)
+      emitAppToast({ type: 'success', key: 'preferences.bt-tracker-sync-succeed' })
     } catch (e) {
       logger.debug('Tracker', 'auto-sync failed: ' + (e as Error).message)
     }
+  }
+
+  async function syncEd2kBootstrapIfDue(startup: boolean) {
+    const config = preferenceStore.config
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      const status = await invoke<{ serverMetModified: number | null; nodesDatModified: number | null }>(
+        'get_ed2k_bootstrap_status',
+      )
+      const lastSync = Math.max(status.serverMetModified ?? 0, status.nodesDatModified ?? 0)
+      if (
+        !checkSyncDue({
+          enabled: !!config.ed2kBootstrapAutoSync,
+          intervalHours: Number(config.ed2kBootstrapSyncIntervalHours),
+          lastSyncTime: lastSync,
+          now: Date.now(),
+          startup,
+        })
+      ) {
+        return
+      }
+
+      await invoke('sync_ed2k_bootstrap_files', {
+        serverMetUrl: config.ed2kServerMetUrl,
+        nodesDatUrl: config.ed2kNodesDatUrl,
+        proxy: resolveAppProxyUrl(config.proxy, PROXY_SCOPES.UPDATE_TRACKERS) ?? undefined,
+      })
+      logger.info('ED2K', 'Bootstrap files auto-synced')
+      emitAppToast({ type: 'success', key: 'preferences.ed2k-bootstrap-sync-succeed' })
+    } catch (e) {
+      logger.debug('ED2K.bootstrapAutoSync', e)
+    }
+  }
+
+  function syncNetworkSourcesIfDue(startup: boolean) {
+    void syncBtTrackersIfDue(startup)
+    void syncEd2kBootstrapIfDue(startup)
   }
 
   // ---------------------------------------------------------------------------
@@ -385,7 +439,7 @@ if (import.meta.env.PROD) {
 
     // ── Phase 4: deferred non-critical tasks ───────────────────────────────
     autoCheckForUpdate()
-    autoSyncTrackerOnStartup()
+    syncNetworkSourcesIfDue(true)
 
     // Initialize download history database, then schedule lightweight cleanup.
     historyStore
@@ -420,9 +474,7 @@ if (import.meta.env.PROD) {
       })
       .catch((e) => logger.warn('HistoryDB', 'init failed: ' + e))
 
-    // Re-check tracker sync hourly for long-running sessions.
-    // autoSyncTrackerOnStartup() internally de-duplicates via lastSyncTrackerTime.
-    setInterval(autoSyncTrackerOnStartup, 3_600_000)
+    setInterval(() => syncNetworkSourcesIfDue(false), 3_600_000)
 
     // Warm up Tauri FS plugin IPC channel to eliminate cold-start delay on first
     // file operation (e.g. task deletion).

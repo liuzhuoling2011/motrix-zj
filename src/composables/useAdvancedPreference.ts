@@ -10,32 +10,12 @@ import {
   PROXY_SCOPE_OPTIONS,
   DEFAULT_APP_CONFIG as D,
 } from '@shared/constants'
-import { convertCommaToLine, convertLineToComma, generateRandomInt } from '@shared/utils'
+import { generateRandomInt } from '@shared/utils'
 import { isValidAria2ProxyUrl, UNSUPPORTED_PROXY_SCHEME_RE } from '@shared/utils/aria2Proxy'
 import type { AppConfig } from '@shared/types'
 import { buildDownloadProxyOptions, normalizeProxyMode, type EngineProxyMode } from '@shared/utils/proxyPolicy'
 
 export { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
-
-// ── URL Validation ──────────────────────────────────────────────────
-
-/**
- * Validates whether a string is a valid HTTP/HTTPS URL suitable for use as a
- * tracker source. Custom tracker sources are fetched via axios GET, so only
- * HTTP-based protocols are accepted.
- *
- * Exported for unit testing and use in Advanced.vue's tracker source validation.
- */
-export function isValidTrackerSourceUrl(input: string): boolean {
-  const trimmed = input.trim()
-  if (!trimmed) return false
-  try {
-    const url = new URL(trimmed)
-    return url.protocol === 'http:' || url.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -49,11 +29,6 @@ export interface AdvancedForm {
     bypass: string
     scope: string[]
   }
-  trackerSource: string[]
-  customTrackerUrls: string[]
-  btTracker: string
-  autoSyncTracker: boolean
-  lastSyncTrackerTime: number
   rpcListenPort: number
   rpcSecret: string
   extensionApiPort: number
@@ -128,11 +103,6 @@ export function buildAdvancedForm(config: AppConfig): {
         bypass: proxy.bypass ?? D.proxy.bypass,
         scope: proxy.scope ?? [...PROXY_SCOPE_OPTIONS],
       },
-      trackerSource: config.trackerSource ?? [...D.trackerSource],
-      customTrackerUrls: config.customTrackerUrls ?? [...D.customTrackerUrls],
-      btTracker: convertCommaToLine(config.btTracker ?? D.btTracker),
-      autoSyncTracker: config.autoSyncTracker ?? D.autoSyncTracker,
-      lastSyncTrackerTime: config.lastSyncTrackerTime ?? D.lastSyncTrackerTime,
       rpcListenPort: config.rpcListenPort ?? D.rpcListenPort,
       rpcSecret,
       extensionApiPort: config.extensionApiPort ?? D.extensionApiPort,
@@ -179,7 +149,6 @@ export function buildAdvancedSystemConfig(f: AdvancedForm): Record<string, strin
     'listen-port': String(f.listenPort),
     'dht-listen-port': String(f.dhtListenPort),
     'user-agent': f.userAgent || '',
-    'bt-tracker': convertLineToComma(f.btTracker),
     ...buildDownloadProxyOptions(f.proxy),
   }
 }
@@ -202,7 +171,6 @@ export function transformAdvancedForStore(f: AdvancedForm): Record<string, unkno
   } = f
   return {
     ...rest,
-    btTracker: convertLineToComma(f.btTracker),
     clipboard: {
       enable: clipboardEnable,
       http: clipboardHttp,

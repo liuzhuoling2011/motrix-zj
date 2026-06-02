@@ -126,6 +126,16 @@ describe('hydrateAppConfig', () => {
     expect(result.repairs).toContain('proxy.mode')
   })
 
+  it('drops removed tracker auto-sync config without migration', () => {
+    const result = hydrateAppConfig({
+      configVersion: CONFIG_VERSION,
+      autoSyncTracker: true,
+    } as Partial<AppConfig> & { autoSyncTracker: boolean })
+
+    expect(result.config).not.toHaveProperty('autoSyncTracker')
+    expect(result.config.btTrackerAutoSync).toBe(DEFAULT_APP_CONFIG.btTrackerAutoSync)
+  })
+
   it('preserves secret generation semantics', () => {
     const missing = hydrateAppConfig({ configVersion: CONFIG_VERSION })
     const cleared = hydrateAppConfig({

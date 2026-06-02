@@ -25,6 +25,8 @@ const baseForm: Ed2kForm = {
   ed2kServer: '',
   ed2kServerMetUrl: 'https://upd.emule-security.org/server.met',
   ed2kNodesDatUrl: 'https://upd.emule-security.org/nodes.dat',
+  ed2kBootstrapAutoSync: true,
+  ed2kBootstrapSyncIntervalHours: 24,
   ed2kUploadSlots: 3,
   ed2kSearchTimeout: 20,
 }
@@ -38,6 +40,8 @@ describe('buildEd2kForm', () => {
     expect(form.ed2kServer).toBe('')
     expect(form.ed2kServerMetUrl).toBe('https://upd.emule-security.org/server.met')
     expect(form.ed2kNodesDatUrl).toBe('https://upd.emule-security.org/nodes.dat')
+    expect(form.ed2kBootstrapAutoSync).toBe(true)
+    expect(form.ed2kBootstrapSyncIntervalHours).toBe(24)
     expect(form.ed2kUploadSlots).toBe(3)
     expect(form.ed2kSearchTimeout).toBe(20)
   })
@@ -74,6 +78,8 @@ describe('transformEd2kForStore', () => {
       ed2kServer: ' server-one.example:4661 \n\nserver-two.example:4661 ',
       ed2kServerMetUrl: ' https://example.test/server.met ',
       ed2kNodesDatUrl: ' https://example.test/nodes.dat ',
+      ed2kBootstrapAutoSync: false,
+      ed2kBootstrapSyncIntervalHours: 168,
       ed2kSearchTimeout: 120,
     })
 
@@ -83,6 +89,8 @@ describe('transformEd2kForStore', () => {
       ed2kServer: 'server-one.example:4661,server-two.example:4661',
       ed2kServerMetUrl: 'https://example.test/server.met',
       ed2kNodesDatUrl: 'https://example.test/nodes.dat',
+      ed2kBootstrapAutoSync: false,
+      ed2kBootstrapSyncIntervalHours: 168,
       ed2kUploadSlots: 3,
       ed2kSearchTimeout: 120,
     })

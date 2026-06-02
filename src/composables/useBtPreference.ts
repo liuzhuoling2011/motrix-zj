@@ -44,7 +44,8 @@ export interface BtForm {
   trackerSource: string[]
   customTrackerUrls: string[]
   btTracker: string
-  autoSyncTracker: boolean
+  btTrackerAutoSync: boolean
+  btTrackerSyncIntervalHours: number
   lastSyncTrackerTime: number
 }
 
@@ -68,7 +69,8 @@ export function buildBtForm(config: AppConfig): BtForm {
     trackerSource: config.trackerSource ?? [...D.trackerSource],
     customTrackerUrls: config.customTrackerUrls ?? [...D.customTrackerUrls],
     btTracker: convertCommaToLine(config.btTracker ?? D.btTracker),
-    autoSyncTracker: config.autoSyncTracker ?? D.autoSyncTracker,
+    btTrackerAutoSync: config.btTrackerAutoSync ?? D.btTrackerAutoSync,
+    btTrackerSyncIntervalHours: Number(config.btTrackerSyncIntervalHours ?? D.btTrackerSyncIntervalHours),
     lastSyncTrackerTime: config.lastSyncTrackerTime ?? D.lastSyncTrackerTime,
   }
 }

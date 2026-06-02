@@ -105,9 +105,6 @@ export const ONE_DAY = ONE_HOUR * 24
 export const COMPLETED_RECORD_RETENTION_FOREVER = 0
 export const COMPLETED_RECORD_RETENTION_OPTIONS = [0, 1, 7, 180, 365] as const
 
-// 12 Hours
-export const AUTO_SYNC_TRACKER_INTERVAL = ONE_HOUR * 12
-
 // One Week
 export const AUTO_CHECK_UPDATE_INTERVAL = ONE_DAY * 7
 
@@ -365,11 +362,14 @@ export const DEFAULT_APP_CONFIG = {
   tempFilesDir: '',
 
   // ── Tracker ───────────────────────────────────────────────────
-  autoSyncTracker: true,
+  btTrackerAutoSync: true,
+  btTrackerSyncIntervalHours: 12,
   trackerSource: [...DEFAULT_TRACKER_SOURCE],
   customTrackerUrls: [] as string[],
   btTracker: '',
   lastSyncTrackerTime: 0,
+  ed2kBootstrapAutoSync: true,
+  ed2kBootstrapSyncIntervalHours: 24,
 
   // ── Directories ───────────────────────────────────────────────
   historyDirectories: [] as string[],

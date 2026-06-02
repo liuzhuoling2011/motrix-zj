@@ -276,7 +276,8 @@ export interface AppConfig {
   minimizeToTrayOnClose: boolean
   hideDockOnMinimize: boolean
   lightweightMode: boolean
-  autoSyncTracker: boolean
+  btTrackerAutoSync: boolean
+  btTrackerSyncIntervalHours: number
   keepSharing: boolean
   keepWindowState: boolean
 
@@ -339,6 +340,8 @@ export interface AppConfig {
   ed2kServer: string
   ed2kServerMetUrl: string
   ed2kNodesDatUrl: string
+  ed2kBootstrapAutoSync: boolean
+  ed2kBootstrapSyncIntervalHours: number
   ed2kUploadSlots: number
   ed2kSearchTimeout: number
   btTracker: string

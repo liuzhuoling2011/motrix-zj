@@ -109,14 +109,15 @@ describe('buildBtForm', () => {
     expect(form.btTracker).toContain('udp://t2.org:6969')
   })
 
-  it('defaults autoSyncTracker from DEFAULT_APP_CONFIG', () => {
+  it('defaults automatic tracker sync from DEFAULT_APP_CONFIG', () => {
     const form = buildBtForm(emptyConfig)
-    expect(form.autoSyncTracker).toBe(DEFAULT_APP_CONFIG.autoSyncTracker)
+    expect(form.btTrackerAutoSync).toBe(DEFAULT_APP_CONFIG.btTrackerAutoSync)
+    expect(form.btTrackerSyncIntervalHours).toBe(DEFAULT_APP_CONFIG.btTrackerSyncIntervalHours)
   })
 
   // ── Completeness ────────────────────────────────────────────────
 
-  it('returns all 11 form fields', () => {
+  it('returns all 12 form fields', () => {
     const form = buildBtForm(emptyConfig)
     const expectedFields = [
       'btAutoDownloadContent',
@@ -128,7 +129,8 @@ describe('buildBtForm', () => {
       'trackerSource',
       'customTrackerUrls',
       'btTracker',
-      'autoSyncTracker',
+      'btTrackerAutoSync',
+      'btTrackerSyncIntervalHours',
       'lastSyncTrackerTime',
     ]
     for (const field of expectedFields) {
@@ -151,7 +153,8 @@ describe('buildBtSystemConfig', () => {
     trackerSource: [],
     customTrackerUrls: [],
     btTracker: 'udp://t1.org:6969\nudp://t2.org:6969',
-    autoSyncTracker: false,
+    btTrackerAutoSync: false,
+    btTrackerSyncIntervalHours: 12,
     lastSyncTrackerTime: 0,
   }
 
@@ -241,7 +244,8 @@ describe('transformBtForStore', () => {
     trackerSource: [],
     customTrackerUrls: [],
     btTracker: 'udp://a\nudp://b',
-    autoSyncTracker: false,
+    btTrackerAutoSync: false,
+    btTrackerSyncIntervalHours: 12,
     lastSyncTrackerTime: 0,
   }
 

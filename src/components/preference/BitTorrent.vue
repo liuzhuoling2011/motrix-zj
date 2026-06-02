@@ -2,11 +2,13 @@
 /** @fileoverview BitTorrent preference tab: BT settings + tracker management. */
 import { ref, computed, onMounted, h, nextTick } from 'vue'
 import type { VNodeChild } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
 import { usePreferenceForm } from '@/composables/usePreferenceForm'
 import { useEngineRestart } from '@/composables/useEngineRestart'
-import { convertTrackerDataToLine } from '@shared/utils/tracker'
+import { changeGlobalOption, isEngineReady } from '@/api/aria2'
+import { convertTrackerDataToComma, convertTrackerDataToLine, reduceTrackerString } from '@shared/utils/tracker'
 import { diffConfig, checkIsNeedRestart } from '@shared/utils/config'
 import { SYNC_MIN_DURATION } from '@shared/timing'
 import {
@@ -48,6 +50,13 @@ const message = useAppMessage()
 const syncingTracker = ref(false)
 const customTrackerInput = ref('')
 const needsRestart = ref(false)
+const syncIntervalOptions = computed(() => [
+  { label: t('preferences.interval-every-startup'), value: 0 },
+  { label: t('preferences.interval-6-hours'), value: 6 },
+  { label: t('preferences.interval-12-hours'), value: 12 },
+  { label: t('preferences.interval-daily'), value: 24 },
+  { label: t('preferences.interval-weekly'), value: 168 },
+])
 
 // ── Tracker source management ───────────────────────────────────────
 const presetTrackerValues = new Set(
@@ -146,7 +155,7 @@ function confirmBtPeerSafeLimit(f: Record<string, unknown>): Promise<boolean> {
   })
 }
 
-const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceForm({
+const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } = usePreferenceForm({
   buildForm,
   buildSystemConfig: buildBtSystemConfig,
   transformForStore: transformBtForStore,
@@ -201,12 +210,10 @@ async function handleSyncTracker() {
     ])
     const text = convertTrackerDataToLine(result.data)
     if (result.failures.length === 0 && text) {
-      form.value.btTracker = text
-      form.value.lastSyncTrackerTime = Date.now()
+      await applySyncedTrackers(text, result.data)
       message.success(t('preferences.bt-tracker-sync-succeed'))
     } else if (result.data.length > 0 && text) {
-      form.value.btTracker = text
-      form.value.lastSyncTrackerTime = Date.now()
+      await applySyncedTrackers(text, result.data)
       showSyncFailureDialog(result.failures, result.data.length, form.value.trackerSource.length)
     } else {
       showSyncFailureDialog(result.failures, 0, form.value.trackerSource.length)
@@ -216,6 +223,20 @@ async function handleSyncTracker() {
     message.error(t('preferences.bt-tracker-sync-failed'))
   } finally {
     syncingTracker.value = false
+  }
+}
+
+async function applySyncedTrackers(text: string, data: string[]) {
+  const now = Date.now()
+  const comma = convertTrackerDataToComma(data)
+  const reduced = reduceTrackerString(comma)
+  form.value.btTracker = text
+  form.value.lastSyncTrackerTime = now
+  await preferenceStore.updateAndSave({ btTracker: comma, lastSyncTrackerTime: now })
+  patchSnapshot({ btTracker: text, lastSyncTrackerTime: now } as Partial<typeof form.value>)
+  await invoke('save_system_config', { config: { 'bt-tracker': reduced } })
+  if (isEngineReady()) {
+    await changeGlobalOption({ 'bt-tracker': reduced } as Partial<typeof preferenceStore.config>)
   }
 }
 
@@ -366,12 +387,24 @@ onMounted(() => {
         />
       </NFormItem>
       <NFormItem label=" ">
-        <NButton :loading="syncingTracker" type="primary" secondary style="min-width: 100px" @click="handleSyncTracker">
-          <template #icon>
-            <NIcon><SyncOutline /></NIcon>
-          </template>
-          {{ t('preferences.bt-tracker-sync') }}
-        </NButton>
+        <div class="tracker-sync-actions">
+          <NButton
+            :loading="syncingTracker"
+            type="primary"
+            secondary
+            style="min-width: 100px"
+            @click="handleSyncTracker"
+          >
+            <template #icon>
+              <NIcon><SyncOutline /></NIcon>
+            </template>
+            {{ t('preferences.bt-tracker-sync') }}
+          </NButton>
+          <span class="sync-time">
+            {{ t('preferences.last-sync-time') }}
+            {{ form.lastSyncTrackerTime ? new Date(form.lastSyncTrackerTime as number).toLocaleString() : '—' }}
+          </span>
+        </div>
       </NFormItem>
       <NFormItem :label="t('preferences.bt-tracker-content')">
         <NInput
@@ -398,11 +431,11 @@ onMounted(() => {
           </a>
         </div>
       </NFormItem>
-      <NFormItem :label="t('preferences.auto-sync-tracker')">
-        <NSwitch v-model:value="form.autoSyncTracker" />
+      <NFormItem :label="t('preferences.auto-sync')">
+        <NSwitch v-model:value="form.btTrackerAutoSync" />
       </NFormItem>
-      <NFormItem v-if="form.lastSyncTrackerTime" :show-label="false">
-        <div class="info-text">{{ new Date(form.lastSyncTrackerTime as number).toLocaleString() }}</div>
+      <NFormItem v-if="form.btTrackerAutoSync" :label="t('preferences.sync-frequency')">
+        <NSelect v-model:value="form.btTrackerSyncIntervalHours" :options="syncIntervalOptions" style="width: 200px" />
       </NFormItem>
     </NForm>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
@@ -441,5 +474,17 @@ onMounted(() => {
 }
 .info-link:hover {
   text-decoration: underline;
+}
+.tracker-sync-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 34px;
+}
+.sync-time {
+  color: var(--m3-on-surface-variant);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 </style>

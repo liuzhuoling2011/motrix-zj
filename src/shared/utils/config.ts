@@ -157,8 +157,3 @@ export const filterHotReloadableKeys = (config: Record<string, string>): Record<
   Object.fromEntries(
     Object.entries(config).filter(([key]) => SUPPORTED_ENGINE_KEYS.has(key) && !NON_HOT_RELOADABLE.has(key)),
   )
-
-export const checkIsNeedRun = (enable: boolean, lastTime: number, interval: number): boolean => {
-  if (!enable) return false
-  return Date.now() - lastTime > interval
-}

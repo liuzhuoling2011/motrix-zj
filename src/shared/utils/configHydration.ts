@@ -179,6 +179,18 @@ function normalizeScalarValues(config: Record<string, unknown>, repairs: string[
     repairs,
   )
   config.btMaxPeers = normalizePositiveNumber(config.btMaxPeers, DEFAULT_APP_CONFIG.btMaxPeers, 'btMaxPeers', repairs)
+  config.btTrackerSyncIntervalHours = normalizePositiveNumber(
+    config.btTrackerSyncIntervalHours,
+    DEFAULT_APP_CONFIG.btTrackerSyncIntervalHours,
+    'btTrackerSyncIntervalHours',
+    repairs,
+  )
+  config.ed2kBootstrapSyncIntervalHours = normalizePositiveNumber(
+    config.ed2kBootstrapSyncIntervalHours,
+    DEFAULT_APP_CONFIG.ed2kBootstrapSyncIntervalHours,
+    'ed2kBootstrapSyncIntervalHours',
+    repairs,
+  )
 }
 
 function dedupe(values: string[]): string[] {
@@ -202,6 +214,7 @@ export function hydrateAppConfig(saved?: Partial<AppConfig> | null): HydratedApp
   const record = merged as Record<string, unknown>
 
   delete record.autoSelectAllMagnetFilesFromExtension
+  delete record.autoSyncTracker
   delete record.protocols
 
   merged.proxy = normalizeProxy(input?.proxy ?? merged.proxy, repairs)
