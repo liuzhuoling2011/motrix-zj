@@ -451,7 +451,7 @@ export const DEFAULT_APP_CONFIG = {
 
   // ── Tracker ───────────────────────────────────────────────────
   btTrackerAutoSync: true,
-  btTrackerSyncIntervalHours: 12,
+  btTrackerSyncIntervalHours: 24,
   trackerSource: [...DEFAULT_TRACKER_SOURCE],
   customTrackerUrls: [] as string[],
   btTracker: '',
