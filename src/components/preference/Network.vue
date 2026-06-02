@@ -415,14 +415,13 @@ onMounted(() => {
           </div>
         </div>
       </NFormItem>
-      <NFormItem :show-label="false">
+      <NFormItem label=" ">
         <div class="ua-preset-row">
           <NButtonGroup size="small">
             <NButton @click="changeUA('chrome')">Chrome</NButton>
             <NButton @click="changeUA('edge')">Edge</NButton>
             <NButton @click="changeUA('safari')">Safari</NButton>
             <NButton @click="changeUA('firefox')">Firefox</NButton>
-            <NButton @click="changeUA('transmission')">Transmission</NButton>
           </NButtonGroup>
           <NButton class="ua-reset-btn" size="small" ghost @click="form.userAgent = ''">
             {{ t('preferences.ua-reset') }}
