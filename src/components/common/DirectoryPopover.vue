@@ -158,9 +158,4 @@ function shortLabel(dir: string): string {
 .dir-popover-action {
   padding: 2px !important;
 }
-
-.dir-popover-empty {
-  transform: scale(0.9);
-  transform-origin: center;
-}
 </style>

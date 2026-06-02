@@ -135,8 +135,4 @@ function selectProfile(profile: UserAgentProfile) {
 .ua-popover-label {
   min-width: 0;
 }
-.ua-popover-empty {
-  transform: scale(0.9);
-  transform-origin: center;
-}
 </style>
