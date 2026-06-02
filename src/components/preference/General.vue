@@ -228,6 +228,11 @@ const themeOptions = computed(() => [
   { label: t('preferences.theme-dark'), value: 'dark' },
 ])
 
+const taskCardModeOptions = computed(() => [
+  { label: t('preferences.task-card-mode-full'), value: 'full' },
+  { label: t('preferences.task-card-mode-compact'), value: 'compact' },
+])
+
 function handleCheckUpdate() {
   updateDialogRef.value?.open()
 }
@@ -430,6 +435,13 @@ onMounted(async () => {
             {{ t(scheme.labelKey) }}
           </MTooltip>
         </div>
+      </NFormItem>
+      <NFormItem :label="t('preferences.task-card-mode')">
+        <NRadioGroup v-model:value="form.taskCardMode">
+          <NRadioButton v-for="option in taskCardModeOptions" :key="option.value" :value="option.value">
+            {{ option.label }}
+          </NRadioButton>
+        </NRadioGroup>
       </NFormItem>
       <NFormItem v-if="isMac" :label="t('preferences.dock-badge-speed')">
         <NSwitch v-model:value="form.dockBadgeSpeed" />

@@ -116,6 +116,7 @@ describe('hydrateAppConfig', () => {
     const result = hydrateAppConfig({
       configVersion: CONFIG_VERSION,
       theme: 'neon' as AppConfig['theme'],
+      taskCardMode: 'tiny' as AppConfig['taskCardMode'],
       colorScheme: 'missing-scheme',
       updateChannel: 'nightly' as AppConfig['updateChannel'],
       logLevel: 'verbose',
@@ -124,13 +125,22 @@ describe('hydrateAppConfig', () => {
     })
 
     expect(result.config.theme).toBe(DEFAULT_APP_CONFIG.theme)
+    expect(result.config.taskCardMode).toBe(DEFAULT_APP_CONFIG.taskCardMode)
     expect(result.config.colorScheme).toBe(DEFAULT_APP_CONFIG.colorScheme)
     expect(result.config.updateChannel).toBe(DEFAULT_APP_CONFIG.updateChannel)
     expect(result.config.logLevel).toBe(DEFAULT_APP_CONFIG.logLevel)
     expect(result.config.aria2LogLevel).toBe(DEFAULT_APP_CONFIG.aria2LogLevel)
     expect(result.config.fileAllocation).toBe(DEFAULT_APP_CONFIG.fileAllocation)
     expect(result.repairs).toEqual(
-      expect.arrayContaining(['theme', 'colorScheme', 'updateChannel', 'logLevel', 'aria2LogLevel', 'fileAllocation']),
+      expect.arrayContaining([
+        'theme',
+        'taskCardMode',
+        'colorScheme',
+        'updateChannel',
+        'logLevel',
+        'aria2LogLevel',
+        'fileAllocation',
+      ]),
     )
   })
 
@@ -230,6 +240,7 @@ describe('hydrateAppConfig', () => {
 
   it('keeps defaults aligned with allowed enum sets', () => {
     expect(['auto', 'light', 'dark']).toContain(DEFAULT_APP_CONFIG.theme)
+    expect(['full', 'compact']).toContain(DEFAULT_APP_CONFIG.taskCardMode)
     expect(COLOR_SCHEMES.some((scheme) => scheme.id === DEFAULT_APP_CONFIG.colorScheme)).toBe(true)
     expect(UPDATE_CHANNELS).toContain(DEFAULT_APP_CONFIG.updateChannel)
     expect(APP_LOG_LEVELS).toContain(DEFAULT_APP_CONFIG.logLevel)

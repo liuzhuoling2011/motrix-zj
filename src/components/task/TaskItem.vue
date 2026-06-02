@@ -3,21 +3,6 @@
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { TASK_STATUS } from '@shared/constants'
-import {
-  checkTaskIsSharing,
-  getTaskSharingKind,
-  getTaskDisplayName,
-  calcProgress,
-  bytesToSize,
-  timeRemaining,
-  timeFormat,
-  getTaskCompletedLength,
-  isBtMetadataTask,
-} from '@shared/utils'
-import { buildTaskTransferSummary } from '@/composables/useTaskDetailSummary'
-import { invoke } from '@tauri-apps/api/core'
-import { logger } from '@shared/logger'
-import { resolveTaskFilePath, recheckTrigger } from '@/composables/useArchivedPaths'
 import { NProgress, NIcon } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
 import {
@@ -31,6 +16,8 @@ import {
   TrashOutline,
   RadioOutline,
 } from '@vicons/ionicons5'
+import { useTaskCardModel } from '@/composables/useTaskCardModel'
+import { useTaskFileMissing } from '@/composables/useTaskFileMissing'
 import TaskItemActions from './TaskItemActions.vue'
 import type { Aria2Task } from '@shared/types'
 
@@ -48,48 +35,25 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const taskRef = computed(() => props.task)
 
-const taskFullName = computed(() =>
-  getTaskDisplayName(props.task, { defaultName: t('task.get-task-name') || 'Unknown' }),
-)
-
-const sharingKind = computed(() => getTaskSharingKind(props.task))
-const isSharing = computed(() => checkTaskIsSharing(props.task))
-const sharingLabel = computed(() => {
-  if (sharingKind.value === 'bt') return t('task.seeding') || 'Seeding'
-  if (sharingKind.value === 'ed2k') return t('task.sharing') || 'Sharing'
-  return ''
-})
-const isMetadataFetching = computed(() => isBtMetadataTask(props.task))
-const taskStatus = computed(() => (isSharing.value ? TASK_STATUS.SHARING : props.task.status))
-const isActive = computed(() => props.task.status === TASK_STATUS.ACTIVE)
-
-const completedLengthValue = computed(() => getTaskCompletedLength(props.task))
-const percent = computed(() => calcProgress(props.task.totalLength, completedLengthValue.value))
-const completedSize = computed(() => bytesToSize(completedLengthValue.value, 2))
-const totalSize = computed(() => bytesToSize(props.task.totalLength, 2))
-const hasSizeInfo = computed(() => completedLengthValue.value > 0 || Number(props.task.totalLength) > 0)
-const downloadSpeed = computed(() => bytesToSize(props.task.downloadSpeed))
-const uploadSpeed = computed(() => bytesToSize(props.task.uploadSpeed))
-const transferSummary = computed(() => buildTaskTransferSummary(props.task))
-
-const remaining = computed(() => {
-  if (!isActive.value) return 0
-  return timeRemaining(Number(props.task.totalLength), completedLengthValue.value, Number(props.task.downloadSpeed))
-})
-
-const remainingText = computed(() => {
-  if (remaining.value <= 0) return ''
-  return timeFormat(remaining.value, {
-    prefix: t('task.remaining-prefix') || '',
-    i18n: {
-      gt1d: t('app.gt1d') || '>1d',
-      hour: t('app.hour') || 'h',
-      minute: t('app.minute') || 'm',
-      second: t('app.second') || 's',
-    },
-  })
-})
+const {
+  taskFullName,
+  isSharing,
+  sharingLabel,
+  isMetadataFetching,
+  taskStatus,
+  isActive,
+  percent,
+  completedSize,
+  totalSize,
+  hasSizeInfo,
+  downloadSpeed,
+  uploadSpeed,
+  remaining,
+  remainingText,
+  transferSummary,
+} = useTaskCardModel(taskRef)
 
 /** Reads a CSS variable from :root, returning the fallback if unavailable. */
 function cssVar(name: string, fallback: string): string {
@@ -142,59 +106,7 @@ function onDblClick() {
   else if (s === TASK_STATUS.WAITING || s === TASK_STATUS.PAUSED) emit('resume', props.task)
 }
 
-// File missing detection for completed/stopped tasks
-const fileMissing = ref(false)
-const FILE_CHECK_THROTTLE_MS = 120
-let fileCheckTimer: ReturnType<typeof setTimeout> | null = null
-
-const fileCheckTargetPath = computed(() => {
-  const status = props.task.status
-  if (status === TASK_STATUS.ACTIVE || status === TASK_STATUS.WAITING || status === TASK_STATUS.PAUSED) {
-    return null
-  }
-  return resolveTaskFilePath(props.task)
-})
-
-async function checkFileExists(targetPath: string | null) {
-  if (!targetPath) {
-    fileMissing.value = false
-    return
-  }
-
-  try {
-    fileMissing.value = !(await invoke<boolean>('check_path_exists', { path: targetPath }))
-  } catch (e) {
-    logger.debug('TaskItem.fileCheck', e)
-    fileMissing.value = false
-  }
-}
-
-function scheduleFileExistsCheck(targetPath: string | null) {
-  if (fileCheckTimer) {
-    clearTimeout(fileCheckTimer)
-    fileCheckTimer = null
-  }
-
-  if (!targetPath) {
-    fileMissing.value = false
-    return
-  }
-
-  fileCheckTimer = setTimeout(() => {
-    fileCheckTimer = null
-    void checkFileExists(targetPath)
-  }, FILE_CHECK_THROTTLE_MS)
-}
-
-// Dual-source trigger: re-check when path changes (archive) OR on explicit
-// recheck request (action handler file-not-found, periodic background timer).
-watch([fileCheckTargetPath, recheckTrigger], ([path]) => scheduleFileExistsCheck(path), { immediate: true })
-onBeforeUnmount(() => {
-  if (fileCheckTimer) {
-    clearTimeout(fileCheckTimer)
-    fileCheckTimer = null
-  }
-})
+const { fileMissing } = useTaskFileMissing(taskRef)
 
 // ── M3 sharing state entrance animation ───────────────────────────
 // CSS transitions fail here because the store's polling cycle replaces

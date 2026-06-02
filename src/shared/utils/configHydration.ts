@@ -151,6 +151,7 @@ function normalizePortRecovery(value: unknown, repairs: string[]): PortConflictR
 
 function normalizeScalarValues(config: Record<string, unknown>, repairs: string[]): void {
   repairEnum(config, 'theme', ['auto', 'light', 'dark'] as const, DEFAULT_APP_CONFIG.theme, repairs)
+  repairEnum(config, 'taskCardMode', ['full', 'compact'] as const, DEFAULT_APP_CONFIG.taskCardMode, repairs)
   repairEnum(
     config,
     'colorScheme',

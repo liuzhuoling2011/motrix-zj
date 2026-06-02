@@ -3,7 +3,9 @@
 import { ref, computed, watch } from 'vue'
 import { vAutoAnimate } from '@formkit/auto-animate'
 import { useTaskStore } from '@/stores/task'
+import { usePreferenceStore } from '@/stores/preference'
 import TaskItem from './TaskItem.vue'
+import TaskCompactItem from './TaskCompactItem.vue'
 import type { Aria2Task } from '@shared/types'
 
 const emit = defineEmits<{
@@ -19,9 +21,13 @@ const emit = defineEmits<{
 }>()
 
 const taskStore = useTaskStore()
+const preferenceStore = usePreferenceStore()
 
 const taskList = ref<Aria2Task[]>(taskStore.taskList)
 const selectedGidList = computed(() => taskStore.selectedGidList)
+const taskCardComponent = computed(() =>
+  preferenceStore.config.taskCardMode === 'compact' ? TaskCompactItem : TaskItem,
+)
 
 watch(
   () => taskStore.taskList,
@@ -59,7 +65,8 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
         class="task-list-item"
         @click="handleItemClick(item, $event)"
       >
-        <TaskItem
+        <component
+          :is="taskCardComponent"
           :task="item"
           @pause="emit('pause', item)"
           @resume="emit('resume', item)"

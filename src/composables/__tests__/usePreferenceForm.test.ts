@@ -20,7 +20,7 @@ import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 
 const mockMessage = vi.hoisted(() => {
-  const createMessageFn = () => vi.fn((_message?: string) => ({ destroy: vi.fn() }))
+  const createMessageFn = () => vi.fn((_message?: unknown, _options?: unknown) => ({ destroy: vi.fn() }))
   return {
     success: createMessageFn(),
     error: createMessageFn(),
@@ -55,6 +55,15 @@ vi.mock('@/api/aria2', () => ({
 
 import { usePreferenceStore } from '@/stores/preference'
 import { usePreferenceForm } from '../usePreferenceForm'
+
+function extractMessageText(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (typeof value === 'function') {
+    const vnode = value()
+    return typeof vnode === 'object' && vnode !== null && 'children' in vnode ? String(vnode.children) : String(value)
+  }
+  return String(value)
+}
 
 interface TestForm extends Record<string, unknown> {
   dir: string
@@ -176,10 +185,9 @@ describe('usePreferenceForm', () => {
     handleReset()
     await new Promise((resolve) => setTimeout(resolve, 100))
     expect(mockMessage.success).toHaveBeenCalledTimes(1)
-    expect(mockMessage.success).toHaveBeenCalledWith(
-      'preferences.changes-restored',
-      expect.objectContaining({ closable: true }),
-    )
+    const [message, options] = mockMessage.success.mock.calls[0]
+    expect(extractMessageText(message)).toBe('preferences.changes-restored')
+    expect(options).toEqual(expect.objectContaining({ closable: true }))
 
     unmount()
   })
@@ -242,8 +250,8 @@ describe('usePreferenceForm', () => {
     const store = usePreferenceStore()
     store.updateAndSave = vi.fn().mockResolvedValue(true)
     const events: string[] = []
-    mockMessage.success.mockImplementation((message?: string) => {
-      events.push(`success:${message}`)
+    mockMessage.success.mockImplementation((message?: unknown) => {
+      events.push(`success:${extractMessageText(message)}`)
       return { destroy: vi.fn() }
     })
 

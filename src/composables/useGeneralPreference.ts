@@ -15,6 +15,7 @@ export interface GeneralForm {
   locale: string
   theme: string
   colorScheme: string
+  taskCardMode: AppConfig['taskCardMode']
   autoCheckUpdate: boolean
   autoCheckUpdateInterval: number
   updateChannel: string
@@ -41,6 +42,7 @@ export function buildGeneralForm(config: AppConfig): GeneralForm {
     locale: config.locale || 'auto',
     theme: config.theme ?? D.theme,
     colorScheme: config.colorScheme ?? D.colorScheme,
+    taskCardMode: config.taskCardMode ?? D.taskCardMode,
     autoCheckUpdate: config.autoCheckUpdate ?? D.autoCheckUpdate,
     autoCheckUpdateInterval: config.autoCheckUpdateInterval ?? D.autoCheckUpdateInterval,
     updateChannel: config.updateChannel ?? D.updateChannel,

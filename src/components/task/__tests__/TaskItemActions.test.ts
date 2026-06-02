@@ -194,6 +194,25 @@ describe('TaskItemActions', () => {
     })
   })
 
+  describe('density', () => {
+    it('uses compact density when requested', () => {
+      const wrapper = mount(TaskItemActions, {
+        props: {
+          task: { gid: 'compact-gid' } as never,
+          status: TASK_STATUS.ACTIVE,
+          density: 'compact',
+        },
+        global: {
+          provide: {
+            stoppingGids: ref([]),
+          },
+        },
+      })
+
+      expect(wrapper.find('.task-item-actions').classes()).toContain('task-item-actions--compact')
+    })
+  })
+
   describe('press animation', () => {
     it('adds pressed class on pointerdown and removes on pointerup', async () => {
       const wrapper = createWrapper(TASK_STATUS.ACTIVE)

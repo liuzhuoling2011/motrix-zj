@@ -21,7 +21,10 @@ import {
 import { type Component } from 'vue'
 import type { Aria2Task } from '@shared/types'
 
-const props = defineProps<{ task: Aria2Task; status: string; fileMissing?: boolean }>()
+const props = withDefaults(
+  defineProps<{ task: Aria2Task; status: string; fileMissing?: boolean; density?: 'full' | 'compact' }>(),
+  { density: 'full' },
+)
 const stoppingGids = inject<Ref<string[]>>('stoppingGids')
 const isStopping = computed(() => stoppingGids?.value.includes(props.task.gid) ?? false)
 const emit = defineEmits<{
@@ -170,7 +173,13 @@ function onRelease(ev: PointerEvent) {
 </script>
 
 <template>
-  <TransitionGroup tag="ul" name="action-item" class="task-item-actions" @dblclick.stop>
+  <TransitionGroup
+    tag="ul"
+    name="action-item"
+    class="task-item-actions"
+    :class="{ 'task-item-actions--compact': props.density === 'compact' }"
+    @dblclick.stop
+  >
     <li
       v-for="action in actions"
       :key="action.key"
@@ -190,14 +199,14 @@ function onRelease(ev: PointerEvent) {
         <template #trigger>
           <span v-if="action.event === 'stop-sharing'" class="stop-icon-wrapper">
             <span class="stop-icon-static" :class="{ 'fade-out': isStopping }">
-              <NIcon :size="20"><StopOutline /></NIcon>
+              <NIcon class="task-action-icon"><StopOutline /></NIcon>
             </span>
             <span class="stop-icon-spin" :class="{ 'fade-in': isStopping }">
-              <NIcon :size="20"><SyncOutline /></NIcon>
+              <NIcon class="task-action-icon"><SyncOutline /></NIcon>
             </span>
           </span>
           <Transition v-else name="icon-swap" mode="out-in">
-            <NIcon :key="action.event" :size="20"><component :is="action.icon" /></NIcon>
+            <NIcon :key="action.event" class="task-action-icon"><component :is="action.icon" /></NIcon>
           </Transition>
         </template>
         <template v-if="action.event === 'stop-sharing' && isStopping">
@@ -213,8 +222,14 @@ function onRelease(ev: PointerEvent) {
 
 <style scoped>
 .task-item-actions {
-  height: 32px;
-  padding: 0 12px;
+  --task-action-height: 32px;
+  --task-action-padding-x: 12px;
+  --task-action-item-padding: 6px;
+  --task-action-item-margin: 3px;
+  --task-action-icon-size: 20px;
+  --task-action-item-max-width: 38px;
+  height: var(--task-action-height);
+  padding: 0 var(--task-action-padding-x);
   margin: 0;
   overflow: hidden;
   user-select: none;
@@ -235,12 +250,12 @@ function onRelease(ev: PointerEvent) {
 }
 .task-item-action {
   display: inline-block;
-  padding: 6px;
-  margin: 0 3px;
-  max-width: 38px;
+  padding: var(--task-action-item-padding);
+  margin: 0 var(--task-action-item-margin);
+  max-width: var(--task-action-item-max-width);
   font-size: 0;
   cursor: pointer;
-  line-height: 20px;
+  line-height: var(--task-action-icon-size);
   direction: ltr;
   border-radius: 50%;
   transition:
@@ -252,6 +267,15 @@ function onRelease(ev: PointerEvent) {
     padding 0.2s ease-out,
     opacity 0.2s ease-out;
   transform-origin: center;
+}
+.task-item-actions--compact {
+  --task-action-height: 24px;
+  --task-action-padding-x: 10px;
+  --task-action-item-padding: 3px;
+  --task-action-item-margin: 3px;
+  --task-action-icon-size: 16px;
+  --task-action-item-max-width: 28px;
+  border-radius: 13px;
 }
 .task-item-action:hover {
   color: var(--color-primary);
@@ -277,8 +301,11 @@ function onRelease(ev: PointerEvent) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: var(--task-action-icon-size);
+  height: var(--task-action-icon-size);
+}
+.task-action-icon {
+  font-size: var(--task-action-icon-size);
 }
 .stop-icon-static,
 .stop-icon-spin {

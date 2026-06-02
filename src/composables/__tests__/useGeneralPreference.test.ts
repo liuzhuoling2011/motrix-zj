@@ -70,6 +70,16 @@ describe('buildGeneralForm', () => {
     expect(form.showProgressBar).toBe(DEFAULT_APP_CONFIG.showProgressBar)
   })
 
+  it('defaults taskCardMode from DEFAULT_APP_CONFIG', () => {
+    const form = buildGeneralForm(emptyConfig)
+    expect(form.taskCardMode).toBe(DEFAULT_APP_CONFIG.taskCardMode)
+  })
+
+  it('reads taskCardMode from config', () => {
+    const form = buildGeneralForm({ taskCardMode: 'compact' } as AppConfig)
+    expect(form.taskCardMode).toBe('compact')
+  })
+
   it('reads showProgressBar from config', () => {
     const form = buildGeneralForm({ showProgressBar: false } as AppConfig)
     expect(form.showProgressBar).toBe(false)
@@ -205,14 +215,15 @@ describe('buildGeneralForm', () => {
     expect(form.lightweightMode).toBe(true)
   })
 
-  // ── Completeness: all 16 fields are present ─────────────────────
+  // ── Completeness: all 17 fields are present ─────────────────────
 
-  it('returns all 16 form fields', () => {
+  it('returns all 17 form fields', () => {
     const form = buildGeneralForm(emptyConfig)
     const keys = Object.keys(form)
     expect(keys).toContain('locale')
     expect(keys).toContain('theme')
     expect(keys).toContain('colorScheme')
+    expect(keys).toContain('taskCardMode')
     expect(keys).toContain('autoCheckUpdate')
     expect(keys).toContain('autoCheckUpdateInterval')
     expect(keys).toContain('updateChannel')
@@ -226,7 +237,7 @@ describe('buildGeneralForm', () => {
     expect(keys).toContain('hideDockOnMinimize')
     expect(keys).toContain('traySpeedometer')
     expect(keys).toContain('lightweightMode')
-    expect(keys).toHaveLength(16)
+    expect(keys).toHaveLength(17)
   })
 })
 
@@ -237,6 +248,7 @@ describe('buildGeneralSystemConfig', () => {
     locale: 'en-US',
     theme: 'auto',
     colorScheme: 'amber',
+    taskCardMode: 'full',
     autoCheckUpdate: true,
     autoCheckUpdateInterval: 0,
     updateChannel: 'stable',
@@ -278,6 +290,7 @@ describe('transformGeneralForStore', () => {
     locale: 'en-US',
     theme: 'auto',
     colorScheme: 'amber',
+    taskCardMode: 'full',
     autoCheckUpdate: true,
     autoCheckUpdateInterval: 0,
     updateChannel: 'stable',
@@ -298,6 +311,7 @@ describe('transformGeneralForStore', () => {
     expect(result.locale).toBe('en-US')
     expect(result.theme).toBe('auto')
     expect(result.colorScheme).toBe('amber')
+    expect(result.taskCardMode).toBe('full')
     expect(result.autoCheckUpdate).toBe(true)
     expect(result.autoCheckUpdateInterval).toBe(0)
     expect(result.updateChannel).toBe('stable')

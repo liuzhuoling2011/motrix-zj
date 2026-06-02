@@ -331,6 +331,7 @@ export const DEFAULT_APP_CONFIG = {
   // ── Appearance ──────────────────────────────────────────────────
   theme: 'auto' as const,
   colorScheme: 'amber',
+  taskCardMode: 'full' as const,
   locale: 'auto',
 
   // ── Download Core (aria2 defaults: concurrent=5, split=5, conn/server=1) ──

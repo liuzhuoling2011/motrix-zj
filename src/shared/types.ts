@@ -254,6 +254,7 @@ export interface AppConfig {
   dbSchemaVersion: number
   theme: 'auto' | 'light' | 'dark'
   colorScheme: string
+  taskCardMode: 'full' | 'compact'
   locale: string
   dir: string
   split: number
