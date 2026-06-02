@@ -51,6 +51,8 @@ export default {
   'task-ed2k-peer-count': '节点',
   'task-ed2k-queued-peer-count': '排队节点',
   'task-ed2k-accepted-peer-count': '已接受节点',
+  'task-ed2k-low-id-peer-count': '低 ID 节点',
+  'task-ed2k-callback-waiting-peer-count': '等待回调节点',
   'task-ed2k-dead-peer-count': '失效节点',
   'task-ed2k-kad-node-count': 'Kad 节点',
   'task-ed2k-kad-router-count': 'Kad 路由',

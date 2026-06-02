@@ -37,11 +37,20 @@ export interface Ed2kDetailSummary {
   acceptedPeerCount: number
   queuedPeerCount: number
   deadPeerCount: number
+  lowIdPeerCount: number
+  callbackWaitingPeerCount: number
   kadNodeCount: number
   kadRouterCount: number
   kadFirewalled: boolean | undefined
+  hasSearchState: boolean
   uploadingPeerCount: number
   waitingUploadPeerCount: number
+}
+
+export interface TaskTransferSummary {
+  showUploadMetrics: boolean
+  showSeeders: boolean
+  ratio: number
 }
 
 export function buildTaskDetailKind(task: Aria2Task | null | undefined): TaskDetailKind {
@@ -124,10 +133,31 @@ export function buildEd2kDetailSummary(task: Aria2Task | null | undefined): Ed2k
     acceptedPeerCount: toPositiveInt(ed2k?.acceptedPeerCount),
     queuedPeerCount: toPositiveInt(ed2k?.queuedPeerCount),
     deadPeerCount: toPositiveInt(ed2k?.deadPeerCount),
+    lowIdPeerCount: toPositiveInt(ed2k?.lowIdPeerCount),
+    callbackWaitingPeerCount: toPositiveInt(ed2k?.callbackWaitingPeerCount),
     kadNodeCount: toPositiveInt(ed2k?.kadNodeCount),
     kadRouterCount: toPositiveInt(ed2k?.kadRouterCount),
     kadFirewalled: ed2k?.kadFirewalled,
+    hasSearchState:
+      ed2k?.searchActive === true || ed2k?.searchMoreResults === true || toPositiveInt(ed2k?.searchResultCount) > 0,
     uploadingPeerCount: toPositiveInt(ed2k?.uploadingPeerCount),
     waitingUploadPeerCount: toPositiveInt(ed2k?.waitingUploadPeerCount),
   }
+}
+
+export function buildTaskTransferSummary(task: Aria2Task | null | undefined): TaskTransferSummary {
+  const kind = buildTaskDetailKind(task)
+  const showUploadMetrics = kind === 'bt' || kind === 'ed2k'
+  return {
+    showUploadMetrics,
+    showSeeders: kind === 'bt',
+    ratio: showUploadMetrics && task ? toRatio(task.totalLength, task.uploadLength) : 0,
+  }
+}
+
+function toRatio(totalLength: string | number | undefined, uploadLength: string | number | undefined): number {
+  const total = toPositiveInt(totalLength)
+  const upload = toPositiveInt(uploadLength)
+  if (total === 0 || upload === 0) return 0
+  return Number((upload / total).toFixed(4))
 }

@@ -531,6 +531,22 @@ mod tests {
     }
 
     #[test]
+    fn builds_zh_cn_ed2k_sharing_notification() {
+        let mut ev = event();
+        ev.is_ed2k = true;
+        ev.sharing_kind = Some("ed2k");
+        let mut config = cfg();
+        config.locale = "zh-CN".to_string();
+
+        let content = build_task_notification(events::SHARING_COMPLETE, &ev, &config).unwrap();
+
+        assert_eq!(content.kind, TaskNotificationKind::SharingComplete);
+        assert_eq!(content.title, "ED2K 下载完成");
+        assert_eq!(content.body, "已开始共享：file.zip");
+        assert_eq!(content.locale, "zh-CN");
+    }
+
+    #[test]
     fn builds_localised_error_notification_with_reason() {
         let mut ev = event();
         ev.error_message = Some("Network error".to_string());

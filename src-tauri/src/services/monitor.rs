@@ -783,6 +783,8 @@ mod tests {
             queued_peer_count: None,
             accepted_peer_count: None,
             dead_peer_count: None,
+            low_id_peer_count: None,
+            callback_waiting_peer_count: None,
             kad_node_count: None,
             kad_router_count: None,
             kad_firewalled: None,

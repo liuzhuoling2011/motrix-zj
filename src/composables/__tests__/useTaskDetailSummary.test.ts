@@ -4,6 +4,7 @@ import {
   buildBtHealthSummary,
   buildEd2kDetailSummary,
   buildTaskDetailKind,
+  buildTaskTransferSummary,
   buildUriDetailSummary,
 } from '../useTaskDetailSummary'
 
@@ -162,6 +163,8 @@ describe('buildEd2kDetailSummary', () => {
           peerCount: '12',
           acceptedPeerCount: '5',
           queuedPeerCount: '3',
+          lowIdPeerCount: '2',
+          callbackWaitingPeerCount: '1',
           kadNodeCount: '30',
           kadFirewalled: true,
           uploadingPeerCount: '1',
@@ -173,7 +176,39 @@ describe('buildEd2kDetailSummary', () => {
     expect(summary.connectedServerCount).toBe(2)
     expect(summary.serverCount).toBe(4)
     expect(summary.peerCount).toBe(12)
+    expect(summary.lowIdPeerCount).toBe(2)
+    expect(summary.callbackWaitingPeerCount).toBe(1)
     expect(summary.kadNodeCount).toBe(30)
     expect(summary.kadFirewalled).toBe(true)
+  })
+})
+
+describe('buildTaskTransferSummary', () => {
+  it('shows upload metrics for BT and ED2K tasks but not generic URI tasks', () => {
+    const bt = buildTaskTransferSummary(
+      makeTask({
+        totalLength: '1000',
+        uploadLength: '250',
+        bittorrent: { info: { name: 'Torrent' } },
+      }),
+    )
+    const ed2k = buildTaskTransferSummary(
+      makeTask({
+        totalLength: '1000',
+        uploadLength: '500',
+        ed2k: { hash: 'ed2khash' },
+      }),
+    )
+    const uri = buildTaskTransferSummary(makeTask({ totalLength: '1000', uploadLength: '900' }))
+
+    expect(bt.showUploadMetrics).toBe(true)
+    expect(bt.showSeeders).toBe(true)
+    expect(bt.ratio).toBe(0.25)
+    expect(ed2k.showUploadMetrics).toBe(true)
+    expect(ed2k.showSeeders).toBe(false)
+    expect(ed2k.ratio).toBe(0.5)
+    expect(uri.showUploadMetrics).toBe(false)
+    expect(uri.showSeeders).toBe(false)
+    expect(uri.ratio).toBe(0)
   })
 })

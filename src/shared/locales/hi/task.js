@@ -51,6 +51,8 @@ export default {
   'task-ed2k-peer-count': 'Peers',
   'task-ed2k-queued-peer-count': 'Queued peers',
   'task-ed2k-accepted-peer-count': 'Accepted peers',
+  'task-ed2k-low-id-peer-count': 'Low ID Peers',
+  'task-ed2k-callback-waiting-peer-count': 'Callback Waiting Peers',
   'task-ed2k-dead-peer-count': 'Dead peers',
   'task-ed2k-kad-node-count': 'Kad nodes',
   'task-ed2k-kad-router-count': 'Kad routers',

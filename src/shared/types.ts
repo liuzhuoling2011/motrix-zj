@@ -43,6 +43,8 @@ export interface Aria2Ed2kInfo {
   queuedPeerCount?: string
   acceptedPeerCount?: string
   deadPeerCount?: string
+  lowIdPeerCount?: string
+  callbackWaitingPeerCount?: string
   kadNodeCount?: string
   kadRouterCount?: string
   kadFirewalled?: boolean

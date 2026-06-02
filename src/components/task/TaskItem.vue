@@ -11,10 +11,10 @@ import {
   bytesToSize,
   timeRemaining,
   timeFormat,
-  checkTaskIsBT,
   getTaskCompletedLength,
   isBtMetadataTask,
 } from '@shared/utils'
+import { buildTaskTransferSummary } from '@/composables/useTaskDetailSummary'
 import { invoke } from '@tauri-apps/api/core'
 import { logger } from '@shared/logger'
 import { resolveTaskFilePath, recheckTrigger } from '@/composables/useArchivedPaths'
@@ -60,7 +60,6 @@ const sharingLabel = computed(() => {
   if (sharingKind.value === 'ed2k') return t('task.sharing') || 'Sharing'
   return ''
 })
-const isBT = computed(() => checkTaskIsBT(props.task))
 const isMetadataFetching = computed(() => isBtMetadataTask(props.task))
 const taskStatus = computed(() => (isSharing.value ? TASK_STATUS.SHARING : props.task.status))
 const isActive = computed(() => props.task.status === TASK_STATUS.ACTIVE)
@@ -72,6 +71,7 @@ const totalSize = computed(() => bytesToSize(props.task.totalLength, 2))
 const hasSizeInfo = computed(() => completedLengthValue.value > 0 || Number(props.task.totalLength) > 0)
 const downloadSpeed = computed(() => bytesToSize(props.task.downloadSpeed))
 const uploadSpeed = computed(() => bytesToSize(props.task.uploadSpeed))
+const transferSummary = computed(() => buildTaskTransferSummary(props.task))
 
 const remaining = computed(() => {
   if (!isActive.value) return 0
@@ -330,7 +330,7 @@ onBeforeUnmount(() => {
           <span class="speed-text" :class="{ 'info-hidden': remaining <= 0 }">
             <span>{{ remainingText }}</span>
           </span>
-          <span v-if="isBT" class="speed-text">
+          <span v-if="transferSummary.showUploadMetrics" class="speed-text">
             <NIcon :size="10"><ArrowUpOutline /></NIcon>
             <span>{{ uploadSpeed }}/s</span>
           </span>
@@ -338,7 +338,7 @@ onBeforeUnmount(() => {
             <NIcon :size="10"><ArrowDownOutline /></NIcon>
             <span>{{ downloadSpeed }}/s</span>
           </span>
-          <span v-if="isBT" class="speed-text">
+          <span v-if="transferSummary.showSeeders" class="speed-text">
             <NIcon :size="10"><MagnetOutline /></NIcon>
             <span>{{ task.numSeeders }}</span>
           </span>

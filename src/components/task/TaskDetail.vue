@@ -11,7 +11,6 @@ import {
   getTaskDisplayName,
   bytesToSize,
   calcProgress,
-  calcRatio,
   getFileName,
   getFileExtension,
   localeDateTimeFormat,
@@ -59,6 +58,7 @@ import {
   buildBtHealthSummary,
   buildEd2kDetailSummary,
   buildTaskDetailKind,
+  buildTaskTransferSummary,
   buildUriDetailSummary,
 } from '@/composables/useTaskDetailSummary'
 import { usePreferenceStore } from '@/stores/preference'
@@ -160,6 +160,7 @@ const isURI = computed(() => detailKind.value === 'uri')
 const uriSummary = computed(() => buildUriDetailSummary(props.task))
 const btHealth = computed(() => buildBtHealthSummary(props.task))
 const ed2kSummary = computed(() => buildEd2kDetailSummary(props.task))
+const transferSummary = computed(() => buildTaskTransferSummary(props.task))
 
 const prevTaskGid = ref('')
 watch(
@@ -247,11 +248,6 @@ const remainingText = computed(() => {
       second: t('app.second') || 's',
     },
   })
-})
-
-const ratio = computed(() => {
-  if (!isBT.value || !props.task) return 0
-  return calcRatio(Number(props.task.totalLength), Number(props.task.uploadLength))
 })
 
 const btInfo = computed(() => {
@@ -739,12 +735,6 @@ function handleClose() {
                   :label-style="{ width: '1px', whiteSpace: 'nowrap' }"
                 >
                   <NDescriptionsItem :label="t('task.task-ed2k-hash')">{{ ed2kInfo.hash || '-' }}</NDescriptionsItem>
-                  <NDescriptionsItem :label="t('task.task-ed2k-server-count')">
-                    {{ ed2kInfo.connectedServerCount || 0 }} / {{ ed2kInfo.serverCount || 0 }}
-                  </NDescriptionsItem>
-                  <NDescriptionsItem :label="t('task.task-ed2k-peer-count')">
-                    {{ ed2kInfo.peerCount || 0 }}
-                  </NDescriptionsItem>
                 </NDescriptions>
               </template>
             </template>
@@ -768,14 +758,22 @@ function handleClose() {
                 <NDescriptionsItem :label="t('task.task-download-speed') || 'DL Speed'">
                   {{ bytesToSize(task.downloadSpeed) }}/s
                 </NDescriptionsItem>
-                <NDescriptionsItem v-if="isBT" :label="t('task.task-upload-speed') || 'UL Speed'">
+                <NDescriptionsItem
+                  v-if="transferSummary.showUploadMetrics"
+                  :label="t('task.task-upload-speed') || 'UL Speed'"
+                >
                   {{ bytesToSize(task.uploadSpeed) }}/s
                 </NDescriptionsItem>
-                <NDescriptionsItem v-if="isBT" :label="t('task.task-upload-length') || 'Uploaded'">
+                <NDescriptionsItem
+                  v-if="transferSummary.showUploadMetrics"
+                  :label="t('task.task-upload-length') || 'Uploaded'"
+                >
                   {{ bytesToSize(task.uploadLength) }}
                 </NDescriptionsItem>
-                <NDescriptionsItem v-if="isBT" :label="t('task.task-ratio') || 'Ratio'">{{ ratio }}</NDescriptionsItem>
-                <NDescriptionsItem v-if="isBT" :label="t('task.task-num-seeders') || 'Seeders'">
+                <NDescriptionsItem v-if="transferSummary.showUploadMetrics" :label="t('task.task-ratio') || 'Ratio'">
+                  {{ transferSummary.ratio }}
+                </NDescriptionsItem>
+                <NDescriptionsItem v-if="transferSummary.showSeeders" :label="t('task.task-num-seeders') || 'Seeders'">
                   {{ task.numSeeders }}
                 </NDescriptionsItem>
                 <NDescriptionsItem :label="t('task.task-connections') || 'Connections'">
@@ -1023,6 +1021,12 @@ function handleClose() {
                 <NDescriptionsItem :label="t('task.task-ed2k-dead-peer-count')">
                   {{ ed2kSummary.deadPeerCount }}
                 </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-low-id-peer-count')">
+                  {{ ed2kSummary.lowIdPeerCount }}
+                </NDescriptionsItem>
+                <NDescriptionsItem :label="t('task.task-ed2k-callback-waiting-peer-count')">
+                  {{ ed2kSummary.callbackWaitingPeerCount }}
+                </NDescriptionsItem>
                 <NDescriptionsItem :label="t('task.task-ed2k-kad-node-count')">
                   {{ ed2kSummary.kadNodeCount }}
                 </NDescriptionsItem>
@@ -1035,13 +1039,13 @@ function handleClose() {
                 <NDescriptionsItem :label="t('task.task-ed2k-kad-observed-address-count')">
                   {{ ed2kInfo.kadObservedAddressCount || 0 }}
                 </NDescriptionsItem>
-                <NDescriptionsItem :label="t('task.task-ed2k-search-active')">
+                <NDescriptionsItem v-if="ed2kSummary.hasSearchState" :label="t('task.task-ed2k-search-active')">
                   {{ yesNo(ed2kInfo.searchActive) }}
                 </NDescriptionsItem>
-                <NDescriptionsItem :label="t('task.task-ed2k-search-more-results')">
+                <NDescriptionsItem v-if="ed2kSummary.hasSearchState" :label="t('task.task-ed2k-search-more-results')">
                   {{ yesNo(ed2kInfo.searchMoreResults) }}
                 </NDescriptionsItem>
-                <NDescriptionsItem :label="t('task.task-ed2k-search-result-count')">
+                <NDescriptionsItem v-if="ed2kSummary.hasSearchState" :label="t('task.task-ed2k-search-result-count')">
                   {{ ed2kInfo.searchResultCount || 0 }}
                 </NDescriptionsItem>
                 <NDescriptionsItem :label="t('task.task-ed2k-uploading-peer-count')">

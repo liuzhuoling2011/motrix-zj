@@ -92,6 +92,10 @@ pub struct Aria2Ed2kInfo {
     #[serde(default)]
     pub dead_peer_count: Option<String>,
     #[serde(default)]
+    pub low_id_peer_count: Option<String>,
+    #[serde(default)]
+    pub callback_waiting_peer_count: Option<String>,
+    #[serde(default)]
     pub kad_node_count: Option<String>,
     #[serde(default)]
     pub kad_router_count: Option<String>,
@@ -272,7 +276,9 @@ mod tests {
             "dir": "/downloads",
             "ed2k": {
                 "hash": "3D366ED505B977FC61C9A6EE01E96329",
-                "completedLength": "0"
+                "completedLength": "0",
+                "lowIdPeerCount": "2",
+                "callbackWaitingPeerCount": "1"
             }
         });
         let task: Aria2Task = serde_json::from_value(json).expect("deserialize");
@@ -282,6 +288,8 @@ mod tests {
             ed2k.hash.as_deref(),
             Some("3D366ED505B977FC61C9A6EE01E96329")
         );
+        assert_eq!(ed2k.low_id_peer_count.as_deref(), Some("2"));
+        assert_eq!(ed2k.callback_waiting_peer_count.as_deref(), Some("1"));
     }
 
     #[test]
