@@ -366,7 +366,7 @@ onMounted(() => {
         />
       </NFormItem>
       <NFormItem label=" ">
-        <NButton :loading="syncingTracker" type="primary" secondary style="min-width: 140px" @click="handleSyncTracker">
+        <NButton :loading="syncingTracker" type="primary" secondary style="min-width: 100px" @click="handleSyncTracker">
           <template #icon>
             <NIcon><SyncOutline /></NIcon>
           </template>

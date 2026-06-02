@@ -389,7 +389,7 @@ export default {
   'ed2k-server-met-hint': 'Pour découvrir les serveurs ED2K',
   'ed2k-nodes-dat-url': 'Source nodes.dat',
   'ed2k-nodes-dat-hint': 'Pour découvrir les nœuds Kad',
-  'ed2k-bootstrap-sync': 'Synchroniser les fichiers',
+  'ed2k-bootstrap-sync': 'Synchroniser',
   'ed2k-bootstrap-last-sync': 'Dernière synchronisation',
   'ed2k-bootstrap-not-synced': 'Non synchronisé',
   'ed2k-bootstrap-sync-succeed': 'Fichiers d\'amorçage ED2K synchronisés',

@@ -375,7 +375,7 @@ export default {
   'ed2k-server-met-hint': 'ใช้ค้นหาเซิร์ฟเวอร์ ED2K',
   'ed2k-nodes-dat-url': 'แหล่ง nodes.dat',
   'ed2k-nodes-dat-hint': 'ใช้ค้นหาโหนด Kad',
-  'ed2k-bootstrap-sync': 'ซิงค์ไฟล์เริ่มต้น',
+  'ed2k-bootstrap-sync': 'ซิงค์',
   'ed2k-bootstrap-last-sync': 'เวลาซิงค์ล่าสุด',
   'ed2k-bootstrap-not-synced': 'ยังไม่ได้ซิงค์',
   'ed2k-bootstrap-sync-succeed': 'ซิงค์ไฟล์เริ่มต้น ED2K แล้ว',

@@ -379,7 +379,7 @@ export default {
   'ed2k-server-met-hint': 'ED2K servers खोजने के लिए',
   'ed2k-nodes-dat-url': 'nodes.dat स्रोत',
   'ed2k-nodes-dat-hint': 'Kad nodes खोजने के लिए',
-  'ed2k-bootstrap-sync': 'बूटस्ट्रैप फ़ाइलें सिंक करें',
+  'ed2k-bootstrap-sync': 'सिंक करें',
   'ed2k-bootstrap-last-sync': 'आखिरी sync समय',
   'ed2k-bootstrap-not-synced': 'सिंक नहीं हुआ',
   'ed2k-bootstrap-sync-succeed': 'ED2K बूटस्ट्रैप फ़ाइलें सिंक हो गईं',

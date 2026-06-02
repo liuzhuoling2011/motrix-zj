@@ -382,7 +382,7 @@ export default {
   'ed2k-server-met-hint': 'ED2K サーバーの検出に使用',
   'ed2k-nodes-dat-url': 'nodes.dat ソース',
   'ed2k-nodes-dat-hint': 'Kad ノードの検出に使用',
-  'ed2k-bootstrap-sync': 'ブートストラップファイルを同期',
+  'ed2k-bootstrap-sync': '同期',
   'ed2k-bootstrap-last-sync': '最終同期時刻',
   'ed2k-bootstrap-not-synced': '未同期',
   'ed2k-bootstrap-sync-succeed': 'ED2K ブートストラップファイルを同期しました',

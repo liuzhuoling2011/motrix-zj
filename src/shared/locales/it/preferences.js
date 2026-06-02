@@ -387,7 +387,7 @@ export default {
   'ed2k-server-met-hint': 'Per trovare server ED2K',
   'ed2k-nodes-dat-url': 'Origine nodes.dat',
   'ed2k-nodes-dat-hint': 'Per trovare nodi Kad',
-  'ed2k-bootstrap-sync': 'Sincronizza file di avvio',
+  'ed2k-bootstrap-sync': 'Sincronizza',
   'ed2k-bootstrap-last-sync': 'Ultima sincronizzazione',
   'ed2k-bootstrap-not-synced': 'Non sincronizzato',
   'ed2k-bootstrap-sync-succeed': 'File di avvio ED2K sincronizzati',

@@ -383,7 +383,7 @@ export default {
   'ed2k-server-met-hint': 'Untuk menemukan server ED2K',
   'ed2k-nodes-dat-url': 'Sumber nodes.dat',
   'ed2k-nodes-dat-hint': 'Untuk menemukan node Kad',
-  'ed2k-bootstrap-sync': 'Sinkronkan File Bootstrap',
+  'ed2k-bootstrap-sync': 'Sinkronkan',
   'ed2k-bootstrap-last-sync': 'Waktu sinkronisasi terakhir',
   'ed2k-bootstrap-not-synced': 'Belum disinkronkan',
   'ed2k-bootstrap-sync-succeed': 'File bootstrap ED2K disinkronkan',

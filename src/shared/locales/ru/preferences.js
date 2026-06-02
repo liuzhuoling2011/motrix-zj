@@ -382,7 +382,7 @@ export default {
   'ed2k-server-met-hint': 'Для поиска серверов ED2K',
   'ed2k-nodes-dat-url': 'Источник nodes.dat',
   'ed2k-nodes-dat-hint': 'Для поиска узлов Kad',
-  'ed2k-bootstrap-sync': 'Синхронизировать файлы',
+  'ed2k-bootstrap-sync': 'Синхронизировать',
   'ed2k-bootstrap-last-sync': 'Последняя синхронизация',
   'ed2k-bootstrap-not-synced': 'Не синхронизировано',
   'ed2k-bootstrap-sync-succeed': 'Файлы подключения ED2K синхронизированы',

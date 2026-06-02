@@ -376,7 +376,7 @@ export default {
   'ed2k-server-met-hint': 'لاكتشاف خوادم ED2K',
   'ed2k-nodes-dat-url': 'مصدر nodes.dat',
   'ed2k-nodes-dat-hint': 'لاكتشاف عقد Kad',
-  'ed2k-bootstrap-sync': 'مزامنة ملفات التمهيد',
+  'ed2k-bootstrap-sync': 'مزامنة',
   'ed2k-bootstrap-last-sync': 'آخر وقت مزامنة',
   'ed2k-bootstrap-not-synced': 'لم تتم المزامنة',
   'ed2k-bootstrap-sync-succeed': 'تمت مزامنة ملفات تمهيد ED2K',

@@ -378,7 +378,7 @@ export default {
   'ed2k-server-met-hint': 'Dùng để tìm máy chủ ED2K',
   'ed2k-nodes-dat-url': 'Nguồn nodes.dat',
   'ed2k-nodes-dat-hint': 'Dùng để tìm nút Kad',
-  'ed2k-bootstrap-sync': 'Đồng bộ tệp khởi tạo',
+  'ed2k-bootstrap-sync': 'Đồng bộ',
   'ed2k-bootstrap-last-sync': 'Thời gian đồng bộ cuối',
   'ed2k-bootstrap-not-synced': 'Chưa đồng bộ',
   'ed2k-bootstrap-sync-succeed': 'Đã đồng bộ tệp khởi tạo ED2K',

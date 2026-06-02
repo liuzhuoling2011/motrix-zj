@@ -368,7 +368,7 @@ export default {
   'ed2k-server-met-hint': '用于发现 ED2K 服务器',
   'ed2k-nodes-dat-url': 'nodes.dat 来源',
   'ed2k-nodes-dat-hint': '用于发现 Kad 节点',
-  'ed2k-bootstrap-sync': '同步引导文件',
+  'ed2k-bootstrap-sync': '同步',
   'ed2k-bootstrap-last-sync': '上次同步时间',
   'ed2k-bootstrap-not-synced': '未同步',
   'ed2k-bootstrap-sync-succeed': 'ED2K 引导文件已同步',

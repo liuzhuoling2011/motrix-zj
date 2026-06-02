@@ -388,7 +388,7 @@ export default {
   'ed2k-server-met-hint': 'Για εντοπισμό διακομιστών ED2K',
   'ed2k-nodes-dat-url': 'Πηγή nodes.dat',
   'ed2k-nodes-dat-hint': 'Για εντοπισμό κόμβων Kad',
-  'ed2k-bootstrap-sync': 'Συγχρονισμός αρχείων εκκίνησης',
+  'ed2k-bootstrap-sync': 'Συγχρονισμός',
   'ed2k-bootstrap-last-sync': 'Τελευταίος συγχρονισμός',
   'ed2k-bootstrap-not-synced': 'Δεν έχει συγχρονιστεί',
   'ed2k-bootstrap-sync-succeed': 'Τα αρχεία εκκίνησης ED2K συγχρονίστηκαν',

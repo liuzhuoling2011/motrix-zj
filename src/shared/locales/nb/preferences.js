@@ -380,7 +380,7 @@ export default {
   'ed2k-server-met-hint': 'For å finne ED2K-servere',
   'ed2k-nodes-dat-url': 'nodes.dat-kilde',
   'ed2k-nodes-dat-hint': 'For å finne Kad-noder',
-  'ed2k-bootstrap-sync': 'Synkroniser oppstartsfiler',
+  'ed2k-bootstrap-sync': 'Synkroniser',
   'ed2k-bootstrap-last-sync': 'Siste synkronisering',
   'ed2k-bootstrap-not-synced': 'Ikke synkronisert',
   'ed2k-bootstrap-sync-succeed': 'ED2K-oppstartsfiler synkronisert',

@@ -376,7 +376,7 @@ export default {
   'ed2k-server-met-hint': 'ED2K 서버 검색에 사용',
   'ed2k-nodes-dat-url': 'nodes.dat 소스',
   'ed2k-nodes-dat-hint': 'Kad 노드 검색에 사용',
-  'ed2k-bootstrap-sync': '부트스트랩 파일 동기화',
+  'ed2k-bootstrap-sync': '동기화',
   'ed2k-bootstrap-last-sync': '마지막 동기화 시간',
   'ed2k-bootstrap-not-synced': '동기화 안 됨',
   'ed2k-bootstrap-sync-succeed': 'ED2K 부트스트랩 파일이 동기화되었습니다',

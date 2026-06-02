@@ -383,7 +383,7 @@ export default {
   'ed2k-server-met-hint': 'Pentru descoperirea serverelor ED2K',
   'ed2k-nodes-dat-url': 'Sursă nodes.dat',
   'ed2k-nodes-dat-hint': 'Pentru descoperirea nodurilor Kad',
-  'ed2k-bootstrap-sync': 'Sincronizează fișierele',
+  'ed2k-bootstrap-sync': 'Sincronizează',
   'ed2k-bootstrap-last-sync': 'Ultima sincronizare',
   'ed2k-bootstrap-not-synced': 'Nesincronizat',
   'ed2k-bootstrap-sync-succeed': 'Fișierele de pornire ED2K au fost sincronizate',

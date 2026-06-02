@@ -380,7 +380,7 @@ export default {
   'ed2k-server-met-hint': 'برای یافتن سرورهای ED2K',
   'ed2k-nodes-dat-url': 'منبع nodes.dat',
   'ed2k-nodes-dat-hint': 'برای یافتن گره‌های Kad',
-  'ed2k-bootstrap-sync': 'همگام‌سازی فایل‌های راه‌اندازی',
+  'ed2k-bootstrap-sync': 'همگام‌سازی',
   'ed2k-bootstrap-last-sync': 'آخرین زمان همگام‌سازی',
   'ed2k-bootstrap-not-synced': 'همگام‌سازی نشده',
   'ed2k-bootstrap-sync-succeed': 'فایل‌های راه‌اندازی ED2K همگام شدند',

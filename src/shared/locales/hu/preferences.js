@@ -381,7 +381,7 @@ export default {
   'ed2k-server-met-hint': 'ED2K szerverek kereséséhez',
   'ed2k-nodes-dat-url': 'nodes.dat forrás',
   'ed2k-nodes-dat-hint': 'Kad csomópontok kereséséhez',
-  'ed2k-bootstrap-sync': 'Indítófájlok szinkronizálása',
+  'ed2k-bootstrap-sync': 'Szinkronizálás',
   'ed2k-bootstrap-last-sync': 'Utolsó szinkronizálás',
   'ed2k-bootstrap-not-synced': 'Nincs szinkronizálva',
   'ed2k-bootstrap-sync-succeed': 'ED2K indítófájlok szinkronizálva',

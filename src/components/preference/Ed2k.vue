@@ -481,7 +481,13 @@ onMounted(() => {
       </NFormItem>
       <NFormItem label=" ">
         <div class="ed2k-bootstrap-actions">
-          <NButton :loading="bootstrapSyncing" type="primary" secondary @click="handleSyncBootstrapFiles">
+          <NButton
+            :loading="bootstrapSyncing"
+            type="primary"
+            secondary
+            style="min-width: 100px"
+            @click="handleSyncBootstrapFiles"
+          >
             <template #icon>
               <NIcon><RefreshOutline /></NIcon>
             </template>

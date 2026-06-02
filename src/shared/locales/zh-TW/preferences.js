@@ -369,7 +369,7 @@ export default {
   'ed2k-server-met-hint': '用於發現 ED2K 伺服器',
   'ed2k-nodes-dat-url': 'nodes.dat 來源',
   'ed2k-nodes-dat-hint': '用於發現 Kad 節點',
-  'ed2k-bootstrap-sync': '同步引導檔案',
+  'ed2k-bootstrap-sync': '同步',
   'ed2k-bootstrap-last-sync': '上次同步時間',
   'ed2k-bootstrap-not-synced': '未同步',
   'ed2k-bootstrap-sync-succeed': 'ED2K 引導檔案已同步',

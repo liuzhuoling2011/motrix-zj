@@ -386,7 +386,7 @@ export default {
   'ed2k-server-met-hint': 'Per descobrir servidors ED2K',
   'ed2k-nodes-dat-url': 'Origen de nodes.dat',
   'ed2k-nodes-dat-hint': 'Per descobrir nodes Kad',
-  'ed2k-bootstrap-sync': 'Sincronitza els fitxers',
+  'ed2k-bootstrap-sync': 'Sincronitza',
   'ed2k-bootstrap-last-sync': 'Última sincronització',
   'ed2k-bootstrap-not-synced': 'No sincronitzat',
   'ed2k-bootstrap-sync-succeed': 'Fitxers d\'arrencada ED2K sincronitzats',

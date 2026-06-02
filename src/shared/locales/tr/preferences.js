@@ -383,7 +383,7 @@ export default {
   'ed2k-server-met-hint': 'ED2K sunucularını bulmak için',
   'ed2k-nodes-dat-url': 'nodes.dat kaynağı',
   'ed2k-nodes-dat-hint': 'Kad düğümlerini bulmak için',
-  'ed2k-bootstrap-sync': 'Başlatma dosyalarını eşitle',
+  'ed2k-bootstrap-sync': 'Eşitle',
   'ed2k-bootstrap-last-sync': 'Son eşitleme zamanı',
   'ed2k-bootstrap-not-synced': 'Eşitlenmedi',
   'ed2k-bootstrap-sync-succeed': 'ED2K başlatma dosyaları eşitlendi',
