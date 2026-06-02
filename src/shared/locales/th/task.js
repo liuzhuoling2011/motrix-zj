@@ -307,4 +307,5 @@ export default {
   'category-dir-placeholder': 'เว้นว่างสำหรับการจำแนกอัตโนมัติ',
   'favorite-folders': 'โฟลเดอร์โปรด',
   'recent-folders': 'โฟลเดอร์ล่าสุด',
+  'dir-no-saved': 'ไม่มีโฟลเดอร์ที่บันทึกไว้',
 }

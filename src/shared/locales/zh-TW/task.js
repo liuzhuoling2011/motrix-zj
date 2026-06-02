@@ -307,4 +307,5 @@ export default {
   'category-dir-placeholder': '留空則自動分類',
   'favorite-folders': '我的最愛',
   'recent-folders': '最近使用',
+  'dir-no-saved': '沒有已儲存目錄',
 }

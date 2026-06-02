@@ -307,4 +307,5 @@ export default {
   'category-dir-placeholder': 'Laat leeg voor automatische classificatie',
   'favorite-folders': 'Favorietemappen',
   'recent-folders': 'Recente mappen',
+  'dir-no-saved': 'Geen opgeslagen mappen',
 }

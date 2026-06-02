@@ -307,4 +307,5 @@ export default {
   'category-dir-placeholder': 'La stå tomt for automatisk klassifisering',
   'favorite-folders': 'Favorittmapper',
   'recent-folders': 'Nylige mapper',
+  'dir-no-saved': 'Ingen lagrede mapper',
 }

@@ -3,7 +3,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
-import { NPopover, NButton, NIcon, NEllipsis } from 'naive-ui'
+import { NPopover, NButton, NIcon, NEllipsis, NEmpty } from 'naive-ui'
 import { TimeOutline, StarOutline, Star, TrashOutline } from '@vicons/ionicons5'
 import { vAutoAnimate } from '@formkit/auto-animate'
 
@@ -42,7 +42,6 @@ function shortLabel(dir: string): string {
 
 <template>
   <NPopover
-    v-if="hasItems"
     v-model:show="popoverVisible"
     trigger="click"
     placement="bottom-end"
@@ -57,53 +56,56 @@ function shortLabel(dir: string): string {
       </NButton>
     </template>
 
-    <div v-auto-animate="{ duration: 200, easing: 'ease-out' }">
-      <div v-if="favorites.length > 0" class="dir-popover-heading">{{ t('task.favorite-folders') }}</div>
-      <div v-for="dir in favorites" :key="'fav-' + dir" class="dir-popover-item" :title="dir" @click="onSelect(dir)">
-        <NEllipsis class="dir-popover-label" :tooltip="false">
-          {{ shortLabel(dir) }}
-        </NEllipsis>
-        <div class="dir-popover-actions">
-          <NButton text size="tiny" class="dir-popover-action" @click.stop="onToggleFavorite(dir, true)">
-            <template #icon>
-              <NIcon color="var(--color-primary)"><Star /></NIcon>
-            </template>
-          </NButton>
-          <NButton text size="tiny" class="dir-popover-action" @click.stop="onRemove(dir)">
-            <template #icon>
-              <NIcon><TrashOutline /></NIcon>
-            </template>
-          </NButton>
+    <template v-if="hasItems">
+      <div v-auto-animate="{ duration: 200, easing: 'ease-out' }">
+        <div v-if="favorites.length > 0" class="dir-popover-heading">{{ t('task.favorite-folders') }}</div>
+        <div v-for="dir in favorites" :key="'fav-' + dir" class="dir-popover-item" :title="dir" @click="onSelect(dir)">
+          <NEllipsis class="dir-popover-label" :tooltip="false">
+            {{ shortLabel(dir) }}
+          </NEllipsis>
+          <div class="dir-popover-actions">
+            <NButton text size="tiny" class="dir-popover-action" @click.stop="onToggleFavorite(dir, true)">
+              <template #icon>
+                <NIcon color="var(--color-primary)"><Star /></NIcon>
+              </template>
+            </NButton>
+            <NButton text size="tiny" class="dir-popover-action" @click.stop="onRemove(dir)">
+              <template #icon>
+                <NIcon><TrashOutline /></NIcon>
+              </template>
+            </NButton>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div v-auto-animate="{ duration: 200, easing: 'ease-out' }">
-      <div
-        v-if="recents.length > 0"
-        class="dir-popover-heading"
-        :class="{ 'dir-popover-heading--spaced': favorites.length > 0 }"
-      >
-        {{ t('task.recent-folders') }}
-      </div>
-      <div v-for="dir in recents" :key="'rec-' + dir" class="dir-popover-item" :title="dir" @click="onSelect(dir)">
-        <NEllipsis class="dir-popover-label" :tooltip="false">
-          {{ shortLabel(dir) }}
-        </NEllipsis>
-        <div class="dir-popover-actions">
-          <NButton text size="tiny" class="dir-popover-action" @click.stop="onToggleFavorite(dir, false)">
-            <template #icon>
-              <NIcon><StarOutline /></NIcon>
-            </template>
-          </NButton>
-          <NButton text size="tiny" class="dir-popover-action" @click.stop="onRemove(dir)">
-            <template #icon>
-              <NIcon><TrashOutline /></NIcon>
-            </template>
-          </NButton>
+      <div v-auto-animate="{ duration: 200, easing: 'ease-out' }">
+        <div
+          v-if="recents.length > 0"
+          class="dir-popover-heading"
+          :class="{ 'dir-popover-heading--spaced': favorites.length > 0 }"
+        >
+          {{ t('task.recent-folders') }}
+        </div>
+        <div v-for="dir in recents" :key="'rec-' + dir" class="dir-popover-item" :title="dir" @click="onSelect(dir)">
+          <NEllipsis class="dir-popover-label" :tooltip="false">
+            {{ shortLabel(dir) }}
+          </NEllipsis>
+          <div class="dir-popover-actions">
+            <NButton text size="tiny" class="dir-popover-action" @click.stop="onToggleFavorite(dir, false)">
+              <template #icon>
+                <NIcon><StarOutline /></NIcon>
+              </template>
+            </NButton>
+            <NButton text size="tiny" class="dir-popover-action" @click.stop="onRemove(dir)">
+              <template #icon>
+                <NIcon><TrashOutline /></NIcon>
+              </template>
+            </NButton>
+          </div>
         </div>
       </div>
-    </div>
+    </template>
+    <NEmpty v-else size="small" :description="t('task.dir-no-saved')" />
   </NPopover>
 </template>
 

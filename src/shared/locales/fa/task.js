@@ -307,4 +307,5 @@ export default {
   'category-dir-placeholder': 'برای طبقه‌بندی خودکار خالی بگذارید',
   'favorite-folders': 'پوشه‌های مورد علاقه',
   'recent-folders': 'پوشه‌های اخیر',
+  'dir-no-saved': 'پوشه ذخیره‌شده‌ای وجود ندارد',
 }

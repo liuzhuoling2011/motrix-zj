@@ -307,4 +307,5 @@ export default {
   'category-dir-placeholder': 'Để trống để phân loại tự động',
   'favorite-folders': 'Thư mục yêu thích',
   'recent-folders': 'Thư mục gần đây',
+  'dir-no-saved': 'Không có thư mục đã lưu',
 }

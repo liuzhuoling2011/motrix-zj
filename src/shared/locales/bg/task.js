@@ -307,4 +307,5 @@ export default {
   'category-dir-placeholder': 'Оставете празно за автоматична класификация',
   'favorite-folders': 'Любими папки',
   'recent-folders': 'Скорошни папки',
+  'dir-no-saved': 'Няма запазени папки',
 }

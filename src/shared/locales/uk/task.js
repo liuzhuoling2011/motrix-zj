@@ -307,4 +307,5 @@ export default {
   'category-dir-placeholder': 'Залиште порожнім для автокласифікації',
   'favorite-folders': 'Обрані теки',
   'recent-folders': 'Нещодавні теки',
+  'dir-no-saved': 'Немає збережених тек',
 }

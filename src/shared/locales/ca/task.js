@@ -308,4 +308,5 @@ export default {
   'category-dir-placeholder': 'Deixeu buit per a la classificació automàtica',
   'favorite-folders': 'Carpetes preferides',
   'recent-folders': 'Carpetes recents',
+  'dir-no-saved': 'No hi ha carpetes desades',
 }

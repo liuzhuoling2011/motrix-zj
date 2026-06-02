@@ -308,4 +308,5 @@ export default {
   'category-dir-placeholder': 'Αφήστε κενό για αυτόματη ταξινόμηση',
   'favorite-folders': 'Αγαπημένοι φάκελοι',
   'recent-folders': 'Πρόσφατοι φάκελοι',
+  'dir-no-saved': 'Δεν υπάρχουν αποθηκευμένοι φάκελοι',
 }

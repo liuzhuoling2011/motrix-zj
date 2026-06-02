@@ -237,8 +237,93 @@ export const XIU2_TRACKERS_HTTP_URL_CDN = 'https://cdn.jsdelivr.net/gh/XIU2/Trac
 // For bt-exclude-tracker
 export const XIU2_TRACKERS_BLACK_URL = 'https://cdn.jsdelivr.net/gh/XIU2/TrackersListCollection/blacklist.txt'
 
-/** Sensible default tracker sources for first install (CDN endpoints). */
-export const DEFAULT_TRACKER_SOURCE = [NGOSANG_TRACKERS_BEST_URL_CDN, NGOSANG_TRACKERS_BEST_IP_URL_CDN]
+export const TRACKER_SOURCE_OPTIONS = [
+  {
+    label: 'ngosang/trackerslist',
+    options: [
+      {
+        value: NGOSANG_TRACKERS_BEST_URL,
+        label: 'trackers_best.txt',
+        cdn: false,
+      },
+      {
+        value: NGOSANG_TRACKERS_BEST_IP_URL,
+        label: 'trackers_best_ip.txt',
+        cdn: false,
+      },
+      {
+        value: NGOSANG_TRACKERS_ALL_URL,
+        label: 'trackers_all.txt',
+        cdn: false,
+      },
+      {
+        value: NGOSANG_TRACKERS_ALL_IP_URL,
+        label: 'trackers_all_ip.txt',
+        cdn: false,
+      },
+      {
+        value: NGOSANG_TRACKERS_BEST_URL_CDN,
+        label: 'trackers_best.txt',
+        cdn: true,
+      },
+      {
+        value: NGOSANG_TRACKERS_BEST_IP_URL_CDN,
+        label: 'trackers_best_ip.txt',
+        cdn: true,
+      },
+      {
+        value: NGOSANG_TRACKERS_ALL_URL_CDN,
+        label: 'trackers_all.txt',
+        cdn: true,
+      },
+      {
+        value: NGOSANG_TRACKERS_ALL_IP_URL_CDN,
+        label: 'trackers_all_ip.txt',
+        cdn: true,
+      },
+    ],
+  },
+  {
+    label: 'XIU2/TrackersListCollection',
+    options: [
+      {
+        value: XIU2_TRACKERS_BEST_URL,
+        label: 'best.txt',
+        cdn: false,
+      },
+      {
+        value: XIU2_TRACKERS_ALL_URL,
+        label: 'all.txt',
+        cdn: false,
+      },
+      {
+        value: XIU2_TRACKERS_HTTP_URL,
+        label: 'http.txt',
+        cdn: false,
+      },
+      {
+        value: XIU2_TRACKERS_BEST_URL_CDN,
+        label: 'best.txt',
+        cdn: true,
+      },
+      {
+        value: XIU2_TRACKERS_ALL_URL_CDN,
+        label: 'all.txt',
+        cdn: true,
+      },
+      {
+        value: XIU2_TRACKERS_HTTP_URL_CDN,
+        label: 'http.txt',
+        cdn: true,
+      },
+    ],
+  },
+] as const
+
+/** Sensible default tracker sources for first install (all CDN endpoints). */
+export const DEFAULT_TRACKER_SOURCE = TRACKER_SOURCE_OPTIONS.flatMap((group) =>
+  group.options.filter((option) => option.cdn).map((option) => option.value),
+)
 
 export const DEFAULT_APP_CONFIG = {
   configVersion: 5,
@@ -403,89 +488,6 @@ export const DEFAULT_APP_CONFIG = {
 export const FILE_ALLOCATION_OPTIONS = ['none', 'trunc', 'prealloc', 'falloc'] as const
 
 export const MAX_BT_TRACKER_LENGTH = 6144
-
-export const TRACKER_SOURCE_OPTIONS = [
-  {
-    label: 'ngosang/trackerslist',
-    options: [
-      {
-        value: NGOSANG_TRACKERS_BEST_URL,
-        label: 'trackers_best.txt',
-        cdn: false,
-      },
-      {
-        value: NGOSANG_TRACKERS_BEST_IP_URL,
-        label: 'trackers_best_ip.txt',
-        cdn: false,
-      },
-      {
-        value: NGOSANG_TRACKERS_ALL_URL,
-        label: 'trackers_all.txt',
-        cdn: false,
-      },
-      {
-        value: NGOSANG_TRACKERS_ALL_IP_URL,
-        label: 'trackers_all_ip.txt',
-        cdn: false,
-      },
-      {
-        value: NGOSANG_TRACKERS_BEST_URL_CDN,
-        label: 'trackers_best.txt',
-        cdn: true,
-      },
-      {
-        value: NGOSANG_TRACKERS_BEST_IP_URL_CDN,
-        label: 'trackers_best_ip.txt',
-        cdn: true,
-      },
-      {
-        value: NGOSANG_TRACKERS_ALL_URL_CDN,
-        label: 'trackers_all.txt',
-        cdn: true,
-      },
-      {
-        value: NGOSANG_TRACKERS_ALL_IP_URL_CDN,
-        label: 'trackers_all_ip.txt',
-        cdn: true,
-      },
-    ],
-  },
-  {
-    label: 'XIU2/TrackersListCollection',
-    options: [
-      {
-        value: XIU2_TRACKERS_BEST_URL,
-        label: 'best.txt',
-        cdn: false,
-      },
-      {
-        value: XIU2_TRACKERS_ALL_URL,
-        label: 'all.txt',
-        cdn: false,
-      },
-      {
-        value: XIU2_TRACKERS_HTTP_URL,
-        label: 'http.txt',
-        cdn: false,
-      },
-      {
-        value: XIU2_TRACKERS_BEST_URL_CDN,
-        label: 'best.txt',
-        cdn: true,
-      },
-      {
-        value: XIU2_TRACKERS_ALL_URL_CDN,
-        label: 'all.txt',
-        cdn: true,
-      },
-      {
-        value: XIU2_TRACKERS_HTTP_URL_CDN,
-        label: 'http.txt',
-        cdn: true,
-      },
-    ],
-  },
-]
 
 export const PROXY_SCOPES = {
   DOWNLOAD: 'download',

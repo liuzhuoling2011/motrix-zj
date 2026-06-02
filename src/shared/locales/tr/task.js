@@ -307,4 +307,5 @@ export default {
   'category-dir-placeholder': 'Otomatik sınıflandırma için boş bırakın',
   'favorite-folders': 'Favori klasörler',
   'recent-folders': 'Son klasörler',
+  'dir-no-saved': 'Kayıtlı klasör yok',
 }

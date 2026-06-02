@@ -307,4 +307,5 @@ export default {
   'category-dir-placeholder': 'Kosongkan untuk klasifikasi otomatis',
   'favorite-folders': 'Folder favorit',
   'recent-folders': 'Folder terbaru',
+  'dir-no-saved': 'Tidak ada folder tersimpan',
 }

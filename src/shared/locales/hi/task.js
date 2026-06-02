@@ -308,4 +308,5 @@ export default {
   'category-dir-placeholder': 'Auto-classification के लिए खाली छोड़ें',
   'favorite-folders': 'Favorites',
   'recent-folders': 'Recent',
+  'dir-no-saved': 'कोई सहेजा गया फ़ोल्डर नहीं',
 }

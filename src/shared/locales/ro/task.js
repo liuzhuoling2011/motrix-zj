@@ -307,4 +307,5 @@ export default {
   'category-dir-placeholder': 'Lăsați gol pentru clasificare automată',
   'favorite-folders': 'Foldere favorite',
   'recent-folders': 'Foldere recente',
+  'dir-no-saved': 'Nu există foldere salvate',
 }

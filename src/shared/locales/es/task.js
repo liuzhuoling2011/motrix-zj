@@ -308,4 +308,5 @@ export default {
   'category-dir-placeholder': 'Dejar vacío para clasificación automática',
   'favorite-folders': 'Carpetas favoritas',
   'recent-folders': 'Carpetas recientes',
+  'dir-no-saved': 'No hay carpetas guardadas',
 }

@@ -308,4 +308,5 @@ export default {
   'category-dir-placeholder': '空欄のままで自動分類',
   'favorite-folders': 'お気に入りフォルダ',
   'recent-folders': '最近のフォルダ',
+  'dir-no-saved': '保存済みフォルダはありません',
 }

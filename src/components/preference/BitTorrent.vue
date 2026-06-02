@@ -60,7 +60,7 @@ const syncIntervalOptions = computed(() => [
 ])
 
 // ── Tracker source management ───────────────────────────────────────
-const presetTrackerValues = new Set(
+const presetTrackerValues = new Set<string>(
   trackerSourceOptions.flatMap((group) => ('children' in group ? group.children.map((c) => c.value) : [])),
 )
 

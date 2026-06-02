@@ -308,4 +308,5 @@ export default {
   'category-dir-placeholder': 'Hagyja üresen az automatikus osztályozáshoz',
   'favorite-folders': 'Kedvenc mappák',
   'recent-folders': 'Legutóbbi mappák',
+  'dir-no-saved': 'Nincsenek mentett mappák',
 }

@@ -307,4 +307,5 @@ export default {
   'category-dir-placeholder': 'اتركه فارغاً للتصنيف التلقائي',
   'favorite-folders': 'المجلدات المفضلة',
   'recent-folders': 'المجلدات الأخيرة',
+  'dir-no-saved': 'لا توجد مجلدات محفوظة',
 }

@@ -307,4 +307,5 @@ export default {
   'category-dir-placeholder': 'Lasciare vuoto per la classificazione automatica',
   'favorite-folders': 'Cartelle preferite',
   'recent-folders': 'Cartelle recenti',
+  'dir-no-saved': 'Nessuna cartella salvata',
 }

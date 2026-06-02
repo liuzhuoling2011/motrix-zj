@@ -307,4 +307,5 @@ export default {
   'category-dir-placeholder': '자동 분류를 위해 비워두세요',
   'favorite-folders': '즐겨찾기 폴더',
   'recent-folders': '최근 폴더',
+  'dir-no-saved': '저장된 폴더 없음',
 }
