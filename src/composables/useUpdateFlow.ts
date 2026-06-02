@@ -7,6 +7,7 @@
 import { isDowngrade } from '@shared/utils/semver'
 import { PROXY_SCOPES } from '@shared/constants'
 import { resolveAppProxyUrl } from '@shared/utils/appProxyPolicy'
+import type { ProxyConfig } from '@shared/types'
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -15,15 +16,6 @@ export type DownloadUpdateStatus = 'downloaded' | 'no-update'
 
 export interface DownloadUpdateResult {
   status: DownloadUpdateStatus
-}
-
-export interface UpdateProxyConfig {
-  enable?: boolean
-  mode?: string
-  server?: string
-  username?: string
-  password?: string
-  scope?: string[]
 }
 
 // ── State Machine Pure Functions ────────────────────────────────────
@@ -93,7 +85,7 @@ export function bytesToMB(bytes: number): string {
 // ── Proxy Resolution ────────────────────────────────────────────────
 
 /** Returns the proxy server URL if proxy is enabled for app updates. */
-export function getUpdateProxy(proxyConfig: UpdateProxyConfig | undefined): string | null {
+export function getUpdateProxy(proxyConfig: Partial<ProxyConfig> | undefined): string | null {
   return resolveAppProxyUrl(proxyConfig, PROXY_SCOPES.UPDATE_APP)
 }
 

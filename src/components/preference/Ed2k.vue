@@ -36,7 +36,7 @@ import {
 import { cleanupEd2kSearch, ed2kSearch, getEd2kSearchResults } from '@/api/aria2'
 import { BT_LISTEN_PORT, DHT_LISTEN_PORT, ENGINE_RPC_PORT, PROXY_SCOPES } from '@shared/constants'
 import { diffConfig, checkIsNeedRestart } from '@shared/utils/config'
-import { bytesToSize, localeDateTimeFormat } from '@shared/utils'
+import { bytesToSize } from '@shared/utils'
 import { resolveAppProxyUrl } from '@shared/utils/appProxyPolicy'
 import { getErrorMessage } from '@shared/utils/errorMessage'
 import { logger } from '@shared/logger'
@@ -97,18 +97,9 @@ const searchStatusText = computed(() =>
       })
     : t('preferences.ed2k-search-ready', { total: Math.floor(searchMaxDurationMs.value / 1000) }),
 )
-const bootstrapCacheText = computed(() => {
-  const server = bootstrapStatus.value.serverMetSize
-  const nodes = bootstrapStatus.value.nodesDatSize
-  if (!server && !nodes) return t('preferences.ed2k-bootstrap-not-synced')
-  const parts = []
-  if (server) parts.push(`server.met ${bytesToSize(server)}`)
-  if (nodes) parts.push(`nodes.dat ${bytesToSize(nodes)}`)
-  return parts.join(' · ')
-})
 const bootstrapLastSyncText = computed(() => {
   const latest = Math.max(bootstrapStatus.value.serverMetModified ?? 0, bootstrapStatus.value.nodesDatModified ?? 0)
-  return latest > 0 ? localeDateTimeFormat(latest, preferenceStore.resolvedLocale) : '-'
+  return latest > 0 ? new Date(latest).toLocaleString() : '-'
 })
 
 const fileTypeOptions = computed(() => [
@@ -466,37 +457,40 @@ onMounted(() => {
         <template #label>
           <PreferenceHintLabel
             :label="t('preferences.ed2k-server-met-url')"
-            :hint="t('preferences.ed2k-bootstrap-hint')"
+            :hint="t('preferences.ed2k-server-met-hint')"
           />
         </template>
         <NInput v-model:value="form.ed2kServerMetUrl" />
       </NFormItem>
-      <NFormItem :label="t('preferences.ed2k-nodes-dat-url')">
+      <NFormItem>
+        <template #label>
+          <PreferenceHintLabel
+            :label="t('preferences.ed2k-nodes-dat-url')"
+            :hint="t('preferences.ed2k-nodes-dat-hint')"
+          />
+        </template>
         <NInput v-model:value="form.ed2kNodesDatUrl" />
       </NFormItem>
-      <NFormItem label=" ">
-        <NButton :loading="bootstrapSyncing" secondary @click="handleSyncBootstrapFiles">
-          <template #icon>
-            <NIcon><RefreshOutline /></NIcon>
-          </template>
-          {{ t('preferences.ed2k-bootstrap-sync') }}
-        </NButton>
-      </NFormItem>
-      <NFormItem :label="t('preferences.ed2k-bootstrap-cache')">
-        <NText depth="3">{{ bootstrapCacheText }}</NText>
-      </NFormItem>
-      <NFormItem :label="t('preferences.ed2k-bootstrap-last-sync')">
-        <NText depth="3">{{ bootstrapLastSyncText }}</NText>
-      </NFormItem>
-
-      <NDivider title-placement="left">{{ t('preferences.ed2k-manual-servers') }}</NDivider>
       <NFormItem :label="t('preferences.ed2k-server')">
         <NInput
           v-model:value="form.ed2kServer"
           type="textarea"
-          :autosize="{ minRows: 2, maxRows: 5 }"
+          :autosize="{ minRows: 1, maxRows: 5 }"
           :placeholder="t('preferences.ed2k-server-placeholder')"
         />
+      </NFormItem>
+      <NFormItem label=" ">
+        <div class="ed2k-bootstrap-actions">
+          <NButton :loading="bootstrapSyncing" type="primary" secondary @click="handleSyncBootstrapFiles">
+            <template #icon>
+              <NIcon><RefreshOutline /></NIcon>
+            </template>
+            {{ t('preferences.ed2k-bootstrap-sync') }}
+          </NButton>
+          <NText depth="3" class="ed2k-bootstrap-last-sync">
+            {{ t('preferences.ed2k-bootstrap-last-sync') }} {{ bootstrapLastSyncText }}
+          </NText>
+        </div>
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.ed2k-search') }}</NDivider>
@@ -588,6 +582,17 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
   min-height: 34px;
+}
+.ed2k-bootstrap-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 34px;
+}
+.ed2k-bootstrap-last-sync {
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 .ed2k-search-status {
   display: inline-flex;
