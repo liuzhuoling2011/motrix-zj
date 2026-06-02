@@ -125,7 +125,7 @@ export default {
   'task-complete': '完了',
   'task-error': 'エラー',
   'task-removed': '削除済み',
-  seeding: 'シード',
+  seeding: 'シード中',
   sharing: '共有中',
   'task-piece': 'ピース',
   'task-piece-length': 'ピースサイズ',

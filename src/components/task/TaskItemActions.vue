@@ -213,9 +213,6 @@ function onRelease(ev: PointerEvent) {
 
 <style scoped>
 .task-item-actions {
-  position: absolute;
-  top: 14px;
-  right: 12px;
   height: 32px;
   padding: 0 12px;
   margin: 0;

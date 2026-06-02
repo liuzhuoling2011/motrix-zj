@@ -257,51 +257,53 @@ onBeforeUnmount(() => {
     @pointerleave="onCardRelease"
     @animationend="sharingEnter = false"
   >
-    <MTooltip placement="bottom-start">
-      <template #trigger>
-        <div class="task-name">
-          <!-- Crossfade: old name fades out, then new name fades in.
-               :key ensures transition only fires when the text actually changes.
-               Polling-safe: computed returns the same string each cycle → no key change. -->
-          <Transition name="name-crossfade" mode="out-in">
-            <span :key="taskFullName">{{ taskFullName }}</span>
-          </Transition>
-          <div class="tags-wrapper" :class="{ 'has-tags': isSharing || finishedTag || fileMissing }">
-            <div class="tags-inner">
-              <div v-if="isSharing || finishedTag || fileMissing" class="task-tags">
-                <span v-if="isSharing" class="sharing-tag">
-                  <NIcon :size="13"><CloudUploadOutline /></NIcon>
-                  {{ sharingLabel }}
-                </span>
-                <span v-else-if="finishedTag" class="status-tag" :style="{ color: finishedTag.color }">
-                  <NIcon :size="13"><component :is="finishedTag.icon" /></NIcon>
-                  {{ finishedTag.label }}
-                </span>
-                <span v-if="fileMissing" class="file-missing-tag">
-                  <NIcon :size="13"><AlertCircleOutline /></NIcon>
-                  {{ t('task.file-missing') || 'File missing' }}
-                </span>
+    <div class="task-header">
+      <MTooltip placement="bottom-start">
+        <template #trigger>
+          <div class="task-name">
+            <!-- Crossfade: old name fades out, then new name fades in.
+                 :key ensures transition only fires when the text actually changes.
+                 Polling-safe: computed returns the same string each cycle → no key change. -->
+            <Transition name="name-crossfade" mode="out-in">
+              <span :key="taskFullName">{{ taskFullName }}</span>
+            </Transition>
+            <div class="tags-wrapper" :class="{ 'has-tags': isSharing || finishedTag || fileMissing }">
+              <div class="tags-inner">
+                <div v-if="isSharing || finishedTag || fileMissing" class="task-tags">
+                  <span v-if="isSharing" class="sharing-tag">
+                    <NIcon :size="13"><CloudUploadOutline /></NIcon>
+                    {{ sharingLabel }}
+                  </span>
+                  <span v-else-if="finishedTag" class="status-tag" :style="{ color: finishedTag.color }">
+                    <NIcon :size="13"><component :is="finishedTag.icon" /></NIcon>
+                    {{ finishedTag.label }}
+                  </span>
+                  <span v-if="fileMissing" class="file-missing-tag">
+                    <NIcon :size="13"><AlertCircleOutline /></NIcon>
+                    {{ t('task.file-missing') || 'File missing' }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </template>
-      {{ taskFullName }}
-    </MTooltip>
-    <TaskItemActions
-      :task="task"
-      :status="taskStatus"
-      :file-missing="fileMissing"
-      @pause="emit('pause', task)"
-      @resume="emit('resume', task)"
-      @delete="emit('delete', task)"
-      @delete-record="emit('delete-record', task)"
-      @copy-link="emit('copy-link', task)"
-      @show-info="emit('show-info', task)"
-      @folder="emit('folder', task)"
-      @open-file="emit('open-file', task)"
-      @stop-sharing="emit('stop-sharing', task)"
-    />
+        </template>
+        {{ taskFullName }}
+      </MTooltip>
+      <TaskItemActions
+        :task="task"
+        :status="taskStatus"
+        :file-missing="fileMissing"
+        @pause="emit('pause', task)"
+        @resume="emit('resume', task)"
+        @delete="emit('delete', task)"
+        @delete-record="emit('delete-record', task)"
+        @copy-link="emit('copy-link', task)"
+        @show-info="emit('show-info', task)"
+        @folder="emit('folder', task)"
+        @open-file="emit('open-file', task)"
+        @stop-sharing="emit('stop-sharing', task)"
+      />
+    </div>
     <div class="task-progress">
       <NProgress
         type="line"
@@ -426,12 +428,18 @@ onBeforeUnmount(() => {
     transform 0.35s cubic-bezier(0.05, 0.7, 0.1, 1),
     border-color 0.3s;
 }
+.task-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 20px;
+  align-items: start;
+}
 .task-name {
   color: var(--m3-on-surface-variant);
-  margin-bottom: 1.5rem;
-  margin-right: 250px;
+  margin-bottom: 0.8rem;
   overflow: hidden;
   min-height: 26px;
+  min-width: 0;
 }
 .task-name > span {
   font-size: 14px;

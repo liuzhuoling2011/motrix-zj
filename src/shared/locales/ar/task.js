@@ -125,7 +125,7 @@ export default {
   'task-complete': 'مكتمل',
   'task-error': 'خطأ',
   'task-removed': 'تمت الإزالة',
-  seeding: 'البذر',
+  seeding: 'جارٍ البذر',
   sharing: 'جارٍ المشاركة',
   'task-piece': 'جزء',
   'task-piece-length': 'حجم الجزء',

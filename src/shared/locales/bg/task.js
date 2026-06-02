@@ -125,7 +125,7 @@ export default {
   'task-complete': 'Завършено',
   'task-error': 'Грешка',
   'task-removed': 'Премахнато',
-  seeding: 'Споделяне',
+  seeding: 'Споделяне...',
   sharing: 'Споделяне',
   'task-piece': 'Част',
   'task-piece-length': 'Размер на частта',

@@ -125,7 +125,7 @@ export default {
   'task-complete': '완료',
   'task-error': '오류',
   'task-removed': '삭제됨',
-  seeding: '시딩',
+  seeding: '시딩 중',
   sharing: '공유 중',
   'task-piece': '피스',
   'task-piece-length': '피스 크기',

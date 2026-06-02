@@ -125,7 +125,7 @@ export default {
   'task-complete': 'تکمیل شده',
   'task-error': 'خطا',
   'task-removed': 'حذف شده',
-  seeding: 'بذرپاشی',
+  seeding: 'در حال بذرپاشی',
   sharing: 'در حال اشتراک‌گذاری',
   'task-piece': 'قطعه',
   'task-piece-length': 'اندازه قطعه',

@@ -125,7 +125,7 @@ export default {
   'task-complete': 'Befejezve',
   'task-error': 'Hiba',
   'task-removed': 'Eltávolítva',
-  seeding: 'Megosztás',
+  seeding: 'Megosztás folyamatban',
   sharing: 'Megosztás',
   'task-piece': 'Darab',
   'task-piece-length': 'Darab méret',

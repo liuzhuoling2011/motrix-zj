@@ -125,7 +125,7 @@ export default {
   'task-complete': 'Ολοκληρώθηκε',
   'task-error': 'Σφάλμα',
   'task-removed': 'Αφαιρέθηκε',
-  seeding: 'Διαμοιρασμός',
+  seeding: 'Διαμοιρασμός σε εξέλιξη',
   sharing: 'Διαμοιρασμός',
   'task-piece': 'Κομμάτι',
   'task-piece-length': 'Μέγεθος κομματιού',

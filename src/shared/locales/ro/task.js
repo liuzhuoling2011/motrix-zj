@@ -125,7 +125,7 @@ export default {
   'task-complete': 'Finalizat',
   'task-error': 'Eroare',
   'task-removed': 'Eliminat',
-  seeding: 'Distribuire',
+  seeding: 'Distribuire în curs',
   sharing: 'Se distribuie',
   'task-piece': 'Bucată',
   'task-piece-length': 'Dimensiunea bucății',

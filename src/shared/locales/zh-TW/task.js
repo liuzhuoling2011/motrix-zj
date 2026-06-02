@@ -125,7 +125,7 @@ export default {
   'task-complete': '已完成',
   'task-error': '錯誤',
   'task-removed': '已移除',
-  seeding: '做種',
+  seeding: '做種中',
   sharing: '共享中',
   'task-piece': '分片',
   'task-piece-length': '分片大小',

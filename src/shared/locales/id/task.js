@@ -125,7 +125,7 @@ export default {
   'task-complete': 'Selesai',
   'task-error': 'Kesalahan',
   'task-removed': 'Dihapus',
-  seeding: 'Seeding',
+  seeding: 'Sedang seeding',
   sharing: 'Berbagi',
   'task-piece': 'Bagian',
   'task-piece-length': 'Ukuran bagian',

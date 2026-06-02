@@ -125,7 +125,7 @@ export default {
   'task-complete': 'เสร็จสิ้น',
   'task-error': 'ข้อผิดพลาด',
   'task-removed': 'ถูกลบ',
-  seeding: 'การแชร์',
+  seeding: 'กำลังแชร์',
   sharing: 'กำลังแชร์',
   'task-piece': 'ชิ้น',
   'task-piece-length': 'ขนาดชิ้น',

@@ -125,7 +125,7 @@ export default {
   'task-complete': 'Tamamlandı',
   'task-error': 'Hata',
   'task-removed': 'Kaldırıldı',
-  seeding: 'Paylaşım',
+  seeding: 'Paylaşılıyor',
   sharing: 'Paylaşılıyor',
   'task-piece': 'Parça',
   'task-piece-length': 'Parça boyutu',

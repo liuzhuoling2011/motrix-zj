@@ -125,7 +125,7 @@ export default {
   'task-complete': 'Hoàn thành',
   'task-error': 'Lỗi',
   'task-removed': 'Đã xóa',
-  seeding: 'Chia sẻ',
+  seeding: 'Đang chia sẻ',
   sharing: 'Đang chia sẻ',
   'task-piece': 'Mảnh',
   'task-piece-length': 'Kích thước mảnh',

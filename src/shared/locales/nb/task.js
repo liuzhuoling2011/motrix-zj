@@ -125,7 +125,7 @@ export default {
   'task-complete': 'Fullført',
   'task-error': 'Feil',
   'task-removed': 'Fjernet',
-  seeding: 'Deling',
+  seeding: 'Deler',
   sharing: 'Deler',
   'task-piece': 'Del',
   'task-piece-length': 'Delstørrelse',

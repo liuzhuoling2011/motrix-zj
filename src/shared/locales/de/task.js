@@ -125,7 +125,7 @@ export default {
   'task-complete': 'Abgeschlossen',
   'task-error': 'Fehler',
   'task-removed': 'Entfernt',
-  seeding: 'Seeding',
+  seeding: 'Seeding läuft',
   sharing: 'Teilen',
   'task-piece': 'Stück',
   'task-piece-length': 'Stückgröße',

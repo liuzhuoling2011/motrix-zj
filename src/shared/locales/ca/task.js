@@ -125,7 +125,7 @@ export default {
   'task-complete': 'Completat',
   'task-error': 'Error',
   'task-removed': 'Eliminat',
-  seeding: 'Compartició',
+  seeding: 'Compartint',
   sharing: 'Compartint',
   'task-piece': 'Peça',
   'task-piece-length': 'Mida de la peça',
