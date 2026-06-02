@@ -179,7 +179,7 @@ export default {
   'ua-delete': 'Delete',
   'aria2-conf-path': 'Configuració del motor',
   'temp-files-dir': 'Directori de fitxers temporals',
-  'factory-reset': 'Restaurar valors de fàbrica',
+  'factory-reset': 'Delete Config and Reset',
   'factory-reset-confirm': 'Restaurar els valors de fàbrica?',
   'lab-warning': '⚠️ Les funcionalitats del laboratori poden causar fallades o pèrdua de dades!',
   'download-protocol': 'Protocols',
@@ -232,7 +232,7 @@ export default {
   'engine-restart-btn': 'Reiniciar el motor Aria2 Next',
   'engine-restart-manual-confirm':
     "Voleu reiniciar el motor de descàrregues? Les descàrregues actives s'interrompran temporalment, però es reprendran automàticament després del reinici.",
-  'restore-defaults': 'Restaurar valors predeterminats',
+  'restore-defaults': 'Restore Defaults',
   'restore-defaults-confirm':
     'Tots els paràmetres es restabliran als valors predeterminats. Aquesta acció no es pot desfer.',
   'restore-defaults-success': "S'han restaurat els valors predeterminats",
@@ -260,7 +260,6 @@ export default {
   'db-rebuild-failed': 'Error en reconstruir la base de dades',
   'auto-cleanup': 'Neteja automàtica',
   reset: 'Restaurar configuració',
-  'diagnostics-section': 'Diagnòstic',
   tray: 'Safata del sistema',
   seeding: 'Compartició',
   'notification-and-confirm': 'Notificacions i confirmació',

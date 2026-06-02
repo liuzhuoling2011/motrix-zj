@@ -179,7 +179,7 @@ export default {
   'ua-delete': 'Delete',
   'aria2-conf-path': 'Engine-configuratie',
   'temp-files-dir': 'Map voor tijdelijke bestanden',
-  'factory-reset': 'Fabrieksinstellingen',
+  'factory-reset': 'Delete Config and Reset',
   'factory-reset-confirm': 'Fabrieksinstellingen herstellen?',
   'lab-warning': '⚠️ Labfuncties kunnen crashes of gegevensverlies veroorzaken!',
   'download-protocol': 'Protocollen',
@@ -232,7 +232,7 @@ export default {
   'engine-restart-btn': 'Aria2 Next-engine opnieuw opstarten',
   'engine-restart-manual-confirm':
     'Wilt u de downloadengine herstarten? Actieve downloads worden kort onderbroken maar worden automatisch hervat na het herstarten.',
-  'restore-defaults': 'Standaardwaarden herstellen',
+  'restore-defaults': 'Restore Defaults',
   'restore-defaults-confirm':
     'Alle instellingen worden teruggezet naar de fabrieksinstellingen. Dit kan niet ongedaan worden gemaakt.',
   'restore-defaults-success': 'Standaardwaarden hersteld',
@@ -260,7 +260,6 @@ export default {
   'db-rebuild-failed': 'Opnieuw opbouwen van database mislukt',
   'auto-cleanup': 'Automatisch opruimen',
   reset: 'Instellingen herstellen',
-  'diagnostics-section': 'Diagnostiek',
   tray: 'Systeemvak',
   seeding: 'Seeding',
   'notification-and-confirm': 'Meldingen en bevestiging',

@@ -37,6 +37,7 @@ import {
   NDivider,
   NIcon,
   NModal,
+  NCard,
   NDataTable,
   NEmpty,
   NCollapseTransition,
@@ -533,7 +534,7 @@ watch(protocolHandlers.lastError, (error) => {
           </NButton>
         </NInputGroup>
       </NFormItem>
-      <NFormItem :show-label="false">
+      <NFormItem label=" ">
         <NButton class="ghost-btn--warning" ghost @click="handleSessionReset">
           {{ t('preferences.clear-all-tasks') }}
         </NButton>
@@ -575,7 +576,7 @@ watch(protocolHandlers.lastError, (error) => {
           </div>
         </div>
       </NFormItem>
-      <NFormItem :show-label="false">
+      <NFormItem label=" ">
         <div class="log-action-row">
           <NButton class="ghost-btn--primary" ghost :loading="exportingLogs" @click="handleExportLogs">
             <template #icon>
@@ -593,6 +594,15 @@ watch(protocolHandlers.lastError, (error) => {
       </NFormItem>
 
       <NDivider title-placement="left">{{ t('preferences.maintenance-section') }}</NDivider>
+      <NFormItem v-if="isLinux">
+        <template #label>
+          <PreferenceHintLabel
+            :label="t('preferences.hardware-rendering')"
+            :hint="t('preferences.hardware-rendering-hint')"
+          />
+        </template>
+        <NSwitch v-model:value="form.hardwareRendering" />
+      </NFormItem>
       <NFormItem :label="t('preferences.history-section')">
         <NSpace>
           <NButton class="db-integrity-check-btn" @click="handleDbIntegrityCheck">
@@ -642,17 +652,6 @@ watch(protocolHandlers.lastError, (error) => {
         </div>
       </NFormItem>
 
-      <NDivider title-placement="left">{{ t('preferences.diagnostics-section') }}</NDivider>
-      <NFormItem v-if="isLinux">
-        <template #label>
-          <PreferenceHintLabel
-            :label="t('preferences.hardware-rendering')"
-            :hint="t('preferences.hardware-rendering-hint')"
-          />
-        </template>
-        <NSwitch v-model:value="form.hardwareRendering" />
-      </NFormItem>
-
       <!-- Clipboard Detection (migrated from Basic) -->
       <NDivider title-placement="left">{{ t('preferences.clipboard-detection') }}</NDivider>
       <NFormItem :label="t('preferences.clipboard-auto-detect')">
@@ -697,29 +696,31 @@ watch(protocolHandlers.lastError, (error) => {
     </NForm>
 
     <!-- Database records viewer modal -->
-    <NModal
-      v-model:show="showDbBrowse"
-      preset="card"
-      :title="t('preferences.db-browse-title')"
-      class="db-record-modal"
-      :mask-closable="true"
-    >
-      <NDataTable
-        :columns="dbBrowseColumns"
-        :data="dbRecords"
-        :loading="dbRecordsLoading"
-        :max-height="400"
-        :scroll-x="700"
-        size="small"
-        striped
+    <NModal v-model:show="showDbBrowse" :mask-closable="true" transform-origin="center">
+      <NCard
+        :title="t('preferences.db-browse-title')"
+        closable
+        class="db-record-modal"
+        :bordered="false"
+        @close="showDbBrowse = false"
       >
-        <template #empty>
-          <NEmpty :description="t('preferences.db-record-count', { count: 0 })" />
-        </template>
-      </NDataTable>
-      <div v-if="dbRecords.length > 0" class="db-record-count">
-        {{ t('preferences.db-record-count', { count: dbRecords.length }) }}
-      </div>
+        <NDataTable
+          :columns="dbBrowseColumns"
+          :data="dbRecords"
+          :loading="dbRecordsLoading"
+          :max-height="420"
+          :scroll-x="700"
+          size="small"
+          striped
+        >
+          <template #empty>
+            <NEmpty :description="t('preferences.db-record-count', { count: 0 })" />
+          </template>
+        </NDataTable>
+        <div v-if="dbRecords.length > 0" class="db-record-count">
+          {{ t('preferences.db-record-count', { count: dbRecords.length }) }}
+        </div>
+      </NCard>
     </NModal>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
   </div>
@@ -751,8 +752,14 @@ watch(protocolHandlers.lastError, (error) => {
   width: 100%;
 }
 .db-record-modal {
-  width: 800px;
-  max-width: 90vw;
+  width: min(760px, calc(100vw - 96px));
+  max-height: min(620px, calc(100vh - 96px));
+  display: flex;
+  flex-direction: column;
+}
+.db-record-modal :deep(.n-card__content) {
+  min-height: 0;
+  overflow: hidden;
 }
 .db-record-count {
   margin-top: 12px;

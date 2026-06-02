@@ -177,7 +177,7 @@ export default {
   'ua-delete': 'Delete',
   'aria2-conf-path': 'Motorkonfigurasjon',
   'temp-files-dir': 'Mappe for midlertidige filer',
-  'factory-reset': 'Fabrikkinnstillinger',
+  'factory-reset': 'Delete Config and Reset',
   'factory-reset-confirm': 'Gjenopprette fabrikkinnstillinger?',
   'lab-warning': '⚠️ Lab-funksjoner kan forårsake krasj eller datatap!',
   'download-protocol': 'Protokoller',
@@ -230,7 +230,7 @@ export default {
   'engine-restart-btn': 'Start Aria2 Next-motoren pa nytt',
   'engine-restart-manual-confirm':
     'Vil du starte nedlastingsmotoren på nytt? Aktive nedlastinger vil bli kort avbrutt, men gjenopptas automatisk etter omstart.',
-  'restore-defaults': 'Gjenopprett standardinnstillinger',
+  'restore-defaults': 'Restore Defaults',
   'restore-defaults-confirm':
     'Alle innstillinger vil bli tilbakestilt til fabrikkinnstillinger. Dette kan ikke angres.',
   'restore-defaults-success': 'Standardinnstillinger gjenopprettet',
@@ -257,7 +257,6 @@ export default {
   'db-rebuild-failed': 'Gjenoppbygging av database mislyktes',
   'auto-cleanup': 'Automatisk opprydding',
   reset: 'Gjenopprett innstillinger',
-  'diagnostics-section': 'Diagnostikk',
   tray: 'Systemskuff',
   seeding: 'Deling',
   'notification-and-confirm': 'Varsler og bekreftelse',

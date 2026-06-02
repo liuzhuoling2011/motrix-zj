@@ -178,7 +178,7 @@ export default {
   'ua-delete': 'Delete',
   'aria2-conf-path': 'Configurare motor',
   'temp-files-dir': 'Director fișiere temporare',
-  'factory-reset': 'Resetare din fabrică',
+  'factory-reset': 'Delete Config and Reset',
   'factory-reset-confirm': 'Restaurați setările din fabrică?',
   'lab-warning': '⚠️ Funcțiile laboratorului pot cauza blocări sau pierderi de date!',
   'download-protocol': 'Protocoale',
@@ -231,7 +231,7 @@ export default {
   'engine-restart-btn': 'Repornire motor Aria2 Next',
   'engine-restart-manual-confirm':
     'Doriți să reporniți motorul de descărcare? Descărcările active vor fi întrerupte temporar, dar vor fi reluate automat după repornire.',
-  'restore-defaults': 'Restaurare setări implicite',
+  'restore-defaults': 'Restore Defaults',
   'restore-defaults-confirm':
     'Toate setările vor fi resetate la valorile implicite. Această acțiune nu poate fi anulată.',
   'restore-defaults-success': 'Setările implicite au fost restaurate',
@@ -259,7 +259,6 @@ export default {
   'db-rebuild-failed': 'Reconstruire bază de date eșuată',
   'auto-cleanup': 'Curățare automată',
   reset: 'Restaurare setări',
-  'diagnostics-section': 'Diagnostic',
   tray: 'Tava de sistem',
   seeding: 'Distribuire',
   'notification-and-confirm': 'Notificări și confirmare',

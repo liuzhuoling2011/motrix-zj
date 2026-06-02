@@ -179,7 +179,7 @@ export default {
   'ua-delete': 'Delete',
   'aria2-conf-path': 'Engine-Konfiguration',
   'temp-files-dir': 'Temporärer Dateiordner',
-  'factory-reset': 'Werkseinstellungen',
+  'factory-reset': 'Delete Config and Reset',
   'factory-reset-confirm': 'Werkseinstellungen wiederherstellen?',
   'lab-warning': '⚠️ Labor-Funktionen können Abstürze oder Datenverlust verursachen!',
   'download-protocol': 'Protokolle',
@@ -232,7 +232,7 @@ export default {
   'engine-restart-btn': 'Aria2 Next-Engine neu starten',
   'engine-restart-manual-confirm':
     'Möchten Sie die Download-Engine neu starten? Aktive Downloads werden kurz unterbrochen, aber nach dem Neustart automatisch fortgesetzt.',
-  'restore-defaults': 'Standardeinstellungen wiederherstellen',
+  'restore-defaults': 'Restore Defaults',
   'restore-defaults-confirm':
     'Alle Einstellungen werden auf Werkseinstellungen zurückgesetzt. Dies kann nicht rückgängig gemacht werden.',
   'restore-defaults-success': 'Standardeinstellungen wiederhergestellt',
@@ -260,7 +260,6 @@ export default {
   'db-rebuild-failed': 'Datenbank-Neuerstellung fehlgeschlagen',
   'auto-cleanup': 'Automatische Bereinigung',
   reset: 'Einstellungen wiederherstellen',
-  'diagnostics-section': 'Diagnose',
   tray: 'Taskleiste',
   seeding: 'Seeding',
   'notification-and-confirm': 'Benachrichtigungen',

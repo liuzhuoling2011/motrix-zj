@@ -180,7 +180,7 @@ export default {
   'ua-delete': 'Delete',
   'aria2-conf-path': 'Ρυθμίσεις μηχανής',
   'temp-files-dir': 'Κατάλογος προσωρινών αρχείων',
-  'factory-reset': 'Εργοστασιακή επαναφορά',
+  'factory-reset': 'Delete Config and Reset',
   'factory-reset-confirm': 'Επαναφορά εργοστασιακών ρυθμίσεων;',
   'lab-warning': '⚠️ Οι λειτουργίες εργαστηρίου μπορεί να προκαλέσουν κρασάρισμα ή απώλεια δεδομένων!',
   'download-protocol': 'Πρωτόκολλα',
@@ -233,7 +233,7 @@ export default {
   'engine-restart-btn': 'Επανεκκίνηση μηχανισμού Aria2 Next',
   'engine-restart-manual-confirm':
     'Θέλετε να επανεκκινήσετε τη μηχανή λήψης; Οι ενεργές λήψεις θα διακοπούν προσωρινά αλλά θα συνεχιστούν αυτόματα μετά την επανεκκίνηση.',
-  'restore-defaults': 'Επαναφορά προεπιλογών',
+  'restore-defaults': 'Restore Defaults',
   'restore-defaults-confirm':
     'Όλες οι ρυθμίσεις θα επαναφερθούν στις εργοστασιακές τιμές. Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.',
   'restore-defaults-success': 'Οι προεπιλογές επαναφέρθηκαν',
@@ -261,7 +261,6 @@ export default {
   'db-rebuild-failed': 'Αποτυχία ανακατασκευής βάσης δεδομένων',
   'auto-cleanup': 'Αυτόματος καθαρισμός',
   reset: 'Επαναφορά ρυθμίσεων',
-  'diagnostics-section': 'Διαγνωστικά',
   tray: 'Δίσκος συστήματος',
   seeding: 'Διαμοιρασμός',
   'notification-and-confirm': 'Ειδοποιήσεις',
