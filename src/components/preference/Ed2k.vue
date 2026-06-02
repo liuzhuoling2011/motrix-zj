@@ -498,7 +498,7 @@ onMounted(() => {
       <NFormItem label=" ">
         <div class="pref-inline-row">
           <NButton
-            class="pref-action-button"
+            class="pref-action-button ed2k-bootstrap-sync-button"
             :loading="bootstrapSyncing"
             type="primary"
             secondary
@@ -580,6 +580,12 @@ onMounted(() => {
 .search-results {
   width: 100%;
   min-width: 0;
+}
+.pref-action-button--compact {
+  min-width: fit-content;
+}
+.ed2k-bootstrap-sync-button {
+  min-width: 100px;
 }
 .ed2k-search-button {
   min-width: 104px;

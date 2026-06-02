@@ -33,14 +33,6 @@
   max-width: 100%;
 }
 
-.pref-control-compact {
-  min-width: fit-content;
-}
-
-.pref-control-language {
-  min-width: 260px;
-}
-
 .pref-number {
   width: 120px;
 }
@@ -58,10 +50,6 @@
   width: fit-content;
   min-width: 160px;
   max-width: 100%;
-}
-
-.pref-action-button--compact {
-  min-width: fit-content;
 }
 
 .pref-icon-button {

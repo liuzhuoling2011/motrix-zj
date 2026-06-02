@@ -479,6 +479,10 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.pref-control-language {
+  min-width: 260px;
+}
+
 /* ── System info version badge ─────────────────────────────────────── */
 .sysinfo-ver-badge {
   display: inline-flex;

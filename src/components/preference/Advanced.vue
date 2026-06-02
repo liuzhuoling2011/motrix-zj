@@ -555,11 +555,19 @@ watch(protocolHandlers.lastError, (error) => {
         <div class="log-level-row">
           <div class="log-level-control">
             <span class="log-level-control__label">{{ t('preferences.motrix-next') }}</span>
-            <NSelect v-model:value="form.logLevel" :options="appLogLevelOptions" class="pref-control-auto" />
+            <NSelect
+              v-model:value="form.logLevel"
+              :options="appLogLevelOptions"
+              class="pref-control-auto pref-control-log-level"
+            />
           </div>
           <div class="log-level-control">
             <span class="log-level-control__label">{{ t('preferences.aria2-next') }}</span>
-            <NSelect v-model:value="form.aria2LogLevel" :options="aria2LogLevelOptions" class="pref-control-auto" />
+            <NSelect
+              v-model:value="form.aria2LogLevel"
+              :options="aria2LogLevelOptions"
+              class="pref-control-auto pref-control-log-level"
+            />
           </div>
         </div>
       </NFormItem>
@@ -733,6 +741,9 @@ watch(protocolHandlers.lastError, (error) => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+.pref-control-log-level {
+  min-width: 100px;
 }
 .log-level-control__label {
   color: var(--m3-on-surface);

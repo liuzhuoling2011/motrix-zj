@@ -404,7 +404,7 @@ onMounted(async () => {
         <NSelect
           :value="fileTimestampValue"
           :options="fileTimestampOptions"
-          class="pref-control-auto"
+          class="pref-control-auto pref-control-file-timestamp"
           @update:value="handleFileTimestampChange"
         />
       </NFormItem>
@@ -606,6 +606,14 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.pref-control-compact {
+  min-width: 80px;
+}
+
+.pref-control-file-timestamp {
+  min-width: 200px;
+}
+
 .schedule-warn-enter-active,
 .schedule-warn-leave-active {
   transition:

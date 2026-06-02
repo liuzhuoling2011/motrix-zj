@@ -390,7 +390,7 @@ onMounted(() => {
       <NFormItem label=" ">
         <div class="pref-inline-row">
           <NButton
-            class="pref-action-button"
+            class="pref-action-button bt-tracker-sync-button"
             :loading="syncingTracker"
             type="primary"
             secondary
@@ -447,6 +447,10 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.bt-tracker-sync-button {
+  min-width: 100px;
+}
+
 .info-text {
   color: var(--m3-on-surface-variant);
   font-size: 12px;
