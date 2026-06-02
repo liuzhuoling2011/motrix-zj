@@ -42,6 +42,7 @@ const items = computed(() =>
 )
 const matchedItems = computed(() => items.value.filter((item) => item.section === 'matched'))
 const recentItems = computed(() => items.value.filter((item) => item.section === 'recent'))
+const savedItems = computed(() => items.value.filter((item) => item.section === 'saved'))
 const hasItems = computed(() => items.value.length > 0)
 
 function selectProfile(profile: UserAgentProfile) {
@@ -86,6 +87,23 @@ function selectProfile(profile: UserAgentProfile) {
         <div
           v-for="item in recentItems"
           :key="'recent-' + item.profile.id"
+          class="ua-popover-item"
+          @click="selectProfile(item.profile)"
+        >
+          <NEllipsis class="ua-popover-label" :tooltip="false">{{ item.profile.name }}</NEllipsis>
+        </div>
+      </template>
+
+      <template v-if="savedItems.length > 0">
+        <div
+          class="ua-popover-heading"
+          :class="{ 'ua-popover-heading--spaced': matchedItems.length > 0 || recentItems.length > 0 }"
+        >
+          {{ t('preferences.ua-saved') }}
+        </div>
+        <div
+          v-for="item in savedItems"
+          :key="'saved-' + item.profile.id"
           class="ua-popover-item"
           @click="selectProfile(item.profile)"
         >

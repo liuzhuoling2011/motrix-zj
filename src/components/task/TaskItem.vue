@@ -267,24 +267,6 @@ onBeforeUnmount(() => {
             <Transition name="name-crossfade" mode="out-in">
               <span :key="taskFullName">{{ taskFullName }}</span>
             </Transition>
-            <div class="tags-wrapper" :class="{ 'has-tags': isSharing || finishedTag || fileMissing }">
-              <div class="tags-inner">
-                <div v-if="isSharing || finishedTag || fileMissing" class="task-tags">
-                  <span v-if="isSharing" class="sharing-tag">
-                    <NIcon :size="13"><CloudUploadOutline /></NIcon>
-                    {{ sharingLabel }}
-                  </span>
-                  <span v-else-if="finishedTag" class="status-tag" :style="{ color: finishedTag.color }">
-                    <NIcon :size="13"><component :is="finishedTag.icon" /></NIcon>
-                    {{ finishedTag.label }}
-                  </span>
-                  <span v-if="fileMissing" class="file-missing-tag">
-                    <NIcon :size="13"><AlertCircleOutline /></NIcon>
-                    {{ t('task.file-missing') || 'File missing' }}
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
         </template>
         {{ taskFullName }}
@@ -303,6 +285,24 @@ onBeforeUnmount(() => {
         @open-file="emit('open-file', task)"
         @stop-sharing="emit('stop-sharing', task)"
       />
+    </div>
+    <div class="tags-wrapper" :class="{ 'has-tags': isSharing || finishedTag || fileMissing }">
+      <div class="tags-inner">
+        <div v-if="isSharing || finishedTag || fileMissing" class="task-tags">
+          <span v-if="isSharing" class="sharing-tag">
+            <NIcon :size="13"><CloudUploadOutline /></NIcon>
+            {{ sharingLabel }}
+          </span>
+          <span v-else-if="finishedTag" class="status-tag" :style="{ color: finishedTag.color }">
+            <NIcon :size="13"><component :is="finishedTag.icon" /></NIcon>
+            {{ finishedTag.label }}
+          </span>
+          <span v-if="fileMissing" class="file-missing-tag">
+            <NIcon :size="13"><AlertCircleOutline /></NIcon>
+            {{ t('task.file-missing') || 'File missing' }}
+          </span>
+        </div>
+      </div>
     </div>
     <div class="task-progress">
       <NProgress
@@ -436,7 +436,6 @@ onBeforeUnmount(() => {
 }
 .task-name {
   color: var(--m3-on-surface-variant);
-  margin-bottom: 0.8rem;
   overflow: hidden;
   min-height: 26px;
   min-width: 0;
@@ -571,10 +570,12 @@ onBeforeUnmount(() => {
 .tags-wrapper {
   display: grid;
   grid-template-rows: 0fr;
+  margin-bottom: 10px;
   transition: grid-template-rows 0.4s cubic-bezier(0.05, 0.7, 0.1, 1);
 }
 .tags-wrapper.has-tags {
   grid-template-rows: 1fr;
+  margin-top: 2px;
 }
 .tags-inner {
   overflow: hidden;

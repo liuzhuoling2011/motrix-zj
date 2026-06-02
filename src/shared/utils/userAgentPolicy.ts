@@ -41,7 +41,7 @@ export interface UserAgentRuleMatch {
   host: string
 }
 
-export type UserAgentSelectionSection = 'matched' | 'recent'
+export type UserAgentSelectionSection = 'matched' | 'recent' | 'saved'
 
 export interface UserAgentSelectionItem {
   section: UserAgentSelectionSection
@@ -260,6 +260,14 @@ export function buildUserAgentSelectionItems(input: UserAgentSelectionInput): Us
     seen.add(id)
     const recentCount = result.filter((item) => item.section === 'recent').length
     if (recentCount >= (input.maxRecent ?? MAX_RECENT_USER_AGENT_PROFILES)) break
+  }
+
+  const remainingProfiles = profiles
+    .filter((profile) => !seen.has(profile.id))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+
+  for (const profile of remainingProfiles) {
+    result.push({ section: 'saved', profile })
   }
 
   return result

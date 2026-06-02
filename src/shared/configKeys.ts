@@ -82,6 +82,9 @@ const userKeys = [
   'tracker-source',
   'tray-speedometer',
   'update-channel',
+  'user-agent-profiles',
+  'user-agent-rules',
+  'recent-user-agent-profile-ids',
 ]
 
 const systemKeys = [
@@ -183,9 +186,6 @@ const systemKeys = [
   'uri-selector',
   'use-head',
   'user-agent',
-  'user-agent-profiles',
-  'user-agent-rules',
-  'recent-user-agent-profile-ids',
 ]
 
 const needRestartKeys = [

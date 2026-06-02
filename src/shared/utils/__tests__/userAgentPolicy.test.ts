@@ -141,7 +141,7 @@ describe('userAgentPolicy', () => {
     })
   })
 
-  it('builds matched plus recent saved profile picker items without raw UA strings', () => {
+  it('builds matched, recent, and remaining saved profile picker items without raw UA strings', () => {
     const result = buildUserAgentSelectionItems({
       url: 'https://cdn.quark.cn/file.zip',
       profiles,
@@ -154,6 +154,21 @@ describe('userAgentPolicy', () => {
       { section: 'matched', profile: profiles[0], rule: rules[0] },
       { section: 'recent', profile: profiles[1] },
       { section: 'recent', profile: profiles[2] },
+    ])
+  })
+
+  it('lists saved profiles alphabetically when no rule or recent profile matches', () => {
+    const result = buildUserAgentSelectionItems({
+      url: 'https://example.com/file.zip',
+      profiles: [profiles[0], profiles[2], profiles[1]],
+      rules,
+      recentProfileIds: [],
+    })
+
+    expect(result).toEqual([
+      { section: 'saved', profile: profiles[1] },
+      { section: 'saved', profile: profiles[2] },
+      { section: 'saved', profile: profiles[0] },
     ])
   })
 })
