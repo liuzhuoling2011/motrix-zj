@@ -146,6 +146,44 @@ describe('buildEngineOptions', () => {
     expect(opts['user-agent']).toBe('MyUA/1.0')
   })
 
+  it('keeps plugin user-agent unless a matching saved rule overrides it', () => {
+    const form = {
+      ...baseForm,
+      defaultUserAgent: 'DefaultUA/1.0',
+      userAgentProfiles: [
+        { id: 'quark', name: 'Quark Drive', value: 'QuarkUA/1.0', createdAt: 1, updatedAt: 1 },
+        { id: 'baidu', name: 'Baidu Netdisk', value: 'BaiduUA/1.0', createdAt: 2, updatedAt: 2 },
+      ],
+      userAgentRules: [
+        {
+          id: 'quark-rule',
+          enabled: true,
+          hostPattern: '*.quark.cn',
+          profileId: 'quark',
+          overridePlugin: false,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+        {
+          id: 'baidu-rule',
+          enabled: true,
+          hostPattern: 'pan.baidu.com',
+          profileId: 'baidu',
+          overridePlugin: true,
+          createdAt: 2,
+          updatedAt: 2,
+        },
+      ],
+    }
+
+    expect(
+      buildEngineOptions(form, { url: 'https://cdn.quark.cn/file.zip', userAgent: 'BrowserUA/1.0' })['user-agent'],
+    ).toBe('BrowserUA/1.0')
+    expect(
+      buildEngineOptions(form, { url: 'https://pan.baidu.com/file.zip', userAgent: 'BrowserUA/1.0' })['user-agent'],
+    ).toBe('BaiduUA/1.0')
+  })
+
   it('includes referer when set', () => {
     const opts = buildEngineOptions({ ...baseForm, referer: 'https://r.com' })
     expect(opts.referer).toBe('https://r.com')

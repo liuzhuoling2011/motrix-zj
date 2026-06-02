@@ -9,7 +9,8 @@ import { fetchBtTrackerFromSource } from '@shared/utils/tracker'
 import { DEFAULT_APP_CONFIG, MAX_NUM_OF_DIRECTORIES } from '@shared/constants'
 import { logger } from '@shared/logger'
 import { type MigrationResult } from '@shared/utils/configMigration'
-import { hydrateAppConfig } from '@shared/utils/configHydration'
+import { createDefaultAppConfig, hydrateAppConfig } from '@shared/utils/configHydration'
+import { recordRecentUserAgentProfileId } from '@shared/utils/userAgentPolicy'
 import type { AppConfig } from '@shared/types'
 
 const STORE_KEY = 'preferences'
@@ -35,7 +36,7 @@ export const usePreferenceStore = defineStore('preference', () => {
   const pendingChanges = ref(false)
   /** Callback registered by the active preference page to save before navigation. */
   const saveBeforeLeave = ref<(() => Promise<void>) | null>(null)
-  const config = ref<AppConfig>({ ...DEFAULT_APP_CONFIG } as AppConfig)
+  const config = ref<AppConfig>(createDefaultAppConfig())
   /** Result from the last migration run (null = no migration attempted yet). */
   const migrationResult = ref<MigrationResult | null>(null)
   /** Set when DB schema upgrade is detected during loadPreference.
@@ -102,6 +103,10 @@ export const usePreferenceStore = defineStore('preference', () => {
             `config hydrated and persisted migration=${hydrated.migration.migrated} repairCount=${hydrated.repairs.length}`,
           )
         }
+        invoke('refresh_runtime_config').catch((e: unknown) => logger.debug('PreferenceStore.refreshRuntimeConfig', e))
+      } else {
+        config.value = createDefaultAppConfig()
+        await persistConfig(store, config.value)
         invoke('refresh_runtime_config').catch((e: unknown) => logger.debug('PreferenceStore.refreshRuntimeConfig', e))
       }
     } catch (e) {
@@ -207,6 +212,18 @@ export const usePreferenceStore = defineStore('preference', () => {
     void savePreference()
   }
 
+  function recordRecentUserAgentProfile(profileId: string) {
+    config.value = {
+      ...config.value,
+      recentUserAgentProfileIds: recordRecentUserAgentProfileId(
+        config.value.recentUserAgentProfileIds,
+        profileId,
+        config.value.userAgentProfiles,
+      ),
+    }
+    void savePreference()
+  }
+
   function updateAppTheme(t: AppConfig['theme']) {
     updatePreference({ theme: t })
   }
@@ -222,14 +239,11 @@ export const usePreferenceStore = defineStore('preference', () => {
   async function resetToDefaults(): Promise<boolean> {
     const currentLocale = config.value.locale
     try {
-      const { generateSecret } = await import('@/composables/useAdvancedPreference')
       const store = await getStore()
       const defaults = {
-        ...DEFAULT_APP_CONFIG,
+        ...createDefaultAppConfig(),
         locale: currentLocale,
-        rpcSecret: generateSecret(),
-        extensionApiSecret: generateSecret(),
-      } as AppConfig
+      }
       await store.set(STORE_KEY, defaults)
       await store.save()
       config.value = defaults
@@ -282,6 +296,7 @@ export const usePreferenceStore = defineStore('preference', () => {
     favoriteDirectory,
     cancelFavoriteDirectory,
     removeDirectory,
+    recordRecentUserAgentProfile,
     updateAppTheme,
     updateAppLocale,
     fetchBtTracker,

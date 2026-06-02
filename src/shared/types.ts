@@ -226,6 +226,24 @@ export interface FileCategory {
   builtIn?: boolean
 }
 
+export interface UserAgentProfile {
+  id: string
+  name: string
+  value: string
+  createdAt: number
+  updatedAt: number
+}
+
+export interface UserAgentRule {
+  id: string
+  enabled: boolean
+  hostPattern: string
+  profileId: string
+  overridePlugin: boolean
+  createdAt: number
+  updatedAt: number
+}
+
 /** Application user preferences with full type coverage. */
 export interface AppConfig {
   /** Schema version for config migration. Absent in pre-migration configs (treated as 0). */
@@ -320,15 +338,18 @@ export interface AppConfig {
   updateChannel: UpdateChannel
   runMode: string
   userAgent: string
+  userAgentProfiles: UserAgentProfile[]
+  userAgentRules: UserAgentRule[]
+  recentUserAgentProfileIds: string[]
   rpcListenPort: number
   /** Port for the embedded HTTP API that browser extensions use to submit
    *  downloads. Defaults to 29110. */
   extensionApiPort: number
-  /** Shared secret for the extension HTTP API.  The browser extension must
+  /** Shared secret for the extension HTTP API. The browser extension must
    *  send this as a `Bearer` token in the `Authorization` header.
-   *  Absent from defaults — auto-generated on first launch in main.ts.
-   *  undefined → auto-generate. '' → user intentionally cleared. */
-  extensionApiSecret?: string
+   *  Empty string means the user intentionally cleared it. */
+  extensionApiSecret: string
+  /** Shared secret for the aria2 RPC API. Empty string means the user intentionally cleared it. */
   rpcSecret: string
   /** Automatically switches locally bound ports when another process or OS reservation blocks them. */
   autoChangeConflictingPorts: boolean
@@ -393,6 +414,8 @@ export interface BrowserRequestHeader {
 }
 
 export interface ExternalDownloadContext {
+  url?: string
+  finalUrl?: string
   referer?: string
   cookie?: string
   userAgent?: string

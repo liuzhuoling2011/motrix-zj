@@ -45,6 +45,7 @@ import {
 import { summarizeHeaderForwarding } from '@shared/utils/externalInputDiagnostics'
 import { getErrorMessage } from '@shared/utils/errorMessage'
 import { buildTaskProxyOptions, getDownloadProxy, type TaskProxyMode } from '@shared/utils/proxyPolicy'
+import { resolveUserAgentFromContext } from '@shared/utils/userAgentPolicy'
 
 export { getDownloadProxy } from '@shared/utils/proxyPolicy'
 
@@ -68,6 +69,9 @@ export interface AddTaskForm {
   customProxyPassword?: string
   /** Injected from the preference store; used for manual proxy bypass inheritance. */
   appProxy?: ProxyConfig
+  defaultUserAgent?: string
+  userAgentProfiles?: import('@shared/types').UserAgentProfile[]
+  userAgentRules?: import('@shared/types').UserAgentRule[]
   requestHeaders: BrowserRequestHeader[]
   uriRequestContexts?: Record<string, ExternalDownloadContext>
 }
@@ -93,8 +97,17 @@ export interface ManualUriSubmitResult {
  * Pure function — no side effects, fully testable.
  */
 export function buildEngineOptions(form: AddTaskForm, context?: ExternalDownloadContext): Aria2EngineOptions {
+  const resolvedUserAgent = resolveUserAgentFromContext({
+    formUserAgent: form.userAgent,
+    context,
+    url: context?.url ?? form.uris,
+    finalUrl: context?.finalUrl,
+    defaultUserAgent: form.defaultUserAgent,
+    profiles: form.userAgentProfiles ?? [],
+    rules: form.userAgentRules ?? [],
+  }).userAgent
   const headers = {
-    userAgent: sanitizeSingleHeaderValue(context?.userAgent ?? form.userAgent),
+    userAgent: sanitizeSingleHeaderValue(resolvedUserAgent),
     referer: sanitizeSingleHeaderValue(context?.referer ?? form.referer),
     cookie: sanitizeSingleHeaderValue(context?.cookie ?? form.cookie),
     authorization: sanitizeSingleHeaderValue(form.authorization),

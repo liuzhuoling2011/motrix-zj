@@ -238,15 +238,7 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
 })
 
 function buildForm() {
-  const c = preferenceStore.config
-  const { form: formData, generatedSecret, generatedApiSecret } = buildAdvancedForm(c)
-  if (generatedSecret) {
-    preferenceStore.updateAndSave({ rpcSecret: generatedSecret })
-  }
-  if (generatedApiSecret) {
-    preferenceStore.updateAndSave({ extensionApiSecret: generatedApiSecret })
-  }
-  return formData
+  return buildAdvancedForm(preferenceStore.config).form
 }
 
 function loadForm() {

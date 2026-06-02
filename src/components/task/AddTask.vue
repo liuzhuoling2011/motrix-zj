@@ -27,6 +27,7 @@ import { logger } from '@shared/logger'
 import { getErrorMessage } from '@shared/utils/errorMessage'
 import { normalizeProxyMode } from '@shared/utils/proxyPolicy'
 import { resolveUserVisibleDownloadDir } from '@shared/utils/userVisibleDirectory'
+import { findMatchingUserAgentRule, resolveUserAgent } from '@shared/utils/userAgentPolicy'
 
 import { resolveUnresolvedItems, chooseTorrentFile as chooseTorrentFileImpl } from '@/composables/useAddTaskFileOps'
 import {
@@ -48,7 +49,7 @@ import {
 } from 'naive-ui'
 import { useAppMessage } from '@/composables/useAppMessage'
 import type { DataTableColumns } from 'naive-ui'
-import type { BatchItem } from '@shared/types'
+import type { BatchItem, UserAgentProfile } from '@shared/types'
 import { FolderOpenOutline, CloudUploadOutline } from '@vicons/ionicons5'
 import { vAutoAnimate } from '@formkit/auto-animate'
 import AdvancedOptions from './addtask/AdvancedOptions.vue'
@@ -92,6 +93,7 @@ function switchTab(target: string): void {
 const showAdvanced = ref(false)
 const submitting = ref(false)
 const selectedBatchIndex = ref(0)
+const userAgentManuallyEdited = ref(false)
 const defaultTaskProxyMode = () => normalizeProxyMode(preferenceStore.config.proxy.mode)
 const defaultTaskProxyServer = () => (defaultTaskProxyMode() === 'manual' ? preferenceStore.config.proxy.server : '')
 const defaultTaskProxyUsername = () =>
@@ -113,6 +115,7 @@ function syncPendingExternalMetadata() {
   form.value.out = appStore.pendingFilename
   form.value.userAgent = appStore.pendingUserAgent
   form.value.requestHeaders = appStore.pendingRequestHeaders
+  applyResolvedUserAgent()
 }
 
 const form = ref<AddTaskForm>({
@@ -137,6 +140,44 @@ const form = ref<AddTaskForm>({
 })
 
 const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
+const firstRegularUri = computed(
+  () =>
+    form.value.uris
+      .split(/\r?\n/)
+      .map((uri) => uri.trim())
+      .find((uri) => uri && !isMagnetUri(uri)) ?? '',
+)
+const matchedUserAgentRule = computed(() =>
+  findMatchingUserAgentRule({
+    url: firstRegularUri.value,
+    referer: form.value.referer,
+    profiles: preferenceStore.config.userAgentProfiles,
+    rules: preferenceStore.config.userAgentRules,
+  }),
+)
+const userAgentSourceText = computed(() => {
+  if (userAgentManuallyEdited.value) return t('task.ua-source-manual')
+  const match = matchedUserAgentRule.value
+  if (match && form.value.userAgent === match.profile.value)
+    return t('task.ua-source-rule', { host: match.rule.hostPattern })
+  if (appStore.pendingUserAgent && form.value.userAgent === appStore.pendingUserAgent)
+    return t('task.ua-source-extension')
+  return ''
+})
+
+function applyResolvedUserAgent() {
+  if (userAgentManuallyEdited.value) return
+  const resolved = resolveUserAgent({
+    manualUserAgent: '',
+    pluginUserAgent: appStore.pendingUserAgent,
+    defaultUserAgent: preferenceStore.config.userAgent,
+    url: firstRegularUri.value,
+    referer: form.value.referer,
+    profiles: preferenceStore.config.userAgentProfiles,
+    rules: preferenceStore.config.userAgentRules,
+  })
+  form.value.userAgent = resolved.userAgent
+}
 
 // Real-time tracking: NInputNumber only commits v-model on blur,
 // so we capture the native `input` event via bubbling from the inner
@@ -221,6 +262,20 @@ watch(
   () => preferenceStore.config.proxy,
   () => {
     if (props.show) syncDefaultTaskProxy()
+  },
+  { deep: true },
+)
+
+watch(
+  [
+    firstRegularUri,
+    () => form.value.referer,
+    () => preferenceStore.config.userAgent,
+    () => preferenceStore.config.userAgentProfiles,
+    () => preferenceStore.config.userAgentRules,
+  ],
+  () => {
+    if (props.show) applyResolvedUserAgent()
   },
   { deep: true },
 )
@@ -405,6 +460,17 @@ function onDirectorySelect(dir: string) {
   dirUserModified.value = categoryEnabled.value && dir.trim().length > 0
 }
 
+function onUserAgentInput(value: string) {
+  userAgentManuallyEdited.value = true
+  form.value.userAgent = value
+}
+
+function selectUserAgentProfile(profile: UserAgentProfile) {
+  userAgentManuallyEdited.value = true
+  form.value.userAgent = profile.value
+  preferenceStore.recordRecentUserAgentProfile(profile.id)
+}
+
 function removeBatchItem(item: BatchItem) {
   appStore.pendingBatch = batch.value.filter((i) => i !== item)
   selectedBatchIndex.value = Math.min(selectedBatchIndex.value, Math.max(0, fileItems.value.length - 1))
@@ -430,6 +496,7 @@ function handleClose() {
     uriRequestContexts: {},
   })
   syncDefaultTaskProxy()
+  userAgentManuallyEdited.value = false
   submitting.value = false
   selectedBatchIndex.value = 0
 }
@@ -454,6 +521,9 @@ async function handleSubmit() {
       ...form.value,
       dir: form.value.dir.trim() || preferenceStore.config.dir,
       appProxy: preferenceStore.config.proxy,
+      defaultUserAgent: preferenceStore.config.userAgent,
+      userAgentProfiles: preferenceStore.config.userAgentProfiles,
+      userAgentRules: preferenceStore.config.userAgentRules,
     }
     const options = buildEngineOptions(effectiveForm)
     let manualResult: ManualUriSubmitResult = { submittedTaskNames: [], magnetGids: [], magnetFailures: [] }
@@ -711,7 +781,6 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
           </NFormItem>
           <AdvancedOptions
             v-model:show="showAdvanced"
-            v-model:user-agent="form.userAgent"
             v-model:authorization="form.authorization"
             v-model:http-auth-username="form.httpAuthUsername"
             v-model:http-auth-password="form.httpAuthPassword"
@@ -722,6 +791,14 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
             v-model:custom-proxy="form.customProxy"
             v-model:custom-proxy-username="form.customProxyUsername"
             v-model:custom-proxy-password="form.customProxyPassword"
+            :source-url="firstRegularUri"
+            :user-agent="form.userAgent"
+            :user-agent-source="userAgentSourceText"
+            :user-agent-profiles="preferenceStore.config.userAgentProfiles"
+            :user-agent-rules="preferenceStore.config.userAgentRules"
+            :recent-user-agent-profile-ids="preferenceStore.config.recentUserAgentProfileIds"
+            @update:user-agent="onUserAgentInput"
+            @select-user-agent-profile="selectUserAgentProfile"
           />
         </div>
       </NForm>

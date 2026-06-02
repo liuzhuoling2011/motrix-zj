@@ -61,6 +61,57 @@ describe('hydrateAppConfig', () => {
     expect(result.config.fileCategories).toEqual([])
   })
 
+  it('repairs user-agent profiles, rules, and recent profile ids', () => {
+    const result = hydrateAppConfig({
+      configVersion: CONFIG_VERSION,
+      userAgentProfiles: [
+        { id: 'quark', name: 'Quark Drive', value: 'QuarkUA/1.0', createdAt: 1, updatedAt: 1 },
+        { id: 'quark', name: 'Duplicate', value: 'DuplicateUA/1.0', createdAt: 2, updatedAt: 2 },
+        { id: 'empty', name: 'Empty', value: '', createdAt: 3, updatedAt: 3 },
+      ],
+      userAgentRules: [
+        {
+          id: 'quark-rule',
+          enabled: true,
+          hostPattern: '*.quark.cn',
+          profileId: 'quark',
+          overridePlugin: false,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+        {
+          id: 'missing-profile',
+          enabled: true,
+          hostPattern: 'pan.baidu.com',
+          profileId: 'missing',
+          overridePlugin: true,
+          createdAt: 2,
+          updatedAt: 2,
+        },
+      ],
+      recentUserAgentProfileIds: ['quark', 'missing', 'quark'],
+    } as Partial<AppConfig>)
+
+    expect(result.config.userAgentProfiles).toEqual([
+      { id: 'quark', name: 'Quark Drive', value: 'QuarkUA/1.0', createdAt: 1, updatedAt: 1 },
+    ])
+    expect(result.config.userAgentRules).toEqual([
+      {
+        id: 'quark-rule',
+        enabled: true,
+        hostPattern: '*.quark.cn',
+        profileId: 'quark',
+        overridePlugin: false,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ])
+    expect(result.config.recentUserAgentProfileIds).toEqual(['quark'])
+    expect(result.repairs).toEqual(
+      expect.arrayContaining(['userAgentProfiles', 'userAgentRules', 'recentUserAgentProfileIds']),
+    )
+  })
+
   it('repairs invalid scalar enums and records repair names', () => {
     const result = hydrateAppConfig({
       configVersion: CONFIG_VERSION,
@@ -136,7 +187,7 @@ describe('hydrateAppConfig', () => {
     expect(result.config.btTrackerAutoSync).toBe(DEFAULT_APP_CONFIG.btTrackerAutoSync)
   })
 
-  it('preserves secret generation semantics', () => {
+  it('generates required secrets for old configs that do not have them', () => {
     const missing = hydrateAppConfig({ configVersion: CONFIG_VERSION })
     const cleared = hydrateAppConfig({
       configVersion: CONFIG_VERSION,
@@ -144,15 +195,23 @@ describe('hydrateAppConfig', () => {
       extensionApiSecret: '',
     })
 
-    expect(missing.config.rpcSecret).toBeUndefined()
-    expect(missing.config.extensionApiSecret).toBeUndefined()
+    expect(missing.config.rpcSecret).toHaveLength(16)
+    expect(missing.config.extensionApiSecret).toHaveLength(16)
+    expect(missing.config.rpcSecret).not.toBe(missing.config.extensionApiSecret)
+    expect(missing.repairs).toEqual(expect.arrayContaining(['rpcSecret', 'extensionApiSecret']))
+    expect(missing.shouldPersist).toBe(true)
     expect(cleared.config.rpcSecret).toBe('')
     expect(cleared.config.extensionApiSecret).toBe('')
   })
 
   it('returns migration and persistence signals', () => {
     const migrated = hydrateAppConfig({ proxy: { ...DEFAULT_APP_CONFIG.proxy, scope: [] } })
-    const current = hydrateAppConfig({ configVersion: CONFIG_VERSION, theme: 'light' })
+    const current = hydrateAppConfig({
+      configVersion: CONFIG_VERSION,
+      theme: 'light',
+      rpcSecret: 'rpc-secret',
+      extensionApiSecret: 'api-secret',
+    })
 
     expect(migrated.migration.migrated).toBe(true)
     expect(migrated.config.configVersion).toBe(CONFIG_VERSION)

@@ -26,6 +26,7 @@ import {
   PORT_RECOVERY_RANGE_END,
 } from '@shared/constants'
 import { diffConfig } from '@shared/utils/config'
+import { createDefaultAppConfig } from '@shared/utils/configHydration'
 import type { AppConfig } from '@shared/types'
 
 // ── generateSecret ──────────────────────────────────────────────────
@@ -71,24 +72,23 @@ describe('buildAdvancedForm', () => {
     expect(form.enableUpnp).toBe(true)
   })
 
-  it('generates a secret and flags it when none exists', () => {
-    const { form, generatedSecret } = buildAdvancedForm(emptyConfig)
-    expect(form.rpcSecret).toHaveLength(16)
-    expect(generatedSecret).toBe(form.rpcSecret)
+  it('uses the runtime secrets already created by config hydration', () => {
+    const config = createDefaultAppConfig()
+    const { form } = buildAdvancedForm(config)
+    expect(form.rpcSecret).toBe(config.rpcSecret)
+    expect(form.extensionApiSecret).toBe(config.extensionApiSecret)
   })
 
   it('uses existing secret and does not flag it', () => {
     const config = { rpcSecret: 'myExistingSecret' } as AppConfig
-    const { form, generatedSecret } = buildAdvancedForm(config)
+    const { form } = buildAdvancedForm(config)
     expect(form.rpcSecret).toBe('myExistingSecret')
-    expect(generatedSecret).toBeNull()
   })
 
   it('preserves explicitly empty secret without regenerating', () => {
     const config = { rpcSecret: '' } as AppConfig
-    const { form, generatedSecret } = buildAdvancedForm(config)
+    const { form } = buildAdvancedForm(config)
     expect(form.rpcSecret).toBe('')
-    expect(generatedSecret).toBeNull()
   })
 
   it('preserves proxy configuration', () => {
@@ -280,7 +280,7 @@ describe('transformAdvancedForStore', () => {
   })
 
   it('preserves automatic conflicting port switching preference', () => {
-    const form = buildAdvancedForm({ ...DEFAULT_APP_CONFIG, autoChangeConflictingPorts: false } as AppConfig).form
+    const form = buildAdvancedForm({ ...createDefaultAppConfig(), autoChangeConflictingPorts: false } as AppConfig).form
     const result = transformAdvancedForStore(form)
     expect(result.autoChangeConflictingPorts).toBe(false)
   })

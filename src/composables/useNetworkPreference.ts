@@ -8,7 +8,7 @@
  * Proxy validation logic is co-located here since it is only used in
  * this tab's save flow.
  */
-import type { AppConfig, PortConflictRecoveryConfig } from '@shared/types'
+import type { AppConfig, PortConflictRecoveryConfig, UserAgentProfile, UserAgentRule } from '@shared/types'
 import {
   PORT_RECOVERY_RANGE_END,
   PORT_RECOVERY_RANGE_START,
@@ -46,6 +46,9 @@ export interface NetworkForm {
   fileAllocation: string
   asyncDns: boolean
   userAgent: string
+  userAgentProfiles: UserAgentProfile[]
+  userAgentRules: UserAgentRule[]
+  recentUserAgentProfileIds: string[]
 }
 
 function buildPortConflictRecovery(config: AppConfig): PortConflictRecoveryConfig {
@@ -94,6 +97,9 @@ export function buildNetworkForm(config: AppConfig): NetworkForm {
     fileAllocation: config.fileAllocation ?? D.fileAllocation,
     asyncDns: config.asyncDns ?? D.asyncDns,
     userAgent: config.userAgent ?? D.userAgent,
+    userAgentProfiles: config.userAgentProfiles ?? D.userAgentProfiles,
+    userAgentRules: config.userAgentRules ?? D.userAgentRules,
+    recentUserAgentProfileIds: config.recentUserAgentProfileIds ?? D.recentUserAgentProfileIds,
   }
 }
 

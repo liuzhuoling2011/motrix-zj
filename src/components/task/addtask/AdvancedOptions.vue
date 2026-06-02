@@ -8,6 +8,8 @@ import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { SearchOutline } from '@vicons/ionicons5'
 import type { TaskProxyMode } from '@shared/utils/proxyPolicy'
+import UserAgentPopover from '@/components/common/UserAgentPopover.vue'
+import type { UserAgentProfile, UserAgentRule } from '@shared/types'
 
 const { t } = useI18n()
 
@@ -26,6 +28,12 @@ const props = defineProps<{
   customProxy: string
   customProxyUsername?: string
   customProxyPassword?: string
+  sourceUrl?: string
+  finalUrl?: string
+  userAgentSource?: string
+  userAgentProfiles: UserAgentProfile[]
+  userAgentRules: UserAgentRule[]
+  recentUserAgentProfileIds: string[]
 }>()
 
 const emit = defineEmits<{
@@ -41,6 +49,7 @@ const emit = defineEmits<{
   'update:customProxy': [value: string]
   'update:customProxyUsername': [value: string]
   'update:customProxyPassword': [value: string]
+  selectUserAgentProfile: [profile: UserAgentProfile]
 }>()
 
 const uaHasIssue = computed(() => !!props.userAgent && hasUnsafeHeaderChars(props.userAgent))
@@ -77,12 +86,24 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
     <div>
       <NFormItem :label="t('task.task-user-agent') + ':'">
         <div class="ua-field-wrapper">
-          <NInput
-            :value="userAgent"
-            type="textarea"
-            :autosize="{ minRows: 1, maxRows: 3 }"
-            @update:value="$emit('update:userAgent', $event)"
-          />
+          <div class="ua-input-row">
+            <NInput
+              :value="userAgent"
+              type="textarea"
+              :autosize="{ minRows: 1, maxRows: 3 }"
+              @update:value="$emit('update:userAgent', $event)"
+            />
+            <UserAgentPopover
+              :url="sourceUrl"
+              :final-url="finalUrl"
+              :referer="referer"
+              :profiles="userAgentProfiles"
+              :rules="userAgentRules"
+              :recent-profile-ids="recentUserAgentProfileIds"
+              @select="$emit('selectUserAgentProfile', $event)"
+            />
+          </div>
+          <div v-if="userAgentSource" class="ua-source">{{ userAgentSource }}</div>
           <!-- UA sanitization hint — slides in via CSS Grid 0fr→1fr -->
           <div class="ua-warn-collapse" :class="{ 'ua-warn-collapse--open': uaHasIssue }">
             <div class="ua-warn-collapse__inner">
@@ -186,6 +207,19 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
   display: flex;
   flex-direction: column;
   width: 100%;
+}
+.ua-input-row {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+.ua-input-row :deep(.n-input) {
+  flex: 1;
+}
+.ua-source {
+  margin-top: 4px;
+  color: var(--n-text-color-3, var(--m3-on-surface-variant));
+  font-size: var(--font-size-sm);
 }
 
 /* ── UA warning — CSS Grid 0fr→1fr slide-in ──────────────────────── */

@@ -14,6 +14,7 @@ import { generateRandomInt } from '@shared/utils'
 import { isValidAria2ProxyUrl, UNSUPPORTED_PROXY_SCHEME_RE } from '@shared/utils/aria2Proxy'
 import type { AppConfig } from '@shared/types'
 import { buildDownloadProxyOptions, normalizeProxyMode, type EngineProxyMode } from '@shared/utils/proxyPolicy'
+import { generateConfigSecret } from '@shared/utils/configHydration'
 
 export { isValidAria2ProxyUrl } from '@shared/utils/aria2Proxy'
 
@@ -66,33 +67,17 @@ export interface AdvancedForm {
  * Used for aria2 RPC authentication.
  */
 export function generateSecret(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-  const values = crypto.getRandomValues(new Uint8Array(16))
-  return Array.from(values, (v) => chars[v % chars.length]).join('')
+  return generateConfigSecret()
 }
 
 /**
  * Builds the advanced form state from the preference store config.
  * All fallback values reference DEFAULT_APP_CONFIG (single source of truth).
- * If no RPC secret exists, generates one.
  */
 export function buildAdvancedForm(config: AppConfig): {
   form: AdvancedForm
-  generatedSecret: string | null
-  generatedApiSecret: string | null
 } {
   const proxy = config.proxy ?? D.proxy
-  // Distinguish "never set" (undefined/null → auto-generate) from
-  // "intentionally cleared" ('' → respect user choice).
-  const hasSecret = config.rpcSecret != null
-  const rpcSecret = hasSecret ? config.rpcSecret : generateSecret()
-  const generatedSecret = hasSecret ? null : rpcSecret
-
-  // Extension API secret: auto-generate if never set
-  const hasApiSecret = config.extensionApiSecret != null
-  const extensionApiSecret = hasApiSecret ? config.extensionApiSecret! : generateSecret()
-  const generatedApiSecret: string | null = hasApiSecret ? null : extensionApiSecret
-
   return {
     form: {
       proxy: {
@@ -104,9 +89,9 @@ export function buildAdvancedForm(config: AppConfig): {
         scope: proxy.scope ?? [...PROXY_SCOPE_OPTIONS],
       },
       rpcListenPort: config.rpcListenPort ?? D.rpcListenPort,
-      rpcSecret,
+      rpcSecret: config.rpcSecret,
       extensionApiPort: config.extensionApiPort ?? D.extensionApiPort,
-      extensionApiSecret,
+      extensionApiSecret: config.extensionApiSecret,
       autoSubmitFromExtension: config.autoSubmitFromExtension ?? D.autoSubmitFromExtension,
       autoSelectAllBtFilesFromExtension:
         config.autoSelectAllBtFilesFromExtension ?? D.autoSelectAllBtFilesFromExtension,
@@ -133,8 +118,6 @@ export function buildAdvancedForm(config: AppConfig): {
       timeout: config.timeout ?? D.timeout,
       fileAllocation: config.fileAllocation ?? D.fileAllocation,
     },
-    generatedSecret,
-    generatedApiSecret,
   }
 }
 

@@ -90,7 +90,7 @@ interface AppEventsDeps {
     saveBeforeLeave: (() => Promise<void>) | null
     config: {
       rpcListenPort?: string | number
-      rpcSecret?: string
+      rpcSecret: string
       extensionApiPort?: number
       listenPort?: number
       dhtListenPort?: number

@@ -174,6 +174,8 @@ vi.mock('naive-ui', async () => {
     NDataTable,
     NTag: passthrough,
     NEllipsis: passthrough,
+    NPopover: passthrough,
+    NEmpty: passthrough,
     NCheckbox: passthrough,
     NCollapseTransition: passthrough,
   }

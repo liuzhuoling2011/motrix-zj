@@ -10,6 +10,7 @@
 import { describe, it, expect } from 'vitest'
 import { buildBtForm, buildBtSystemConfig, transformBtForStore, type BtForm } from '../useBtPreference'
 import type { AppConfig } from '@shared/types'
+import { createDefaultAppConfig } from '@shared/utils/configHydration'
 import { DEFAULT_APP_CONFIG, ENGINE_DEFAULT_BT_MAX_PEERS } from '@shared/constants'
 
 // ── buildBtForm ─────────────────────────────────────────────────────
@@ -87,7 +88,7 @@ describe('buildBtForm', () => {
   it('preserves custom tracker source URLs', () => {
     const customUrl = 'https://trackers.run/s/wp_up_hp_hs_v4_v6.txt'
     const config = {
-      ...DEFAULT_APP_CONFIG,
+      ...createDefaultAppConfig(),
       trackerSource: [customUrl],
     } as AppConfig
     const form = buildBtForm(config)

@@ -366,25 +366,7 @@ if (import.meta.env.PROD) {
 
     // ── Phase 2: engine startup (non-blocking) ────────────────────────────
     const port = config.rpcListenPort || ENGINE_RPC_PORT
-    // Distinguish "never set" (undefined/null → auto-generate) from
-    // "intentionally cleared" ('' → respect user choice).
-    let secret = config.rpcSecret
-
-    if (secret == null) {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-      const values = crypto.getRandomValues(new Uint8Array(16))
-      secret = Array.from(values, (v) => chars[v % chars.length]).join('')
-      await preferenceStore.updateAndSave({ rpcSecret: secret })
-    }
-
-    // Auto-generate extensionApiSecret on first launch (independent from rpcSecret).
-    // Distinction: undefined/null = never set → generate. '' = user intentionally cleared → respect.
-    if (config.extensionApiSecret == null) {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-      const values = crypto.getRandomValues(new Uint8Array(16))
-      const apiSecret = Array.from(values, (v) => chars[v % chars.length]).join('')
-      await preferenceStore.updateAndSave({ extensionApiSecret: apiSecret })
-    }
+    const secret = config.rpcSecret
 
     taskStore.setApi(aria2Api)
 

@@ -67,7 +67,8 @@ import { useHistoryStore } from '@/stores/history'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
 import { getAddedAt } from '@/composables/useTaskOrder'
-import type { Aria2Task, Aria2File, Aria2Peer } from '@shared/types'
+import type { Aria2Task, Aria2File, Aria2Peer, UserAgentProfile } from '@shared/types'
+import UserAgentPopover from '@/components/common/UserAgentPopover.vue'
 
 const props = defineProps<{
   show: boolean
@@ -82,6 +83,7 @@ const taskStore = useTaskStore()
 const historyStore = useHistoryStore()
 const message = useAppMessage()
 const taskRef = computed(() => props.task)
+const taskPrimaryUrl = computed(() => props.task?.files?.[0]?.uris?.[0]?.uri ?? '')
 
 const {
   form: optForm,
@@ -114,6 +116,11 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
     message.error(t('preferences.proxy-system-detect-failed'))
   },
 })
+
+function selectTaskUserAgentProfile(profile: UserAgentProfile) {
+  optForm.userAgent = profile.value
+  preferenceStore.recordRecentUserAgentProfile(profile.id)
+}
 
 const activeTab = ref('general')
 const slideDirection = ref<'left' | 'right'>('left')
@@ -883,13 +890,23 @@ function handleClose() {
           <div v-else-if="activeTab === 'options'" key="options" class="tab-content">
             <NForm label-placement="left" label-width="110px" class="options-form">
               <NFormItem :label="t('task.task-user-agent') + ':'">
-                <NInput
-                  v-model:value="optForm.userAgent"
-                  type="textarea"
-                  :autosize="{ minRows: 1, maxRows: 3 }"
-                  :readonly="!optCanModify"
-                  :placeholder="t('task.task-user-agent-placeholder') || ''"
-                />
+                <div class="detail-ua-row">
+                  <NInput
+                    v-model:value="optForm.userAgent"
+                    type="textarea"
+                    :autosize="{ minRows: 1, maxRows: 3 }"
+                    :readonly="!optCanModify"
+                    :placeholder="t('task.task-user-agent-placeholder') || ''"
+                  />
+                  <UserAgentPopover
+                    :url="taskPrimaryUrl"
+                    :profiles="preferenceStore.config.userAgentProfiles"
+                    :rules="preferenceStore.config.userAgentRules"
+                    :recent-profile-ids="preferenceStore.config.recentUserAgentProfileIds"
+                    :disabled="!optCanModify"
+                    @select="selectTaskUserAgentProfile"
+                  />
+                </div>
               </NFormItem>
               <NFormItem :label="t('task.task-authorization') + ':'">
                 <NInput
@@ -1252,6 +1269,14 @@ function handleClose() {
 /* ── Options tab ─────────────────────────────────────────────────── */
 .options-form {
   padding: 4px 0;
+}
+.detail-ua-row {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+.detail-ua-row :deep(.n-input) {
+  flex: 1;
 }
 .options-apply-bar {
   display: flex;

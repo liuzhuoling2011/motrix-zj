@@ -11,6 +11,11 @@ import {
 import { runMigrations, type MigrationResult } from '@shared/utils/configMigration'
 import { normalizeProxyMode } from '@shared/utils/proxyPolicy'
 import type { AppConfig, ClipboardConfig, PortConflictRecoveryConfig, ProxyConfig } from '@shared/types'
+import {
+  normalizeRecentUserAgentProfileIds,
+  normalizeUserAgentProfiles,
+  normalizeUserAgentRules,
+} from '@shared/utils/userAgentPolicy'
 
 export interface HydratedAppConfig {
   config: AppConfig
@@ -21,6 +26,21 @@ export interface HydratedAppConfig {
 
 function clonePlain<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
+}
+
+export function generateConfigSecret(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  const values = crypto.getRandomValues(new Uint8Array(16))
+  return Array.from(values, (value) => chars[value % chars.length]).join('')
+}
+
+export function createDefaultAppConfig(): AppConfig {
+  const base = clonePlain(DEFAULT_APP_CONFIG)
+  return {
+    ...base,
+    rpcSecret: generateConfigSecret(),
+    extensionApiSecret: generateConfigSecret(),
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -197,6 +217,34 @@ function dedupe(values: string[]): string[] {
   return [...new Set(values)]
 }
 
+function normalizeUserAgentConfig(config: AppConfig, repairs: string[]): void {
+  const profilesBefore = JSON.stringify(config.userAgentProfiles)
+  const profiles = normalizeUserAgentProfiles(config.userAgentProfiles)
+  config.userAgentProfiles = profiles
+  if (JSON.stringify(profiles) !== profilesBefore) repairs.push('userAgentProfiles')
+
+  const rulesBefore = JSON.stringify(config.userAgentRules)
+  const rules = normalizeUserAgentRules(config.userAgentRules, profiles)
+  config.userAgentRules = rules
+  if (JSON.stringify(rules) !== rulesBefore) repairs.push('userAgentRules')
+
+  const recentBefore = JSON.stringify(config.recentUserAgentProfileIds)
+  const recent = normalizeRecentUserAgentProfileIds(config.recentUserAgentProfileIds, profiles)
+  config.recentUserAgentProfileIds = recent
+  if (JSON.stringify(recent) !== recentBefore) repairs.push('recentUserAgentProfileIds')
+}
+
+function normalizeSecrets(config: AppConfig, input: Partial<AppConfig> | null, repairs: string[]): void {
+  if (!input || !('rpcSecret' in input) || config.rpcSecret == null) {
+    config.rpcSecret = generateConfigSecret()
+    repairs.push('rpcSecret')
+  }
+  if (!input || !('extensionApiSecret' in input) || config.extensionApiSecret == null) {
+    config.extensionApiSecret = generateConfigSecret()
+    repairs.push('extensionApiSecret')
+  }
+}
+
 /**
  * Converts a partial persisted config into a complete, runtime-safe AppConfig.
  *
@@ -204,7 +252,7 @@ function dedupe(values: string[]): string[] {
  * materialization and defensive repair for malformed persisted values.
  */
 export function hydrateAppConfig(saved?: Partial<AppConfig> | null): HydratedAppConfig {
-  const defaults = clonePlain(DEFAULT_APP_CONFIG) as AppConfig
+  const defaults = createDefaultAppConfig()
   const input = saved && isRecord(saved) ? (clonePlain(saved) as Partial<AppConfig>) : null
   const migration = input
     ? runMigrations(input)
@@ -225,13 +273,8 @@ export function hydrateAppConfig(saved?: Partial<AppConfig> | null): HydratedApp
   )
 
   normalizeScalarValues(record, repairs)
-
-  if (input && !('rpcSecret' in input)) {
-    delete record.rpcSecret
-  }
-  if (input && !('extensionApiSecret' in input)) {
-    delete record.extensionApiSecret
-  }
+  normalizeSecrets(merged, input, repairs)
+  normalizeUserAgentConfig(merged, repairs)
 
   return {
     config: merged,

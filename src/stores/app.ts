@@ -405,6 +405,8 @@ export const useAppStore = defineStore('app', () => {
       cookie: input.cookie ?? '',
       userAgent: input.userAgent ?? '',
       requestHeaders: input.requestHeaders ?? [],
+      url: input.url,
+      finalUrl: input.finalUrl,
       traceId: input.traceId,
     }
   }
@@ -521,6 +523,9 @@ export const useAppStore = defineStore('app', () => {
       dir: preferenceStore.config.dir,
       split: preferenceStore.config.split ?? 16,
       userAgent: context.userAgent || preferenceStore.config.userAgent || '',
+      defaultUserAgent: preferenceStore.config.userAgent || '',
+      userAgentProfiles: preferenceStore.config.userAgentProfiles,
+      userAgentRules: preferenceStore.config.userAgentRules,
       authorization: '',
       httpAuthUsername: '',
       httpAuthPassword: '',

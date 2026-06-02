@@ -64,6 +64,16 @@ describe('PreferenceStore', () => {
     expect(store.config.locale).toBe('auto')
   })
 
+  it('loadPreference creates and persists secrets on first launch', async () => {
+    await store.loadPreference()
+
+    const saved = mockStoreData.get('preferences') as AppConfig
+    expect(store.config.rpcSecret).toHaveLength(16)
+    expect(store.config.extensionApiSecret).toHaveLength(16)
+    expect(saved.rpcSecret).toBe(store.config.rpcSecret)
+    expect(saved.extensionApiSecret).toBe(store.config.extensionApiSecret)
+  })
+
   it('loadPreference hydrates missing nested config fields', async () => {
     mockStoreData.set('preferences', {
       configVersion: CONFIG_VERSION,
