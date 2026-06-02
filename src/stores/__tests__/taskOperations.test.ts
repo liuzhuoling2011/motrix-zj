@@ -31,13 +31,13 @@ vi.mock('@/stores/history', () => ({
   }),
 }))
 
-// ── Mock cleanupAria2ControlFile + cleanupAria2MetadataFiles ────────
-const mockCleanupAria2ControlFile = vi.fn().mockResolvedValue(undefined)
+// ── Mock cleanupAria2ControlFiles + cleanupAria2MetadataFiles ───────
+const mockCleanupAria2ControlFiles = vi.fn().mockResolvedValue(undefined)
 const mockDeleteTaskFiles = vi.fn().mockResolvedValue(undefined)
 const mockCleanupAria2MetadataFiles = vi.fn().mockResolvedValue(false)
 
 vi.mock('@/composables/useFileDelete', () => ({
-  cleanupAria2ControlFile: (...args: unknown[]) => mockCleanupAria2ControlFile(...args),
+  cleanupAria2ControlFiles: (...args: unknown[]) => mockCleanupAria2ControlFiles(...args),
   deleteTaskFiles: (...args: unknown[]) => mockDeleteTaskFiles(...args),
 }))
 
@@ -204,7 +204,7 @@ describe('cancelMagnetSelectionDownload', () => {
     expect(api.removeTaskRecord).toHaveBeenNthCalledWith(1, { gid: 'child-gid' })
     expect(api.removeTaskRecord).toHaveBeenNthCalledWith(2, { gid: 'child-gid' })
     expect(api.removeTaskRecord).toHaveBeenNthCalledWith(3, { gid: 'metadata-gid' })
-    expect(mockCleanupAria2ControlFile).toHaveBeenCalledWith(childTask)
+    expect(mockCleanupAria2ControlFiles).toHaveBeenCalledWith(childTask)
     expect(mockDeleteTaskFiles).toHaveBeenCalledWith(childTask)
     expect(mockCleanupAria2MetadataFiles).toHaveBeenCalledWith('/downloads', 'abcdef1234567890abcdef1234567890abcdef12')
     expect(mockRemoveRecord).toHaveBeenCalledWith('child-gid')
@@ -225,7 +225,7 @@ describe('cancelMagnetSelectionDownload', () => {
     expect(mockRemoveRecord).toHaveBeenCalledWith('child-gid')
     expect(mockRemoveRecord).toHaveBeenCalledWith('metadata-gid')
     expect(mockRemoveBirthRecords).toHaveBeenCalledWith(['child-gid', 'metadata-gid'])
-    expect(mockCleanupAria2ControlFile).not.toHaveBeenCalled()
+    expect(mockCleanupAria2ControlFiles).not.toHaveBeenCalled()
     expect(mockDeleteTaskFiles).not.toHaveBeenCalled()
     expect(deps.fetchList).toHaveBeenCalledOnce()
     expect(api.saveSession).toHaveBeenCalledOnce()
@@ -554,7 +554,7 @@ describe('stopSharing', () => {
     expect(api.saveSession).toHaveBeenCalledOnce()
   })
 
-  it('calls cleanupAria2ControlFile with the task after stopping seeding', async () => {
+  it('calls cleanupAria2ControlFiles with the task after stopping seeding', async () => {
     const task = makeTask({
       gid: 'seed-cleanup',
       bittorrent: { info: { name: 'movie.mkv' } },
@@ -573,18 +573,18 @@ describe('stopSharing', () => {
 
     await ops.stopSharing(task)
 
-    expect(mockCleanupAria2ControlFile).toHaveBeenCalledWith(task)
+    expect(mockCleanupAria2ControlFiles).toHaveBeenCalledWith(task)
   })
 
-  it('does not throw if cleanupAria2ControlFile fails (best-effort cleanup)', async () => {
-    mockCleanupAria2ControlFile.mockRejectedValueOnce(new Error('cleanup failed'))
+  it('does not throw if cleanupAria2ControlFiles fails (best-effort cleanup)', async () => {
+    mockCleanupAria2ControlFiles.mockRejectedValueOnce(new Error('cleanup failed'))
     const task = makeTask({
       gid: 'seed-cleanup-fail',
       bittorrent: { info: { name: 'movie.mkv' } },
     } as Partial<Aria2Task>)
 
     await expect(ops.stopSharing(task)).resolves.not.toThrow()
-    expect(mockCleanupAria2ControlFile).toHaveBeenCalledWith(task)
+    expect(mockCleanupAria2ControlFiles).toHaveBeenCalledWith(task)
   })
 
   it('removes cached magnet metadata when stopping seeding', async () => {
@@ -599,7 +599,7 @@ describe('stopSharing', () => {
 
     expect(mockCleanupAria2MetadataFiles).toHaveBeenCalledWith('/downloads', 'deadbeef'.repeat(5))
   })
-  it('stops ED2K sharing without touching BT-only metadata cleanup', async () => {
+  it('stops ED2K sharing and cleans control files without touching BT-only metadata cleanup', async () => {
     const task = makeTask({
       gid: 'ed2k-share',
       status: TASK_STATUS.ACTIVE,
@@ -613,7 +613,7 @@ describe('stopSharing', () => {
     expect(api.removeTask).toHaveBeenCalledWith({ gid: 'ed2k-share' })
     expect(mockAddRecord).toHaveBeenCalledOnce()
     expect(mockRemoveByInfoHash).not.toHaveBeenCalled()
-    expect(mockCleanupAria2ControlFile).not.toHaveBeenCalled()
+    expect(mockCleanupAria2ControlFiles).toHaveBeenCalledWith(task)
     expect(mockCleanupAria2MetadataFiles).not.toHaveBeenCalled()
   })
 })

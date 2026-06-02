@@ -12,7 +12,7 @@
  *
  * Also covers:
  * - removePath: permanently deletes internal aria2 metadata via remove_file command
- * - cleanupAria2ControlFile: removes .aria2 control files after BT seeding ends
+ * - cleanupAria2ControlFiles: removes .aria2 control files after P2P sharing ends
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Aria2Task } from '@shared/types'
@@ -52,7 +52,7 @@ vi.mock('@tauri-apps/api/path', () => ({
   join: (...parts: string[]) => Promise.resolve(parts.join('/')),
 }))
 
-import { deleteTaskFiles, removePath, cleanupAria2ControlFile } from '../useFileDelete'
+import { deleteTaskFiles, removePath, cleanupAria2ControlFiles } from '../useFileDelete'
 
 function makeTask(overrides: Partial<Aria2Task> = {}): Aria2Task {
   return {
@@ -327,10 +327,10 @@ describe('removePath', () => {
 })
 
 // ═══════════════════════════════════════════════════════════════════════
-// cleanupAria2ControlFile — .aria2 cleanup after BT seeding ends
+// cleanupAria2ControlFiles — .aria2 cleanup after P2P sharing ends
 // ═══════════════════════════════════════════════════════════════════════
 
-describe('cleanupAria2ControlFile', () => {
+describe('cleanupAria2ControlFiles', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCheckPathExists.mockResolvedValue(true)
@@ -354,7 +354,7 @@ describe('cleanupAria2ControlFile', () => {
     })
     mockResolveOpenTarget.mockResolvedValue('/downloads/movie.mkv')
 
-    await cleanupAria2ControlFile(task)
+    await cleanupAria2ControlFiles(task)
 
     expect(mockRemoveFile).toHaveBeenCalledWith({ path: `/downloads/${task.infoHash}.aria2` })
     expect(mockRemoveFile).toHaveBeenCalledWith({ path: '/downloads/movie.mkv.aria2' })
@@ -387,14 +387,15 @@ describe('cleanupAria2ControlFile', () => {
     })
     mockResolveOpenTarget.mockResolvedValue('/downloads/My Torrent')
 
-    await cleanupAria2ControlFile(task)
+    await cleanupAria2ControlFiles(task)
 
     expect(mockRemoveFile).toHaveBeenCalledWith({ path: `/downloads/${task.infoHash}.aria2` })
     expect(mockRemoveFile).toHaveBeenCalledWith({ path: '/downloads/My Torrent.aria2' })
   })
 
-  it('skips non-BT tasks entirely', async () => {
+  it('removes companion .aria2 for ED2K sharing tasks', async () => {
     const task = makeTask({
+      ed2k: { name: 'file.zip', hash: 'ed2khash' },
       files: [
         {
           index: '1',
@@ -406,11 +407,12 @@ describe('cleanupAria2ControlFile', () => {
         },
       ],
     })
+    mockResolveOpenTarget.mockResolvedValue('/downloads/file.zip')
 
-    await cleanupAria2ControlFile(task)
+    await cleanupAria2ControlFiles(task)
 
-    expect(mockRemoveFile).not.toHaveBeenCalled()
-    expect(mockResolveOpenTarget).not.toHaveBeenCalled()
+    expect(mockRemoveFile).toHaveBeenCalledWith({ path: '/downloads/file.zip.aria2' })
+    expect(mockTrashFile).not.toHaveBeenCalled()
   })
 
   it('falls back to per-file .aria2 cleanup when resolveOpenTarget returns dir', async () => {
@@ -425,7 +427,7 @@ describe('cleanupAria2ControlFile', () => {
     })
     mockResolveOpenTarget.mockResolvedValue('/downloads')
 
-    await cleanupAria2ControlFile(task)
+    await cleanupAria2ControlFiles(task)
 
     expect(mockRemoveFile).toHaveBeenCalledWith({ path: '/downloads/deadbeefdeadbeefdeadbeefdeadbeefdeadbeef.aria2' })
     expect(mockRemoveFile).toHaveBeenCalledWith({ path: '/downloads/file1.mp4.aria2' })
@@ -448,7 +450,7 @@ describe('cleanupAria2ControlFile', () => {
     })
     mockResolveOpenTarget.mockResolvedValue('')
 
-    await cleanupAria2ControlFile(task)
+    await cleanupAria2ControlFiles(task)
 
     expect(mockRemoveFile).toHaveBeenCalledWith({ path: '/downloads/only.mp4.aria2' })
   })
@@ -469,7 +471,7 @@ describe('cleanupAria2ControlFile', () => {
     })
     mockResolveOpenTarget.mockRejectedValue(new Error('resolve failed'))
 
-    await expect(cleanupAria2ControlFile(task)).resolves.toBeUndefined()
+    await expect(cleanupAria2ControlFiles(task)).resolves.toBeUndefined()
   })
 
   it('skips files with empty path in fallback', async () => {
@@ -483,7 +485,7 @@ describe('cleanupAria2ControlFile', () => {
     })
     mockResolveOpenTarget.mockResolvedValue('/downloads')
 
-    await cleanupAria2ControlFile(task)
+    await cleanupAria2ControlFiles(task)
 
     const removedPaths = mockRemoveFile.mock.calls.map((c) => (c[0] as Record<string, unknown>)?.path)
     expect(removedPaths).not.toContain('.aria2')

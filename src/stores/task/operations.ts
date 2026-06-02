@@ -12,7 +12,7 @@ import { TASK_STATUS } from '@shared/constants'
 import { checkTaskIsBT, checkTaskIsSharing, getTaskSharingKind } from '@shared/utils'
 import { logger } from '@shared/logger'
 import { buildSharingCompletionRecord } from '@/composables/useTaskLifecycle'
-import { cleanupAria2ControlFile, deleteTaskFiles } from '@/composables/useFileDelete'
+import { cleanupAria2ControlFiles, deleteTaskFiles } from '@/composables/useFileDelete'
 import { cleanupAria2MetadataFiles } from '@/composables/useDownloadCleanup'
 import { useHistoryStore } from '@/stores/history'
 import type { Aria2Task, TaskApi } from '@shared/types'
@@ -88,7 +88,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
 
   async function cleanupMagnetSelectionFiles(task: Aria2Task): Promise<void> {
     try {
-      await cleanupAria2ControlFile(task)
+      await cleanupAria2ControlFiles(task)
     } catch (e) {
       logger.debug('TaskOps.cancelMagnetSelection', `cleanupControlFile gid=${task.gid} skipped: ${e}`)
     }
@@ -237,12 +237,14 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
         await historyStore.removeByInfoHash(task.infoHash, task.gid)
       }
       await historyStore.addRecord(record)
-      if (protocolKind === 'bt') {
+      if (protocolKind === 'bt' || protocolKind === 'ed2k') {
         try {
-          await cleanupAria2ControlFile(task)
+          await cleanupAria2ControlFiles(task)
         } catch (e) {
-          logger.debug('TaskOps.stopSharing', `cleanupControlFile gid=${gid} skipped: ${e}`)
+          logger.debug('TaskOps.stopSharing', `cleanupControlFiles gid=${gid} skipped: ${e}`)
         }
+      }
+      if (protocolKind === 'bt') {
         if (task.dir && task.infoHash) {
           try {
             await cleanupAria2MetadataFiles(task.dir, task.infoHash)

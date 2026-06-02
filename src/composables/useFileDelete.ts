@@ -72,21 +72,18 @@ export async function removePath(path: string): Promise<boolean> {
 }
 
 /**
- * Clean up the `.aria2` control file for a completed/stopped BT task.
+ * Clean up `.aria2` control files for a completed/stopped P2P task.
  *
- * New aria2-next BT control files are named by infohash and live in the
- * download directory. Older companion control files are also removed as
- * best-effort cleanup.
+ * BT can have an infoHash-named control file in the download directory.
+ * BT and ED2K can also have companion control files next to the target path.
  *
  * Path resolution mirrors `deleteTaskFiles()` for consistency.
  *
- * Safe to call after BT download completes:
+ * Safe to call after P2P sharing completes:
  * - From `stopSharing()` (user manually stops)
  * - From `onTaskComplete()` (aria2 auto-stops via seed-time/seed-ratio)
  */
-export async function cleanupAria2ControlFile(task: Aria2Task): Promise<void> {
-  if (!task.bittorrent) return
-
+export async function cleanupAria2ControlFiles(task: Aria2Task): Promise<void> {
   try {
     if (task.dir && task.infoHash) {
       await removePath(`${task.dir}/${task.infoHash}.aria2`)
@@ -104,7 +101,7 @@ export async function cleanupAria2ControlFile(task: Aria2Task): Promise<void> {
 
     await removePath(target + '.aria2')
   } catch (e) {
-    logger.debug('cleanupAria2ControlFile', `cleanup failed: ${e}`)
+    logger.debug('cleanupAria2ControlFiles', `cleanup failed: ${e}`)
   }
 }
 

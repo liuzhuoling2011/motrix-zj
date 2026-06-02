@@ -18,7 +18,7 @@ import {
 import { setArchivedPath, resolveTaskFilePath, requestFileRecheck } from '@/composables/useArchivedPaths'
 import { handleTaskComplete, handleSharingComplete, handleTaskError } from '@/composables/useTaskNotifyHandlers'
 import { shouldDeleteTorrent, trashTorrentFile } from '@/composables/useDownloadCleanup'
-import { cleanupAria2ControlFile } from '@/composables/useFileDelete'
+import { cleanupAria2ControlFiles } from '@/composables/useFileDelete'
 import { getTaskDisplayName, resolveOpenTarget, checkTaskIsSharing } from '@shared/utils'
 import type { TaskSharingKind } from '@shared/utils/task'
 import type { Aria2Task } from '@shared/types'
@@ -703,10 +703,9 @@ onMounted(async () => {
         logger.debug('AutoArchive.result', `gid=${task.gid} action=none`)
       }
 
-      // Clean up .aria2 control file for BT tasks that auto-completed seeding
-      // (seed-ratio or seed-time threshold reached). Best-effort, never throws.
-      if (task.bittorrent) {
-        cleanupAria2ControlFile(task).catch((e) => logger.debug('Lifecycle.aria2ControlCleanup', e))
+      // Clean up stale .aria2 control files when P2P sharing auto-stops.
+      if (task.bittorrent || task.ed2k) {
+        cleanupAria2ControlFiles(task).catch((e) => logger.debug('Lifecycle.aria2ControlCleanup', e))
       }
 
       // ── Auto-shutdown: check after task completion ──
