@@ -1,13 +1,11 @@
 <script setup lang="ts">
-/** @fileoverview Scrollable task list container with SortableJS drag ordering and list transitions. */
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { autoAnimate } from '@formkit/auto-animate'
+/** @fileoverview Scrollable task list container with SortableJS drag ordering and Vue list transitions. */
+import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useSortable } from '@vueuse/integrations/useSortable'
 import { useTaskStore } from '@/stores/task'
 import { usePreferenceStore } from '@/stores/preference'
 import TaskItem from './TaskItem.vue'
 import TaskCompactItem from './TaskCompactItem.vue'
-import type { AnimationController } from '@formkit/auto-animate'
 import type { SortableEvent } from 'sortablejs'
 import type { Aria2Task } from '@shared/types'
 
@@ -29,7 +27,6 @@ const preferenceStore = usePreferenceStore()
 const taskList = ref<Aria2Task[]>(taskStore.taskList)
 const listRef = ref<HTMLElement | null>(null)
 const sorting = ref(false)
-let listAnimation: AnimationController | null = null
 let lastFloatingRect: DOMRect | null = null
 let floatingRectFrame = 0
 const selectedGidList = computed(() => taskStore.selectedGidList)
@@ -37,17 +34,7 @@ const taskCardComponent = computed(() =>
   preferenceStore.config.taskCardMode === 'compact' ? TaskCompactItem : TaskItem,
 )
 
-onMounted(() => {
-  if (!listRef.value) return
-  listAnimation = autoAnimate(listRef.value, {
-    duration: 260,
-    easing: 'cubic-bezier(0.05, 0.7, 0.1, 1)',
-  })
-})
-
 onBeforeUnmount(() => {
-  listAnimation?.destroy?.()
-  listAnimation = null
   stopFloatingRectTracking()
   lastFloatingRect = null
 })
@@ -131,7 +118,6 @@ useSortable(listRef, taskList, {
   preventOnFilter: false,
   onStart: () => {
     sorting.value = true
-    listAnimation?.disable()
     startFloatingRectTracking()
   },
   onUpdate: (event) => {
@@ -149,7 +135,6 @@ useSortable(listRef, taskList, {
     await taskStore.saveManualOrder(taskList.value.map((task) => task.gid))
     window.setTimeout(() => {
       sorting.value = false
-      listAnimation?.enable()
     }, 0)
   },
 })
@@ -176,7 +161,7 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
 
 <template>
   <div class="task-list">
-    <div ref="listRef" class="task-list-inner">
+    <TransitionGroup ref="listRef" tag="div" :css="!sorting" name="task-list-card" class="task-list-inner">
       <div
         v-for="item in taskList"
         :key="item.gid"
@@ -198,7 +183,7 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
           @stop-sharing="emit('stop-sharing', item)"
         />
       </div>
-    </div>
+    </TransitionGroup>
   </div>
 </template>
 
@@ -234,6 +219,27 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
 .task-list-item {
   position: relative;
   margin-bottom: 16px;
+}
+.task-list-card-move,
+.task-list-card-enter-active,
+.task-list-card-leave-active {
+  transition:
+    transform 260ms ease,
+    opacity 180ms ease;
+}
+.task-list-card-enter-from {
+  opacity: 0;
+  transform: scale(0.98);
+}
+.task-list-card-leave-to {
+  opacity: 0;
+  transform: scale(0.98);
+}
+.task-list-card-leave-active {
+  position: absolute;
+  width: 100%;
+  z-index: 0;
+  pointer-events: none;
 }
 .task-list-item--ghost {
   overflow: hidden;

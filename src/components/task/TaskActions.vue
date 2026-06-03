@@ -21,7 +21,6 @@ import {
   STOPPED_SORT_FIELDS,
   ALL_SORT_FIELDS,
   DEFAULT_TASK_SORT,
-  type SortDirection,
   type ActiveSortField,
   type StoppedSortField,
   type AllSortField,
@@ -86,25 +85,9 @@ const currentSortFields = computed(() => {
 
 const sortPopoverVisible = ref(false)
 
-function onSortSelect(key: string) {
-  const cfg = preferenceStore.config?.taskSort ?? { ...DEFAULT_TASK_SORT }
-  const tab = currentTab.value === 'stopped' ? 'stopped' : currentTab.value === 'all' ? 'all' : 'active'
-  const current = cfg[tab]
-  const direction: SortDirection =
-    key === 'manual' ? 'desc' : current.field === key ? (current.direction === 'desc' ? 'asc' : 'desc') : 'desc'
-  const updated = { ...cfg, [tab]: { field: key as ActiveSortField | StoppedSortField | AllSortField, direction } }
-  const manualPatch =
-    key === 'manual'
-      ? {
-          taskManualOrder: {
-            ...preferenceStore.config.taskManualOrder,
-            [tab]: taskStore.taskList.map((task) => task.gid),
-          },
-        }
-      : {}
-  preferenceStore.updateAndSave({ taskSort: updated, ...manualPatch })
+async function onSortSelect(key: ActiveSortField | StoppedSortField | AllSortField) {
   sortPopoverVisible.value = false
-  taskStore.fetchList()
+  await taskStore.changeCurrentSort(key)
 }
 const message = useAppMessage()
 const dialog = useDialog()

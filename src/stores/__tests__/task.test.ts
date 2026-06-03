@@ -5,6 +5,10 @@ import { useTaskStore } from '../task'
 import type { Aria2Task, Aria2Peer, TaskStatus, HistoryRecord } from '@shared/types'
 import { _resetForTesting, registerAddedAt } from '@/composables/useTaskOrder'
 
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn().mockResolvedValue(undefined),
+}))
+
 // ── Mock history store (DB-primary architecture) ─────────────────────
 const mockHistoryFns = {
   init: vi.fn().mockResolvedValue(undefined),
@@ -138,6 +142,31 @@ describe('TaskStore', () => {
     await store.fetchList()
 
     expect(store.taskList.map((task) => task.gid)).toEqual(['fresh', 'old-2', 'old-1'])
+  })
+
+  it('applies active sort changes before waiting for the next poll', async () => {
+    const { usePreferenceStore } = await import('@/stores/preference')
+    const preferenceStore = usePreferenceStore()
+    const saveSpy = vi.spyOn(preferenceStore, 'updateAndSave').mockResolvedValue(true)
+    registerAddedAt('alpha', '2024-01-01T00:00:00Z')
+    registerAddedAt('beta', '2024-01-02T00:00:00Z')
+    mockApi.fetchTaskList.mockResolvedValue([
+      makeMockTask('beta', 'active', { files: [{ path: '/tmp/beta.zip' } as Aria2Task['files'][number]] }),
+      makeMockTask('alpha', 'active', { files: [{ path: '/tmp/alpha.zip' } as Aria2Task['files'][number]] }),
+    ])
+    await store.fetchList()
+    expect(store.taskList.map((task) => task.gid)).toEqual(['beta', 'alpha'])
+
+    await store.changeCurrentSort('name')
+
+    expect(preferenceStore.config.taskSort.active).toEqual({ field: 'name', direction: 'desc' })
+    expect(store.taskList.map((task) => task.gid)).toEqual(['beta', 'alpha'])
+
+    await store.changeCurrentSort('name')
+
+    expect(preferenceStore.config.taskSort.active).toEqual({ field: 'name', direction: 'asc' })
+    expect(store.taskList.map((task) => task.gid)).toEqual(['alpha', 'beta'])
+    expect(saveSpy).toHaveBeenCalledTimes(2)
   })
 
   it('fetchList prunes selectedGidList to valid gids only', async () => {

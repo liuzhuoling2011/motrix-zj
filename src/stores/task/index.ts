@@ -15,7 +15,16 @@ import {
   loadAddedAtFromRecords,
   buildSortableAddedAtMap,
 } from '@/composables/useTaskOrder'
-import { applyManualOrder, createManualOrderSnapshot, sortTasks, sortRecords } from '@/composables/useTaskSort'
+import {
+  applyManualOrder,
+  createManualOrderSnapshot,
+  sortTasks,
+  sortRecords,
+  type ActiveSortField,
+  type AllSortField,
+  type SortDirection,
+  type StoppedSortField,
+} from '@/composables/useTaskSort'
 import { DEFAULT_TASK_SORT } from '@/composables/useTaskSort'
 import { useHistoryStore } from '@/stores/history'
 import { useHttpAuthStore } from '@/stores/httpAuth'
@@ -186,6 +195,30 @@ export const useTaskStore = defineStore('task', () => {
 
   async function saveCurrentManualOrder() {
     await saveManualOrder(createManualOrderSnapshot(taskList.value))
+  }
+
+  async function changeCurrentSort(field: ActiveSortField | StoppedSortField | AllSortField) {
+    const preferenceStore = usePreferenceStore()
+    const tab = currentList.value === 'stopped' ? 'stopped' : currentList.value === 'all' ? 'all' : 'active'
+    const taskSort = preferenceStore.config?.taskSort ?? DEFAULT_TASK_SORT
+    const current = taskSort[tab]
+    const direction: SortDirection =
+      field === 'manual' ? 'desc' : current.field === field ? (current.direction === 'desc' ? 'asc' : 'desc') : 'desc'
+    const nextTaskSort = { ...taskSort, [tab]: { field, direction } }
+    const nextConfig =
+      field === 'manual'
+        ? {
+            taskSort: nextTaskSort,
+            taskManualOrder: {
+              ...preferenceStore.config.taskManualOrder,
+              [tab]: createManualOrderSnapshot(taskList.value),
+            },
+          }
+        : { taskSort: nextTaskSort }
+
+    preferenceStore.updatePreference(nextConfig)
+    await fetchList()
+    preferenceStore.updateAndSave(nextConfig).catch((e: unknown) => logger.error('TaskStore.changeCurrentSort', e))
   }
 
   function selectAllTask() {
@@ -395,6 +428,7 @@ export const useTaskStore = defineStore('task', () => {
     selectTasks,
     saveManualOrder,
     saveCurrentManualOrder,
+    changeCurrentSort,
     selectAllTask,
     fetchItem,
     showTaskDetail,
