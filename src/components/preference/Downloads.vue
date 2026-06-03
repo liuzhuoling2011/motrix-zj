@@ -13,6 +13,7 @@ import { toggleSpeedLimit } from '@/composables/useSpeedLimiter'
 import { changeGlobalOption, isEngineReady } from '@/api/aria2'
 import {
   ENGINE_RPC_PORT,
+  ENGINE_MAX_CONCURRENT_DOWNLOADS,
   ENGINE_MAX_CONNECTION_PER_SERVER,
   SAFE_LIMIT_SPLIT,
   SAFE_LIMIT_CONNECTION_PER_SERVER,
@@ -358,7 +359,12 @@ onMounted(async () => {
       <!-- Concurrency & Segments -->
       <NDivider title-placement="left">{{ t('preferences.concurrency-and-segments') }}</NDivider>
       <NFormItem :label="t('preferences.max-concurrent-downloads')">
-        <NInputNumber v-model:value="form.maxConcurrentDownloads" :min="1" :max="10" class="pref-number" />
+        <NInputNumber
+          v-model:value="form.maxConcurrentDownloads"
+          :min="1"
+          :max="ENGINE_MAX_CONCURRENT_DOWNLOADS"
+          class="pref-number"
+        />
       </NFormItem>
       <NFormItem :label="t('preferences.split-count')">
         <NInputNumber v-model:value="form.split" :min="1" :max="ENGINE_MAX_CONNECTION_PER_SERVER" class="pref-number" />

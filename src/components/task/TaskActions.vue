@@ -12,6 +12,7 @@ import type { Aria2Task } from '@shared/types'
 import { deleteTaskFiles } from '@/composables/useFileDelete'
 
 import { logger } from '@shared/logger'
+import { getErrorMessage } from '@shared/utils/errorMessage'
 import { NButton, NIcon, NCheckbox, NPopover, useDialog } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
 import { useAppMessage } from '@/composables/useAppMessage'
@@ -143,7 +144,7 @@ function onRefresh() {
   taskStore
     .fetchList()
     .then(() => message.success(t('task.refresh-list-success') || 'List refreshed'))
-    .catch((e: unknown) => logger.warn('TaskActions.onRefresh', (e as Error).message))
+    .catch((e: unknown) => logger.warn('TaskActions.onRefresh', getErrorMessage(e)))
 }
 
 function onDeleteAll() {
@@ -209,7 +210,7 @@ function resumeAll() {
         .resumeAllTask()
         .then(() => message.success(t('task.resume-all-task-success')))
         .catch((e) => {
-          logger.warn('TaskActions.resumeAll', e)
+          logger.warn('TaskActions.resumeAll', getErrorMessage(e))
           message.error(t('task.resume-all-task-fail'))
         })
     },
@@ -242,7 +243,7 @@ function pauseAll() {
           d.destroy()
         })
         .catch((e) => {
-          logger.warn('TaskActions.pauseAll', e)
+          logger.warn('TaskActions.pauseAll', getErrorMessage(e))
           message.error(t('task.pause-all-task-fail'))
           d.destroy()
         })
@@ -282,7 +283,7 @@ function stopAllSharing() {
         .stopAllSharing()
         .then(() => message.success(t('task.stop-all-sharing-success')))
         .catch((e) => {
-          logger.warn('TaskActions.stopAllSharing', e)
+          logger.warn('TaskActions.stopAllSharing', getErrorMessage(e))
           message.error(t('task.stop-all-sharing-fail'))
         })
 
@@ -361,7 +362,7 @@ function purgeRecord() {
           message.success(t('task.purge-record-success'))
         })
         .catch((e) => {
-          logger.warn('TaskActions.purgeRecord', e)
+          logger.warn('TaskActions.purgeRecord', getErrorMessage(e))
           message.error(t('task.purge-record-fail'))
         })
     },

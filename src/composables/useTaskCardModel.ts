@@ -16,12 +16,19 @@ import {
 import { buildTaskTransferSummary } from '@/composables/useTaskDetailSummary'
 import type { Aria2Task } from '@shared/types'
 
+export interface TaskCardStatusBadge {
+  key: string
+  label: string
+  tone: 'success' | 'error' | 'muted' | 'waiting'
+}
+
 interface TaskCardModel {
   taskFullName: ComputedRef<string>
   sharingKind: ComputedRef<'bt' | 'ed2k' | null>
   isSharing: ComputedRef<boolean>
   sharingLabel: ComputedRef<string>
   isMetadataFetching: ComputedRef<boolean>
+  statusBadge: ComputedRef<TaskCardStatusBadge | null>
   taskStatus: ComputedRef<string>
   isActive: ComputedRef<boolean>
   completedLengthValue: ComputedRef<number>
@@ -51,6 +58,28 @@ export function useTaskCardModel(task: ComputedRef<Aria2Task>): TaskCardModel {
   })
   const isMetadataFetching = computed(() => isBtMetadataTask(task.value))
   const taskStatus = computed(() => (isSharing.value ? TASK_STATUS.SHARING : task.value.status))
+  const statusBadge = computed<TaskCardStatusBadge | null>(() => {
+    if (isSharing.value) return { key: 'sharing', label: sharingLabel.value, tone: 'success' }
+    if (isMetadataFetching.value)
+      return {
+        key: 'bt-metadata-fetching',
+        label: t('task.bt-metadata-fetching') || 'Fetching torrent',
+        tone: 'waiting',
+      }
+
+    switch (task.value.status) {
+      case TASK_STATUS.WAITING:
+        return { key: TASK_STATUS.WAITING, label: t('task.status-waiting') || 'Queued', tone: 'waiting' }
+      case TASK_STATUS.COMPLETE:
+        return { key: TASK_STATUS.COMPLETE, label: t('task.task-complete') || 'Completed', tone: 'success' }
+      case TASK_STATUS.ERROR:
+        return { key: TASK_STATUS.ERROR, label: t('task.task-error') || 'Error', tone: 'error' }
+      case TASK_STATUS.REMOVED:
+        return { key: TASK_STATUS.REMOVED, label: t('task.task-removed') || 'Removed', tone: 'muted' }
+      default:
+        return null
+    }
+  })
   const isActive = computed(() => task.value.status === TASK_STATUS.ACTIVE)
   const completedLengthValue = computed(() => getTaskCompletedLength(task.value))
   const percent = computed(() => calcProgress(task.value.totalLength, completedLengthValue.value))
@@ -83,6 +112,7 @@ export function useTaskCardModel(task: ComputedRef<Aria2Task>): TaskCardModel {
     isSharing,
     sharingLabel,
     isMetadataFetching,
+    statusBadge,
     taskStatus,
     isActive,
     completedLengthValue,

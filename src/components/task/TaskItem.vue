@@ -15,6 +15,7 @@ import {
   CheckmarkCircleOutline,
   TrashOutline,
   RadioOutline,
+  TimeOutline,
 } from '@vicons/ionicons5'
 import { useTaskCardModel } from '@/composables/useTaskCardModel'
 import { useTaskFileMissing } from '@/composables/useTaskFileMissing'
@@ -41,8 +42,8 @@ const taskRef = computed(() => props.task)
 const {
   taskFullName,
   isSharing,
-  sharingLabel,
   isMetadataFetching,
+  statusBadge,
   taskStatus,
   isActive,
   percent,
@@ -72,28 +73,38 @@ const statusColorMap = computed<Record<string, string>>(() => ({
 }))
 
 const progressColor = computed(() => statusColorMap.value[taskStatus.value] || cssVar('--m3-status-active', ''))
+const hasStatusLine = computed(() => Boolean(statusBadge.value || fileMissing.value))
 
-const finishedTag = computed(() => {
-  const s = props.task.status
-  if (s === TASK_STATUS.COMPLETE)
-    return {
-      label: t('task.task-complete') || 'Completed',
-      color: cssVar('--m3-status-success', '#67C23A'),
-      icon: CheckmarkCircleOutline,
-    }
-  if (s === TASK_STATUS.ERROR)
-    return {
-      label: t('task.task-error') || 'Error',
-      color: cssVar('--m3-status-error', '#F56C6C'),
-      icon: AlertCircleOutline,
-    }
-  if (s === TASK_STATUS.REMOVED)
-    return {
-      label: t('task.task-removed') || 'Removed',
-      color: cssVar('--m3-status-paused', '#909399'),
-      icon: TrashOutline,
-    }
-  return null
+const statusBadgeStyle = computed(() => {
+  switch (statusBadge.value?.tone) {
+    case 'success':
+      return { color: cssVar('--m3-status-success', '#67C23A') }
+    case 'error':
+      return { color: cssVar('--m3-status-error', '#F56C6C') }
+    case 'waiting':
+      return { color: cssVar('--m3-status-waiting', '') }
+    case 'muted':
+      return { color: cssVar('--m3-status-paused', '#909399') }
+    default:
+      return { color: cssVar('--m3-status-paused', '#909399') }
+  }
+})
+
+const statusBadgeIcon = computed(() => {
+  switch (statusBadge.value?.key) {
+    case TASK_STATUS.COMPLETE:
+      return CheckmarkCircleOutline
+    case TASK_STATUS.ERROR:
+      return AlertCircleOutline
+    case TASK_STATUS.REMOVED:
+      return TrashOutline
+    case TASK_STATUS.WAITING:
+      return TimeOutline
+    case 'bt-metadata-fetching':
+      return RadioOutline
+    default:
+      return CloudUploadOutline
+  }
 })
 
 function onDblClick() {
@@ -103,8 +114,8 @@ function onDblClick() {
     emit('open-file', props.task)
     return
   }
-  if (s === TASK_STATUS.ACTIVE) emit('pause', props.task)
-  else if (s === TASK_STATUS.WAITING || s === TASK_STATUS.PAUSED) emit('resume', props.task)
+  if (s === TASK_STATUS.ACTIVE || s === TASK_STATUS.WAITING) emit('pause', props.task)
+  else if (s === TASK_STATUS.PAUSED) emit('resume', props.task)
 }
 
 const { fileMissing } = useTaskFileMissing(taskRef)
@@ -201,18 +212,14 @@ onBeforeUnmount(() => {
           @stop-sharing="emit('stop-sharing', task)"
         />
       </div>
-      <div class="tags-wrapper" :class="{ 'has-tags': isSharing || finishedTag || fileMissing }">
-        <div class="tags-inner">
-          <div v-if="isSharing || finishedTag || fileMissing" class="task-tags">
-            <span v-if="isSharing" class="sharing-tag">
-              <NIcon :size="13"><CloudUploadOutline /></NIcon>
-              {{ sharingLabel }}
+      <div class="task-status-slot" :class="{ 'task-status-slot--visible': hasStatusLine }">
+        <div class="task-status-slot__inner">
+          <div class="task-tags" :class="{ 'task-tags--visible': hasStatusLine }">
+            <span v-show="statusBadge" class="status-tag" :style="statusBadgeStyle">
+              <NIcon :size="13"><component :is="statusBadgeIcon" /></NIcon>
+              {{ statusBadge?.label }}
             </span>
-            <span v-else-if="finishedTag" class="status-tag" :style="{ color: finishedTag.color }">
-              <NIcon :size="13"><component :is="finishedTag.icon" /></NIcon>
-              {{ finishedTag.label }}
-            </span>
-            <span v-if="fileMissing" class="file-missing-tag">
+            <span v-show="fileMissing" class="file-missing-tag">
               <NIcon :size="13"><AlertCircleOutline /></NIcon>
               {{ t('task.file-missing') || 'File missing' }}
             </span>
@@ -335,8 +342,12 @@ onBeforeUnmount(() => {
 }
 .task-drag-rail {
   grid-row: 1;
+  align-self: stretch;
+  min-height: 0;
 }
 .task-body {
+  display: grid;
+  grid-template-rows: auto auto auto;
   min-width: 0;
   padding: 16px 12px;
 }
@@ -425,6 +436,9 @@ onBeforeUnmount(() => {
 .task-progress :deep(.n-progress-graph-line-fill) {
   transition: background-color 0.5s cubic-bezier(0.2, 0, 0, 1);
 }
+.task-progress {
+  margin-top: 10px;
+}
 .task-progress-info {
   display: flex;
   flex-wrap: wrap;
@@ -485,39 +499,37 @@ onBeforeUnmount(() => {
   opacity: 0;
   pointer-events: none;
 }
+.task-status-slot {
+  height: 0;
+  overflow: hidden;
+  transition:
+    height 0.42s cubic-bezier(0.05, 0.7, 0.1, 1),
+    opacity 0.28s cubic-bezier(0.2, 0, 0, 1);
+  opacity: 0;
+}
+.task-status-slot--visible {
+  height: 18px;
+  opacity: 1;
+}
+.task-status-slot__inner {
+  min-height: 18px;
+}
 .task-tags {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 18px;
+  opacity: 0;
+  transform: translateY(-3px);
+  transition:
+    opacity 0.3s cubic-bezier(0.2, 0, 0, 1),
+    transform 0.3s cubic-bezier(0.05, 0.7, 0.1, 1);
+  pointer-events: none;
 }
-/* ── Tag height transition (CSS Grid 0fr→1fr) ────────────────────── */
-/* Wrapper is always in the DOM. grid-template-rows transitions from    */
-/* 0fr (collapsed, zero height) to 1fr (natural height). The inner      */
-/* element uses overflow:hidden + min-height:0 to clip during collapse.  */
-/* Works for all tags: sharing, completed, removed, file-missing.       */
-.tags-wrapper {
-  display: grid;
-  grid-template-rows: 0fr;
-  margin-bottom: 10px;
-  transition: grid-template-rows 0.4s cubic-bezier(0.05, 0.7, 0.1, 1);
-}
-.tags-wrapper.has-tags {
-  grid-template-rows: 1fr;
-  margin-top: 2px;
-}
-.tags-inner {
-  overflow: hidden;
-  min-height: 0;
-}
-.sharing-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 13px;
-  color: var(--m3-success);
-  opacity: 0.9;
-  vertical-align: middle;
-  animation: m3-tag-enter 0.35s cubic-bezier(0.05, 0.7, 0.1, 1);
+.task-tags--visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 .status-tag {
   display: inline-flex;
@@ -526,7 +538,6 @@ onBeforeUnmount(() => {
   font-size: 13px;
   opacity: 0.9;
   vertical-align: middle;
-  animation: m3-tag-enter 0.35s cubic-bezier(0.05, 0.7, 0.1, 1);
 }
 .error-message {
   flex-basis: 100%;

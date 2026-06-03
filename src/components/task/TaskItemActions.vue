@@ -60,7 +60,7 @@ const actionsMap = computed<Record<string, ActionDef[]>>(() => ({
     { key: 'delete', icon: CloseOutline, label: t('task.delete-task'), event: 'delete' },
   ],
   [TASK_STATUS.WAITING]: [
-    { key: 'toggle', icon: PlayOutline, label: t('task.resume-task'), event: 'resume' },
+    { key: 'toggle', icon: PauseOutline, label: t('task.pause-task'), event: 'pause' },
     { key: 'delete', icon: CloseOutline, label: t('task.delete-task'), event: 'delete' },
   ],
   [TASK_STATUS.ERROR]: [

@@ -7,6 +7,7 @@
  */
 import { ref, type Ref, h } from 'vue'
 import { getTaskUri, getTaskDisplayName, resolveOpenTarget, canRestart } from '@shared/utils'
+import { getErrorMessage } from '@shared/utils/errorMessage'
 import { invoke } from '@tauri-apps/api/core'
 import { deleteTaskFiles } from '@/composables/useFileDelete'
 import { resolveTaskFilePath, requestFileRecheck } from '@/composables/useArchivedPaths'
@@ -48,7 +49,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
       .pauseTask(task)
       .then(() => message.success(t('task.pause-task-success', { taskName })))
       .catch((e) => {
-        logger.warn('TaskView.pauseTask', e)
+        logger.warn('TaskView.pauseTask', getErrorMessage(e))
         message.error(t('task.pause-task-fail', { taskName }))
       })
   }
@@ -65,7 +66,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
         .restartTask(task)
         .then(() => message.success(t('task.restart-task-success', { taskName })))
         .catch((e) => {
-          logger.warn('TaskView.restartTask', e)
+          logger.warn('TaskView.restartTask', getErrorMessage(e))
           message.error(t('task.restart-task-fail', { taskName }))
         })
     } else {
@@ -73,7 +74,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
         .resumeTask(task)
         .then(() => message.success(t('task.resume-task-success', { taskName })))
         .catch((e) => {
-          logger.warn('TaskView.resumeTask', e)
+          logger.warn('TaskView.resumeTask', getErrorMessage(e))
           message.error(t('task.resume-task-fail', { taskName }))
         })
     }

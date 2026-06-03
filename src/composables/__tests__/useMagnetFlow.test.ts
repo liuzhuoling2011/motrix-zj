@@ -195,9 +195,9 @@ describe('useMagnetFlow', () => {
       expect(action).toEqual({ needsResume: false })
     })
 
-    it('returns resume-only for a waiting task', () => {
+    it('returns no-op for a queued waiting task', () => {
       const action = buildStatusAwareConfirmAction('waiting')
-      expect(action).toEqual({ needsResume: true })
+      expect(action).toEqual({ needsResume: false })
     })
 
     it('returns no-op for a complete task', () => {

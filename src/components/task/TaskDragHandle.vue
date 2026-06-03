@@ -10,7 +10,8 @@
 
 <style scoped>
 .task-drag-handle {
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   border: none;
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--m3-on-surface) 7%, transparent), transparent 76%),

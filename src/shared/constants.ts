@@ -80,7 +80,7 @@ export const ED2K_SERVER_MET_URL = 'https://upd.emule-security.org/server.met'
 export const ED2K_NODES_DAT_URL = 'https://upd.emule-security.org/nodes.dat'
 export const PORT_RECOVERY_RANGE_START = 29000
 export const PORT_RECOVERY_RANGE_END = 29999
-export const ENGINE_MAX_CONCURRENT_DOWNLOADS = 10
+export const ENGINE_MAX_CONCURRENT_DOWNLOADS = 100
 export const ENGINE_MAX_CONNECTION_PER_SERVER = 256
 export const ENGINE_DEFAULT_CONNECTION_PER_SERVER = 64
 export const ENGINE_DEFAULT_SPLIT = 64
@@ -334,10 +334,10 @@ export const DEFAULT_APP_CONFIG = {
   taskCardMode: 'full' as const,
   locale: 'auto',
 
-  // ── Download Core (aria2 defaults: concurrent=5, split=5, conn/server=1) ──
+  // ── Download Core ─────────────────────────────────────────────────
   dir: '',
   split: ENGINE_DEFAULT_SPLIT, // parallel segments per file; independent of maxConnectionPerServer since v2
-  maxConcurrentDownloads: 5, // aria2 default; IDM=4, FDM=3~12
+  maxConcurrentDownloads: 6,
   maxConnectionPerServer: ENGINE_DEFAULT_CONNECTION_PER_SERVER, // per-server connection cap; independent of split since v2
   maxOverallDownloadLimit: '0',
   maxOverallUploadLimit: '0',

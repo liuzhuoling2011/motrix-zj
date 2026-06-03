@@ -71,9 +71,9 @@ describe('buildDownloadsForm', () => {
 
   // ── Task Management ─────────────────────────────────────────────
 
-  it('defaults maxConcurrentDownloads to 5', () => {
+  it('defaults maxConcurrentDownloads to 6', () => {
     const form = buildDownloadsForm(emptyConfig)
-    expect(form.maxConcurrentDownloads).toBe(5)
+    expect(form.maxConcurrentDownloads).toBe(6)
   })
 
   it('defaults split to ENGINE_DEFAULT_SPLIT', () => {

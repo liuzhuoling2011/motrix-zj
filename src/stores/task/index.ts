@@ -1,7 +1,7 @@
 /** @fileoverview Pinia store for download task management: list, add, pause, resume, remove. */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { EMPTY_STRING } from '@shared/constants'
+import { EMPTY_STRING, TASK_STATUS } from '@shared/constants'
 import { checkTaskIsEd2kSearch, intersection } from '@shared/utils'
 import { logger } from '@shared/logger'
 import type { Aria2Task, Aria2File, Aria2Peer, Aria2EngineOptions, TaskApi } from '@shared/types'
@@ -386,13 +386,24 @@ export const useTaskStore = defineStore('task', () => {
   const taskOps = {} as ReturnType<typeof createTaskOperations>
 
   async function batchResumeSelectedTasks() {
-    if (selectedGidList.value.length === 0) return
-    return api.batchResumeTask({ gids: selectedGidList.value })
+    const selected = new Set(selectedGidList.value)
+    const gids = taskList.value
+      .filter((task) => selected.has(task.gid) && task.status === TASK_STATUS.PAUSED)
+      .map((task) => task.gid)
+    if (gids.length === 0) return
+    return api.batchResumeTask({ gids })
   }
 
   async function batchPauseSelectedTasks() {
-    if (selectedGidList.value.length === 0) return
-    return api.batchPauseTask({ gids: selectedGidList.value })
+    const selected = new Set(selectedGidList.value)
+    const gids = taskList.value
+      .filter((task) => {
+        if (!selected.has(task.gid)) return false
+        return task.status === TASK_STATUS.ACTIVE || task.status === TASK_STATUS.WAITING
+      })
+      .map((task) => task.gid)
+    if (gids.length === 0) return
+    return api.batchPauseTask({ gids })
   }
 
   function addToSharingList(gid: string) {

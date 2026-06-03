@@ -113,10 +113,18 @@ describe('TaskItemActions', () => {
   })
 
   describe('status variants', () => {
-    it('shows resume+delete for WAITING tasks', () => {
+    it('shows pause+delete for WAITING tasks', () => {
       const wrapper = createWrapper(TASK_STATUS.WAITING)
       const actions = wrapper.findAll('.task-item-action')
       expect(actions.length).toBeGreaterThanOrEqual(2 + 3)
+    })
+
+    it('emits pause, not resume, for WAITING toggle action', async () => {
+      const wrapper = createWrapper(TASK_STATUS.WAITING)
+      const actions = wrapper.findAll('.task-item-action')
+      await actions[actions.length - 1].trigger('click')
+      expect(wrapper.emitted('pause')).toBeTruthy()
+      expect(wrapper.emitted('resume')).toBeFalsy()
     })
 
     it('shows open+restart+trash for REMOVED tasks', () => {

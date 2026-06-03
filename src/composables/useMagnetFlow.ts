@@ -102,7 +102,7 @@ export interface ConfirmAction {
  * to a magnet download based on its current aria2 task status.
  *
  * - paused:   standard case with pause-metadata=true — just resume
- * - waiting:  queued task — just resume
+ * - waiting:  queued task — already eligible to start when a slot opens
  * - active:   engine failed to honor pause-metadata — do not race pause/unpause
  * - complete/removed/error: terminal states — no action needed
  * - undefined: safe fallback — treat as resumable
@@ -110,9 +110,9 @@ export interface ConfirmAction {
 export function buildStatusAwareConfirmAction(status: string | undefined): ConfirmAction {
   switch (status) {
     case 'paused':
-    case 'waiting':
     case undefined:
       return { needsResume: true }
+    case 'waiting':
     case 'active':
     case 'complete':
     case 'removed':

@@ -208,7 +208,8 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
   function toggleTask(task: Aria2Task) {
     const { status } = task
     if (status === TASK_STATUS.ACTIVE && !checkTaskIsSharing(task)) return pauseTask(task)
-    if (status === TASK_STATUS.WAITING || status === TASK_STATUS.PAUSED) return resumeTask(task)
+    if (status === TASK_STATUS.WAITING) return pauseTask(task)
+    if (status === TASK_STATUS.PAUSED) return resumeTask(task)
     logger.debug('TaskOps.toggleTask', `no-op gid=${task.gid} status=${status} sharing=${checkTaskIsSharing(task)}`)
   }
 

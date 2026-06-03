@@ -38,6 +38,8 @@ vi.mock('@vicons/ionicons5', () => ({
   CheckmarkCircleOutline: { template: '<i />' },
   TrashOutline: { template: '<i />' },
   RadioOutline: { template: '<i />' },
+  PauseOutline: { template: '<i />' },
+  TimeOutline: { template: '<i />' },
 }))
 
 vi.mock('../TaskItemActions.vue', () => ({
@@ -140,5 +142,59 @@ describe('TaskItem', () => {
     expect(invokeMock).toHaveBeenCalledWith('check_path_exists', {
       path: '/downloads/third.bin',
     })
+  })
+
+  it('shows queued status for waiting tasks', () => {
+    const task = {
+      ...createTask('/downloads/waiting.bin'),
+      status: 'waiting',
+      completedLength: '0',
+      totalLength: '100',
+    } satisfies Aria2Task
+
+    const wrapper = mount(TaskItem, {
+      props: {
+        task,
+      },
+    })
+
+    expect(wrapper.text()).toContain('task.status-waiting')
+  })
+
+  it('does not show a status tag for paused tasks', () => {
+    const task = {
+      ...createTask('/downloads/paused.bin'),
+      status: 'paused',
+      completedLength: '25',
+      totalLength: '100',
+    } satisfies Aria2Task
+
+    const wrapper = mount(TaskItem, {
+      props: {
+        task,
+      },
+    })
+
+    expect(wrapper.text()).not.toContain('task.status-paused')
+    expect(wrapper.find('.task-status-slot').classes()).not.toContain('task-status-slot--visible')
+  })
+
+  it('keeps the status slot mounted when no status tag is visible', () => {
+    const task = {
+      ...createTask('/downloads/active.bin'),
+      status: 'active',
+      completedLength: '25',
+      totalLength: '100',
+    } satisfies Aria2Task
+
+    const wrapper = mount(TaskItem, {
+      props: {
+        task,
+      },
+    })
+
+    expect(wrapper.find('.task-status-slot').exists()).toBe(true)
+    expect(wrapper.find('.task-tags').exists()).toBe(true)
+    expect(wrapper.find('.task-status-slot').classes()).not.toContain('task-status-slot--visible')
   })
 })

@@ -75,7 +75,7 @@ function makeOptions(overrides: Partial<Parameters<typeof usePreferenceForm<Test
   return {
     buildForm: () => ({
       dir: '/downloads',
-      maxConcurrentDownloads: 5,
+      maxConcurrentDownloads: 6,
       locale: 'en-US',
     }),
     buildSystemConfig: (f: TestForm) => ({
@@ -120,7 +120,7 @@ describe('usePreferenceForm', () => {
     const { form, isDirty } = result
 
     expect(form.value.dir).toBe('/downloads')
-    expect(form.value.maxConcurrentDownloads).toBe(5)
+    expect(form.value.maxConcurrentDownloads).toBe(6)
     expect(isDirty.value).toBe(false)
 
     unmount()
@@ -166,7 +166,7 @@ describe('usePreferenceForm', () => {
     await nextTick()
 
     expect(form.value.dir).toBe('/downloads')
-    expect(form.value.maxConcurrentDownloads).toBe(5)
+    expect(form.value.maxConcurrentDownloads).toBe(6)
     expect(isDirty.value).toBe(false)
 
     unmount()
@@ -316,7 +316,7 @@ describe('usePreferenceForm', () => {
 
     // Should call changeGlobalOption with filtered keys (no restart-only keys)
     expect(mockChangeGlobalOption).toHaveBeenCalledWith(
-      expect.objectContaining({ dir: '/downloads', 'max-concurrent-downloads': '5' }),
+      expect.objectContaining({ dir: '/downloads', 'max-concurrent-downloads': '6' }),
     )
 
     unmount()

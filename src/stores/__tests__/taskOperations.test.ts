@@ -410,10 +410,11 @@ describe('toggleTask', () => {
     expect(api.resumeTask).toHaveBeenCalledWith({ gid: task.gid })
   })
 
-  it('resumes a waiting task', async () => {
+  it('pauses a waiting task', async () => {
     const task = makeTask({ status: TASK_STATUS.WAITING })
     await ops.toggleTask(task)
-    expect(api.resumeTask).toHaveBeenCalledWith({ gid: task.gid })
+    expect(api.pauseTask).toHaveBeenCalledWith({ gid: task.gid })
+    expect(api.resumeTask).not.toHaveBeenCalled()
   })
 
   it('does nothing for a completed task', async () => {

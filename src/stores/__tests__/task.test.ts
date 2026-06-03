@@ -624,10 +624,11 @@ describe('TaskStore', () => {
     expect(mockApi.resumeTask).toHaveBeenCalled()
   })
 
-  it('toggleTask resumes waiting task', async () => {
+  it('toggleTask pauses waiting task', async () => {
     const task = makeMockTask('gid1', 'waiting')
     await store.toggleTask(task)
-    expect(mockApi.resumeTask).toHaveBeenCalled()
+    expect(mockApi.pauseTask).toHaveBeenCalledWith({ gid: 'gid1' })
+    expect(mockApi.resumeTask).not.toHaveBeenCalled()
   })
 
   // ─── batch operations ───────────────────────────────────
@@ -644,8 +645,14 @@ describe('TaskStore', () => {
     expect(mockApi.batchPauseTask).not.toHaveBeenCalled()
   })
 
-  it('batchPauseSelectedTasks calls API with selected gids', async () => {
-    store.selectTasks(['gid1', 'gid2'])
+  it('batchPauseSelectedTasks only submits active and waiting gids', async () => {
+    store.taskList = [
+      makeMockTask('gid1', 'active'),
+      makeMockTask('gid2', 'waiting'),
+      makeMockTask('gid3', 'paused'),
+      makeMockTask('gid4', 'complete'),
+    ]
+    store.selectTasks(['gid1', 'gid2', 'gid3', 'gid4'])
     await store.batchPauseSelectedTasks()
     expect(mockApi.batchPauseTask).toHaveBeenCalledWith({ gids: ['gid1', 'gid2'] })
   })
@@ -656,10 +663,16 @@ describe('TaskStore', () => {
     expect(mockApi.batchResumeTask).not.toHaveBeenCalled()
   })
 
-  it('batchResumeSelectedTasks calls API with selected gids', async () => {
-    store.selectTasks(['gid1', 'gid2'])
+  it('batchResumeSelectedTasks only submits paused gids', async () => {
+    store.taskList = [
+      makeMockTask('gid1', 'paused'),
+      makeMockTask('gid2', 'waiting'),
+      makeMockTask('gid3', 'active'),
+      makeMockTask('gid4', 'error'),
+    ]
+    store.selectTasks(['gid1', 'gid2', 'gid3', 'gid4'])
     await store.batchResumeSelectedTasks()
-    expect(mockApi.batchResumeTask).toHaveBeenCalledWith({ gids: ['gid1', 'gid2'] })
+    expect(mockApi.batchResumeTask).toHaveBeenCalledWith({ gids: ['gid1'] })
   })
 
   // ─── updateCurrentTaskItem ──────────────────────────────

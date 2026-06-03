@@ -5,11 +5,12 @@ import { useI18n } from 'vue-i18n'
 import { TASK_STATUS } from '@shared/constants'
 import { NIcon, NProgress } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
-import { ArrowDownOutline, ArrowUpOutline, AlertCircleOutline, RadioOutline } from '@vicons/ionicons5'
+import { ArrowDownOutline, ArrowUpOutline, AlertCircleOutline, RadioOutline, TimeOutline } from '@vicons/ionicons5'
 import { useTaskCardModel } from '@/composables/useTaskCardModel'
 import { useTaskFileMissing } from '@/composables/useTaskFileMissing'
 import TaskDragHandle from './TaskDragHandle.vue'
 import TaskItemActions from './TaskItemActions.vue'
+import type { Component } from 'vue'
 import type { Aria2Task } from '@shared/types'
 
 const props = defineProps<{ task: Aria2Task }>()
@@ -30,8 +31,7 @@ const taskRef = computed(() => props.task)
 const {
   taskFullName,
   isSharing,
-  sharingLabel,
-  isMetadataFetching,
+  statusBadge,
   taskStatus,
   isActive,
   percent,
@@ -62,14 +62,26 @@ const statusColorMap = computed<Record<string, string>>(() => ({
 
 const progressColor = computed(() => statusColorMap.value[taskStatus.value] || cssVar('--m3-status-active', ''))
 
-const statusText = computed(() => {
-  if (fileMissing.value) return t('task.file-missing') || 'File missing'
-  if (isSharing.value) return sharingLabel.value
-  if (props.task.status === TASK_STATUS.COMPLETE) return t('task.task-complete') || 'Completed'
-  if (props.task.status === TASK_STATUS.ERROR) return t('task.task-error') || 'Error'
-  if (props.task.status === TASK_STATUS.REMOVED) return t('task.task-removed') || 'Removed'
-  if (isMetadataFetching.value) return t('task.bt-metadata-fetching') || 'Fetching torrent'
-  return ''
+const compactStatus = computed<{ label: string; tone: string; icon: Component } | null>(() => {
+  if (fileMissing.value) {
+    return {
+      label: t('task.file-missing') || 'File missing',
+      tone: 'error',
+      icon: AlertCircleOutline,
+    }
+  }
+  if (!statusBadge.value) return null
+
+  switch (statusBadge.value.key) {
+    case TASK_STATUS.ERROR:
+      return { label: statusBadge.value.label, tone: 'error', icon: AlertCircleOutline }
+    case TASK_STATUS.WAITING:
+      return { label: statusBadge.value.label, tone: statusBadge.value.tone, icon: TimeOutline }
+    case 'bt-metadata-fetching':
+      return { label: statusBadge.value.label, tone: statusBadge.value.tone, icon: RadioOutline }
+    default:
+      return { label: statusBadge.value.label, tone: statusBadge.value.tone, icon: RadioOutline }
+  }
 })
 
 function onDblClick() {
@@ -79,8 +91,8 @@ function onDblClick() {
     emit('open-file', props.task)
     return
   }
-  if (s === TASK_STATUS.ACTIVE) emit('pause', props.task)
-  else if (s === TASK_STATUS.WAITING || s === TASK_STATUS.PAUSED) emit('resume', props.task)
+  if (s === TASK_STATUS.ACTIVE || s === TASK_STATUS.WAITING) emit('pause', props.task)
+  else if (s === TASK_STATUS.PAUSED) emit('resume', props.task)
 }
 
 const sharingEnter = ref(false)
@@ -171,14 +183,9 @@ onBeforeUnmount(() => {
         <div class="compact-meta">
           <span>{{ percent }}%</span>
           <span v-if="hasSizeInfo">{{ completedSize }} / {{ totalSize }}</span>
-          <span
-            v-if="statusText"
-            class="compact-status"
-            :class="{ error: task.status === TASK_STATUS.ERROR || fileMissing }"
-          >
-            <NIcon v-if="task.status === TASK_STATUS.ERROR || fileMissing" :size="12"><AlertCircleOutline /></NIcon>
-            <NIcon v-else-if="isMetadataFetching" :size="12"><RadioOutline /></NIcon>
-            {{ statusText }}
+          <span v-if="compactStatus" class="compact-status" :class="{ error: compactStatus.tone === 'error' }">
+            <NIcon :size="12"><component :is="compactStatus.icon" /></NIcon>
+            {{ compactStatus.label }}
           </span>
           <span class="compact-speed">
             <NIcon :size="10"><ArrowDownOutline /></NIcon>
