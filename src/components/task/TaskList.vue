@@ -184,9 +184,6 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
         class="task-list-item"
         @click="handleItemClick(item, $event)"
       >
-        <span class="task-drag-handle" role="button" tabindex="0" aria-label="Drag task" @click.stop>
-          <span aria-hidden="true">⋮⋮</span>
-        </span>
         <component
           :is="taskCardComponent"
           :task="item"
@@ -237,36 +234,6 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
 .task-list-item {
   position: relative;
   margin-bottom: 16px;
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
-  column-gap: 8px;
-  align-items: stretch;
-}
-.task-drag-handle {
-  width: 22px;
-  min-height: 100%;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--m3-outline);
-  cursor: grab;
-  opacity: 0.55;
-  font-size: 16px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-  transition:
-    opacity 0.16s cubic-bezier(0.2, 0, 0, 1),
-    color 0.16s cubic-bezier(0.2, 0, 0, 1);
-}
-.task-drag-handle:hover {
-  color: var(--color-primary);
-  opacity: 1;
-}
-.task-drag-handle:active {
-  cursor: grabbing;
 }
 .task-list-item--ghost {
   overflow: hidden;
@@ -289,10 +256,6 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
 .task-list-item--settling.task-list-item--settled {
   transform: translate3d(0, 0, 0);
   transition: transform 300ms ease;
-}
-.task-list-item--chosen .task-drag-handle {
-  color: var(--color-primary);
-  opacity: 1;
 }
 .task-list-item :deep(button),
 .task-list-item :deep(a),

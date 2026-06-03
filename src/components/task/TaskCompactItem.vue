@@ -8,6 +8,7 @@ import MTooltip from '@/components/common/MTooltip.vue'
 import { ArrowDownOutline, ArrowUpOutline, AlertCircleOutline, RadioOutline } from '@vicons/ionicons5'
 import { useTaskCardModel } from '@/composables/useTaskCardModel'
 import { useTaskFileMissing } from '@/composables/useTaskFileMissing'
+import TaskDragHandle from './TaskDragHandle.vue'
 import TaskItemActions from './TaskItemActions.vue'
 import type { Aria2Task } from '@shared/types'
 
@@ -130,62 +131,65 @@ onBeforeUnmount(() => {
     @pointerleave="onCardRelease"
     @animationend="sharingEnter = false"
   >
-    <div class="compact-header">
-      <MTooltip placement="bottom-start">
-        <template #trigger>
-          <div class="compact-name">{{ taskFullName }}</div>
-        </template>
-        {{ taskFullName }}
-      </MTooltip>
-      <TaskItemActions
-        :task="task"
-        :status="taskStatus"
-        :file-missing="fileMissing"
-        density="compact"
-        @pause="emit('pause', task)"
-        @resume="emit('resume', task)"
-        @delete="emit('delete', task)"
-        @delete-record="emit('delete-record', task)"
-        @copy-link="emit('copy-link', task)"
-        @show-info="emit('show-info', task)"
-        @folder="emit('folder', task)"
-        @open-file="emit('open-file', task)"
-        @stop-sharing="emit('stop-sharing', task)"
-      />
-    </div>
-    <div class="compact-progress-row">
-      <NProgress
-        class="compact-progress"
-        type="line"
-        :percentage="percent"
-        :color="progressColor"
-        :rail-color="undefined"
-        :height="5"
-        :border-radius="3"
-        :show-indicator="false"
-        :processing="isActive"
-      />
-      <div class="compact-meta">
-        <span>{{ percent }}%</span>
-        <span v-if="hasSizeInfo">{{ completedSize }} / {{ totalSize }}</span>
-        <span
-          v-if="statusText"
-          class="compact-status"
-          :class="{ error: task.status === TASK_STATUS.ERROR || fileMissing }"
-        >
-          <NIcon v-if="task.status === TASK_STATUS.ERROR || fileMissing" :size="12"><AlertCircleOutline /></NIcon>
-          <NIcon v-else-if="isMetadataFetching" :size="12"><RadioOutline /></NIcon>
-          {{ statusText }}
-        </span>
-        <span class="compact-speed">
-          <NIcon :size="10"><ArrowDownOutline /></NIcon>
-          {{ downloadSpeed }}/s
-        </span>
-        <span v-if="transferSummary.showUploadMetrics" class="compact-speed">
-          <NIcon :size="10"><ArrowUpOutline /></NIcon>
-          {{ uploadSpeed }}/s
-        </span>
-        <span v-if="remaining > 0">{{ remainingText }}</span>
+    <TaskDragHandle class="compact-drag-rail" />
+    <div class="compact-body">
+      <div class="compact-header">
+        <MTooltip placement="bottom-start">
+          <template #trigger>
+            <div class="compact-name">{{ taskFullName }}</div>
+          </template>
+          {{ taskFullName }}
+        </MTooltip>
+        <TaskItemActions
+          :task="task"
+          :status="taskStatus"
+          :file-missing="fileMissing"
+          density="compact"
+          @pause="emit('pause', task)"
+          @resume="emit('resume', task)"
+          @delete="emit('delete', task)"
+          @delete-record="emit('delete-record', task)"
+          @copy-link="emit('copy-link', task)"
+          @show-info="emit('show-info', task)"
+          @folder="emit('folder', task)"
+          @open-file="emit('open-file', task)"
+          @stop-sharing="emit('stop-sharing', task)"
+        />
+      </div>
+      <div class="compact-progress-row">
+        <NProgress
+          class="compact-progress"
+          type="line"
+          :percentage="percent"
+          :color="progressColor"
+          :rail-color="undefined"
+          :height="5"
+          :border-radius="3"
+          :show-indicator="false"
+          :processing="isActive"
+        />
+        <div class="compact-meta">
+          <span>{{ percent }}%</span>
+          <span v-if="hasSizeInfo">{{ completedSize }} / {{ totalSize }}</span>
+          <span
+            v-if="statusText"
+            class="compact-status"
+            :class="{ error: task.status === TASK_STATUS.ERROR || fileMissing }"
+          >
+            <NIcon v-if="task.status === TASK_STATUS.ERROR || fileMissing" :size="12"><AlertCircleOutline /></NIcon>
+            <NIcon v-else-if="isMetadataFetching" :size="12"><RadioOutline /></NIcon>
+            {{ statusText }}
+          </span>
+          <span class="compact-speed">
+            <NIcon :size="10"><ArrowDownOutline /></NIcon>
+            {{ downloadSpeed }}/s
+          </span>
+          <span v-if="transferSummary.showUploadMetrics" class="compact-speed">
+            <NIcon :size="10"><ArrowUpOutline /></NIcon>
+            {{ uploadSpeed }}/s
+          </span>
+          <span v-if="remaining > 0">{{ remainingText }}</span>
+        </div>
       </div>
     </div>
   </div>
@@ -194,12 +198,14 @@ onBeforeUnmount(() => {
 <style scoped>
 .task-compact-item {
   position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
   min-height: 42px;
-  padding: 8px 12px;
   background-color: var(--task-item-bg);
   border: 1px solid var(--m3-outline-variant);
   border-left: 3px solid var(--m3-outline-variant);
   border-radius: 6px;
+  overflow: hidden;
   transition: border-color 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 .task-compact-item::before {
@@ -222,6 +228,16 @@ onBeforeUnmount(() => {
 }
 .task-compact-item:hover {
   border-color: var(--task-item-hover-border);
+}
+.task-compact-item:hover .compact-drag-rail {
+  opacity: 0.64;
+}
+.compact-drag-rail {
+  grid-row: 1;
+}
+.compact-body {
+  min-width: 0;
+  padding: 8px 12px;
 }
 .task-compact-item.pressed {
   transform: scale(0.98);

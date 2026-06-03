@@ -18,6 +18,7 @@ import {
 } from '@vicons/ionicons5'
 import { useTaskCardModel } from '@/composables/useTaskCardModel'
 import { useTaskFileMissing } from '@/composables/useTaskFileMissing'
+import TaskDragHandle from './TaskDragHandle.vue'
 import TaskItemActions from './TaskItemActions.vue'
 import type { Aria2Task } from '@shared/types'
 
@@ -169,99 +170,102 @@ onBeforeUnmount(() => {
     @pointerleave="onCardRelease"
     @animationend="sharingEnter = false"
   >
-    <div class="task-header">
-      <MTooltip placement="bottom-start">
-        <template #trigger>
-          <div class="task-name">
-            <!-- Crossfade: old name fades out, then new name fades in.
-                 :key ensures transition only fires when the text actually changes.
-                 Polling-safe: computed returns the same string each cycle → no key change. -->
-            <Transition name="name-crossfade" mode="out-in">
-              <span :key="taskFullName">{{ taskFullName }}</span>
-            </Transition>
+    <TaskDragHandle class="task-drag-rail" />
+    <div class="task-body">
+      <div class="task-header">
+        <MTooltip placement="bottom-start">
+          <template #trigger>
+            <div class="task-name">
+              <!-- Crossfade: old name fades out, then new name fades in.
+                   :key ensures transition only fires when the text actually changes.
+                   Polling-safe: computed returns the same string each cycle → no key change. -->
+              <Transition name="name-crossfade" mode="out-in">
+                <span :key="taskFullName">{{ taskFullName }}</span>
+              </Transition>
+            </div>
+          </template>
+          {{ taskFullName }}
+        </MTooltip>
+        <TaskItemActions
+          :task="task"
+          :status="taskStatus"
+          :file-missing="fileMissing"
+          @pause="emit('pause', task)"
+          @resume="emit('resume', task)"
+          @delete="emit('delete', task)"
+          @delete-record="emit('delete-record', task)"
+          @copy-link="emit('copy-link', task)"
+          @show-info="emit('show-info', task)"
+          @folder="emit('folder', task)"
+          @open-file="emit('open-file', task)"
+          @stop-sharing="emit('stop-sharing', task)"
+        />
+      </div>
+      <div class="tags-wrapper" :class="{ 'has-tags': isSharing || finishedTag || fileMissing }">
+        <div class="tags-inner">
+          <div v-if="isSharing || finishedTag || fileMissing" class="task-tags">
+            <span v-if="isSharing" class="sharing-tag">
+              <NIcon :size="13"><CloudUploadOutline /></NIcon>
+              {{ sharingLabel }}
+            </span>
+            <span v-else-if="finishedTag" class="status-tag" :style="{ color: finishedTag.color }">
+              <NIcon :size="13"><component :is="finishedTag.icon" /></NIcon>
+              {{ finishedTag.label }}
+            </span>
+            <span v-if="fileMissing" class="file-missing-tag">
+              <NIcon :size="13"><AlertCircleOutline /></NIcon>
+              {{ t('task.file-missing') || 'File missing' }}
+            </span>
           </div>
-        </template>
-        {{ taskFullName }}
-      </MTooltip>
-      <TaskItemActions
-        :task="task"
-        :status="taskStatus"
-        :file-missing="fileMissing"
-        @pause="emit('pause', task)"
-        @resume="emit('resume', task)"
-        @delete="emit('delete', task)"
-        @delete-record="emit('delete-record', task)"
-        @copy-link="emit('copy-link', task)"
-        @show-info="emit('show-info', task)"
-        @folder="emit('folder', task)"
-        @open-file="emit('open-file', task)"
-        @stop-sharing="emit('stop-sharing', task)"
-      />
-    </div>
-    <div class="tags-wrapper" :class="{ 'has-tags': isSharing || finishedTag || fileMissing }">
-      <div class="tags-inner">
-        <div v-if="isSharing || finishedTag || fileMissing" class="task-tags">
-          <span v-if="isSharing" class="sharing-tag">
-            <NIcon :size="13"><CloudUploadOutline /></NIcon>
-            {{ sharingLabel }}
-          </span>
-          <span v-else-if="finishedTag" class="status-tag" :style="{ color: finishedTag.color }">
-            <NIcon :size="13"><component :is="finishedTag.icon" /></NIcon>
-            {{ finishedTag.label }}
-          </span>
-          <span v-if="fileMissing" class="file-missing-tag">
-            <NIcon :size="13"><AlertCircleOutline /></NIcon>
-            {{ t('task.file-missing') || 'File missing' }}
-          </span>
         </div>
       </div>
-    </div>
-    <div class="task-progress">
-      <NProgress
-        type="line"
-        :percentage="percent"
-        :color="progressColor"
-        :rail-color="undefined"
-        :height="6"
-        :border-radius="3"
-        :show-indicator="false"
-        :processing="isActive"
-      />
-      <div class="task-progress-info">
-        <div class="progress-left" :class="{ 'info-hidden': !hasSizeInfo && !isMetadataFetching }">
-          <Transition name="metadata-hint" mode="out-in">
-            <span v-if="isMetadataFetching" key="metadata" class="metadata-hint">
-              <NIcon :size="12" class="metadata-hint-icon"><RadioOutline /></NIcon>
-              {{ t('task.bt-metadata-fetching') || 'Fetching torrent' }}
+      <div class="task-progress">
+        <NProgress
+          type="line"
+          :percentage="percent"
+          :color="progressColor"
+          :rail-color="undefined"
+          :height="6"
+          :border-radius="3"
+          :show-indicator="false"
+          :processing="isActive"
+        />
+        <div class="task-progress-info">
+          <div class="progress-left" :class="{ 'info-hidden': !hasSizeInfo && !isMetadataFetching }">
+            <Transition name="metadata-hint" mode="out-in">
+              <span v-if="isMetadataFetching" key="metadata" class="metadata-hint">
+                <NIcon :size="12" class="metadata-hint-icon"><RadioOutline /></NIcon>
+                {{ t('task.bt-metadata-fetching') || 'Fetching torrent' }}
+              </span>
+              <span v-else key="size">
+                {{ completedSize }}
+                <span v-if="Number(task.totalLength) > 0"> / {{ totalSize }}</span>
+              </span>
+            </Transition>
+          </div>
+          <div class="progress-right" :class="{ 'info-hidden': !isActive }">
+            <span class="speed-text" :class="{ 'info-hidden': remaining <= 0 }">
+              <span>{{ remainingText }}</span>
             </span>
-            <span v-else key="size">
-              {{ completedSize }}
-              <span v-if="Number(task.totalLength) > 0"> / {{ totalSize }}</span>
+            <span v-if="transferSummary.showUploadMetrics" class="speed-text">
+              <NIcon :size="10"><ArrowUpOutline /></NIcon>
+              <span>{{ uploadSpeed }}/s</span>
             </span>
-          </Transition>
+            <span class="speed-text">
+              <NIcon :size="10"><ArrowDownOutline /></NIcon>
+              <span>{{ downloadSpeed }}/s</span>
+            </span>
+            <span v-if="transferSummary.showSeeders" class="speed-text">
+              <NIcon :size="10"><MagnetOutline /></NIcon>
+              <span>{{ task.numSeeders }}</span>
+            </span>
+            <span class="speed-text">
+              <NIcon :size="10"><GitNetworkOutline /></NIcon>
+              <span>{{ task.connections }}</span>
+            </span>
+          </div>
+          <div class="error-message" :class="{ 'info-hidden': !task.errorMessage }">{{ task.errorMessage }}</div>
         </div>
-        <div class="progress-right" :class="{ 'info-hidden': !isActive }">
-          <span class="speed-text" :class="{ 'info-hidden': remaining <= 0 }">
-            <span>{{ remainingText }}</span>
-          </span>
-          <span v-if="transferSummary.showUploadMetrics" class="speed-text">
-            <NIcon :size="10"><ArrowUpOutline /></NIcon>
-            <span>{{ uploadSpeed }}/s</span>
-          </span>
-          <span class="speed-text">
-            <NIcon :size="10"><ArrowDownOutline /></NIcon>
-            <span>{{ downloadSpeed }}/s</span>
-          </span>
-          <span v-if="transferSummary.showSeeders" class="speed-text">
-            <NIcon :size="10"><MagnetOutline /></NIcon>
-            <span>{{ task.numSeeders }}</span>
-          </span>
-          <span class="speed-text">
-            <NIcon :size="10"><GitNetworkOutline /></NIcon>
-            <span>{{ task.connections }}</span>
-          </span>
-        </div>
-        <div class="error-message" :class="{ 'info-hidden': !task.errorMessage }">{{ task.errorMessage }}</div>
       </div>
     </div>
   </div>
@@ -270,13 +274,15 @@ onBeforeUnmount(() => {
 <style scoped>
 .task-item {
   position: relative;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
   min-height: 78px;
-  padding: 16px 12px;
   background-color: var(--task-item-bg);
   border: 1px solid var(--m3-outline-variant);
   /* Reserve 3px left border at base color so sharing only animates color */
   border-left: 3px solid var(--m3-outline-variant);
   border-radius: 6px;
+  overflow: hidden;
   transition: border-color 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 /* Gradient overlay — always present, hidden by default */
@@ -323,6 +329,16 @@ onBeforeUnmount(() => {
 }
 .task-item:hover {
   border-color: var(--task-item-hover-border);
+}
+.task-item:hover .task-drag-rail {
+  opacity: 0.64;
+}
+.task-drag-rail {
+  grid-row: 1;
+}
+.task-body {
+  min-width: 0;
+  padding: 16px 12px;
 }
 /* ── Card press-hold state ──────────────────────────────────────────── */
 /* Asymmetric timing: fast press-in (0.15s), springy release (0.35s).   */
