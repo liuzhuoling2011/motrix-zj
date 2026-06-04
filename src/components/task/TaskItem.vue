@@ -387,10 +387,11 @@ onBeforeUnmount(() => {
 .task-name > span {
   font-size: 14px;
   line-height: 26px;
-  display: block;
+  display: -webkit-box;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 /* ── Filename resolution crossfade (Vue <Transition mode="out-in">) ── */
 /* Old text fades out → new text fades in. No flash because Vue applies  */
