@@ -827,8 +827,9 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
 }
 
 .uri-input :deep(.n-input__textarea-el) {
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: normal;
+  word-break: break-all;
 }
 
 /* ── Torrent panel ────────────────────────────────────────────────── */
