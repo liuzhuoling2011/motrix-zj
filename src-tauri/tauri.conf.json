@@ -15,8 +15,8 @@
         "title": "Motrix Next",
         "width": 1068,
         "height": 680,
-        "minWidth": 560,
-        "minHeight": 360,
+        "minWidth": 373,
+        "minHeight": 240,
         "transparent": true,
         "decorations": false,
         "visible": false,
@@ -42,18 +42,10 @@
       "data/ed2k-bootstrap/nodes.dat",
       "data/dbip-country-lite.mmdb"
     ],
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "fileAssociations": [
       {
-        "ext": [
-          "torrent"
-        ],
+        "ext": ["torrent"],
         "name": "BitTorrent",
         "mimeType": "application/x-bittorrent",
         "description": "BitTorrent File",
@@ -107,19 +99,12 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": [
-        "https://github.com/AnInsomniacy/motrix-next/releases/download/updater/latest.json"
-      ],
+      "endpoints": ["https://github.com/AnInsomniacy/motrix-next/releases/download/updater/latest.json"],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc2MjEwNDUzQTk3OUM2NDUKUldSRnhubXBVd1FoZHUxeWtoRGJFblZaZ3V3UWZMQTYwL29CQTNySWxQMForTDA2YjN1Mk50Sk4K"
     },
     "deep-link": {
       "desktop": {
-        "schemes": [
-          "magnet",
-          "ed2k",
-          "thunder",
-          "motrixnext"
-        ]
+        "schemes": ["magnet", "ed2k", "thunder", "motrixnext"]
       }
     },
     "sql": {

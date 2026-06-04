@@ -120,6 +120,7 @@
   /* ── Layout ────────────────────────────────────────────────────── */
   --aside-width: 78px;
   --subnav-width: 200px;
+  --subnav-width-compact: 64px;
   --titlebar-height: 0px;
 
   /* Unified top offset for the three-column header row (sidebar logo,

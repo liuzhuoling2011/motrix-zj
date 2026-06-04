@@ -1038,9 +1038,11 @@ onUnmounted(() => {
   width: var(--subnav-width);
   flex-shrink: 0;
   background-color: var(--subnav-bg);
+  transition: width 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
 .content {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   background-color: var(--main-bg);
 }
@@ -1091,6 +1093,19 @@ onUnmounted(() => {
     left: 100%;
   }
 }
+
+@media (max-width: 799px) {
+  .subnav-slot {
+    width: var(--subnav-width-compact);
+  }
+}
+
+@media (max-width: 600px) {
+  .subnav-slot {
+    display: none;
+  }
+}
+
 .engine-slide-enter-active {
   transition:
     transform 0.25s cubic-bezier(0, 0, 0, 1),

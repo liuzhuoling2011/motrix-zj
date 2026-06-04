@@ -288,8 +288,13 @@ onBeforeUnmount(() => {
   height: 26px;
   overflow: hidden;
 }
+.compact-header :deep(.n-tooltip-trigger) {
+  min-width: 0;
+  max-width: 100%;
+}
 .compact-name {
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   color: var(--m3-on-surface-variant);
   font-size: 14px;

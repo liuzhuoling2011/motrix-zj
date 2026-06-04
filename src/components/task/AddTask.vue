@@ -648,7 +648,7 @@ function kindTagType(kind: string): 'info' | 'success' | 'warning' {
       class="add-task-card"
       :style="{
         maxWidth: '680px',
-        minWidth: '380px',
+        minWidth: 'min(380px, calc(100vw - 24px))',
         width: '70vw',
         margin: 'auto',
         height: '82vh',

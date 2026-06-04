@@ -373,21 +373,24 @@ onBeforeUnmount(() => {
   column-gap: 20px;
   align-items: start;
 }
+.task-header :deep(.n-tooltip-trigger) {
+  min-width: 0;
+  max-width: 100%;
+}
 .task-name {
   color: var(--m3-on-surface-variant);
   overflow: hidden;
   min-height: 26px;
   min-width: 0;
+  max-width: 100%;
 }
 .task-name > span {
   font-size: 14px;
   line-height: 26px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
-  word-break: break-all;
+  white-space: nowrap;
 }
 /* ── Filename resolution crossfade (Vue <Transition mode="out-in">) ── */
 /* Old text fades out → new text fades in. No flash because Vue applies  */
