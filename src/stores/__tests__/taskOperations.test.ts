@@ -161,6 +161,32 @@ describe('removeTask', () => {
     expect(deps.fetchList).toHaveBeenCalledOnce()
     expect(api.saveSession).toHaveBeenCalledOnce()
   })
+
+  it('removes persisted sharing history before refreshing the list', async () => {
+    const calls: string[] = []
+    const task = makeTask({
+      gid: 'seed-1',
+      status: TASK_STATUS.ACTIVE,
+      seeder: 'true',
+      infoHash: 'abcdef1234567890',
+      bittorrent: { info: { name: 'seed' } },
+    })
+    mockRemoveByInfoHash.mockImplementationOnce(async () => {
+      calls.push('removeByInfoHash')
+    })
+    mockRemoveRecord.mockImplementationOnce(async () => {
+      calls.push('removeRecord')
+    })
+    deps.fetchList.mockImplementationOnce(async () => {
+      calls.push('fetchList')
+    })
+
+    await ops.removeTask(task)
+
+    expect(mockRemoveByInfoHash).toHaveBeenCalledWith('abcdef1234567890')
+    expect(mockRemoveRecord).toHaveBeenCalledWith('seed-1')
+    expect(calls).toEqual(['removeByInfoHash', 'removeRecord', 'fetchList'])
+  })
 })
 
 // ═══════════════════════════════════════════════════════════════════

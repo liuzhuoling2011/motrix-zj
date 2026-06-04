@@ -60,6 +60,34 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
     return false
   }
 
+  async function removeHistoryRecordForDeletedTask(task: Aria2Task): Promise<void> {
+    const historyStore = useHistoryStore()
+    if (task.infoHash) {
+      try {
+        await historyStore.removeByInfoHash(task.infoHash)
+      } catch (e) {
+        logger.debug('TaskOps.removeTask', `removeByInfoHash infoHash=${task.infoHash} skipped: ${e}`)
+      }
+    }
+    try {
+      await historyStore.removeRecord(task.gid)
+    } catch (e) {
+      logger.debug('TaskOps.removeTask', `removeHistory gid=${task.gid} skipped: ${e}`)
+    }
+  }
+
+  async function removeHistoryRecordsByGid(gids: string[], scope: string): Promise<void> {
+    if (gids.length === 0) return
+    const historyStore = useHistoryStore()
+    for (const gid of gids) {
+      try {
+        await historyStore.removeRecord(gid)
+      } catch (e) {
+        logger.debug(scope, `removeHistory gid=${gid} skipped: ${e}`)
+      }
+    }
+  }
+
   async function removeTask(task: Aria2Task) {
     if (task.gid === currentTaskGid.value) hideTaskDetail()
     try {
@@ -72,6 +100,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       }
       logger.info('TaskOps.removeTask', `gid=${task.gid}`)
     } finally {
+      await removeHistoryRecordForDeletedTask(task)
       await fetchList()
       await api.saveSession()
     }
@@ -310,6 +339,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       }
       logger.info('TaskOps.batchRemoveTask', `removed ${gids.length} task(s) gids=[${gids.join(',')}]`)
     } finally {
+      await removeHistoryRecordsByGid(gids, 'TaskOps.batchRemoveTask')
       await fetchList()
       await api.saveSession()
     }
