@@ -479,7 +479,7 @@ export const DEFAULT_APP_CONFIG = {
   retryWait: 10, // seconds; aria2 waits this long after 503 before retrying
   connectTimeout: 10, // seconds to establish connection
   timeout: 10, // seconds for data transfer after connection
-  fileAllocation: 'prealloc' as const, // 'none' | 'trunc' | 'prealloc' | 'falloc'
+  fileAllocation: 'trunc' as const, // 'none' | 'trunc' | 'prealloc' | 'falloc'
   asyncDns: false, // aria2-next default=true; keep Motrix default conservative
 
   // ── Task Sorting ─────────────────────────────────────────────

@@ -205,9 +205,9 @@ describe('buildNetworkForm', () => {
     expect(form.timeout).toBe(60)
   })
 
-  it('defaults fileAllocation to prealloc', () => {
+  it('defaults fileAllocation from DEFAULT_APP_CONFIG', () => {
     const form = buildNetworkForm(emptyConfig)
-    expect(form.fileAllocation).toBe('prealloc')
+    expect(form.fileAllocation).toBe(DEFAULT_APP_CONFIG.fileAllocation)
   })
 
   it('reads fileAllocation from config', () => {
@@ -342,9 +342,9 @@ describe('buildNetworkSystemConfig', () => {
     expect(config['file-allocation']).toBe('prealloc')
   })
 
-  it('falls back empty file-allocation to prealloc', () => {
+  it('falls back empty file-allocation to DEFAULT_APP_CONFIG', () => {
     const config = buildNetworkSystemConfig({ ...baseForm, fileAllocation: '' })
-    expect(config['file-allocation']).toBe('prealloc')
+    expect(config['file-allocation']).toBe(DEFAULT_APP_CONFIG.fileAllocation)
   })
 
   it('maps user-agent to aria2 config', () => {
