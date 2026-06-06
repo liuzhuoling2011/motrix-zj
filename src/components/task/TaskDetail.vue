@@ -566,6 +566,7 @@ const peerColumns = computed(() => {
       title: t('task.task-peer-host'),
       key: 'host',
       minWidth: 140,
+      render: (row: PeerRow) => renderCopyableValue(row.host, t('task.task-peer-host')),
     },
     {
       title: t('task.task-peer-client'),

@@ -25,7 +25,12 @@ import { isMagnetUri } from '@/composables/useMagnetFlow'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { logger } from '@shared/logger'
 import { getErrorMessage } from '@shared/utils/errorMessage'
-import { normalizeProxyMode } from '@shared/utils/proxyPolicy'
+import {
+  getDefaultTaskProxyMode,
+  getDefaultTaskProxyPassword,
+  getDefaultTaskProxyServer,
+  getDefaultTaskProxyUsername,
+} from '@shared/utils/proxyPolicy'
 import { resolveUserVisibleDownloadDir } from '@shared/utils/userVisibleDirectory'
 import { findMatchingUserAgentRule, resolveUserAgent } from '@shared/utils/userAgentPolicy'
 
@@ -94,12 +99,10 @@ const showAdvanced = ref(false)
 const submitting = ref(false)
 const selectedBatchIndex = ref(0)
 const userAgentManuallyEdited = ref(false)
-const defaultTaskProxyMode = () => normalizeProxyMode(preferenceStore.config.proxy.mode)
-const defaultTaskProxyServer = () => (defaultTaskProxyMode() === 'manual' ? preferenceStore.config.proxy.server : '')
-const defaultTaskProxyUsername = () =>
-  defaultTaskProxyMode() === 'manual' ? preferenceStore.config.proxy.username || '' : ''
-const defaultTaskProxyPassword = () =>
-  defaultTaskProxyMode() === 'manual' ? preferenceStore.config.proxy.password || '' : ''
+const defaultTaskProxyMode = () => getDefaultTaskProxyMode(preferenceStore.config.proxy)
+const defaultTaskProxyServer = () => getDefaultTaskProxyServer(preferenceStore.config.proxy)
+const defaultTaskProxyUsername = () => getDefaultTaskProxyUsername(preferenceStore.config.proxy)
+const defaultTaskProxyPassword = () => getDefaultTaskProxyPassword(preferenceStore.config.proxy)
 
 function syncDefaultTaskProxy() {
   form.value.proxyMode = defaultTaskProxyMode()

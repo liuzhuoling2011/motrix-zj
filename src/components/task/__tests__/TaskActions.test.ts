@@ -75,10 +75,10 @@ function translateForTest(key: string, params?: Record<string, unknown>): string
   const messages: Record<string, string> = {
     'task.delete-all-task': 'Clear Download Queue',
     'task.delete-task-queue': 'Clear Download Queue',
-    'task.batch-delete-task-confirm': `This will remove ${params?.count ?? '{count}'} downloading, waiting, or paused task(s).`,
-    'task.delete-queue-files-label': 'Also delete downloaded files',
+    'task.batch-delete-task-confirm': `This will remove ${params?.count ?? '{count}'} downloading, queued, or paused task(s).`,
+    'task.delete-queue-files-label': 'Also delete local files',
     'task.purge-record': 'Clear History Records',
-    'task.purge-record-confirm': 'This will clear all completed or failed task records.',
+    'task.purge-record-confirm': 'This will remove all completed, failed, or removed task records.',
     'task.purge-record-files-label': 'Also delete local files',
   }
   return messages[key] ?? key
@@ -503,7 +503,7 @@ describe('TaskActions', () => {
       await clickButton(wrapper, 3) // Purge
       expect(lastDialogOptions?.title).toBe('Clear History Records')
       expect(renderDialogText(lastDialogOptions?.content)).toContain(
-        'This will clear all completed or failed task records.',
+        'This will remove all completed, failed, or removed task records.',
       )
       expect(renderDialogText(lastDialogOptions?.content)).toContain('Also delete local files')
       const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
@@ -536,9 +536,9 @@ describe('TaskActions', () => {
       expect(mockDialogWarning).toHaveBeenCalledOnce()
       expect(lastDialogOptions?.title).toBe('Clear Download Queue')
       expect(renderDialogText(lastDialogOptions?.content)).toContain(
-        'This will remove 2 downloading, waiting, or paused task(s).',
+        'This will remove 2 downloading, queued, or paused task(s).',
       )
-      expect(renderDialogText(lastDialogOptions?.content)).toContain('Also delete downloaded files')
+      expect(renderDialogText(lastDialogOptions?.content)).toContain('Also delete local files')
     })
 
     it('calls batchRemoveTask with all gids on confirmation', async () => {

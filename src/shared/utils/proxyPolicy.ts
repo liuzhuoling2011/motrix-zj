@@ -102,6 +102,22 @@ export function getDownloadProxy(proxy: ProxyConfig): string | undefined {
   return isManualDownloadProxy(proxy) ? proxy.server : undefined
 }
 
+export function getDefaultTaskProxyMode(proxy: ProxyConfig): TaskProxyMode {
+  return normalizeProxyMode(proxy.mode) === 'manual' && hasDownloadScope(proxy) ? 'manual' : 'direct'
+}
+
+export function getDefaultTaskProxyServer(proxy: ProxyConfig): string {
+  return getDefaultTaskProxyMode(proxy) === 'manual' ? proxy.server : ''
+}
+
+export function getDefaultTaskProxyUsername(proxy: ProxyConfig): string {
+  return getDefaultTaskProxyMode(proxy) === 'manual' ? proxy.username || '' : ''
+}
+
+export function getDefaultTaskProxyPassword(proxy: ProxyConfig): string {
+  return getDefaultTaskProxyMode(proxy) === 'manual' ? proxy.password || '' : ''
+}
+
 export function getProxyServerFromOptions(options: Aria2EngineOptions): string {
   const proxy = options['all-proxy']
   return typeof proxy === 'string' ? proxy : ''

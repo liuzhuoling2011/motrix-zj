@@ -38,7 +38,7 @@ import type {
   BatchItem,
 } from '@shared/types'
 import type { AddTaskForm } from '@/composables/useAddTaskSubmit'
-import { normalizeProxyMode } from '@shared/utils/proxyPolicy'
+import { getDefaultTaskProxyMode } from '@shared/utils/proxyPolicy'
 
 /** Payload shape emitted by Rust stat_service via `stat:update`. */
 interface StatPayload {
@@ -531,7 +531,7 @@ export const useAppStore = defineStore('app', () => {
       saveHttpAuth: true,
       referer: context.referer ?? '',
       cookie: context.cookie ?? '',
-      proxyMode: normalizeProxyMode(preferenceStore.config.proxy.mode),
+      proxyMode: getDefaultTaskProxyMode(preferenceStore.config.proxy),
       customProxy: '',
       customProxyUsername: '',
       customProxyPassword: '',

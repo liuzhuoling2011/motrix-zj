@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildDownloadProxyOptions,
   buildTaskProxyOptions,
+  getDefaultTaskProxyMode,
   normalizeProxyMode,
   proxySwitchValueToMode,
 } from '@shared/utils/proxyPolicy'
@@ -46,5 +47,25 @@ describe('proxyPolicy', () => {
       'ftp-proxy-passwd': '',
       'no-proxy': '',
     })
+  })
+
+  it('defaults task proxy mode to direct when download scope is excluded', () => {
+    expect(
+      getDefaultTaskProxyMode({
+        mode: 'manual',
+        server: 'http://127.0.0.1:7890',
+        scope: ['update-app'],
+      }),
+    ).toBe('direct')
+  })
+
+  it('defaults task proxy mode to manual when download scope is included', () => {
+    expect(
+      getDefaultTaskProxyMode({
+        mode: 'manual',
+        server: '',
+        scope: ['download'],
+      }),
+    ).toBe('manual')
   })
 })
