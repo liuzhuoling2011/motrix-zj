@@ -40,11 +40,9 @@ import {
   NInputGroup,
   NFormItem,
   NCollapseTransition,
-  NEllipsis,
   NTooltip,
 } from 'naive-ui'
 import {
-  CopyOutline,
   InformationCircleOutline,
   PulseOutline,
   DocumentOutline,
@@ -71,7 +69,7 @@ import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
 import { getAddedAt } from '@/composables/useTaskOrder'
 import type { Aria2Task, Aria2File, Aria2Peer, UserAgentProfile } from '@shared/types'
 import UserAgentPopover from '@/components/common/UserAgentPopover.vue'
-import MTooltip from '@/components/common/MTooltip.vue'
+import { renderDetailCopyableText, renderDetailLongText } from './taskDetailText'
 
 const props = defineProps<{
   show: boolean
@@ -141,31 +139,12 @@ async function copyDetailValue(value: string | number | null | undefined, label:
 }
 
 function renderCopyableValue(value: string | number, label: string) {
-  const text = String(value || '-')
-  return h('span', { class: 'detail-copyable-value' }, [
-    h('span', { class: 'detail-copyable-text' }, text),
-    h(
-      MTooltip,
-      { placement: 'top' },
-      {
-        trigger: () =>
-          h(
-            NButton,
-            {
-              class: 'detail-copy-button',
-              size: 'tiny',
-              quaternary: true,
-              focusable: false,
-              onClick: () => copyDetailValue(text, label),
-            },
-            {
-              icon: () => h(NIcon, { size: 13 }, { default: () => h(CopyOutline) }),
-            },
-          ),
-        default: () => t('about.click-to-copy'),
-      },
-    ),
-  ])
+  return renderDetailCopyableText({
+    value,
+    label,
+    tooltip: t('about.click-to-copy'),
+    onCopy: copyDetailValue,
+  })
 }
 
 const CopyableValue = defineComponent({
@@ -263,8 +242,9 @@ const taskStatusKey = computed(() =>
 )
 const taskStatus = computed(() => {
   const key = taskStatusKey.value
-  const translated = t(`task.status-${key}`)
-  return translated !== `task.status-${key}` ? translated : key
+  const labelKey = key === 'seeding' || key === 'sharing' ? `task.${key}` : `task.status-${key}`
+  const translated = t(labelKey)
+  return translated !== labelKey ? translated : key
 })
 const isActive = computed(() => props.task?.status === TASK_STATUS.ACTIVE)
 const taskFullName = computed(() => (props.task ? getTaskDisplayName(props.task, { defaultName: 'Unknown' }) : ''))
@@ -380,7 +360,7 @@ const fileColumns = computed(() => {
     {
       title: t('task.file-name') || 'Name',
       key: 'name',
-      ellipsis: { tooltip: true },
+      render: (row: { name: string }) => renderCopyableValue(row.name, t('task.file-name')),
     },
     {
       title: t('task.file-extension') || 'Ext',
@@ -470,7 +450,6 @@ const sourceColumns = computed(() => {
     {
       title: 'URL',
       key: 'uri',
-      ellipsis: { tooltip: true },
       render: (row: SourceRow) => renderCopyableValue(row.uri, 'URL'),
     },
     {
@@ -572,7 +551,7 @@ const peerColumns = computed(() => {
       title: t('task.task-peer-client'),
       key: 'client',
       minWidth: 100,
-      render: (row: PeerRow) => h(NEllipsis, null, { default: () => row.client }),
+      render: (row: PeerRow) => renderDetailLongText(row.client),
     },
     {
       title: t('task.task-peer-percent'),
@@ -673,7 +652,6 @@ const trackerColumns = computed(() => {
     {
       title: 'URL',
       key: 'url',
-      ellipsis: { tooltip: true },
       render: (row: TrackerRow) => renderCopyableValue(row.url, 'URL'),
     },
     {
@@ -935,7 +913,6 @@ function handleClose() {
               size="small"
               :bordered="true"
               :max-height="400"
-              virtual-scroll
               striped
             />
           </div>
@@ -1262,17 +1239,21 @@ function handleClose() {
 
 .detail-copyable-value {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
   max-width: 100%;
   min-width: 0;
   vertical-align: middle;
 }
 
+.detail-long-text,
 .detail-copyable-text {
   min-width: 0;
+  max-width: 100%;
   white-space: normal;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  line-height: 1.45;
 }
 
 .detail-copy-button {
@@ -1440,5 +1421,9 @@ function handleClose() {
 :deep(.n-data-table-th__title) {
   white-space: normal;
   word-break: break-word;
+}
+
+:deep(.n-data-table-td) {
+  vertical-align: top;
 }
 </style>
