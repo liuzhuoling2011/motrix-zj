@@ -138,6 +138,7 @@ jobs:
 
       - name: Submit SignPath request
         id: signpath
+        timeout-minutes: 180
         uses: signpath/github-action-submit-signing-request@v2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
@@ -147,6 +148,7 @@ jobs:
           artifact-configuration-slug: ${{ vars.SIGNPATH_RELEASE_ARTIFACT_CONFIGURATION_SLUG }}
           github-artifact-id: ${{ steps.unsigned-artifact.outputs.artifact-id }}
           wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 10800
           output-artifact-directory: signed
 
       - name: Verify signed installers
