@@ -111,6 +111,14 @@ function mockSelect(query: string, params: unknown[]): unknown[] {
     return [...birthRows]
   }
 
+  if (q.includes('COUNT(*)')) {
+    if (q.includes('WHERE STATUS')) {
+      const status = params[0] as string
+      return [{ count: rows.filter((r) => r.status === status).length }]
+    }
+    return [{ count: rows.length }]
+  }
+
   let result: HistoryRecord[]
   if (q.includes('WHERE STATUS')) {
     const status = params[0] as string
@@ -130,8 +138,20 @@ function mockSelect(query: string, params: unknown[]): unknown[] {
     })
   }
 
-  // Parse LIMIT clause from the SQL query
+  if (q.includes('ORDER BY TOTAL_LENGTH')) {
+    result = [...result].sort((a, b) => {
+      const diff = (a.total_length ?? 0) - (b.total_length ?? 0)
+      return q.includes('DESC') ? -diff : diff
+    })
+  }
+
+  // Parse LIMIT / OFFSET clauses from the SQL query
   const limitMatch = q.match(/LIMIT\s+(\d+)/)
+  const offsetMatch = q.match(/OFFSET\s+(\d+)/)
+  if (offsetMatch) {
+    const offset = parseInt(offsetMatch[1], 10)
+    result = result.slice(offset)
+  }
   if (limitMatch) {
     const limit = parseInt(limitMatch[1], 10)
     result = result.slice(0, limit)
@@ -329,26 +349,44 @@ describe('HistoryStore', () => {
       limited.forEach((r) => expect(r.status).toBe('complete'))
     })
 
-    it('returns all records when limit is undefined', async () => {
+    it('returns one SQL-backed page with total count', async () => {
       for (let i = 0; i < 5; i++) {
-        await store.addRecord(makeRecord({ gid: `nolim-${i}` }))
+        await store.addRecord(
+          makeRecord({
+            gid: `page-${i}`,
+            completed_at: `2026-01-${String(i + 1).padStart(2, '0')}T00:00:00Z`,
+          }),
+        )
       }
-      const results = await store.getRecords()
-      expect(results).toHaveLength(5)
+
+      const page = await store.getRecordsPage({ page: 2, pageSize: 2 })
+
+      expect(page.total).toBe(5)
+      expect(page.records.map((r) => r.gid)).toEqual(['page-2', 'page-1'])
+      expect(executedQueries.some((q) => q.includes('LIMIT 2 OFFSET 2'))).toBe(true)
+      expect(executedQueries.some((q) => q.includes('COUNT(*)'))).toBe(true)
     })
 
-    it('clamps limit to safe integer range', async () => {
-      await store.addRecord(makeRecord({ gid: 'safe1' }))
+    it('sorts a SQL-backed page only by whitelisted fields', async () => {
+      await store.addRecord(makeRecord({ gid: 'small', total_length: 100, completed_at: '2026-02-01T00:00:00Z' }))
+      await store.addRecord(makeRecord({ gid: 'large', total_length: 900, completed_at: '2026-01-01T00:00:00Z' }))
 
-      // Negative limit should be treated as no results or clamped to 0
-      const negResult = await store.getRecords(undefined, -5)
-      // Implementation should sanitize: either return [] or clamp to 0
-      expect(negResult.length).toBeLessThanOrEqual(1)
-    })
+      const sorted = await store.getRecordsPage({
+        page: 1,
+        pageSize: 10,
+        sortField: 'total_length',
+        sortOrder: 'descend',
+      })
+      const fallback = await store.getRecordsPage({
+        page: 1,
+        pageSize: 10,
+        sortField: 'gid; DROP TABLE download_history',
+        sortOrder: 'ascend',
+      })
 
-    it('returns empty array when no records exist', async () => {
-      const results = await store.getRecords()
-      expect(results).toEqual([])
+      expect(sorted.records.map((r) => r.gid)).toEqual(['large', 'small'])
+      expect(fallback.records.map((r) => r.gid)).toEqual(['small', 'large'])
+      expect(executedQueries.join('\n')).not.toContain('DROP TABLE')
     })
   })
 

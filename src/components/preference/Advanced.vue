@@ -322,6 +322,8 @@ const {
   dbRecords,
   dbRecordsLoading,
   dbBrowseColumns,
+  dbBrowsePagination,
+  handleDbSorterChange,
   exportingLogs,
   exportingSettings,
   importingSettings,
@@ -708,18 +710,18 @@ watch(protocolHandlers.lastError, (error) => {
           :columns="dbBrowseColumns"
           :data="dbRecords"
           :loading="dbRecordsLoading"
+          remote
+          :pagination="dbBrowsePagination"
           :max-height="420"
           :scroll-x="700"
           size="small"
           striped
+          @update:sorter="handleDbSorterChange"
         >
           <template #empty>
             <NEmpty :description="t('preferences.db-record-count', { count: 0 })" />
           </template>
         </NDataTable>
-        <div v-if="dbRecords.length > 0" class="db-record-count">
-          {{ t('preferences.db-record-count', { count: dbRecords.length }) }}
-        </div>
       </NCard>
     </NModal>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
@@ -760,12 +762,6 @@ watch(protocolHandlers.lastError, (error) => {
 .db-record-modal :deep(.n-card__content) {
   min-height: 0;
   overflow: hidden;
-}
-.db-record-count {
-  margin-top: 12px;
-  text-align: right;
-  opacity: 0.6;
-  font-size: 13px;
 }
 .log-level-control {
   display: inline-flex;

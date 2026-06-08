@@ -15,6 +15,45 @@ import type { HistoryRecord } from '@shared/types'
 import { logger } from '@shared/logger'
 
 const DB_NAME = 'sqlite:history.db'
+export type HistoryRecordSortField = 'name' | 'status' | 'total_length' | 'task_type' | 'completed_at'
+export type HistoryRecordSortOrder = 'ascend' | 'descend' | false
+
+export interface HistoryRecordsPageInput {
+  status?: string
+  page: number
+  pageSize: number
+  sortField?: string
+  sortOrder?: HistoryRecordSortOrder
+}
+
+export interface HistoryRecordsPage {
+  records: HistoryRecord[]
+  total: number
+}
+
+const HISTORY_SORT_COLUMNS: Record<HistoryRecordSortField, string> = {
+  name: 'name',
+  status: 'status',
+  total_length: 'total_length',
+  task_type: 'task_type',
+  completed_at: 'completed_at',
+}
+
+function normalizePage(value: number): number {
+  return Math.max(1, Math.floor(Number.isFinite(value) ? value : 1))
+}
+
+function normalizePageSize(value: number): number {
+  return Math.min(Math.max(1, Math.floor(Number.isFinite(value) ? value : 50)), 100)
+}
+
+function resolveHistoryOrderBy(sortField?: string, sortOrder?: HistoryRecordSortOrder): string {
+  if (sortOrder && sortField && sortField in HISTORY_SORT_COLUMNS) {
+    const column = HISTORY_SORT_COLUMNS[sortField as HistoryRecordSortField]
+    return `ORDER BY ${column} ${sortOrder === 'descend' ? 'DESC' : 'ASC'}, COALESCE(added_at, completed_at) DESC`
+  }
+  return 'ORDER BY COALESCE(added_at, completed_at) DESC'
+}
 
 /** Callbacks for database health events — allows UI layer to show toasts
  *  without coupling the store to any specific UI framework. */
@@ -166,6 +205,33 @@ export const useHistoryStore = defineStore('history', () => {
     return (await getDb()).select<HistoryRecord[]>(`SELECT * FROM download_history ${orderBy}${limitClause}`, [])
   }
 
+  async function getRecordsPage(input: HistoryRecordsPageInput): Promise<HistoryRecordsPage> {
+    const page = normalizePage(input.page)
+    const pageSize = normalizePageSize(input.pageSize)
+    const offset = (page - 1) * pageSize
+    const orderBy = resolveHistoryOrderBy(input.sortField, input.sortOrder)
+    const limitClause = `LIMIT ${pageSize} OFFSET ${offset}`
+    const conn = await getDb()
+
+    if (input.status) {
+      const [records, countRows] = await Promise.all([
+        conn.select<HistoryRecord[]>(`SELECT * FROM download_history WHERE status = $1 ${orderBy} ${limitClause}`, [
+          input.status,
+        ]),
+        conn.select<Array<{ count: number }>>('SELECT COUNT(*) as count FROM download_history WHERE status = $1', [
+          input.status,
+        ]),
+      ])
+      return { records, total: Number(countRows[0]?.count ?? 0) }
+    }
+
+    const [records, countRows] = await Promise.all([
+      conn.select<HistoryRecord[]>(`SELECT * FROM download_history ${orderBy} ${limitClause}`, []),
+      conn.select<Array<{ count: number }>>('SELECT COUNT(*) as count FROM download_history', []),
+    ])
+    return { records, total: Number(countRows[0]?.count ?? 0) }
+  }
+
   /** Retrieve a single record by GID, or null if not found. */
   async function getRecordByGid(gid: string): Promise<HistoryRecord | null> {
     const rows = await (
@@ -278,6 +344,7 @@ export const useHistoryStore = defineStore('history', () => {
     init,
     addRecord,
     getRecords,
+    getRecordsPage,
     getRecordByGid,
     removeRecord,
     removeBirthRecords,
