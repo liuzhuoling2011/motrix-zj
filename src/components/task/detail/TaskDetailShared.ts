@@ -1,4 +1,4 @@
-/** @fileoverview Shared long-text renderers for task detail tables and descriptions. */
+/** @fileoverview Shared task detail tab rendering helpers. */
 import { h, type VNodeChild } from 'vue'
 import { NButton, NIcon } from 'naive-ui'
 import { CopyOutline } from '@vicons/ionicons5'
@@ -39,4 +39,8 @@ export function renderDetailCopyableText(options: {
       },
     ),
   ])
+}
+
+export function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }

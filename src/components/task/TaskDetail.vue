@@ -1,8 +1,7 @@
 <script setup lang="ts">
 /** @fileoverview Detailed task view with file list, peers, and BT info. */
-import { ref, computed, watch, h, defineComponent } from 'vue'
+import { ref, computed, watch, defineComponent } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { TASK_STATUS } from '@shared/constants'
 import { logger } from '@shared/logger'
 import {
   checkTaskIsBT,
@@ -10,28 +9,15 @@ import {
   getTaskSharingKind,
   getTaskDisplayName,
   bytesToSize,
-  calcProgress,
-  getFileName,
-  getFileExtension,
   localeDateTimeFormat,
-  bitfieldToPercent,
-  peerIdParser,
-  timeRemaining,
-  timeFormat,
-  getTaskCompletedLength,
   isBtMetadataTask,
 } from '@shared/utils'
-import { decodePathSegment } from '@shared/utils/batchHelpers'
-import { calcColumnWidth } from '@shared/utils/calcColumnWidth'
-import { countryCodeToFlag, lookupPeerIps, type GeoInfo } from '@shared/utils/geoip'
 import {
   NDrawer,
   NDrawerContent,
   NDescriptions,
   NDescriptionsItem,
-  NDataTable,
   NIcon,
-  NProgress,
   NTag,
   NButton,
   NSwitch,
@@ -40,7 +26,6 @@ import {
   NInputGroup,
   NFormItem,
   NCollapseTransition,
-  NTooltip,
 } from 'naive-ui'
 import {
   InformationCircleOutline,
@@ -51,8 +36,6 @@ import {
   SettingsOutline,
   SearchOutline,
 } from '@vicons/ionicons5'
-import TaskGraphic from './TaskGraphic.vue'
-import { useTrackerProbe, buildTrackerRows, type TrackerRow } from '@/composables/useTrackerProbe'
 import { useTaskDetailOptions } from '@/composables/useTaskDetailOptions'
 import {
   buildBtHealthSummary,
@@ -67,9 +50,14 @@ import { useHistoryStore } from '@/stores/history'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
 import { getAddedAt } from '@/composables/useTaskOrder'
-import type { Aria2Task, Aria2File, Aria2Peer, UserAgentProfile } from '@shared/types'
+import type { Aria2Task, Aria2File, UserAgentProfile } from '@shared/types'
 import UserAgentPopover from '@/components/common/UserAgentPopover.vue'
-import { renderDetailCopyableText, renderDetailLongText } from './taskDetailText'
+import { renderDetailCopyableText } from './detail/TaskDetailShared'
+import TaskDetailActivity from './detail/TaskDetailActivity.vue'
+import TaskDetailFiles from './detail/TaskDetailFiles.vue'
+import TaskDetailPeers from './detail/TaskDetailPeers.vue'
+import TaskDetailSources from './detail/TaskDetailSources.vue'
+import TaskDetailTrackers from './detail/TaskDetailTrackers.vue'
 
 const props = defineProps<{
   show: boolean
@@ -246,7 +234,6 @@ const taskStatus = computed(() => {
   const translated = t(labelKey)
   return translated !== labelKey ? translated : key
 })
-const isActive = computed(() => props.task?.status === TASK_STATUS.ACTIVE)
 const taskFullName = computed(() => (props.task ? getTaskDisplayName(props.task, { defaultName: 'Unknown' }) : ''))
 
 // ── Task date display ────────────────────────────────────────────────
@@ -279,30 +266,9 @@ watch(
   },
   { immediate: true },
 )
-const completedLengthValue = computed(() => (props.task ? getTaskCompletedLength(props.task) : 0))
-const percent = computed(() => (props.task ? calcProgress(props.task.totalLength, completedLengthValue.value) : 0))
-
-const remaining = computed(() => {
-  if (!isActive.value || !props.task) return 0
-  return timeRemaining(Number(props.task.totalLength), completedLengthValue.value, Number(props.task.downloadSpeed))
-})
-
-const remainingText = computed(() => {
-  if (remaining.value <= 0) return ''
-  return timeFormat(remaining.value, {
-    prefix: t('task.remaining-prefix') || '',
-    i18n: {
-      gt1d: t('app.gt1d') || '>1d',
-      hour: t('app.hour') || 'h',
-      minute: t('app.minute') || 'm',
-      second: t('app.second') || 's',
-    },
-  })
-})
-
 const btInfo = computed(() => {
   if (!isBT.value || !props.task) return null
-  return props.task.bittorrent
+  return props.task.bittorrent ?? null
 })
 
 const ed2kInfo = computed(() => {
@@ -328,378 +294,6 @@ const statusTagType = computed(() => {
       return 'default'
   }
 })
-
-const fileList = computed(() =>
-  (props.files || []).map((item: Aria2File) => {
-    const name = decodePathSegment(getFileName(item.path))
-    return {
-      idx: Number(item.index),
-      name,
-      extension: '.' + getFileExtension(name),
-      length: Number(item.length),
-      completedLength: Number(item.completedLength),
-      percent: calcProgress(item.length, item.completedLength, 1),
-      selected: item.selected === 'true',
-    }
-  }),
-)
-
-const fileColumns = computed(() => {
-  const data = fileList.value
-  return [
-    {
-      title: t('task.file-index') || '#',
-      key: 'idx',
-      width: calcColumnWidth({
-        title: t('task.file-index') || '#',
-        values: data.map((r) => String(r.idx)),
-        sortable: true,
-      }),
-      sorter: (a: { idx: number }, b: { idx: number }) => a.idx - b.idx,
-    },
-    {
-      title: t('task.file-name') || 'Name',
-      key: 'name',
-      render: (row: { name: string }) => renderCopyableValue(row.name, t('task.file-name')),
-    },
-    {
-      title: t('task.file-extension') || 'Ext',
-      key: 'extension',
-      width: calcColumnWidth({
-        title: t('task.file-extension') || 'Ext',
-        values: data.map((r) => r.extension),
-      }),
-    },
-    {
-      title: t('task.task-peer-percent'),
-      key: 'percent',
-      width: calcColumnWidth({
-        title: t('task.task-peer-percent'),
-        values: data.map((r) => String(r.percent)),
-        sortable: true,
-      }),
-      align: 'right' as const,
-      sorter: (a: { percent: string }, b: { percent: string }) => parseFloat(a.percent) - parseFloat(b.percent),
-    },
-    {
-      title: t('task.file-completed'),
-      key: 'completedLength',
-      width: calcColumnWidth({
-        title: t('task.file-completed'),
-        values: data.map((r) => bytesToSize(String(r.completedLength))),
-        sortable: true,
-      }),
-      align: 'right' as const,
-      sorter: (a: { completedLength: number }, b: { completedLength: number }) => a.completedLength - b.completedLength,
-      render: (row: { completedLength: number }) => bytesToSize(String(row.completedLength)),
-    },
-    {
-      title: t('task.file-size') || 'Size',
-      key: 'length',
-      width: calcColumnWidth({
-        title: t('task.file-size') || 'Size',
-        values: data.map((r) => bytesToSize(String(r.length))),
-        sortable: true,
-      }),
-      align: 'right' as const,
-      sorter: (a: { length: number }, b: { length: number }) => a.length - b.length,
-      render: (row: { length: number }) => bytesToSize(String(row.length)),
-    },
-  ]
-})
-
-const sourceRows = computed(() =>
-  (props.task?.files ?? []).flatMap((file) =>
-    (file.uris ?? []).map((uri, index) => ({
-      key: `${file.index}-${index}-${uri.uri}`,
-      fileIndex: Number(file.index),
-      uri: uri.uri,
-      status: uri.status || '-',
-    })),
-  ),
-)
-
-interface SourceRow {
-  key: string
-  fileIndex: number
-  uri: string
-  status: string
-}
-
-function sourceStatusLabel(status: string): string {
-  if (!status || status === '-') return '-'
-  const key = `task.task-source-${status}`
-  const translated = t(key)
-  return translated === key ? status : translated
-}
-
-const sourceColumns = computed(() => {
-  const data = sourceRows.value
-  return [
-    {
-      title: t('task.file-index') || '#',
-      key: 'fileIndex',
-      width: calcColumnWidth({
-        title: t('task.file-index') || '#',
-        values: data.map((r) => String(r.fileIndex)),
-        sortable: true,
-      }),
-      align: 'center' as const,
-      sorter: (a: SourceRow, b: SourceRow) => a.fileIndex - b.fileIndex,
-    },
-    {
-      title: 'URL',
-      key: 'uri',
-      render: (row: SourceRow) => renderCopyableValue(row.uri, 'URL'),
-    },
-    {
-      title: t('task.task-source-status'),
-      key: 'status',
-      width: calcColumnWidth({
-        title: t('task.task-source-status'),
-        values: data.map((r) => sourceStatusLabel(r.status)),
-      }),
-      align: 'center' as const,
-      render: (row: SourceRow) => sourceStatusLabel(row.status),
-    },
-  ]
-})
-
-const peers = computed(() => {
-  if (!props.task || !isBT.value) return []
-  const p = props.task.peers
-  return (p || [])
-    .map((peer: Aria2Peer) => ({
-      host: `${peer.ip}:${peer.port}`,
-      client: peerIdParser(peer.peerId),
-      percent: peer.bitfield ? bitfieldToPercent(peer.bitfield) + '%' : '-',
-      uploadSpeed: bytesToSize(peer.uploadSpeed) + '/s',
-      downloadSpeed: bytesToSize(peer.downloadSpeed) + '/s',
-      amChoking: peer.amChoking === 'true',
-      peerChoking: peer.peerChoking === 'true',
-      seeder: peer.seeder === 'true',
-    }))
-    .sort((a, b) => a.host.localeCompare(b.host))
-    .map((row, i) => ({ ...row, index: i + 1 }))
-})
-
-interface PeerRow {
-  index: number
-  host: string
-  client: string
-  percent: string
-  uploadSpeed: string
-  downloadSpeed: string
-  amChoking: boolean
-  peerChoking: boolean
-  seeder: boolean
-}
-
-// ── GeoIP: peer country flag resolution ──────────────────────────────
-const geoCache = ref<Record<string, GeoInfo>>({})
-
-watch(
-  peers,
-  async (list) => {
-    const uniqueIps = [...new Set(list.map((p) => p.host.split(':')[0]))]
-    if (uniqueIps.length === 0) {
-      geoCache.value = {}
-      return
-    }
-    try {
-      geoCache.value = await lookupPeerIps(uniqueIps, locale.value)
-    } catch (e) {
-      logger.debug('TaskDetail.geoip', `lookupPeerIps failed: ${e}`)
-    }
-  },
-  { immediate: true },
-)
-
-const peerColumns = computed(() => {
-  const data = peers.value
-  return [
-    {
-      title: t('task.task-tracker-tier'),
-      key: 'index',
-      width: 64,
-      align: 'center' as const,
-      sorter: (a: PeerRow, b: PeerRow) => a.index - b.index,
-      defaultSortOrder: 'ascend' as const,
-      render: (row: PeerRow) => {
-        const ip = row.host.split(':')[0]
-        const geo = geoCache.value[ip]
-        if (!geo) return String(row.index)
-        const flag = countryCodeToFlag(geo.country_code)
-        const label = `${geo.country_name} · ${geo.continent}`
-        return h(
-          NTooltip,
-          { delay: 500, placement: 'right' },
-          {
-            trigger: () => h('span', { style: 'cursor: default' }, [String(row.index), ' ', flag]),
-            default: () => label,
-          },
-        )
-      },
-    },
-    {
-      title: t('task.task-peer-host'),
-      key: 'host',
-      minWidth: 140,
-      render: (row: PeerRow) => renderCopyableValue(row.host, t('task.task-peer-host')),
-    },
-    {
-      title: t('task.task-peer-client'),
-      key: 'client',
-      minWidth: 100,
-      render: (row: PeerRow) => renderDetailLongText(row.client),
-    },
-    {
-      title: t('task.task-peer-percent'),
-      key: 'percent',
-      width: calcColumnWidth({
-        title: t('task.task-peer-percent'),
-        values: data.map((r) => r.percent),
-        sortable: true,
-      }),
-      align: 'right' as const,
-      sorter: (a: PeerRow, b: PeerRow) => parseFloat(a.percent) - parseFloat(b.percent),
-    },
-    {
-      title: t('task.task-peer-download-speed'),
-      key: 'downloadSpeed',
-      width: calcColumnWidth({
-        title: t('task.task-peer-download-speed'),
-        values: data.map((r) => r.downloadSpeed),
-        sortable: true,
-      }),
-      align: 'right' as const,
-      sorter: (a: PeerRow, b: PeerRow) => parseFloat(a.downloadSpeed) - parseFloat(b.downloadSpeed),
-    },
-    {
-      title: t('task.task-peer-upload-speed'),
-      key: 'uploadSpeed',
-      width: calcColumnWidth({
-        title: t('task.task-peer-upload-speed'),
-        values: data.map((r) => r.uploadSpeed),
-        sortable: true,
-      }),
-      align: 'right' as const,
-      sorter: (a: PeerRow, b: PeerRow) => parseFloat(a.uploadSpeed) - parseFloat(b.uploadSpeed),
-    },
-    {
-      title: t('task.task-peer-flags'),
-      key: 'flags',
-      width: calcColumnWidth({
-        title: t('task.task-peer-flags'),
-        values: ['DU', 'D', 'U', '—'],
-      }),
-      align: 'center' as const,
-      render: (row: PeerRow) => {
-        const flags: string[] = []
-        if (!row.amChoking) flags.push('D')
-        if (!row.peerChoking) flags.push('U')
-        return flags.join('') || '—'
-      },
-    },
-    {
-      title: t('task.task-peer-seeder'),
-      key: 'seeder',
-      width: calcColumnWidth({
-        title: t('task.task-peer-seeder'),
-        values: ['✓'],
-        sortable: true,
-      }),
-      align: 'center' as const,
-      sorter: (a: PeerRow, b: PeerRow) => Number(b.seeder) - Number(a.seeder),
-      render: (row: PeerRow) => (row.seeder ? '✓' : ''),
-    },
-  ]
-})
-
-const {
-  statuses: trackerStatuses,
-  probing: trackerProbing,
-  probeAll: probeTrackers,
-  cancelProbe: cancelTrackerProbe,
-} = useTrackerProbe()
-
-const trackerRows = computed((): TrackerRow[] => {
-  if (!isBT.value || !btInfo.value) return []
-  const rows = buildTrackerRows(btInfo.value.announceList)
-  return rows.map((row) => ({
-    ...row,
-    status: trackerStatuses.value[row.url] ?? row.status,
-  }))
-})
-
-/** Sort-order mapping for tracker status: lower = higher priority. */
-const TRACKER_STATUS_ORDER: Record<string, number> = { online: 0, checking: 1, 'not-probed': 2, unknown: 3, offline: 4 }
-
-const trackerColumns = computed(() => {
-  const data = trackerRows.value
-  return [
-    {
-      title: t('task.task-tracker-tier'),
-      key: 'tier',
-      width: calcColumnWidth({
-        title: t('task.task-tracker-tier'),
-        values: data.map((r) => String(r.tier)),
-        sortable: true,
-      }),
-      align: 'center' as const,
-      sorter: (a: TrackerRow, b: TrackerRow) => a.tier - b.tier,
-    },
-    {
-      title: 'URL',
-      key: 'url',
-      render: (row: TrackerRow) => renderCopyableValue(row.url, 'URL'),
-    },
-    {
-      title: t('task.task-tracker-protocol'),
-      key: 'protocol',
-      width: calcColumnWidth({
-        title: t('task.task-tracker-protocol'),
-        values: data.map((r) => r.protocol),
-        sortable: true,
-      }),
-      align: 'center' as const,
-      sorter: 'default' as const,
-    },
-    {
-      title: t('task.task-tracker-status'),
-      key: 'status',
-      width: calcColumnWidth({
-        title: t('task.task-tracker-status'),
-        values: ['online', 'offline', 'checking', 'not-probed', 'unknown'].map((s) => t(`task.task-tracker-${s}`)),
-        sortable: true,
-        extraWidth: 20,
-      }),
-      align: 'center' as const,
-      sorter: (a: TrackerRow, b: TrackerRow) =>
-        (TRACKER_STATUS_ORDER[a.status] ?? 2) - (TRACKER_STATUS_ORDER[b.status] ?? 2),
-      render: (row: TrackerRow) =>
-        h(
-          NTag,
-          {
-            type: row.status === 'online' ? 'success' : row.status === 'offline' ? 'error' : 'default',
-            size: 'small',
-            round: true,
-            style: 'transition: all 0.3s cubic-bezier(0.05, 0.7, 0.1, 1)',
-          },
-          () => t(`task.task-tracker-${row.status}`),
-        ),
-    },
-  ]
-})
-
-function handleProbeTrackers() {
-  if (trackerProbing.value) {
-    cancelTrackerProbe()
-    return
-  }
-  const urls = trackerRows.value.map((r) => r.url)
-  probeTrackers(urls)
-}
 
 function handleClose() {
   emit('close')
@@ -818,46 +412,7 @@ function handleClose() {
           </div>
 
           <div v-else-if="activeTab === 'activity'" key="activity" class="tab-content">
-            <template v-if="task">
-              <TaskGraphic v-if="task.bitfield" :bitfield="task.bitfield" />
-              <NDescriptions :column="1" label-placement="left" bordered size="small">
-                <NDescriptionsItem :label="t('task.task-progress-info') || 'Progress'">
-                  <div class="progress-row">
-                    <NProgress type="line" :percentage="percent" :height="10" :show-indicator="false" processing />
-                    <span class="progress-pct">{{ percent }}%</span>
-                  </div>
-                </NDescriptionsItem>
-                <NDescriptionsItem :label="t('task.task-file-size') || 'Size'">
-                  {{ bytesToSize(completedLengthValue, 2) }}
-                  <span v-if="Number(task.totalLength) > 0"> / {{ bytesToSize(task.totalLength, 2) }}</span>
-                  <span v-if="remainingText" class="remaining-text">{{ remainingText }}</span>
-                </NDescriptionsItem>
-                <NDescriptionsItem :label="t('task.task-download-speed') || 'DL Speed'">
-                  {{ bytesToSize(task.downloadSpeed) }}/s
-                </NDescriptionsItem>
-                <NDescriptionsItem
-                  v-if="transferSummary.showUploadMetrics"
-                  :label="t('task.task-upload-speed') || 'UL Speed'"
-                >
-                  {{ bytesToSize(task.uploadSpeed) }}/s
-                </NDescriptionsItem>
-                <NDescriptionsItem
-                  v-if="transferSummary.showUploadMetrics"
-                  :label="t('task.task-upload-length') || 'Uploaded'"
-                >
-                  {{ bytesToSize(task.uploadLength) }}
-                </NDescriptionsItem>
-                <NDescriptionsItem v-if="transferSummary.showUploadMetrics" :label="t('task.task-ratio') || 'Ratio'">
-                  {{ transferSummary.ratio }}
-                </NDescriptionsItem>
-                <NDescriptionsItem v-if="transferSummary.showSeeders" :label="t('task.task-num-seeders') || 'Seeders'">
-                  {{ task.numSeeders }}
-                </NDescriptionsItem>
-                <NDescriptionsItem :label="t('task.task-connections') || 'Connections'">
-                  {{ task.connections }}
-                </NDescriptionsItem>
-              </NDescriptions>
-            </template>
+            <TaskDetailActivity :task="task" :transfer-summary="transferSummary" />
           </div>
 
           <div v-else-if="activeTab === 'status' && isBT" key="bt-status" class="tab-content">
@@ -906,54 +461,17 @@ function handleClose() {
           </div>
 
           <div v-else-if="activeTab === 'files'" key="files" class="tab-content">
-            <NDataTable
-              :columns="fileColumns"
-              :data="fileList"
-              :row-key="(row) => row.idx"
-              size="small"
-              :bordered="true"
-              :max-height="400"
-              striped
-            />
+            <TaskDetailFiles :files="files" :tooltip="t('about.click-to-copy')" :on-copy="copyDetailValue" />
           </div>
 
           <div v-else-if="activeTab === 'sources'" key="sources" class="tab-content">
-            <template v-if="task && isURI">
-              <NDescriptions
-                :column="1"
-                label-placement="left"
-                bordered
-                size="small"
-                :label-style="{ width: '1px', whiteSpace: 'nowrap' }"
-              >
-                <NDescriptionsItem :label="t('task.task-primary-uri')">
-                  <CopyableValue :value="uriSummary.primaryUri || '-'" :label="t('task.task-primary-uri')" />
-                </NDescriptionsItem>
-                <NDescriptionsItem :label="t('task.task-source-files')">
-                  {{ uriSummary.selectedFileCount }} / {{ uriSummary.fileCount }}
-                </NDescriptionsItem>
-                <NDescriptionsItem :label="t('task.task-source-mirrors')">
-                  {{ uriSummary.mirrorCount }}
-                </NDescriptionsItem>
-                <NDescriptionsItem :label="t('task.task-source-used')">
-                  {{ uriSummary.usedMirrorCount }}
-                </NDescriptionsItem>
-                <NDescriptionsItem :label="t('task.task-source-waiting')">
-                  {{ uriSummary.waitingMirrorCount }}
-                </NDescriptionsItem>
-              </NDescriptions>
-              <div v-if="sourceRows.length > 0" class="source-table">
-                <NDataTable
-                  :columns="sourceColumns"
-                  :data="sourceRows"
-                  :row-key="(row: SourceRow) => row.key"
-                  size="small"
-                  :bordered="true"
-                  :max-height="320"
-                  striped
-                />
-              </div>
-            </template>
+            <TaskDetailSources
+              v-if="task && isURI"
+              :task="task"
+              :summary="uriSummary"
+              :tooltip="t('about.click-to-copy')"
+              :on-copy="copyDetailValue"
+            />
           </div>
 
           <div v-else-if="activeTab === 'options'" key="options" class="tab-content">
@@ -1152,40 +670,16 @@ function handleClose() {
           </div>
 
           <div v-else-if="activeTab === 'peers'" key="peers" class="tab-content">
-            <NDataTable
-              :columns="peerColumns"
-              :data="peers"
-              :row-key="(row) => row.host"
-              size="small"
-              :bordered="true"
-              :max-height="400"
-              striped
+            <TaskDetailPeers
+              :peers="task?.peers"
+              :locale="locale"
+              :tooltip="t('about.click-to-copy')"
+              :on-copy="copyDetailValue"
             />
           </div>
 
           <div v-else-if="activeTab === 'trackers'" key="trackers" class="tab-content">
-            <div style="margin-bottom: 12px; height: 34px">
-              <NButton
-                size="medium"
-                :type="trackerProbing ? 'default' : 'primary'"
-                class="probe-btn"
-                @click="handleProbeTrackers"
-              >
-                <template v-if="trackerProbing" #icon>
-                  <div class="probe-spinner" />
-                </template>
-                {{ trackerProbing ? t('task.task-tracker-cancel-probe') : t('task.task-tracker-probe') }}
-              </NButton>
-            </div>
-            <NDataTable
-              :columns="trackerColumns"
-              :data="trackerRows"
-              :row-key="(row: TrackerRow) => row.url"
-              size="small"
-              :bordered="true"
-              :max-height="400"
-              striped
-            />
+            <TaskDetailTrackers :bt-info="btInfo" :tooltip="t('about.click-to-copy')" :on-copy="copyDetailValue" />
           </div>
         </Transition>
       </div>
@@ -1237,7 +731,7 @@ function handleClose() {
   padding: 16px 0;
 }
 
-.detail-copyable-value {
+:deep(.detail-copyable-value) {
   display: inline-flex;
   align-items: flex-start;
   gap: 4px;
@@ -1246,8 +740,8 @@ function handleClose() {
   vertical-align: middle;
 }
 
-.detail-long-text,
-.detail-copyable-text {
+:deep(.detail-long-text),
+:deep(.detail-copyable-text) {
   min-width: 0;
   max-width: 100%;
   white-space: normal;
@@ -1256,7 +750,7 @@ function handleClose() {
   line-height: 1.45;
 }
 
-.detail-copy-button {
+:deep(.detail-copy-button) {
   flex: 0 0 auto;
   width: 22px;
   height: 22px;
@@ -1266,7 +760,7 @@ function handleClose() {
     color 0.16s cubic-bezier(0.2, 0, 0, 1);
 }
 
-.detail-copy-button:hover {
+:deep(.detail-copy-button:hover) {
   opacity: 1;
   color: var(--color-primary);
 }
@@ -1279,13 +773,13 @@ function handleClose() {
   letter-spacing: 0.5px;
 }
 
-.progress-row {
+:deep(.progress-row) {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.progress-pct {
+:deep(.progress-pct) {
   white-space: nowrap;
   font-size: 12px;
   color: var(--m3-on-surface-variant);
@@ -1293,7 +787,7 @@ function handleClose() {
   text-align: right;
 }
 
-.remaining-text {
+:deep(.remaining-text) {
   margin-left: 12px;
   color: var(--m3-on-surface-variant);
   font-size: 12px;
@@ -1304,7 +798,7 @@ function handleClose() {
   line-height: inherit;
   vertical-align: baseline;
 }
-.source-table {
+:deep(.source-table) {
   margin-top: 12px;
 }
 
@@ -1348,7 +842,7 @@ function handleClose() {
 }
 
 /* Probe button M3 transition */
-.probe-btn {
+:deep(.probe-btn) {
   transition:
     background-color 0.3s cubic-bezier(0.2, 0, 0, 1),
     border-color 0.3s cubic-bezier(0.2, 0, 0, 1),
@@ -1356,7 +850,7 @@ function handleClose() {
 }
 
 /* Spinning indicator matching Naive UI's loading style */
-.probe-spinner {
+:deep(.probe-spinner) {
   width: 14px;
   height: 14px;
   border: 2px solid transparent;
