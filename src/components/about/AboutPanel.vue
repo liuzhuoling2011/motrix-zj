@@ -204,6 +204,7 @@ function openUrl(url: string) {
       <div class="about-section-label stagger stagger-4">Tech Stack</div>
       <div class="about-tags stagger stagger-4">
         <span v-for="tech in techStack" :key="tech.name" class="about-tag" :style="{ '--tag-color': tech.color }">
+          <!-- eslint-disable vue/no-v-html -- tech.svg is static local icon markup -->
           <svg
             class="about-tag-icon"
             width="12"
@@ -216,6 +217,7 @@ function openUrl(url: string) {
             stroke-linejoin="round"
             v-html="tech.svg"
           />
+          <!-- eslint-enable vue/no-v-html -->
           {{ tech.name }}
         </span>
       </div>

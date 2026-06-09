@@ -68,7 +68,7 @@ const phase = ref<'checking' | 'up-to-date' | 'available' | 'downloading' | 'rea
 const version = ref('')
 const currentVersion = ref('')
 const releaseNotes = ref('')
-const renderedNotes = computed(() => {
+const sanitizedReleaseNotesHtml = computed(() => {
   if (!releaseNotes.value) return ''
   const raw = marked.parse(releaseNotes.value, { async: false }) as string
   // Allow SVG elements used by marked-alert icons
@@ -295,7 +295,8 @@ defineExpose({ open })
               </div>
             </div>
             <div v-if="releaseNotes" class="update-notes">
-              <div class="update-notes-text" v-html="renderedNotes" />
+              <!-- eslint-disable-next-line vue/no-v-html -- sanitizedReleaseNotesHtml is DOMPurify output -->
+              <div class="update-notes-text" v-html="sanitizedReleaseNotesHtml" />
             </div>
           </div>
 
