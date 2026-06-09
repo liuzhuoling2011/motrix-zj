@@ -8,7 +8,7 @@ body:
       value: |
         Thanks for taking the time to report this issue!
         Please check [existing issues](https://github.com/AnInsomniacy/motrix-next/issues) before creating a new one.
-        Please reproduce the issue on the latest beta release when possible. Old-version reports may be asked to upgrade first.
+        Please reproduce the issue on the latest release or latest beta before filing. Reports from older versions may be closed without further investigation.
         Use GitHub Discussions for questions. Use the extension repository for browser-extension-only issues, and Aria2 Next for engine-only issues.
 
   - type: textarea
@@ -23,7 +23,7 @@ body:
     id: version
     attributes:
       label: Motrix Next Version
-      description: 'The full version shown in the About panel. Please test the latest beta first when possible.'
+      description: 'The full version shown in the About panel. Reports must be reproduced on the latest release or latest beta.'
       placeholder: '3.4.1'
     validations:
       required: true
