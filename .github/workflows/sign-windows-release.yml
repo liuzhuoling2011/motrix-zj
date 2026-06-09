@@ -7,9 +7,6 @@ permissions:
   actions: read
   contents: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   resolve-releases:
     name: Resolve releases
@@ -48,16 +45,16 @@ jobs:
   sign:
     name: Sign Windows installers
     needs: resolve-releases
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install Node dependencies
@@ -129,7 +126,7 @@ jobs:
 
       - name: Upload unsigned installers
         id: unsigned-artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: signpath-windows-release-unsigned-${{ github.run_id }}-${{ github.run_attempt }}
           path: signpath-input/*.exe
