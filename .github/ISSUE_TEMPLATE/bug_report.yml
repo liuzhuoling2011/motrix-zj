@@ -33,7 +33,8 @@ body:
     attributes:
       label: Issue Source
       description: |
-        Select Motrix Next app only for desktop-app bugs.<br>
+        Select Motrix Next app only for desktop-app bugs.
+
         Browser extension issues must be filed in:<br>
         https://github.com/AnInsomniacy/motrix-next-extension
 
@@ -42,11 +43,11 @@ body:
 
         Misfiled issues may be closed here.
       options:
-        - Motrix Next app
-        - Browser extension
-        - RPC / third-party parser
-        - Aria2 Next engine
-        - Not sure
+        - Motrix Next App
+        - Browser Extension
+        - RPC / Third-Party Parser
+        - Aria2 Next Engine
+        - Not Sure
     validations:
       required: true
 
