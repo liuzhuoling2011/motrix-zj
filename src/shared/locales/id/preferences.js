@@ -272,11 +272,11 @@ export default {
   'high-connection-reason': 'Dapat memicu pembatasan kecepatan atau pemblokiran IP',
   'high-bt-peers-reason': 'Terlalu banyak node meningkatkan penggunaan memori',
   'engine-section': 'Mesin Unduh Aria2 Next',
-  'hardware-rendering': 'Akselerasi GPU',
+  'hardware-rendering': 'Akselerasi Perangkat Keras WebKitGTK',
   'hardware-rendering-hint':
-    'Akselerasi perangkat keras WebKitGTK DMA-BUF dinonaktifkan secara default untuk meningkatkan stabilitas Linux dan Wayland. Anda dapat mengaktifkannya untuk performa rendering lebih tinggi, tetapi beberapa GPU, driver, atau lingkungan desktop dapat crash',
+    'Mengaktifkannya dapat meningkatkan performa rendering antarmuka, tetapi beberapa GPU, driver, atau lingkungan desktop dapat membuat WebKitGTK crash',
   'hardware-rendering-restart-confirm':
-    'Mengubah akselerasi perangkat keras WebKitGTK DMA-BUF memerlukan restart aplikasi karena harus disetel sebelum proses dimulai. Jika aplikasi crash setelah diaktifkan, jalankan sekali dengan WEBKIT_DISABLE_DMABUF_RENDERER=1 atau nonaktifkan secara manual di config.json.',
+    'Mengubah akselerasi perangkat keras WebKitGTK memerlukan restart aplikasi. Jika aplikasi tidak dapat dimulai setelah diaktifkan, edit config.json secara manual dan setel preferences.hardwareRendering ke false.',
   'session-path': 'File Cache Tugas',
   'clear-all-tasks': 'Hapus Semua Tugas',
   'clear-all-tasks-confirm':

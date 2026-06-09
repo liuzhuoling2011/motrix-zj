@@ -270,11 +270,11 @@ export default {
   'high-connection-reason': 'ممکن است محدودیت سرعت یا مسدودسازی IP ایجاد کند',
   'high-bt-peers-reason': 'گره‌های زیاد حافظه بیشتری مصرف می‌کنند',
   'engine-section': 'موتور دانلود Aria2 Next',
-  'hardware-rendering': 'شتاب‌دهی GPU',
+  'hardware-rendering': 'شتاب‌دهی سخت‌افزاری WebKitGTK',
   'hardware-rendering-hint':
-    'شتاب‌دهی سخت‌افزاری WebKitGTK DMA-BUF برای پایداری بهتر در Linux و Wayland به‌طور پیش‌فرض غیرفعال است. می‌توانید آن را برای عملکرد رندر بالاتر فعال کنید، اما برخی GPUها، درایورها یا محیط‌های دسکتاپ ممکن است باعث خرابی شوند',
+    'فعال‌سازی آن ممکن است عملکرد رندر رابط کاربری را بهتر کند، اما بعضی GPUها، درایورها یا محیط‌های دسکتاپ ممکن است باعث خرابی WebKitGTK شوند',
   'hardware-rendering-restart-confirm':
-    'تغییر شتاب‌دهی سخت‌افزاری WebKitGTK DMA-BUF نیازمند راه‌اندازی مجدد برنامه است، چون باید پیش از شروع فرایند تنظیم شود. اگر برنامه پس از فعال‌سازی خراب شد، یک‌بار با WEBKIT_DISABLE_DMABUF_RENDERER=1 اجرا کنید یا آن را دستی در config.json غیرفعال کنید.',
+    'تغییر شتاب‌دهی سخت‌افزاری WebKitGTK نیازمند راه‌اندازی مجدد برنامه است. اگر برنامه پس از فعال‌سازی اجرا نشد، config.json را دستی ویرایش کنید و preferences.hardwareRendering را روی false بگذارید.',
   'session-path': 'فایل حافظه پنهان وظایف',
   'clear-all-tasks': 'پاک کردن همه وظایف',
   'clear-all-tasks-confirm':

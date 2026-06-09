@@ -270,11 +270,11 @@ export default {
   'high-connection-reason': 'サーバーの速度制限や IP ブロックを引き起こす可能性があります',
   'high-bt-peers-reason': 'ピア過多はメモリ消費量を増加させます',
   'engine-section': 'Aria2 Next ダウンロードエンジン',
-  'hardware-rendering': 'GPU ハードウェアアクセラレーション',
+  'hardware-rendering': 'WebKitGTK ハードウェアアクセラレーション',
   'hardware-rendering-hint':
-    'WebKitGTK DMA-BUF ハードウェアアクセラレーションは、Linux と Wayland の安定性を高めるためデフォルトで無効です。描画性能を高めたい場合は有効にできますが、一部の GPU、ドライバー、デスクトップ環境ではクラッシュする可能性があります',
+    '有効にすると UI の描画性能が向上する場合がありますが、一部の GPU、ドライバー、デスクトップ環境では WebKitGTK がクラッシュする可能性があります',
   'hardware-rendering-restart-confirm':
-    'WebKitGTK DMA-BUF ハードウェアアクセラレーションの変更には、プロセス起動前に設定する必要があるためアプリの再起動が必要です。有効化後にアプリがクラッシュする場合は、WEBKIT_DISABLE_DMABUF_RENDERER=1 を付けて一度起動するか、config.json で手動で無効にしてください。',
+    'WebKitGTK ハードウェアアクセラレーションの変更にはアプリの再起動が必要です。有効化後にアプリを起動できない場合は、config.json を手動で編集し、preferences.hardwareRendering を false に設定してください。',
   'session-path': 'タスクキャッシュファイル',
   'clear-all-tasks': 'すべてのタスクを消去',
   'clear-all-tasks-confirm':

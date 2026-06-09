@@ -275,11 +275,11 @@ export default {
   'high-connection-reason': 'Puede provocar limitación de velocidad o bloqueo de IP',
   'high-bt-peers-reason': 'Demasiados nodos aumentan el consumo de memoria',
   'engine-section': 'Motor de descarga Aria2 Next',
-  'hardware-rendering': 'Aceleración GPU',
+  'hardware-rendering': 'Aceleración por hardware de WebKitGTK',
   'hardware-rendering-hint':
-    'La aceleración WebKitGTK DMA-BUF está desactivada por defecto para mejorar la estabilidad en Linux y Wayland. Puede activarla para obtener mayor rendimiento de renderizado, pero algunas GPU, controladores o entornos de escritorio pueden fallar',
+    'Activarla puede mejorar el rendimiento de renderizado de la interfaz, pero algunas GPU, controladores o entornos de escritorio pueden hacer que WebKitGTK falle',
   'hardware-rendering-restart-confirm':
-    'Cambiar la aceleración WebKitGTK DMA-BUF requiere reiniciar la aplicación porque debe configurarse antes de iniciar el proceso. Si la aplicación falla tras activarla, iníciela una vez con WEBKIT_DISABLE_DMABUF_RENDERER=1 o desactívela manualmente en config.json.',
+    'Cambiar la aceleración por hardware de WebKitGTK requiere reiniciar la aplicación. Si la aplicación no puede iniciarse después de activarla, edite config.json manualmente y establezca preferences.hardwareRendering en false.',
   'session-path': 'Archivo de caché de tareas',
   'clear-all-tasks': 'Borrar todas las tareas',
   'clear-all-tasks-confirm':

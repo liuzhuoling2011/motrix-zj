@@ -263,11 +263,11 @@ export default {
   'high-connection-reason': '可能觸發伺服器限速或 IP 封鎖',
   'high-bt-peers-reason': '過多節點連線會顯著增加記憶體消耗',
   'engine-section': 'Aria2 Next 下載引擎',
-  'hardware-rendering': 'GPU 硬體加速',
+  'hardware-rendering': 'WebKitGTK 硬體加速',
   'hardware-rendering-hint':
-    '預設關閉 WebKitGTK DMA-BUF 硬體加速，以提升 Linux 和 Wayland 穩定性。你可以開啟它以取得更高渲染效能，但部分顯卡、驅動程式或桌面環境可能會崩潰',
+    '開啟後可能提升介面渲染效能，但部分顯卡、驅動程式或桌面環境可能導致 WebKitGTK 崩潰',
   'hardware-rendering-restart-confirm':
-    'WebKitGTK DMA-BUF 硬體加速必須在程序啟動前設定，變更後需要重新啟動應用程式。若開啟後應用程式崩潰，請使用 WEBKIT_DISABLE_DMABUF_RENDERER=1 啟動一次，或手動在 config.json 中關閉。',
+    'WebKitGTK 硬體加速變更需要重新啟動應用程式。若開啟後無法啟動，請手動編輯 config.json，將 preferences.hardwareRendering 改為 false。',
   'session-path': '任務快取檔案',
   'clear-all-tasks': '清除所有任務',
   'clear-all-tasks-confirm': '將從引擎中移除所有下載任務並清空任務快取。已完成的下載紀錄不受影響。',

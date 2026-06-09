@@ -272,11 +272,11 @@ export default {
   'high-connection-reason': 'Poate declanșa limitarea vitezei sau blocarea IP-ului',
   'high-bt-peers-reason': 'Prea multe noduri cresc consumul de memorie',
   'engine-section': 'Motor de descărcare Aria2 Next',
-  'hardware-rendering': 'Accelerare GPU',
+  'hardware-rendering': 'Accelerare hardware WebKitGTK',
   'hardware-rendering-hint':
-    'Accelerarea hardware WebKitGTK DMA-BUF este dezactivată implicit pentru stabilitate mai bună pe Linux și Wayland. O puteți activa pentru performanță de randare mai mare, dar unele GPU-uri, drivere sau medii desktop se pot bloca',
+    'Activarea poate îmbunătăți performanța de randare a interfeței, dar unele GPU-uri, drivere sau medii desktop pot cauza blocarea WebKitGTK',
   'hardware-rendering-restart-confirm':
-    'Schimbarea accelerării WebKitGTK DMA-BUF necesită repornirea aplicației, deoarece trebuie setată înainte de pornirea procesului. Dacă aplicația se blochează după activare, porniți-o o dată cu WEBKIT_DISABLE_DMABUF_RENDERER=1 sau dezactivați-o manual în config.json.',
+    'Schimbarea accelerării hardware WebKitGTK necesită repornirea aplicației. Dacă aplicația nu poate porni după activare, editați manual config.json și setați preferences.hardwareRendering la false.',
   'session-path': 'Fișier cache sarcini',
   'clear-all-tasks': 'Șterge toate sarcinile',
   'clear-all-tasks-confirm':

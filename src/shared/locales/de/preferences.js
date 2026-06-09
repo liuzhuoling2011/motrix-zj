@@ -273,11 +273,11 @@ export default {
   'high-connection-reason': 'Kann zu Drosselung oder IP-Sperre führen',
   'high-bt-peers-reason': 'Viele Knoten erhöhen den Speicherverbrauch',
   'engine-section': 'Aria2 Next-Download-Engine',
-  'hardware-rendering': 'GPU-Hardwarebeschleunigung',
+  'hardware-rendering': 'WebKitGTK-Hardwarebeschleunigung',
   'hardware-rendering-hint':
-    'WebKitGTK DMA-BUF-Hardwarebeschleunigung ist standardmäßig deaktiviert, um die Stabilität unter Linux und Wayland zu verbessern. Sie können sie für höhere Rendering-Leistung aktivieren, aber einige GPUs, Treiber oder Desktop-Umgebungen können abstürzen',
+    'Das Aktivieren kann die Renderleistung der Oberfläche verbessern, aber einige GPUs, Treiber oder Desktop-Umgebungen können WebKitGTK zum Absturz bringen',
   'hardware-rendering-restart-confirm':
-    'Das Ändern der WebKitGTK DMA-BUF-Hardwarebeschleunigung erfordert einen App-Neustart, da sie vor dem Prozessstart gesetzt werden muss. Wenn die App nach dem Aktivieren abstürzt, starten Sie sie einmal mit WEBKIT_DISABLE_DMABUF_RENDERER=1 oder deaktivieren Sie sie manuell in config.json.',
+    'Das Ändern der WebKitGTK-Hardwarebeschleunigung erfordert einen App-Neustart. Wenn die App nach dem Aktivieren nicht starten kann, bearbeiten Sie config.json manuell und setzen Sie preferences.hardwareRendering auf false.',
   'session-path': 'Aufgaben-Cache-Datei',
   'clear-all-tasks': 'Alle Aufgaben löschen',
   'clear-all-tasks-confirm':

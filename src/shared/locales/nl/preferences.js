@@ -273,11 +273,11 @@ export default {
   'high-connection-reason': 'Kan snelheidsbeperking of IP-blokkering veroorzaken',
   'high-bt-peers-reason': 'Te veel knooppunten verhoogt het geheugenverbruik',
   'engine-section': 'Aria2 Next-downloadengine',
-  'hardware-rendering': 'GPU-hardwareversnelling',
+  'hardware-rendering': 'WebKitGTK-hardwareversnelling',
   'hardware-rendering-hint':
-    'WebKitGTK DMA-BUF hardwareversnelling is standaard uitgeschakeld voor betere stabiliteit op Linux en Wayland. U kunt dit inschakelen voor hogere renderprestaties, maar sommige GPU’s, drivers of desktopomgevingen kunnen crashen',
+    'Inschakelen kan de renderprestaties van de interface verbeteren, maar sommige GPU’s, stuurprogramma’s of desktopomgevingen kunnen WebKitGTK laten crashen',
   'hardware-rendering-restart-confirm':
-    "WebKitGTK DMA-BUF hardwareversnelling moet worden geconfigureerd vóór het starten van het proces en vereist een herstart. Sommige GPU's (bijv. NVIDIA proprietary, Intel + Wayland, Raspberry Pi) zijn mogelijk niet compatibel. Als de app crasht na inschakeling, wordt dit automatisch uitgeschakeld.",
+    'Het wijzigen van WebKitGTK-hardwareversnelling vereist een herstart van de app. Als de app na inschakelen niet kan starten, bewerk config.json handmatig en zet preferences.hardwareRendering op false.',
   'session-path': 'Taakcachebestand',
   'clear-all-tasks': 'Alle taken verwijderen',
   'clear-all-tasks-confirm':

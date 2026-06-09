@@ -211,8 +211,7 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
       })
     }
 
-    // Hardware rendering toggle needs a full app relaunch — the env var
-    // WEBKIT_DISABLE_DMABUF_RENDERER is read by WebKitGTK at process startup.
+    // WebKitGTK rendering variables are read at process startup.
     if (changed.hardwareRendering !== undefined && changed.hardwareRendering !== prevConfig.hardwareRendering) {
       dialog.info({
         title: t('preferences.restart-required'),

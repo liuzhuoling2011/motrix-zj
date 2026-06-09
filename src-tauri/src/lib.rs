@@ -625,21 +625,17 @@ pub fn run() {
     // WORKAROUND for WebKitGTK Bug #262607 (RESOLVED WONTFIX).
     // <https://bugs.webkit.org/show_bug.cgi?id=262607>
     //
-    // WebKitGTK's DMA-BUF renderer crashes on various GPU/driver/compositor
-    // combinations (NVIDIA, Intel UHD + Wayland, Broadcom on RPi, VM guests).
-    // The DMA-BUF renderer has no graceful fallback — a failed EGL init
-    // calls `abort()`, killing the entire process.
+    // WebKitGTK hardware rendering can crash on various GPU, driver, and
+    // compositor combinations. DMA-BUF is the best-known failure path, but
+    // AppImage/Wayland systems can still hit GBM/DRI through accelerated
+    // compositing, so software mode disables both paths.
     //
     // Strategy:
     // - Default: hardware rendering OFF (software compositing).
     //   Safe for all GPUs, negligible perf difference for a download manager UI.
-    // - Users can opt in via Advanced → "Hardware Rendering" toggle.
-    // - If opting in crashes the app, launch once with
-    //   WEBKIT_DISABLE_DMABUF_RENDERER=1 or edit config.json to disable it.
-    //
-    // The `is_dmabuf_renderer_disabled()` command in fs.rs reads the same
-    // env var at runtime, so the frontend's border-radius workaround
-    // (MainLayout.vue) activates automatically.
+    // - Users can opt in via Advanced → "WebKitGTK Hardware Acceleration".
+    // - If opting in crashes the app, edit config.json and set
+    //   preferences.hardwareRendering to false.
     //
     // SAFETY: `set_var` (called inside pre_flight) is unsafe since Rust 1.83.
     // Safe here because it executes at the very start of `main()`, before
@@ -854,7 +850,6 @@ pub fn run() {
             commands::move_file,
             commands::trash_file,
             commands::get_engine_conf_path,
-            commands::is_dmabuf_renderer_disabled,
             commands::set_window_alpha,
             commands::is_default_protocol_client,
             commands::set_default_protocol_client,

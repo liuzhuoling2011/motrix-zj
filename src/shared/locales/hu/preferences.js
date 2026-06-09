@@ -271,11 +271,11 @@ export default {
   'high-connection-reason': 'Sebességkorlátozást vagy IP-tiltást válthat ki',
   'high-bt-peers-reason': 'Sok csomópont növeli a memóriahasználatot',
   'engine-section': 'Aria2 Next letöltőmotor',
-  'hardware-rendering': 'GPU hardveres gyorsítás',
+  'hardware-rendering': 'WebKitGTK hardveres gyorsítás',
   'hardware-rendering-hint':
-    'A WebKitGTK DMA-BUF hardveres gyorsítás alapértelmezetten ki van kapcsolva a Linux és Wayland stabilitása érdekében. Bekapcsolható nagyobb renderelési teljesítményért, de egyes GPU-k, illesztőprogramok vagy asztali környezetek összeomolhatnak',
+    'Bekapcsolása javíthatja a felület renderelési teljesítményét, de egyes GPU-k, illesztőprogramok vagy asztali környezetek összeomlaszthatják a WebKitGTK-t',
   'hardware-rendering-restart-confirm':
-    'A WebKitGTK DMA-BUF hardveres gyorsítás módosításához újra kell indítani az alkalmazást, mert a folyamat indulása előtt kell beállítani. Ha az alkalmazás bekapcsolás után összeomlik, indítsa el egyszer WEBKIT_DISABLE_DMABUF_RENDERER=1 értékkel, vagy kapcsolja ki kézzel a config.json fájlban.',
+    'A WebKitGTK hardveres gyorsítás módosításához újra kell indítani az alkalmazást. Ha az alkalmazás a bekapcsolás után nem indul el, szerkessze kézzel a config.json fájlt, és állítsa a preferences.hardwareRendering értékét false-ra.',
   'session-path': 'Feladat-gyorsítótár fájl',
   'clear-all-tasks': 'Összes feladat törlése',
   'clear-all-tasks-confirm':

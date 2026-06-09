@@ -267,9 +267,13 @@ pub async fn export_diagnostic_logs(app: AppHandle, save_path: String) -> Result
         "motrix_next_log_level": format!("{}", crate::read_log_level()),
         "aria2_next_log_level": config_aria2_log_level(raw_config.as_ref()),
         "engine_pid": engine_pid,
-        "webkit_dmabuf_disabled": std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER")
-            .unwrap_or_default(),
-        "gpu_hardware_rendering": crate::gpu_guard::is_hardware_rendering_enabled(),
+        "webkit_dmabuf_disabled": std::env::var(crate::gpu_guard::WEBKIT_DISABLE_DMABUF_RENDERER).unwrap_or_default(),
+        "webkit_compositing_disabled": std::env::var(crate::gpu_guard::WEBKIT_DISABLE_COMPOSITING_MODE).unwrap_or_default(),
+        "webkit_hardware_acceleration_enabled": crate::gpu_guard::is_hardware_rendering_enabled(),
+        "appimage": std::env::var("APPIMAGE").unwrap_or_default(),
+        "appdir": std::env::var("APPDIR").unwrap_or_default(),
+        "xdg_session_type": std::env::var("XDG_SESSION_TYPE").unwrap_or_default(),
+        "gdk_backend": std::env::var("GDK_BACKEND").unwrap_or_default(),
         "exported_at": chrono::Local::now().to_rfc3339(),
     });
     let info_bytes = serde_json::to_vec_pretty(&system_info)
@@ -876,38 +880,6 @@ pub fn remove_file(path: String) -> Result<(), AppError> {
     }
     log::debug!("file:remove path={path:?}");
     std::fs::remove_file(p).map_err(|e| AppError::Io(e.to_string()))
-}
-
-/// Returns `true` when the WebKitGTK DMABuf renderer has been disabled via
-/// the `WEBKIT_DISABLE_DMABUF_RENDERER` environment variable.
-///
-/// # Context
-///
-/// WORKAROUND for WebKitGTK Bug #262607 (RESOLVED WONTFIX).
-/// <https://bugs.webkit.org/show_bug.cgi?id=262607>
-///
-/// WebKitGTK's DMA-BUF renderer crashes on various GPU/driver/compositor
-/// combinations (NVIDIA, Intel UHD + Wayland, Broadcom on RPi, VM guests).
-/// By default, hardware rendering is OFF (`WEBKIT_DISABLE_DMABUF_RENDERER=1`).
-/// Users can opt in via Advanced → "Hardware Rendering".
-///
-/// The frontend uses this flag to decide:
-/// - `false` → safe to remove border-radius on maximize (normal behavior)
-/// - `true`  → keep border-radius at all times (software compositing workaround)
-///
-/// On non-Linux platforms this always returns `false`.
-#[tauri::command]
-pub fn is_dmabuf_renderer_disabled() -> bool {
-    #[cfg(target_os = "linux")]
-    {
-        std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER")
-            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-            .unwrap_or(false)
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        false
-    }
 }
 
 #[cfg(test)]

@@ -270,11 +270,11 @@ export default {
   'high-connection-reason': 'Server rate limiting या IP ban trigger हो सकता है',
   'high-bt-peers-reason': 'बहुत अधिक peers memory consumption बढ़ाते हैं',
   'engine-section': 'Aria2 Next download engine',
-  'hardware-rendering': 'GPU hardware acceleration',
+  'hardware-rendering': 'WebKitGTK hardware acceleration',
   'hardware-rendering-hint':
-    'Linux और Wayland stability बेहतर रखने के लिए WebKitGTK DMA-BUF hardware acceleration default रूप से बंद है। Higher rendering performance के लिए इसे चालू किया जा सकता है, लेकिन कुछ GPU, drivers या desktop environments crash हो सकते हैं।',
+    'इसे चालू करने से UI rendering performance बेहतर हो सकती है, लेकिन कुछ GPU, drivers या desktop environments WebKitGTK को crash कर सकते हैं',
   'hardware-rendering-restart-confirm':
-    'WebKitGTK DMA-BUF hardware acceleration बदलने के लिए app restart जरूरी है क्योंकि इसे process startup से पहले set करना पड़ता है। Enable करने के बाद app crash हो तो WEBKIT_DISABLE_DMABUF_RENDERER=1 के साथ एक बार launch करें या config.json में manually बंद करें।',
+    'WebKitGTK hardware acceleration बदलने के लिए app restart जरूरी है। Enable करने के बाद app start न हो तो config.json को manually edit करें और preferences.hardwareRendering को false set करें।',
   'session-path': 'Task cache file',
   'clear-all-tasks': 'सभी कार्य साफ करें',
   'clear-all-tasks-confirm':

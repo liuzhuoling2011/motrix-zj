@@ -268,11 +268,11 @@ export default {
   'high-connection-reason': '서버 속도 제한 또는 IP 차단이 발생할 수 있습니다',
   'high-bt-peers-reason': '피어가 너무 많으면 메모리 소비가 증가합니다',
   'engine-section': 'Aria2 Next 다운로드 엔진',
-  'hardware-rendering': 'GPU 하드웨어 가속',
+  'hardware-rendering': 'WebKitGTK 하드웨어 가속',
   'hardware-rendering-hint':
-    'WebKitGTK DMA-BUF 하드웨어 가속은 Linux 및 Wayland 안정성을 높이기 위해 기본적으로 비활성화되어 있습니다. 더 높은 렌더링 성능을 원하면 활성화할 수 있지만 일부 GPU, 드라이버 또는 데스크톱 환경에서는 충돌할 수 있습니다',
+    '활성화하면 UI 렌더링 성능이 향상될 수 있지만 일부 GPU, 드라이버 또는 데스크톱 환경에서는 WebKitGTK가 충돌할 수 있습니다',
   'hardware-rendering-restart-confirm':
-    'WebKitGTK DMA-BUF 하드웨어 가속 변경은 프로세스 시작 전에 설정해야 하므로 앱 재시작이 필요합니다. 활성화 후 앱이 충돌하면 WEBKIT_DISABLE_DMABUF_RENDERER=1로 한 번 실행하거나 config.json에서 수동으로 비활성화하세요.',
+    'WebKitGTK 하드웨어 가속을 변경하려면 앱을 다시 시작해야 합니다. 활성화한 뒤 앱이 시작되지 않으면 config.json을 직접 편집하고 preferences.hardwareRendering을 false로 설정하세요.',
   'session-path': '작업 캐시 파일',
   'clear-all-tasks': '모든 작업 삭제',
   'clear-all-tasks-confirm':

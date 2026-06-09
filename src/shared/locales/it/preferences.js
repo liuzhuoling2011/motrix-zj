@@ -274,11 +274,11 @@ export default {
   'high-connection-reason': 'Può causare limitazione della velocità o blocco IP',
   'high-bt-peers-reason': 'Troppi nodi aumentano il consumo di memoria',
   'engine-section': 'Motore di download Aria2 Next',
-  'hardware-rendering': 'Accelerazione GPU',
+  'hardware-rendering': 'Accelerazione hardware WebKitGTK',
   'hardware-rendering-hint':
-    "L'accelerazione hardware WebKitGTK DMA-BUF è attivata per impostazione predefinita per prestazioni ottimali. Se riscontri schermo bianco o crash con la tua GPU attuale, disattiva questa opzione per tornare al rendering software.",
+    'Attivarla può migliorare le prestazioni di rendering dell’interfaccia, ma alcune GPU, driver o ambienti desktop possono causare il crash di WebKitGTK',
   'hardware-rendering-restart-confirm':
-    "L'accelerazione hardware WebKitGTK DMA-BUF deve essere configurata prima dell'avvio del processo e richiede un riavvio. Alcune GPU (es. NVIDIA proprietario, Intel + Wayland, Raspberry Pi) potrebbero non essere compatibili. Se l'applicazione si blocca dopo l'attivazione, verrà automaticamente disattivata.",
+    'La modifica dell’accelerazione hardware WebKitGTK richiede il riavvio dell’app. Se l’app non si avvia dopo l’attivazione, modifica manualmente config.json e imposta preferences.hardwareRendering su false.',
   'session-path': 'File cache delle attività',
   'clear-all-tasks': 'Cancella tutte le attività',
   'clear-all-tasks-confirm':

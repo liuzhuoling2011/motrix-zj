@@ -270,11 +270,11 @@ export default {
   'high-connection-reason': 'Kan utløse hastighetsbegrensning eller IP-blokkering',
   'high-bt-peers-reason': 'For mange noder øker minneforbruket',
   'engine-section': 'Aria2 Next-nedlastingsmotor',
-  'hardware-rendering': 'GPU maskinvareakselerasjon',
+  'hardware-rendering': 'WebKitGTK maskinvareakselerasjon',
   'hardware-rendering-hint':
-    'WebKitGTK DMA-BUF maskinvareakselerasjon er deaktivert som standard for bedre stabilitet på Linux og Wayland. Du kan aktivere den for høyere gjengivelsesytelse, men enkelte GPU-er, drivere eller skrivebordsmiljøer kan krasje',
+    'Aktivering kan forbedre gjengivelsesytelsen i grensesnittet, men enkelte GPU-er, drivere eller skrivebordsmiljøer kan få WebKitGTK til å krasje',
   'hardware-rendering-restart-confirm':
-    'Endring av WebKitGTK DMA-BUF maskinvareakselerasjon krever omstart av appen fordi den må settes før prosessen starter. Hvis appen krasjer etter aktivering, start den én gang med WEBKIT_DISABLE_DMABUF_RENDERER=1 eller deaktiver den manuelt i config.json.',
+    'Endring av WebKitGTK maskinvareakselerasjon krever omstart av appen. Hvis appen ikke kan starte etter aktivering, rediger config.json manuelt og sett preferences.hardwareRendering til false.',
   'session-path': 'Hurtigbufferfil for oppgaver',
   'clear-all-tasks': 'Fjern alle oppgaver',
   'clear-all-tasks-confirm':

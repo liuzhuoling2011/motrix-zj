@@ -275,11 +275,11 @@ export default {
   'high-connection-reason': 'Peut déclencher une limitation ou un blocage IP',
   'high-bt-peers-reason': 'Trop de pairs augmente la consommation mémoire',
   'engine-section': 'Moteur de téléchargement Aria2 Next',
-  'hardware-rendering': 'Accélération GPU',
+  'hardware-rendering': 'Accélération matérielle WebKitGTK',
   'hardware-rendering-hint':
-    "L'accélération matérielle WebKitGTK DMA-BUF est activée par défaut pour des performances optimales. En cas d'écran blanc ou de plantage avec votre GPU actuel, désactivez cette option pour revenir au rendu logiciel.",
+    'L’activer peut améliorer les performances de rendu de l’interface, mais certains GPU, pilotes ou environnements de bureau peuvent faire planter WebKitGTK',
   'hardware-rendering-restart-confirm':
-    "L'accélération matérielle WebKitGTK DMA-BUF doit être configurée avant le démarrage du processus et nécessite un redémarrage. Certains GPU (ex. NVIDIA propriétaire, Intel + Wayland, Raspberry Pi) peuvent ne pas être compatibles. Si l'application plante après l'activation, elle sera automatiquement désactivée.",
+    'Modifier l’accélération matérielle WebKitGTK nécessite un redémarrage de l’application. Si l’application ne démarre plus après l’activation, modifiez config.json manuellement et définissez preferences.hardwareRendering sur false.',
   'session-path': 'Fichier de session',
   'clear-all-tasks': 'Supprimer toutes les tâches',
   'clear-all-tasks-confirm':

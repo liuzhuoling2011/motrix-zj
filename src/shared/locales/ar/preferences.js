@@ -267,11 +267,11 @@ export default {
   'high-connection-reason': 'قد يؤدي إلى تقييد السرعة أو حظر IP',
   'high-bt-peers-reason': 'كثرة العقد تزيد استهلاك الذاكرة',
   'engine-section': 'محرك التنزيل Aria2 Next',
-  'hardware-rendering': 'تسريع GPU',
+  'hardware-rendering': 'تسريع WebKitGTK العتادي',
   'hardware-rendering-hint':
-    'يتم إيقاف تسريع WebKitGTK DMA-BUF افتراضيًا لتحسين الاستقرار على Linux وWayland. يمكنك تفعيله إذا أردت أداء عرض أعلى، لكن بعض البطاقات أو التعريفات أو بيئات سطح المكتب قد تتعطل',
+    'قد يؤدي تفعيله إلى تحسين أداء عرض الواجهة، لكن بعض البطاقات أو التعريفات أو بيئات سطح المكتب قد تسبب تعطل WebKitGTK',
   'hardware-rendering-restart-confirm':
-    'يتطلب تغيير تسريع WebKitGTK DMA-BUF إعادة تشغيل التطبيق لأنه يجب ضبطه قبل بدء العملية. إذا تعطل التطبيق بعد تفعيله، شغّله مرة واحدة مع WEBKIT_DISABLE_DMABUF_RENDERER=1 أو عطّله يدويًا في config.json.',
+    'يتطلب تغيير تسريع WebKitGTK العتادي إعادة تشغيل التطبيق. إذا تعذر تشغيل التطبيق بعد تفعيله، فعدّل config.json يدويًا واجعل preferences.hardwareRendering تساوي false.',
   'session-path': 'ملف ذاكرة التخزين المؤقت للمهام',
   'clear-all-tasks': 'مسح جميع المهام',
   'clear-all-tasks-confirm':

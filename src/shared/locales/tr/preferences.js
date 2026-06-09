@@ -272,11 +272,11 @@ export default {
   'high-connection-reason': 'Hız sınırlaması veya IP engellemesine yol açabilir',
   'high-bt-peers-reason': 'Çok fazla düğüm bellek tüketimini artırır',
   'engine-section': 'Aria2 Next İndirme Motoru',
-  'hardware-rendering': 'GPU Donanım Hızlandırma',
+  'hardware-rendering': 'WebKitGTK Donanım Hızlandırma',
   'hardware-rendering-hint':
-    "En iyi performans için WebKitGTK DMA-BUF donanım hızlandırma varsayılan olarak etkindir. Mevcut GPU'nuzda beyaz ekran veya çökme yaşıyorsanız, yazılım işlemeye geri dönmek için bu seçeneği devre dışı bırakın.",
+    'Etkinleştirmek arayüz işleme performansını artırabilir, ancak bazı GPU’lar, sürücüler veya masaüstü ortamları WebKitGTK’nin çökmesine neden olabilir',
   'hardware-rendering-restart-confirm':
-    "WebKitGTK DMA-BUF donanım hızlandırma işlem başlamadan önce yapılandırılmalıdır ve uygulama yeniden başlatma gerektirir. Bazı GPU'lar (ör. NVIDIA özel sürücü, Intel + Wayland, Raspberry Pi) uyumlu olmayabilir. Etkinleştirme sonrası uygulama çökerse, otomatik olarak devre dışı bırakılır.",
+    'WebKitGTK donanım hızlandırmasını değiştirmek uygulamanın yeniden başlatılmasını gerektirir. Etkinleştirdikten sonra uygulama başlayamazsa config.json dosyasını elle düzenleyin ve preferences.hardwareRendering değerini false yapın.',
   'session-path': 'Görev Önbellek Dosyası',
   'clear-all-tasks': 'Tüm Görevleri Sil',
   'clear-all-tasks-confirm':

@@ -268,11 +268,11 @@ export default {
   'high-connection-reason': 'Có thể kích hoạt giới hạn tốc độ hoặc chặn IP',
   'high-bt-peers-reason': 'Quá nhiều nút tăng tiêu thụ bộ nhớ',
   'engine-section': 'Công cụ tải xuống Aria2 Next',
-  'hardware-rendering': 'Tăng tốc GPU',
+  'hardware-rendering': 'Tăng tốc phần cứng WebKitGTK',
   'hardware-rendering-hint':
-    'Tăng tốc phần cứng WebKitGTK DMA-BUF được tắt mặc định để cải thiện độ ổn định trên Linux và Wayland. Bạn có thể bật để tăng hiệu suất kết xuất, nhưng một số GPU, driver hoặc môi trường desktop có thể bị sập',
+    'Bật tùy chọn này có thể cải thiện hiệu năng kết xuất giao diện, nhưng một số GPU, driver hoặc môi trường desktop có thể làm WebKitGTK bị sập',
   'hardware-rendering-restart-confirm':
-    'Thay đổi tăng tốc WebKitGTK DMA-BUF yêu cầu khởi động lại ứng dụng vì phải được đặt trước khi tiến trình khởi động. Nếu ứng dụng sập sau khi bật, hãy chạy một lần với WEBKIT_DISABLE_DMABUF_RENDERER=1 hoặc tắt thủ công trong config.json.',
+    'Thay đổi tăng tốc phần cứng WebKitGTK yêu cầu khởi động lại ứng dụng. Nếu ứng dụng không thể khởi động sau khi bật, hãy chỉnh sửa config.json thủ công và đặt preferences.hardwareRendering thành false.',
   'session-path': 'Tập tin bộ nhớ đệm tác vụ',
   'clear-all-tasks': 'Xóa tất cả tác vụ',
   'clear-all-tasks-confirm':

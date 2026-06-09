@@ -273,11 +273,11 @@ export default {
   'high-connection-reason': "Pot provocar limitació de velocitat o bloqueig d'{IP}",
   'high-bt-peers-reason': 'Massa nodes augmenten el consum de memòria',
   'engine-section': 'Motor de descàrrega Aria2 Next',
-  'hardware-rendering': 'Acceleració GPU',
+  'hardware-rendering': 'Acceleració de maquinari WebKitGTK',
   'hardware-rendering-hint':
-    "L'acceleració WebKitGTK DMA-BUF està activada per defecte per al millor rendiment. Si experimenteu pantalla en blanc o fallades amb la vostra targeta gràfica, desactiveu aquesta opció per tornar a la renderització per programari.",
+    'Activar-ho pot millorar el rendiment de renderització de la interfície, però algunes GPU, controladors o entorns d’escriptori poden fer fallar WebKitGTK',
   'hardware-rendering-restart-confirm':
-    "L'acceleració WebKitGTK DMA-BUF s'ha de configurar abans d'iniciar el procés, per tant cal reiniciar l'aplicació. Algunes targetes gràfiques (p. ex. NVIDIA propietari, Intel + Wayland, Raspberry Pi) poden no ser compatibles. Si l'aplicació falla després d'activar-ho, es desactivarà automàticament.",
+    'Canviar l’acceleració de maquinari WebKitGTK requereix reiniciar l’aplicació. Si l’aplicació no pot iniciar-se després d’activar-la, editeu config.json manualment i establiu preferences.hardwareRendering a false.',
   'session-path': 'Fitxer de sessió',
   'clear-all-tasks': 'Esborra totes les tasques',
   'clear-all-tasks-confirm':
