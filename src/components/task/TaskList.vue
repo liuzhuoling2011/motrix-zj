@@ -33,6 +33,27 @@ const selectedGidList = computed(() => taskStore.selectedGidList)
 const taskCardComponent = computed(() =>
   preferenceStore.config.taskCardMode === 'compact' ? TaskCompactItem : TaskItem,
 )
+const taskPage = computed(
+  () =>
+    taskStore.taskPagination[
+      taskStore.currentList === 'stopped' ? 'stopped' : taskStore.currentList === 'all' ? 'all' : 'active'
+    ].page,
+)
+const pageSize = computed(() => taskStore.taskPagination.pageSize)
+const visibleTaskList = computed<Aria2Task[]>({
+  get() {
+    const start = (taskPage.value - 1) * pageSize.value
+    return taskList.value.slice(start, start + pageSize.value)
+  },
+  set(nextPageList) {
+    const start = (taskPage.value - 1) * pageSize.value
+    taskList.value = [
+      ...taskList.value.slice(0, start),
+      ...nextPageList,
+      ...taskList.value.slice(start + nextPageList.length),
+    ]
+  },
+})
 
 onBeforeUnmount(() => {
   stopFloatingRectTracking()
@@ -62,9 +83,9 @@ function stopFloatingRectTracking() {
   floatingRectFrame = 0
 }
 
-function animateDropSettle(event: SortableEvent): Promise<void> {
-  const item = event.item
-  if (!lastFloatingRect || !item.isConnected) return Promise.resolve()
+function animateDropSettle(event: SortableEvent | undefined): Promise<void> {
+  const item = event?.item
+  if (!lastFloatingRect || !item?.isConnected) return Promise.resolve()
 
   const targetRect = item.getBoundingClientRect()
   const deltaX = lastFloatingRect.left - targetRect.left
@@ -96,10 +117,17 @@ watch(
   (v) => {
     if (sorting.value) return
     taskList.value = v
+    taskStore.clampCurrentTaskPage()
   },
+  { immediate: true },
 )
 
-useSortable(listRef, taskList, {
+watch([taskPage, pageSize], () => {
+  if (sorting.value) return
+  taskStore.clampCurrentTaskPage()
+})
+
+useSortable(listRef, visibleTaskList, {
   animation: 240,
   handle: '.task-drag-handle',
   draggable: '.task-list-item',
@@ -122,17 +150,17 @@ useSortable(listRef, taskList, {
   },
   onUpdate: (event) => {
     if (event.oldIndex === undefined || event.newIndex === undefined || event.oldIndex === event.newIndex) return
-    const nextList = [...taskList.value]
-    const [task] = nextList.splice(event.oldIndex, 1)
+    const nextPageList = [...visibleTaskList.value]
+    const [task] = nextPageList.splice(event.oldIndex, 1)
     if (!task) return
-    nextList.splice(event.newIndex, 0, task)
-    taskList.value = nextList
+    nextPageList.splice(event.newIndex, 0, task)
+    visibleTaskList.value = nextPageList
   },
   onEnd: async (event) => {
     stopFloatingRectTracking()
     await nextTick()
     await animateDropSettle(event)
-    await taskStore.saveManualOrder(taskList.value.map((task) => task.gid))
+    await taskStore.saveVisiblePageManualOrder(visibleTaskList.value)
     window.setTimeout(() => {
       sorting.value = false
     }, 0)
@@ -163,7 +191,7 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
   <div class="task-list">
     <TransitionGroup ref="listRef" tag="div" :css="!sorting" name="task-list-card" class="task-list-inner">
       <div
-        v-for="item in taskList"
+        v-for="item in visibleTaskList"
         :key="item.gid"
         :class="{ selected: isSelected(item.gid) }"
         class="task-list-item"
@@ -210,6 +238,7 @@ function handleItemClick(task: Aria2Task, event: MouseEvent) {
 
 /* ── Task card layer ─────────────────────────────────────────────────── */
 .task-list-inner {
+  flex: 1;
   position: relative;
   z-index: 1;
 }

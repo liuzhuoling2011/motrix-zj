@@ -13,9 +13,11 @@ vi.mock('@formkit/auto-animate', () => ({
   })),
 }))
 
+const { useSortableMock } = vi.hoisted(() => ({ useSortableMock: vi.fn() }))
+
 vi.mock('@vueuse/integrations/useSortable', () => ({
   moveArrayElement: vi.fn(),
-  useSortable: vi.fn(),
+  useSortable: useSortableMock,
 }))
 
 vi.mock('../TaskItem.vue', () => ({
@@ -42,6 +44,10 @@ function createTask(): Aria2Task {
     files: [],
     errorMessage: '',
   }
+}
+
+function createTaskWithGid(gid: string): Aria2Task {
+  return { ...createTask(), gid }
 }
 
 describe('TaskList', () => {
@@ -82,5 +88,41 @@ describe('TaskList', () => {
 
     expect(wrapper.find('.compact-task-item').exists()).toBe(true)
     expect(wrapper.find('.full-task-item').exists()).toBe(false)
+  })
+
+  it('renders only the current task page', async () => {
+    const wrapper = mount(TaskList, {
+      global: {
+        plugins: [pinia],
+      },
+    })
+    const taskStore = useTaskStore()
+    taskStore.setTaskPageSize(2)
+    taskStore.setTaskPage('active', 2)
+    taskStore.taskList = ['a', 'b', 'c', 'd', 'e'].map(createTaskWithGid)
+
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('.full-task-item')).toHaveLength(2)
+    expect(wrapper.text()).not.toContain('a')
+  })
+
+  it('saves page-local drag order through the store', async () => {
+    const wrapper = mount(TaskList, {
+      global: {
+        plugins: [pinia],
+      },
+    })
+    const taskStore = useTaskStore()
+    const saveSpy = vi.spyOn(taskStore, 'saveVisiblePageManualOrder').mockResolvedValue(undefined)
+    taskStore.setTaskPageSize(2)
+    taskStore.setTaskPage('active', 2)
+    taskStore.taskList = ['a', 'b', 'c', 'd'].map(createTaskWithGid)
+    await wrapper.vm.$nextTick()
+
+    const sortableOptions = useSortableMock.mock.calls[0]?.[2] as { onEnd?: () => Promise<void> }
+    await sortableOptions.onEnd?.()
+
+    expect(saveSpy).toHaveBeenCalledWith([expect.objectContaining({ gid: 'c' }), expect.objectContaining({ gid: 'd' })])
   })
 })

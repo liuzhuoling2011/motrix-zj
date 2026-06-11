@@ -201,7 +201,6 @@ onBeforeUnmount(() => {
   position: relative;
   z-index: 1;
 }
-
 /* ── Permanent watermark — pinned to scroll container viewport ────── */
 .watermark {
   position: absolute;

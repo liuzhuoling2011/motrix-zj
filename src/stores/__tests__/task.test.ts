@@ -444,6 +444,41 @@ describe('TaskStore', () => {
     expect(store.selectedGidList).toEqual(['a', 'b', 'c'])
   })
 
+  // ─── pagination ────────────────────────────────────────
+
+  it('keeps independent task page state per tab and clamps overflowing pages', async () => {
+    store.setTaskPage('active', 3)
+    store.setTaskPage('stopped', 2)
+    store.setTaskPageSize(2)
+    store.taskList = [makeMockTask('a1')]
+
+    store.clampCurrentTaskPage()
+
+    expect(store.taskPagination.active.page).toBe(1)
+    expect(store.taskPagination.stopped.page).toBe(2)
+    expect(store.taskPagination.pageSize).toBe(2)
+  })
+
+  it('writes a reordered visible page back into the full task list before saving manual order', async () => {
+    const { usePreferenceStore } = await import('@/stores/preference')
+    const preferenceStore = usePreferenceStore()
+    const saveSpy = vi.spyOn(preferenceStore, 'updateAndSave').mockResolvedValue(true)
+    store.taskList = ['a', 'b', 'c', 'd', 'e'].map((gid) => makeMockTask(gid))
+    store.setTaskPageSize(2)
+    store.setTaskPage('active', 2)
+
+    await store.saveVisiblePageManualOrder([makeMockTask('d'), makeMockTask('c')])
+
+    expect(store.taskList.map((task) => task.gid)).toEqual(['a', 'b', 'd', 'c', 'e'])
+    expect(saveSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskManualOrder: expect.objectContaining({
+          active: ['a', 'b', 'd', 'c', 'e'],
+        }),
+      }),
+    )
+  })
+
   // ─── addUri / addTorrent ────────────────────────────────
 
   it('addUri calls API and refreshes list', async () => {
