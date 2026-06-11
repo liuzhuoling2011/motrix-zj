@@ -132,7 +132,6 @@ onBeforeUnmount(() => {
       </div>
       <div class="panel-content">
         <TaskList
-          :key="props.status"
           @pause="handlePauseTask"
           @resume="handleResumeTask"
           @delete="handleDeleteTask"

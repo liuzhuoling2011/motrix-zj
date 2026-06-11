@@ -4,6 +4,7 @@ import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { useTaskStore } from '@/stores/task'
 import { usePreferenceStore } from '@/stores/preference'
 import type { Aria2Task } from '@shared/types'
+import type { SortableEvent, SortableOptions } from 'sortablejs'
 
 vi.mock('@formkit/auto-animate', () => ({
   autoAnimate: vi.fn(() => ({
@@ -13,11 +14,14 @@ vi.mock('@formkit/auto-animate', () => ({
   })),
 }))
 
-const { useSortableMock } = vi.hoisted(() => ({ useSortableMock: vi.fn() }))
+const { sortableCreateMock } = vi.hoisted(() => ({
+  sortableCreateMock: vi.fn((_element: HTMLElement, _options: SortableOptions) => ({ destroy: vi.fn() })),
+}))
 
-vi.mock('@vueuse/integrations/useSortable', () => ({
-  moveArrayElement: vi.fn(),
-  useSortable: useSortableMock,
+vi.mock('sortablejs', () => ({
+  default: {
+    create: sortableCreateMock,
+  },
 }))
 
 vi.mock('../TaskItem.vue', () => ({
@@ -123,9 +127,10 @@ describe('TaskList', () => {
     taskStore.taskPagination.active.loaded = true
     taskStore.setTaskPage('active', 2)
     await wrapper.vm.$nextTick()
+    await wrapper.vm.$nextTick()
 
-    const sortableOptions = useSortableMock.mock.calls[0]?.[2] as { onEnd?: () => Promise<void> }
-    await sortableOptions.onEnd?.()
+    const sortableOptions = sortableCreateMock.mock.calls[sortableCreateMock.mock.calls.length - 1]?.[1]
+    await sortableOptions?.onEnd?.({} as SortableEvent)
 
     expect(saveSpy).toHaveBeenCalledWith([expect.objectContaining({ gid: 'c' }), expect.objectContaining({ gid: 'd' })])
   })

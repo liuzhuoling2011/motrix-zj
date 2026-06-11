@@ -332,6 +332,7 @@ export const DEFAULT_APP_CONFIG = {
   theme: 'auto' as const,
   colorScheme: 'amber',
   taskCardMode: 'full' as const,
+  taskPageSize: 20,
   locale: 'auto',
 
   // ── Download Core ─────────────────────────────────────────────────

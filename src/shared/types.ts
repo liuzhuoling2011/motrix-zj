@@ -257,6 +257,7 @@ export interface AppConfig {
   theme: 'auto' | 'light' | 'dark'
   colorScheme: string
   taskCardMode: 'full' | 'compact'
+  taskPageSize: number
   locale: string
   dir: string
   split: number

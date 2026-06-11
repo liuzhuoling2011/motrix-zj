@@ -74,6 +74,7 @@ const userKeys = [
   'speed-schedule-days',
   'task-notification',
   'task-card-mode',
+  'task-page-size',
   'notify-on-start',
   'notify-on-complete',
   'task-sort',
