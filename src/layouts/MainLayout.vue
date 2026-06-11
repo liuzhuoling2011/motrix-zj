@@ -1097,7 +1097,7 @@ onUnmounted(() => {
 .task-pagination-control {
   position: fixed;
   left: calc(var(--aside-width) + var(--subnav-width) + 36px);
-  bottom: 12px;
+  bottom: 16px;
   z-index: 20;
   min-height: 36px;
   padding: 3px 6px;
@@ -1105,7 +1105,7 @@ onUnmounted(() => {
   align-items: center;
   box-sizing: border-box;
   border: 1px solid var(--m3-outline-variant);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--m3-surface-container);
   max-width: calc(100vw - var(--aside-width) - var(--subnav-width) - 280px);
   overflow: hidden;
