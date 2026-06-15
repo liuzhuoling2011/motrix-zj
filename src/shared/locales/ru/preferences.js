@@ -179,7 +179,6 @@ export default {
   'ua-delete': 'Delete',
   'aria2-conf-path': 'Конфигурация движка',
   'allow-remote-access': 'Разрешить удалённый доступ',
-  'allow-remote-access-hint': 'Разрешить устройствам LAN доступ к aria2 RPC и API расширения',
   'remote-access-secret-required': 'Для удалённого доступа нужны секрет RPC и секрет API расширения',
   'temp-files-dir': 'Каталог временных файлов',
   'factory-reset': 'Delete Config and Reset',

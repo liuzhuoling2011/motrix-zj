@@ -176,7 +176,6 @@ export default {
   'ua-delete': 'Delete',
   'aria2-conf-path': 'Cấu hình công cụ',
   'allow-remote-access': 'Cho phép truy cập từ xa',
-  'allow-remote-access-hint': 'Cho phép thiết bị LAN truy cập aria2 RPC và API tiện ích',
   'remote-access-secret-required': 'Truy cập từ xa yêu cầu cả RPC Secret và Extension API Secret',
   'temp-files-dir': 'Thư mục tệp tạm',
   'factory-reset': 'Delete Config and Reset',

@@ -179,7 +179,6 @@ export default {
   'ua-delete': 'Delete',
   'aria2-conf-path': 'Конфігурація рушія',
   'allow-remote-access': 'Дозволити віддалений доступ',
-  'allow-remote-access-hint': 'Дозволити пристроям LAN доступ до aria2 RPC та API розширення',
   'remote-access-secret-required': 'Для віддаленого доступу потрібні секрет RPC і секрет API розширення',
   'temp-files-dir': 'Каталог тимчасових файлів',
   'factory-reset': 'Delete Config and Reset',

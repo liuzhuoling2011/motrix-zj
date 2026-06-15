@@ -181,7 +181,6 @@ export default {
   'ua-delete': 'Delete',
   'aria2-conf-path': 'Ρυθμίσεις μηχανής',
   'allow-remote-access': 'Να επιτρέπεται απομακρυσμένη πρόσβαση',
-  'allow-remote-access-hint': 'Επιτρέπει σε συσκευές LAN να έχουν πρόσβαση στο aria2 RPC και στο API επέκτασης',
   'remote-access-secret-required': 'Η απομακρυσμένη πρόσβαση απαιτεί και μυστικό RPC και μυστικό API επέκτασης',
   'temp-files-dir': 'Κατάλογος προσωρινών αρχείων',
   'factory-reset': 'Delete Config and Reset',

@@ -174,7 +174,6 @@ export default {
   'ua-delete': 'Delete',
   'aria2-conf-path': 'การตั้งค่าเอนจิน',
   'allow-remote-access': 'อนุญาตการเข้าถึงระยะไกล',
-  'allow-remote-access-hint': 'อนุญาตให้อุปกรณ์ LAN เข้าถึง aria2 RPC และ API ส่วนขยาย',
   'remote-access-secret-required': 'การเข้าถึงระยะไกลต้องตั้งค่า RPC Secret และ Extension API Secret',
   'temp-files-dir': 'ไดเรกทอรีไฟล์ชั่วคราว',
   'factory-reset': 'Delete Config and Reset',

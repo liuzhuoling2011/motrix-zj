@@ -178,7 +178,6 @@ export default {
   'ua-delete': 'Delete',
   'aria2-conf-path': 'エンジン設定ファイル',
   'allow-remote-access': 'リモートアクセスを許可',
-  'allow-remote-access-hint': 'LAN デバイスから aria2 RPC と拡張機能 API へのアクセスを許可します',
   'remote-access-secret-required': 'リモートアクセスには RPC シークレットと拡張機能 API シークレットの両方が必要です',
   'temp-files-dir': '一時ファイルディレクトリ',
   'factory-reset': 'Delete Config and Reset',

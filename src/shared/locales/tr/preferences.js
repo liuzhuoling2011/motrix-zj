@@ -180,7 +180,6 @@ export default {
   'ua-delete': 'Delete',
   'aria2-conf-path': 'Motor Yapılandırması',
   'allow-remote-access': 'Uzaktan erişime izin ver',
-  'allow-remote-access-hint': "LAN cihazlarının aria2 RPC ve uzantı API'sine erişmesine izin ver",
   'remote-access-secret-required': 'Uzaktan erişim için hem RPC gizli anahtarı hem uzantı API gizli anahtarı gerekir',
   'temp-files-dir': 'Geçici Dosyalar Dizini',
   'factory-reset': 'Delete Config and Reset',

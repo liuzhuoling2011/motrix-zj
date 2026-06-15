@@ -178,7 +178,6 @@ export default {
   'ua-delete': 'Delete',
   'aria2-conf-path': 'Configurare motor',
   'allow-remote-access': 'Permite acces la distanță',
-  'allow-remote-access-hint': 'Permite dispozitivelor LAN să acceseze aria2 RPC și API-ul extensiei',
   'remote-access-secret-required': 'Accesul la distanță necesită secretul RPC și secretul API al extensiei',
   'temp-files-dir': 'Director fișiere temporare',
   'factory-reset': 'Delete Config and Reset',
