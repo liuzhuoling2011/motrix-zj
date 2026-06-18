@@ -51,6 +51,13 @@ impl Aria2Client {
         log::info!("aria2 client credentials updated: port={}", port);
     }
 
+    /// Returns the current local RPC port and secret for companion transports.
+    pub async fn credentials(&self) -> (u16, String) {
+        let port = *self.port.read().await;
+        let secret = self.secret.read().await.clone();
+        (port, secret)
+    }
+
     /// Builds the JSON-RPC params array with token prepended if secret is set.
     async fn build_params(&self, extra: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
         let secret = self.secret.read().await;
