@@ -212,6 +212,63 @@ describe('resolveCategory', () => {
     const result = resolveCategory('srt', custom)
     expect(result?.directory).toBe('/Volumes/NAS/Subtitles')
   })
+
+  it('matches URL-only wildcard rules against the source URL', () => {
+    const categories: FileCategory[] = [
+      {
+        label: 'Logs',
+        extensions: [],
+        urlPatterns: ['*://*.example.com/logs/*'],
+        urlPatternMode: 'wildcard',
+        directory: '/Users/test/Downloads/Logs',
+      },
+    ]
+
+    const result = resolveCategory('', categories, { urls: ['https://cdn.example.com/logs/export'] })
+
+    expect(result?.directory).toBe('/Users/test/Downloads/Logs')
+  })
+
+  it('requires both extension and URL rules when both are configured', () => {
+    const categories: FileCategory[] = [
+      {
+        label: 'Logs',
+        extensions: ['zip'],
+        urlPatterns: ['*://*.example.com/logs/*'],
+        urlPatternMode: 'wildcard',
+        directory: '/Users/test/Downloads/Logs',
+      },
+    ]
+
+    expect(resolveCategory('zip', categories, { urls: ['https://cdn.example.com/logs/export.zip'] })?.directory).toBe(
+      '/Users/test/Downloads/Logs',
+    )
+    expect(resolveCategory('txt', categories, { urls: ['https://cdn.example.com/logs/export.txt'] })).toBeUndefined()
+    expect(resolveCategory('zip', categories, { urls: ['https://cdn.other.com/logs/export.zip'] })).toBeUndefined()
+  })
+
+  it('matches URL regex rules and ignores invalid regex patterns', () => {
+    const categories: FileCategory[] = [
+      {
+        label: 'Broken',
+        extensions: [],
+        urlPatterns: ['^https://(.+'],
+        urlPatternMode: 'regex',
+        directory: '/Users/test/Downloads/Broken',
+      },
+      {
+        label: 'Reports',
+        extensions: [],
+        urlPatterns: ['^https://reports\\.example\\.com/.+\\.csv$'],
+        urlPatternMode: 'regex',
+        directory: '/Users/test/Downloads/Reports',
+      },
+    ]
+
+    const result = resolveCategory('', categories, { urls: ['https://reports.example.com/monthly.csv'] })
+
+    expect(result?.directory).toBe('/Users/test/Downloads/Reports')
+  })
 })
 
 // ════════════════════════════════════════════════════════════════════
@@ -281,5 +338,21 @@ describe('resolveDownloadDir', () => {
     ]
     const result = resolveDownloadDir('https://example.com/photo.jpg', 'D:\\Downloads', true, winCats)
     expect(result).toBe('D:\\Downloads\\Images')
+  })
+
+  it('routes extensionless downloads by URL rules', () => {
+    const categories: FileCategory[] = [
+      {
+        label: 'Reports',
+        extensions: [],
+        urlPatterns: ['*://reports.example.com/export/*'],
+        urlPatternMode: 'wildcard',
+        directory: '/Users/test/Downloads/Reports',
+      },
+    ]
+
+    const result = resolveDownloadDir('https://reports.example.com/export/latest', BASE, true, categories)
+
+    expect(result).toBe('/Users/test/Downloads/Reports')
   })
 })

@@ -241,6 +241,9 @@ export async function submitManualUris(
 
   const magnetUris = allUris.filter(isMagnetUri)
   const regularUris = allUris.filter((uri) => !isMagnetUri(uri))
+  const fileCategoryWithContexts = fileCategory
+    ? { ...fileCategory, contexts: form.uriRequestContexts ?? {} }
+    : undefined
   const submittedTaskNames: string[] = []
 
   // Submit regular URIs using the existing path
@@ -255,7 +258,12 @@ export async function submitManualUris(
         const ext = dotIdx > 0 ? form.out.substring(dotIdx) : ''
         outs = regularUris.map((_, i) => `${base}_${i + 1}${ext}`)
       }
-      await taskStore.addUri({ uris: regularUris, outs, options: regularOptions, fileCategory })
+      await taskStore.addUri({
+        uris: regularUris,
+        outs,
+        options: regularOptions,
+        fileCategory: fileCategoryWithContexts,
+      })
       submittedTaskNames.push(...regularUris.map((uri, index) => resolveSubmittedTaskName(uri, outs[index])))
     } else {
       // aria2's native filename resolution only uses Content-Disposition
@@ -304,11 +312,11 @@ export async function submitManualUris(
             uris: [uri],
             outs: [outs[index] ?? ''],
             options: buildEngineOptions(form, contextEntries[uri]),
-            fileCategory,
+            fileCategory: fileCategoryWithContexts,
           })
         }
       } else {
-        await taskStore.addUri({ uris: regularUris, outs, options, fileCategory })
+        await taskStore.addUri({ uris: regularUris, outs, options, fileCategory: fileCategoryWithContexts })
       }
       const optionOut = typeof options.out === 'string' ? options.out : ''
       submittedTaskNames.push(

@@ -361,7 +361,11 @@ export const useTaskStore = defineStore('task', () => {
     uris: string[]
     outs: string[]
     options: Aria2EngineOptions
-    fileCategory?: { enabled: boolean; categories: import('@shared/types').FileCategory[] }
+    fileCategory?: {
+      enabled: boolean
+      categories: import('@shared/types').FileCategory[]
+      contexts?: Record<string, import('@shared/types').ExternalDownloadContext>
+    }
   }) {
     const gids: string[] = []
     const httpAuthStore = useHttpAuthStore()

@@ -1,0 +1,554 @@
+<script setup lang="ts">
+/** @fileoverview Single-layer file category manager modal. */
+import { computed, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { open as openDialog } from '@tauri-apps/plugin-dialog'
+import { buildDefaultCategories, MAX_FILE_CATEGORIES } from '@shared/constants'
+import { normalizeFileCategory } from '@shared/utils/fileCategory'
+import type { FileCategory } from '@shared/types'
+import { NButton, NCard, NDynamicTags, NIcon, NInput, NInputGroup, NModal, NSelect, NSpace, NText } from 'naive-ui'
+import { FolderOpenOutline } from '@vicons/ionicons5'
+import { useAppMessage } from '@/composables/useAppMessage'
+
+const props = defineProps<{
+  show: boolean
+  categories: FileCategory[]
+  baseDir: string
+}>()
+
+const emit = defineEmits<{
+  'update:show': [value: boolean]
+  save: [categories: FileCategory[]]
+}>()
+
+const { t } = useI18n()
+const message = useAppMessage()
+const draft = ref<FileCategory[]>([])
+const selectedIndex = ref(0)
+const resetConfirming = ref(false)
+let resetConfirmTimer: ReturnType<typeof setTimeout> | undefined
+let categoryUid = 0
+const categoryKeys = new WeakMap<FileCategory, string>()
+
+const selectedCategory = computed(() => draft.value[selectedIndex.value])
+const modeOptions = computed(() => [
+  { label: t('preferences.file-category-url-mode-wildcard'), value: 'wildcard' },
+  { label: t('preferences.file-category-url-mode-regex'), value: 'regex' },
+])
+
+function cloneCategories(categories: FileCategory[]): FileCategory[] {
+  return categories.map((category) =>
+    assignCategoryKey(normalizeFileCategory(JSON.parse(JSON.stringify(category)) as FileCategory)),
+  )
+}
+
+function assignCategoryKey(category: FileCategory): FileCategory {
+  categoryKeys.set(category, `category-${++categoryUid}`)
+  return category
+}
+
+function categoryKey(category: FileCategory): string {
+  const key = categoryKeys.get(category)
+  if (key) return key
+  return categoryKeys.get(assignCategoryKey(category)) ?? `category-${++categoryUid}`
+}
+
+function categoryTitle(category: FileCategory): string {
+  return category.builtIn
+    ? t(`preferences.${category.label}`)
+    : category.label || t('preferences.file-category-untitled')
+}
+
+function categoryMeta(category: FileCategory): string {
+  const extCount = category.extensions.length
+  const urlCount = category.urlPatterns?.length ?? 0
+  return t('preferences.file-category-summary-counts', { ext: extCount, url: urlCount })
+}
+
+function closeModal() {
+  stopResetConfirm()
+  emit('update:show', false)
+}
+
+function hasInvalidRegex(categories: FileCategory[]): boolean {
+  return categories.some((category) => {
+    if (category.urlPatternMode !== 'regex') return false
+    return (category.urlPatterns ?? []).some((pattern) => {
+      try {
+        new RegExp(pattern)
+        return false
+      } catch {
+        return true
+      }
+    })
+  })
+}
+
+function handleSave() {
+  draft.value = draft.value.map(normalizeFileCategory)
+  if (hasInvalidRegex(draft.value)) {
+    message.error(t('preferences.file-category-invalid-regex'))
+    return
+  }
+  emit('save', cloneCategories(draft.value))
+  closeModal()
+}
+
+function handleAddCategory() {
+  if (draft.value.length >= MAX_FILE_CATEGORIES) return
+  const baseDir = props.baseDir
+  draft.value.push(
+    assignCategoryKey({
+      label: '',
+      extensions: [],
+      urlPatterns: [],
+      urlPatternMode: 'wildcard',
+      directory: baseDir,
+      builtIn: false,
+    }),
+  )
+  selectedIndex.value = draft.value.length - 1
+}
+
+function handleDeleteCategory() {
+  if (!selectedCategory.value) return
+  draft.value.splice(selectedIndex.value, 1)
+  selectedIndex.value = Math.max(0, Math.min(selectedIndex.value, draft.value.length - 1))
+}
+
+function stopResetConfirm() {
+  if (resetConfirmTimer !== undefined) {
+    clearTimeout(resetConfirmTimer)
+    resetConfirmTimer = undefined
+  }
+  resetConfirming.value = false
+}
+
+function startResetConfirm() {
+  stopResetConfirm()
+  resetConfirming.value = true
+  resetConfirmTimer = setTimeout(stopResetConfirm, 2000)
+}
+
+function handleResetCategories() {
+  if (!resetConfirming.value) {
+    startResetConfirm()
+    return
+  }
+  stopResetConfirm()
+  draft.value = cloneCategories(buildDefaultCategories(props.baseDir))
+  selectedIndex.value = 0
+}
+
+function handleLabelChange(value: string) {
+  if (!selectedCategory.value) return
+  selectedCategory.value.label = value
+  selectedCategory.value.builtIn = false
+}
+
+function handleExtChange(values: string[]) {
+  if (!selectedCategory.value) return
+  selectedCategory.value.extensions = values
+    .map((value) => value.toLowerCase().replace(/^\./, '').trim())
+    .filter(Boolean)
+}
+
+function handleUrlPatternChange(value: string) {
+  if (!selectedCategory.value) return
+  selectedCategory.value.urlPatterns = value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function handleUrlModeChange(value: string) {
+  if (!selectedCategory.value) return
+  selectedCategory.value.urlPatternMode = value === 'regex' ? 'regex' : 'wildcard'
+}
+
+function handleDirectoryInput(value: string) {
+  if (!selectedCategory.value) return
+  selectedCategory.value.directory = value
+}
+
+async function handleSelectCategoryDir() {
+  if (!selectedCategory.value) return
+  const selected = await openDialog({ directory: true, multiple: false })
+  if (typeof selected === 'string') selectedCategory.value.directory = selected
+}
+
+function handleListItemBeforeLeave(element: Element) {
+  if (!(element instanceof HTMLElement)) return
+  const height = Math.ceil(element.getBoundingClientRect().height || element.offsetHeight)
+  element.classList.add('category-manager-list-item--collapsing')
+  element.style.setProperty('--category-list-item-leave-height', `${height}px`)
+}
+
+watch(
+  () => props.show,
+  (show) => {
+    if (!show) return
+    draft.value = cloneCategories(
+      props.categories.length > 0 ? props.categories : buildDefaultCategories(props.baseDir),
+    )
+    selectedIndex.value = 0
+    stopResetConfirm()
+  },
+)
+
+onUnmounted(stopResetConfirm)
+</script>
+
+<template>
+  <NModal
+    :show="show"
+    :mask-closable="false"
+    transform-origin="center"
+    :transition="{ name: 'fade-scale' }"
+    @update:show="(value: boolean) => emit('update:show', value)"
+  >
+    <NCard
+      :title="t('preferences.file-category-manager-title')"
+      closable
+      class="category-manager-card"
+      :bordered="false"
+      @close="closeModal"
+    >
+      <div class="category-manager">
+        <aside class="category-manager-list">
+          <TransitionGroup
+            tag="div"
+            name="category-manager-list-item"
+            class="category-manager-list-items"
+            @before-leave="handleListItemBeforeLeave"
+          >
+            <button
+              v-for="(category, index) in draft"
+              :key="categoryKey(category)"
+              type="button"
+              class="category-manager-list-item"
+              :class="{ 'category-manager-list-item--active': index === selectedIndex }"
+              @click="selectedIndex = index"
+            >
+              <span class="category-manager-list-title">{{ categoryTitle(category) }}</span>
+              <span class="category-manager-list-meta">{{ categoryMeta(category) }}</span>
+            </button>
+          </TransitionGroup>
+          <div class="category-manager-list-actions">
+            <NButton
+              size="small"
+              dashed
+              block
+              :disabled="draft.length >= MAX_FILE_CATEGORIES"
+              @click="handleAddCategory"
+            >
+              {{ t('preferences.file-category-add') }}
+            </NButton>
+            <NButton
+              size="small"
+              quaternary
+              block
+              :type="resetConfirming ? 'error' : 'default'"
+              class="category-manager-reset-button"
+              :class="{ 'category-manager-reset-button--confirm': resetConfirming }"
+              @click="handleResetCategories"
+            >
+              <span class="category-manager-reset-content">
+                <Transition name="reset-label" mode="out-in">
+                  <span :key="resetConfirming ? 'confirm' : 'idle'">
+                    {{
+                      resetConfirming
+                        ? t('preferences.file-category-reset-confirm')
+                        : t('preferences.file-category-reset')
+                    }}
+                  </span>
+                </Transition>
+              </span>
+            </NButton>
+          </div>
+        </aside>
+
+        <section v-if="selectedCategory" class="category-manager-editor">
+          <Transition name="content-fade" mode="out-in">
+            <div :key="selectedIndex" class="category-manager-editor-content">
+              <label class="category-manager-field">
+                <span>{{ t('preferences.file-category-custom-label') }}</span>
+                <NInput :value="categoryTitle(selectedCategory)" size="small" @update:value="handleLabelChange" />
+              </label>
+
+              <label class="category-manager-field">
+                <span>{{ t('preferences.file-category-file-types') }}</span>
+                <NDynamicTags
+                  :value="selectedCategory.extensions.map((extension: string) => `.${extension}`)"
+                  size="small"
+                  @update:value="handleExtChange"
+                />
+              </label>
+
+              <div class="category-manager-field">
+                <div class="category-manager-field-row">
+                  <span>{{ t('preferences.file-category-url-rules') }}</span>
+                  <NSelect
+                    :value="selectedCategory.urlPatternMode ?? 'wildcard'"
+                    :options="modeOptions"
+                    size="small"
+                    class="category-manager-mode"
+                    @update:value="handleUrlModeChange"
+                  />
+                </div>
+                <NInput
+                  :value="(selectedCategory.urlPatterns ?? []).join('\n')"
+                  type="textarea"
+                  :rows="4"
+                  size="small"
+                  :placeholder="t('preferences.file-category-url-placeholder')"
+                  @update:value="handleUrlPatternChange"
+                />
+              </div>
+
+              <label class="category-manager-field">
+                <span>{{ t('preferences.download-path') }}</span>
+                <NInputGroup>
+                  <NInput
+                    :value="selectedCategory.directory"
+                    size="small"
+                    class="category-manager-path"
+                    @update:value="handleDirectoryInput"
+                  />
+                  <NButton size="small" class="pref-icon-button-sm" @click="handleSelectCategoryDir">
+                    <template #icon>
+                      <NIcon :size="14"><FolderOpenOutline /></NIcon>
+                    </template>
+                  </NButton>
+                </NInputGroup>
+              </label>
+            </div>
+          </Transition>
+        </section>
+      </div>
+
+      <template #footer>
+        <NSpace justify="space-between" align="center">
+          <NButton v-if="selectedCategory" size="small" ghost type="error" @click="handleDeleteCategory">
+            {{ t('edit.delete') }}
+          </NButton>
+          <NText v-else depth="3" />
+          <NSpace>
+            <NButton @click="closeModal">{{ t('app.cancel') }}</NButton>
+            <NButton type="primary" @click="handleSave">{{ t('app.save') }}</NButton>
+          </NSpace>
+        </NSpace>
+      </template>
+    </NCard>
+  </NModal>
+</template>
+
+<style scoped>
+.category-manager-card {
+  width: min(840px, calc(100vw - 32px));
+  max-height: min(720px, calc(100vh - 48px));
+}
+
+.category-manager-card :deep(.n-card__content) {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.category-manager {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  gap: 16px;
+  height: clamp(360px, 58vh, 520px);
+  min-height: 0;
+}
+
+.category-manager-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.category-manager-list-items {
+  flex: 1 1 0;
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+.category-manager-list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-height: 54px;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--m3-outline-variant);
+  border-radius: 8px;
+  color: var(--n-text-color);
+  background: var(--m3-surface-container-low);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.2s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.2s cubic-bezier(0.2, 0, 0, 1),
+    transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.category-manager-list-item:hover {
+  border-color: var(--color-primary);
+}
+
+.category-manager-list-item--active {
+  border-color: var(--color-primary);
+  background: var(--m3-surface-container-high);
+}
+
+.category-manager-list-item-move,
+.category-manager-list-item-enter-active {
+  transition:
+    transform 260ms ease,
+    opacity 180ms ease;
+}
+
+.category-manager-list-item-enter-from {
+  opacity: 0;
+  transform: translateY(8px) scale(0.99);
+}
+
+.category-manager-list-item-leave-active {
+  pointer-events: none;
+  transition:
+    transform 260ms ease,
+    opacity 180ms ease;
+}
+
+.category-manager-list-item-leave-to {
+  opacity: 0;
+  transform: scale(0.995);
+}
+
+.category-manager-list-item-leave-active.category-manager-list-item--collapsing {
+  height: var(--category-list-item-leave-height);
+  min-height: 0;
+  overflow: hidden;
+  transition:
+    height 260ms ease,
+    margin-bottom 260ms ease,
+    padding-top 260ms ease,
+    padding-bottom 260ms ease,
+    opacity 180ms ease;
+  transform: none;
+}
+
+.category-manager-list-item-leave-to.category-manager-list-item--collapsing {
+  height: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  transform: none;
+}
+
+.category-manager-list-title {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-manager-list-meta {
+  font-size: 12px;
+  color: var(--n-text-color-3);
+}
+
+.category-manager-list-actions {
+  display: grid;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.category-manager-reset-button {
+  transition:
+    color 0.2s cubic-bezier(0.2, 0, 0, 1),
+    background-color 0.2s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.category-manager-reset-button--confirm {
+  background: color-mix(in srgb, var(--n-error-color) 14%, transparent);
+}
+
+.category-manager-reset-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.category-manager-editor {
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.category-manager-editor-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.category-manager-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.category-manager-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.category-manager-mode {
+  width: 128px;
+}
+
+.category-manager-path {
+  flex: 1;
+}
+
+.content-fade-enter-active {
+  transition: opacity 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.content-fade-leave-active {
+  transition: opacity 0.14s cubic-bezier(0.3, 0, 0.8, 0.15);
+}
+
+.content-fade-enter-from,
+.content-fade-leave-to {
+  opacity: 0;
+}
+
+.reset-label-enter-active,
+.reset-label-leave-active {
+  transition:
+    opacity 0.16s cubic-bezier(0.2, 0, 0, 1),
+    transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.reset-label-enter-from,
+.reset-label-leave-to {
+  opacity: 0;
+  transform: scale(0.94);
+}
+</style>
