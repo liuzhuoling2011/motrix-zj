@@ -235,6 +235,7 @@ const taskStatus = computed(() => {
   return translated !== labelKey ? translated : key
 })
 const taskFullName = computed(() => (props.task ? getTaskDisplayName(props.task, { defaultName: 'Unknown' }) : ''))
+type TaskStatusTagType = 'default' | 'success' | 'warning' | 'error' | 'info'
 
 // ── Task date display ────────────────────────────────────────────────
 const taskAddedAt = computed(() => {
@@ -282,10 +283,15 @@ function yesNo(value?: boolean | string): string {
   return normalized ? t('task.task-ed2k-yes') : t('task.task-ed2k-no')
 }
 
-const statusTagType = computed(() => {
+const statusTagType = computed<TaskStatusTagType>(() => {
   switch (taskStatusKey.value) {
     case 'active':
+    case 'waiting':
+    case 'bt-metadata-fetching':
       return 'warning'
+    case 'seeding':
+    case 'sharing':
+      return 'info'
     case 'complete':
       return 'success'
     case 'error':

@@ -378,10 +378,21 @@ onUnmounted(stopResetConfirm)
 
       <template #footer>
         <NSpace justify="space-between" align="center">
-          <NButton v-if="selectedCategory" size="small" ghost type="error" @click="handleDeleteCategory">
-            {{ t('edit.delete') }}
-          </NButton>
-          <NText v-else depth="3" />
+          <div class="category-manager-footer-left">
+            <Transition name="footer-delete" mode="out-in">
+              <NButton
+                v-if="selectedCategory"
+                key="delete-category"
+                size="small"
+                ghost
+                type="error"
+                @click="handleDeleteCategory"
+              >
+                {{ t('edit.delete') }}
+              </NButton>
+              <NText v-else key="delete-empty" depth="3" />
+            </Transition>
+          </div>
           <NSpace>
             <NButton @click="closeModal">{{ t('app.cancel') }}</NButton>
             <NButton type="primary" @click="handleSave">{{ t('app.save') }}</NButton>
@@ -587,6 +598,10 @@ onUnmounted(stopResetConfirm)
   line-height: 1.35;
 }
 
+.category-manager-footer-left {
+  min-width: 76px;
+}
+
 .content-fade-enter-active {
   transition: opacity 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
@@ -609,6 +624,24 @@ onUnmounted(stopResetConfirm)
 
 .reset-label-enter-from,
 .reset-label-leave-to {
+  opacity: 0;
+  transform: scale(0.94);
+}
+
+.footer-delete-enter-active {
+  transition:
+    opacity 0.26s cubic-bezier(0.2, 0, 0, 1),
+    transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.footer-delete-leave-active {
+  transition:
+    opacity 0.14s cubic-bezier(0.3, 0, 0.8, 0.15),
+    transform 0.14s cubic-bezier(0.3, 0, 0.8, 0.15);
+}
+
+.footer-delete-enter-from,
+.footer-delete-leave-to {
   opacity: 0;
   transform: scale(0.94);
 }
