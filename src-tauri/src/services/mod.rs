@@ -55,6 +55,7 @@ const NON_HOT_RELOADABLE: &[&str] = &[
     "bt-max-peers",
     "bt-require-crypto",
     "enable-dht",
+    "enable-dht6",
     "enable-peer-exchange",
     // aria2 docs exclusions
     "checksum",
@@ -512,6 +513,7 @@ mod tests {
     #[test]
     fn non_hot_reloadable_contains_startup_only_keys() {
         assert!(NON_HOT_RELOADABLE.contains(&"enable-dht"));
+        assert!(NON_HOT_RELOADABLE.contains(&"enable-dht6"));
         assert!(NON_HOT_RELOADABLE.contains(&"enable-peer-exchange"));
         assert!(NON_HOT_RELOADABLE.contains(&"bt-enable-lpd"));
         assert!(NON_HOT_RELOADABLE.contains(&"bt-force-encryption"));

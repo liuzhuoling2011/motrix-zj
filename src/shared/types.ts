@@ -295,7 +295,8 @@ export interface AppConfig {
   shareTime: number
   shareRatio: number
   btMaxPeers: number
-  btDhtEnabled: boolean
+  btDhtIpv4Enabled: boolean
+  btDhtIpv6Enabled: boolean
   btPeerExchangeEnabled: boolean
   btLocalPeerDiscoveryEnabled: boolean
   openAtLogin: boolean
