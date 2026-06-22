@@ -201,16 +201,16 @@ untrusted comment: minisign public key: 76210453A979C645
 RWRFxnmpUwQhdu1ykhDbEnVZguwQfLA60/oBA3rIlP0Z+L06b3u2NtJN
 ```
 
-Save the key as `motrix-next.pub`, then decode the Tauri signature and verify the matching artifact:
+Save the key as `motrix-next.pub`, then replace `MotrixNext_x.x.x_<file>` with the release file you downloaded:
 
 ```bash
 python3 -c 'import base64,sys; sys.stdout.write(base64.b64decode(sys.stdin.read()).decode())' \
-  < MotrixNext_x.x.x_x64-setup.exe.sig \
-  > MotrixNext_x.x.x_x64-setup.exe.minisig
+  < MotrixNext_x.x.x_<file>.sig \
+  > MotrixNext_x.x.x_<file>.minisig
 
 minisign -V \
-  -m MotrixNext_x.x.x_x64-setup.exe \
-  -x MotrixNext_x.x.x_x64-setup.exe.minisig \
+  -m MotrixNext_x.x.x_<file> \
+  -x MotrixNext_x.x.x_<file>.minisig \
   -p motrix-next.pub
 ```
 
