@@ -194,6 +194,38 @@ Motrix Next is **not code-signed** on macOS or Windows, so your browser or antiv
 
 The app is fully open-source and every release binary is built automatically by [GitHub Actions CI](https://github.com/AnInsomniacy/motrix-next/actions). For added peace of mind, you can always [build from source](#development).
 
+Release `.sig` files are Tauri updater signatures, not GPG signatures. They can be verified with minisign using the following two-line public key format required by minisign:
+
+```text
+untrusted comment: minisign public key: 76210453A979C645
+RWRFxnmpUwQhdu1ykhDbEnVZguwQfLA60/oBA3rIlP0Z+L06b3u2NtJN
+```
+
+Save the key as `motrix-next.pub`, then decode the Tauri signature and verify the matching artifact:
+
+```bash
+python3 -c 'import base64,sys; sys.stdout.write(base64.b64decode(sys.stdin.read()).decode())' \
+  < MotrixNext_x.x.x_x64-setup.exe.sig \
+  > MotrixNext_x.x.x_x64-setup.exe.minisig
+
+minisign -V \
+  -m MotrixNext_x.x.x_x64-setup.exe \
+  -x MotrixNext_x.x.x_x64-setup.exe.minisig \
+  -p motrix-next.pub
+```
+
+Expected result:
+
+```text
+Signature and comment signature verified
+```
+
+If the artifact was changed:
+
+```text
+Signature verification failed
+```
+
 > [!NOTE]
 > See our [Code Signing Policy](docs/CODE_SIGNING.md) and [Privacy Policy](docs/PRIVACY.md).
 
