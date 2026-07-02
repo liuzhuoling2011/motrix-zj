@@ -81,6 +81,8 @@ const checkIntervalOptions = [
   { label: t('preferences.interval-yearly'), value: 8760 },
 ]
 
+const CUSTOM_COLOR_SWATCHES = ['#F59E0B', '#2563EB', '#14B8A6', '#DC2626', '#9333EA', '#4B5563']
+
 function buildForm() {
   return buildGeneralForm(preferenceStore.config)
 }
@@ -458,7 +460,7 @@ onMounted(async () => {
               :modes="['hex']"
               :show-alpha="false"
               :show-preview="true"
-              :swatches="COLOR_SCHEMES.map((scheme) => scheme.seed)"
+              :swatches="CUSTOM_COLOR_SWATCHES"
               class="custom-color-picker"
               @update:value="handleCustomColorChange"
               @complete="handleCustomColorComplete"
