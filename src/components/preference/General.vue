@@ -307,213 +307,215 @@ onMounted(async () => {
 
 <template>
   <div class="preference-form-wrapper">
-    <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
-      <!-- ① System info -->
-      <NDivider title-placement="left">{{ t('preferences.system-info') }}</NDivider>
-      <NFormItem :label="t('preferences.detected-platform')">
-        <NSpace :size="8">
-          <NTag type="info" round size="medium">{{ platformLabel }}</NTag>
-          <NTag type="success" round size="medium">{{ archLabelDisplay }}</NTag>
-        </NSpace>
-      </NFormItem>
-      <NFormItem :label="t('about.app-version')">
-        <MTooltip>
-          <template #trigger>
-            <button
-              class="sysinfo-ver-badge"
-              @click="copyVersionToClipboard(`Motrix Next v${sysAppVersion}`, 'Motrix Next')"
-            >
-              <span class="sysinfo-ver-value">v{{ sysAppVersion || '\u2014' }}</span>
-              <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
-                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
-              </svg>
-            </button>
-          </template>
-          {{ t('about.click-to-copy') }}
-        </MTooltip>
-      </NFormItem>
-      <NFormItem :label="t('about.aria2-version')">
-        <MTooltip v-if="sysAria2Version">
-          <template #trigger>
-            <button
-              class="sysinfo-ver-badge"
-              @click="copyVersionToClipboard(`Aria2 Next v${sysAria2Version}`, 'Aria2 Next')"
-            >
-              <span class="sysinfo-ver-value">v{{ sysAria2Version }}</span>
-              <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
-                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
-              </svg>
-            </button>
-          </template>
-          {{ t('about.click-to-copy') }}
-        </MTooltip>
-        <div v-else class="sysinfo-ver-badge sysinfo-ver-badge--muted">
-          <span class="sysinfo-ver-muted">{{ t('about.unavailable') }}</span>
-        </div>
-      </NFormItem>
-
-      <!-- ② Language -->
-      <NDivider title-placement="left">
-        {{ locale === 'en-US' ? t('preferences.language') : `${t('preferences.language')} · Language` }}
-      </NDivider>
-      <NFormItem
-        :label="
-          locale === 'en-US'
-            ? t('preferences.select-language')
-            : `${t('preferences.select-language')} · Select Language`
-        "
-      >
-        <NSelect
-          v-model:value="form.locale"
-          :options="fullLocaleOptions"
-          class="pref-control-auto pref-control-language"
-        />
-      </NFormItem>
-
-      <!-- ③ Auto Update -->
-      <NDivider title-placement="left">{{ t('preferences.auto-update') }}</NDivider>
-      <NFormItem :label="t('preferences.auto-check-update')">
-        <NSwitch v-model:value="form.autoCheckUpdate" />
-      </NFormItem>
-      <NCollapseTransition :show="form.autoCheckUpdate" class="collapse-indent">
-        <NFormItem :label="t('preferences.check-frequency')">
-          <NSelect
-            v-model:value="form.autoCheckUpdateInterval"
-            :options="checkIntervalOptions"
-            class="pref-control-auto"
-          />
+    <div class="preference-form-scroll">
+      <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
+        <!-- ① System info -->
+        <NDivider title-placement="left">{{ t('preferences.system-info') }}</NDivider>
+        <NFormItem :label="t('preferences.detected-platform')">
+          <NSpace :size="8">
+            <NTag type="info" round size="medium">{{ platformLabel }}</NTag>
+            <NTag type="success" round size="medium">{{ archLabelDisplay }}</NTag>
+          </NSpace>
         </NFormItem>
-      </NCollapseTransition>
-      <NFormItem :label="t('preferences.update-channel')">
-        <NRadioGroup
-          v-model:value="form.updateChannel"
-          size="small"
-          @update:value="
-            async (v: string) => {
-              const ok = await preferenceStore.updateAndSave({ updateChannel: v as UpdateChannel })
-              if (ok) {
-                patchSnapshot({ updateChannel: v } as Partial<typeof form.value>)
-              }
-            }
-          "
-        >
-          <NRadioButton value="stable">{{ t('preferences.update-channel-stable') }}</NRadioButton>
-          <NRadioButton value="beta">{{ t('preferences.update-channel-beta') }}</NRadioButton>
-          <NRadioButton value="latest">{{ t('preferences.update-channel-latest') }}</NRadioButton>
-        </NRadioGroup>
-      </NFormItem>
-      <NFormItem :label="t('preferences.last-check-update-time')">
-        <div class="pref-inline-row">
-          <NButton size="small" @click="handleCheckUpdate">
-            <template #icon>
-              <NIcon :size="14"><CloudDownloadOutline /></NIcon>
-            </template>
-            {{ t('app.check-updates-now') }}
-          </NButton>
-          <NText v-if="preferenceStore.config.lastCheckUpdateTime" depth="3" class="pref-inline-row__meta">
-            {{ new Date(preferenceStore.config.lastCheckUpdateTime).toLocaleString() }}
-          </NText>
-          <NText v-else depth="3" class="pref-inline-row__meta">—</NText>
-        </div>
-      </NFormItem>
-      <UpdateDialog ref="updateDialogRef" />
-
-      <!-- ④ Appearance -->
-      <NDivider title-placement="left">{{ t('preferences.appearance-section') }}</NDivider>
-      <NFormItem :label="t('preferences.appearance')">
-        <NSelect v-model:value="form.theme" :options="themeOptions" class="pref-control-auto" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.color-scheme')">
-        <div class="color-scheme-picker">
-          <MTooltip v-for="scheme in COLOR_SCHEMES" :key="scheme.id">
+        <NFormItem :label="t('about.app-version')">
+          <MTooltip>
             <template #trigger>
               <button
-                class="color-swatch"
-                :class="{ active: form.colorScheme === scheme.id }"
-                :style="{ '--swatch-color': scheme.seed }"
-                @click="handlePresetColorScheme(scheme)"
+                class="sysinfo-ver-badge"
+                @click="copyVersionToClipboard(`Motrix Next v${sysAppVersion}`, 'Motrix Next')"
               >
-                <svg v-if="form.colorScheme === scheme.id" class="swatch-check" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M4 8.5L6.5 11L12 5"
-                    stroke="white"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
+                <span class="sysinfo-ver-value">v{{ sysAppVersion || '\u2014' }}</span>
+                <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
+                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
                 </svg>
               </button>
             </template>
-            {{ t(scheme.labelKey) }}
+            {{ t('about.click-to-copy') }}
           </MTooltip>
-        </div>
-      </NFormItem>
-      <NFormItem :label="t('preferences.custom-color-scheme')">
-        <div class="custom-color-picker-wrap">
-          <NColorPicker
-            :value="form.customColorScheme"
-            :modes="['hex']"
-            :show-alpha="false"
-            :show-preview="true"
-            :swatches="COLOR_SCHEMES.map((scheme) => scheme.seed)"
-            class="custom-color-picker"
-            @update:value="handleCustomColorChange"
-            @complete="handleCustomColorComplete"
-          />
-        </div>
-      </NFormItem>
-      <NFormItem :label="t('preferences.task-card-mode')">
-        <NRadioGroup v-model:value="form.taskCardMode">
-          <NRadioButton v-for="option in taskCardModeOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </NRadioButton>
-        </NRadioGroup>
-      </NFormItem>
-      <NFormItem v-if="isMac" :label="t('preferences.dock-badge-speed')">
-        <NSwitch v-model:value="form.dockBadgeSpeed" />
-      </NFormItem>
-
-      <!-- ⑪ Startup & Tray -->
-      <NDivider title-placement="left">{{ t('preferences.startup-behavior') }}</NDivider>
-      <NFormItem :label="t('preferences.open-at-login')">
-        <NSwitch v-model:value="form.openAtLogin" />
-      </NFormItem>
-      <NCollapseTransition :show="form.openAtLogin" class="collapse-indent">
-        <NFormItem :label="t('preferences.auto-hide-window')">
-          <NSwitch v-model:value="form.autoHideWindow" />
         </NFormItem>
-      </NCollapseTransition>
-      <NFormItem :label="t('preferences.keep-window-state')">
-        <NSwitch v-model:value="form.keepWindowState" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.auto-resume-all')">
-        <NSwitch v-model:value="form.resumeAllWhenAppLaunched" />
-      </NFormItem>
-      <NDivider title-placement="left">{{ t('preferences.tray-and-dock') }}</NDivider>
-      <NFormItem :label="t('preferences.minimize-to-tray-on-close')">
-        <NSwitch v-model:value="form.minimizeToTrayOnClose" />
-      </NFormItem>
-      <NFormItem v-if="isMac" :label="t('preferences.hide-dock-on-minimize')">
-        <NSwitch v-model:value="form.hideDockOnMinimize" />
-      </NFormItem>
-      <NFormItem v-if="isMac || isLinux" :label="t('preferences.tray-speedometer')">
-        <NSwitch v-model:value="form.traySpeedometer" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.show-progress-bar')">
-        <NSwitch v-model:value="form.showProgressBar" />
-      </NFormItem>
-      <NFormItem>
-        <template #label>
-          <PreferenceHintLabel
-            :label="t('preferences.lightweight-mode')"
-            :hint="t('preferences.lightweight-mode-hint')"
+        <NFormItem :label="t('about.aria2-version')">
+          <MTooltip v-if="sysAria2Version">
+            <template #trigger>
+              <button
+                class="sysinfo-ver-badge"
+                @click="copyVersionToClipboard(`Aria2 Next v${sysAria2Version}`, 'Aria2 Next')"
+              >
+                <span class="sysinfo-ver-value">v{{ sysAria2Version }}</span>
+                <svg class="sysinfo-ver-copy" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2" />
+                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2" />
+                </svg>
+              </button>
+            </template>
+            {{ t('about.click-to-copy') }}
+          </MTooltip>
+          <div v-else class="sysinfo-ver-badge sysinfo-ver-badge--muted">
+            <span class="sysinfo-ver-muted">{{ t('about.unavailable') }}</span>
+          </div>
+        </NFormItem>
+
+        <!-- ② Language -->
+        <NDivider title-placement="left">
+          {{ locale === 'en-US' ? t('preferences.language') : `${t('preferences.language')} · Language` }}
+        </NDivider>
+        <NFormItem
+          :label="
+            locale === 'en-US'
+              ? t('preferences.select-language')
+              : `${t('preferences.select-language')} · Select Language`
+          "
+        >
+          <NSelect
+            v-model:value="form.locale"
+            :options="fullLocaleOptions"
+            class="pref-control-auto pref-control-language"
           />
-        </template>
-        <NSwitch v-model:value="form.lightweightMode" />
-      </NFormItem>
-    </NForm>
+        </NFormItem>
+
+        <!-- ③ Auto Update -->
+        <NDivider title-placement="left">{{ t('preferences.auto-update') }}</NDivider>
+        <NFormItem :label="t('preferences.auto-check-update')">
+          <NSwitch v-model:value="form.autoCheckUpdate" />
+        </NFormItem>
+        <NCollapseTransition :show="form.autoCheckUpdate" class="collapse-indent">
+          <NFormItem :label="t('preferences.check-frequency')">
+            <NSelect
+              v-model:value="form.autoCheckUpdateInterval"
+              :options="checkIntervalOptions"
+              class="pref-control-auto"
+            />
+          </NFormItem>
+        </NCollapseTransition>
+        <NFormItem :label="t('preferences.update-channel')">
+          <NRadioGroup
+            v-model:value="form.updateChannel"
+            size="small"
+            @update:value="
+              async (v: string) => {
+                const ok = await preferenceStore.updateAndSave({ updateChannel: v as UpdateChannel })
+                if (ok) {
+                  patchSnapshot({ updateChannel: v } as Partial<typeof form.value>)
+                }
+              }
+            "
+          >
+            <NRadioButton value="stable">{{ t('preferences.update-channel-stable') }}</NRadioButton>
+            <NRadioButton value="beta">{{ t('preferences.update-channel-beta') }}</NRadioButton>
+            <NRadioButton value="latest">{{ t('preferences.update-channel-latest') }}</NRadioButton>
+          </NRadioGroup>
+        </NFormItem>
+        <NFormItem :label="t('preferences.last-check-update-time')">
+          <div class="pref-inline-row">
+            <NButton size="small" @click="handleCheckUpdate">
+              <template #icon>
+                <NIcon :size="14"><CloudDownloadOutline /></NIcon>
+              </template>
+              {{ t('app.check-updates-now') }}
+            </NButton>
+            <NText v-if="preferenceStore.config.lastCheckUpdateTime" depth="3" class="pref-inline-row__meta">
+              {{ new Date(preferenceStore.config.lastCheckUpdateTime).toLocaleString() }}
+            </NText>
+            <NText v-else depth="3" class="pref-inline-row__meta">—</NText>
+          </div>
+        </NFormItem>
+        <UpdateDialog ref="updateDialogRef" />
+
+        <!-- ④ Appearance -->
+        <NDivider title-placement="left">{{ t('preferences.appearance-section') }}</NDivider>
+        <NFormItem :label="t('preferences.appearance')">
+          <NSelect v-model:value="form.theme" :options="themeOptions" class="pref-control-auto" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.color-scheme')">
+          <div class="color-scheme-picker">
+            <MTooltip v-for="scheme in COLOR_SCHEMES" :key="scheme.id">
+              <template #trigger>
+                <button
+                  class="color-swatch"
+                  :class="{ active: form.colorScheme === scheme.id }"
+                  :style="{ '--swatch-color': scheme.seed }"
+                  @click="handlePresetColorScheme(scheme)"
+                >
+                  <svg v-if="form.colorScheme === scheme.id" class="swatch-check" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M4 8.5L6.5 11L12 5"
+                      stroke="white"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </button>
+              </template>
+              {{ t(scheme.labelKey) }}
+            </MTooltip>
+          </div>
+        </NFormItem>
+        <NFormItem :label="t('preferences.custom-color-scheme')">
+          <div class="custom-color-picker-wrap">
+            <NColorPicker
+              :value="form.customColorScheme"
+              :modes="['hex']"
+              :show-alpha="false"
+              :show-preview="true"
+              :swatches="COLOR_SCHEMES.map((scheme) => scheme.seed)"
+              class="custom-color-picker"
+              @update:value="handleCustomColorChange"
+              @complete="handleCustomColorComplete"
+            />
+          </div>
+        </NFormItem>
+        <NFormItem :label="t('preferences.task-card-mode')">
+          <NRadioGroup v-model:value="form.taskCardMode">
+            <NRadioButton v-for="option in taskCardModeOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </NRadioButton>
+          </NRadioGroup>
+        </NFormItem>
+        <NFormItem v-if="isMac" :label="t('preferences.dock-badge-speed')">
+          <NSwitch v-model:value="form.dockBadgeSpeed" />
+        </NFormItem>
+
+        <!-- ⑪ Startup & Tray -->
+        <NDivider title-placement="left">{{ t('preferences.startup-behavior') }}</NDivider>
+        <NFormItem :label="t('preferences.open-at-login')">
+          <NSwitch v-model:value="form.openAtLogin" />
+        </NFormItem>
+        <NCollapseTransition :show="form.openAtLogin" class="collapse-indent">
+          <NFormItem :label="t('preferences.auto-hide-window')">
+            <NSwitch v-model:value="form.autoHideWindow" />
+          </NFormItem>
+        </NCollapseTransition>
+        <NFormItem :label="t('preferences.keep-window-state')">
+          <NSwitch v-model:value="form.keepWindowState" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.auto-resume-all')">
+          <NSwitch v-model:value="form.resumeAllWhenAppLaunched" />
+        </NFormItem>
+        <NDivider title-placement="left">{{ t('preferences.tray-and-dock') }}</NDivider>
+        <NFormItem :label="t('preferences.minimize-to-tray-on-close')">
+          <NSwitch v-model:value="form.minimizeToTrayOnClose" />
+        </NFormItem>
+        <NFormItem v-if="isMac" :label="t('preferences.hide-dock-on-minimize')">
+          <NSwitch v-model:value="form.hideDockOnMinimize" />
+        </NFormItem>
+        <NFormItem v-if="isMac || isLinux" :label="t('preferences.tray-speedometer')">
+          <NSwitch v-model:value="form.traySpeedometer" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.show-progress-bar')">
+          <NSwitch v-model:value="form.showProgressBar" />
+        </NFormItem>
+        <NFormItem>
+          <template #label>
+            <PreferenceHintLabel
+              :label="t('preferences.lightweight-mode')"
+              :hint="t('preferences.lightweight-mode-hint')"
+            />
+          </template>
+          <NSwitch v-model:value="form.lightweightMode" />
+        </NFormItem>
+      </NForm>
+    </div>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
   </div>
 </template>

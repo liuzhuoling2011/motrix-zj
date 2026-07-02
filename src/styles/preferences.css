@@ -1,19 +1,42 @@
 /* ── Preference Layout ─────────────────────────────────────────────── */
 .preference-form-wrapper {
   height: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+.preference-form-scroll {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
 }
 
 .form-preference {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  min-height: 100%;
+  overflow: visible;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  flex: none;
   padding: 16px 30px 64px 36px;
 }
 
 .form-preference .n-form-item {
   padding-left: 50px;
+}
+
+.form-preference .n-divider.n-divider--title-position-left .n-divider__line--left {
+  width: 28px;
+  flex: 0 0 28px;
+}
+
+.form-preference .n-divider.n-divider--title-position-left .n-divider__line--right {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .form-preference .collapse-indent {
