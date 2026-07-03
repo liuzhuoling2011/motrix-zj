@@ -336,6 +336,7 @@ export default {
   'copied-to-clipboard': '{label} kopiert',
   'color-scheme': 'Fargevalg',
   'task-card-mode': 'Oppgavekort',
+  'sidebar-task-counts': 'Oppgavetellere i sidepanelet',
   'task-card-mode-full': 'Full',
   'task-card-mode-compact': 'Kompakt',
   'color-scheme-amber': 'Ravgull',

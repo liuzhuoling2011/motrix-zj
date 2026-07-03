@@ -338,6 +338,7 @@ export default {
   'copied-to-clipboard': '{label} copiat',
   'color-scheme': 'Schemă de culori',
   'task-card-mode': 'Card de sarcină',
+  'sidebar-task-counts': 'Contoare de sarcini în bara laterală',
   'task-card-mode-full': 'Complet',
   'task-card-mode-compact': 'Compact',
   'color-scheme-amber': 'Auriu chihlimbar',

@@ -339,6 +339,7 @@ export default {
   'copied-to-clipboard': '{label} kopiert',
   'color-scheme': 'Farbschema',
   'task-card-mode': 'Aufgabenkarte',
+  'sidebar-task-counts': 'Aufgabenzähler in der Seitenleiste',
   'task-card-mode-full': 'Vollständig',
   'task-card-mode-compact': 'Kompakt',
   'color-scheme-amber': 'Bernsteingold',

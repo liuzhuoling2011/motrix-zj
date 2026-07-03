@@ -341,6 +341,7 @@ export default {
   'copied-to-clipboard': '{label} αντιγράφηκε',
   'color-scheme': 'Χρωματικό σχήμα',
   'task-card-mode': 'Κάρτα εργασίας',
+  'sidebar-task-counts': 'Μετρητές εργασιών πλευρικής γραμμής',
   'task-card-mode-full': 'Πλήρης',
   'task-card-mode-compact': 'Συμπαγής',
   'color-scheme-amber': 'Κεχριμπαρένιο χρυσό',

@@ -217,7 +217,7 @@ describe('buildGeneralForm', () => {
 
   // ── Completeness: all 18 fields are present ─────────────────────
 
-  it('returns all 18 form fields', () => {
+  it('returns all 19 form fields', () => {
     const form = buildGeneralForm(emptyConfig)
     const keys = Object.keys(form)
     expect(keys).toContain('locale')
@@ -225,6 +225,7 @@ describe('buildGeneralForm', () => {
     expect(keys).toContain('colorScheme')
     expect(keys).toContain('customColorScheme')
     expect(keys).toContain('taskCardMode')
+    expect(keys).toContain('sidebarTaskCounts')
     expect(keys).toContain('autoCheckUpdate')
     expect(keys).toContain('autoCheckUpdateInterval')
     expect(keys).toContain('updateChannel')
@@ -238,7 +239,7 @@ describe('buildGeneralForm', () => {
     expect(keys).toContain('hideDockOnMinimize')
     expect(keys).toContain('traySpeedometer')
     expect(keys).toContain('lightweightMode')
-    expect(keys).toHaveLength(18)
+    expect(keys).toHaveLength(19)
   })
 })
 
@@ -251,6 +252,7 @@ describe('buildGeneralSystemConfig', () => {
     colorScheme: 'amber',
     customColorScheme: '#737373',
     taskCardMode: 'full',
+    sidebarTaskCounts: true,
     autoCheckUpdate: true,
     autoCheckUpdateInterval: 0,
     updateChannel: 'stable',
@@ -294,6 +296,7 @@ describe('transformGeneralForStore', () => {
     colorScheme: 'amber',
     customColorScheme: '#737373',
     taskCardMode: 'full',
+    sidebarTaskCounts: true,
     autoCheckUpdate: true,
     autoCheckUpdateInterval: 0,
     updateChannel: 'stable',
@@ -316,6 +319,7 @@ describe('transformGeneralForStore', () => {
     expect(result.colorScheme).toBe('amber')
     expect(result.customColorScheme).toBe('#737373')
     expect(result.taskCardMode).toBe('full')
+    expect(result.sidebarTaskCounts).toBe(true)
     expect(result.autoCheckUpdate).toBe(true)
     expect(result.autoCheckUpdateInterval).toBe(0)
     expect(result.updateChannel).toBe('stable')

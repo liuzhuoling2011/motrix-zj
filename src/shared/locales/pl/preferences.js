@@ -338,6 +338,7 @@ export default {
   'copied-to-clipboard': '{label} skopiowano',
   'color-scheme': 'Schemat kolorów',
   'task-card-mode': 'Karta zadania',
+  'sidebar-task-counts': 'Liczniki zadań na pasku bocznym',
   'task-card-mode-full': 'Pełna',
   'task-card-mode-compact': 'Kompaktowa',
   'color-scheme-amber': 'Bursztynowe złoto',

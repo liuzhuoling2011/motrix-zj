@@ -334,6 +334,7 @@ export default {
   'copied-to-clipboard': 'Đã sao chép {label}',
   'color-scheme': 'Bảng màu',
   'task-card-mode': 'Thẻ tác vụ',
+  'sidebar-task-counts': 'Bộ đếm tác vụ ở thanh bên',
   'task-card-mode-full': 'Đầy đủ',
   'task-card-mode-compact': 'Gọn',
   'color-scheme-amber': 'Vàng hổ phách',

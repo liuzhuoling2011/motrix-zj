@@ -341,6 +341,7 @@ export default {
   'copied-to-clipboard': '{label} copiato',
   'color-scheme': 'Schema colori',
   'task-card-mode': 'Scheda attività',
+  'sidebar-task-counts': 'Conteggi attività nella barra laterale',
   'task-card-mode-full': 'Completa',
   'task-card-mode-compact': 'Compatta',
   'color-scheme-amber': 'Oro ambrato',

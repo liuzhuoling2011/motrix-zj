@@ -344,6 +344,7 @@ export default {
   'copied-to-clipboard': '{label} copiado',
   'color-scheme': 'Esquema de colores',
   'task-card-mode': 'Tarjeta de tarea',
+  'sidebar-task-counts': 'Contadores de tareas en la barra lateral',
   'task-card-mode-full': 'Completa',
   'task-card-mode-compact': 'Compacta',
   'color-scheme-amber': 'Ámbar dorado',

@@ -232,6 +232,7 @@ describe('useAppStore', () => {
           numActive: '2',
           numWaiting: '1',
           numStopped: '5',
+          numStoppedTotal: '5',
         }),
       }
       await store.fetchGlobalStat(api)
@@ -250,6 +251,7 @@ describe('useAppStore', () => {
           numActive: '3',
           numWaiting: '0',
           numStopped: '0',
+          numStoppedTotal: '0',
         }),
       }
       await store.fetchGlobalStat(api)
@@ -266,6 +268,7 @@ describe('useAppStore', () => {
           numActive: '0',
           numWaiting: '0',
           numStopped: '3',
+          numStoppedTotal: '3',
         }),
       }
       await store.fetchGlobalStat(api)
@@ -291,6 +294,7 @@ describe('useAppStore', () => {
           numActive: '1',
           numWaiting: '0',
           numStopped: '0',
+          numStoppedTotal: '0',
         }),
       }
       await store.fetchGlobalStat(api)

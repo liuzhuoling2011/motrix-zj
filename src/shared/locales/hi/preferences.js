@@ -336,6 +336,7 @@ export default {
   'copied-to-clipboard': '{label} copied',
   'color-scheme': 'Color scheme',
   'task-card-mode': 'कार्य कार्ड',
+  'sidebar-task-counts': 'साइडबार कार्य गणना',
   'task-card-mode-full': 'पूर्ण',
   'task-card-mode-compact': 'कॉम्पैक्ट',
   'color-scheme-amber': 'Amber Gold',

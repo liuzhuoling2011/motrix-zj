@@ -336,6 +336,7 @@ export default {
   'copied-to-clipboard': '{label} をコピーしました',
   'color-scheme': 'カラースキーム',
   'task-card-mode': 'タスクカード',
+  'sidebar-task-counts': 'サイドバーのタスク数',
   'task-card-mode-full': 'フル',
   'task-card-mode-compact': 'コンパクト',
   'color-scheme-amber': 'アンバーゴールド',

@@ -335,6 +335,7 @@ export default {
   'copied-to-clipboard': '{label} copied',
   'color-scheme': 'Color Scheme',
   'task-card-mode': 'Task Card',
+  'sidebar-task-counts': 'Sidebar task counts',
   'task-card-mode-full': 'Full',
   'task-card-mode-compact': 'Compact',
   'color-scheme-amber': 'Amber Gold',

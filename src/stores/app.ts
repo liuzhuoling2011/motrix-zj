@@ -78,6 +78,7 @@ export const useAppStore = defineStore('app', () => {
     numActive: 0,
     numWaiting: 0,
     numStopped: 0,
+    numStoppedTotal: 0,
   })
   const addTaskVisible = ref(false)
   const pendingBatch = ref<BatchItem[]>([])
@@ -227,6 +228,7 @@ export const useAppStore = defineStore('app', () => {
         parsed.downloadSpeed = 0
         increaseInterval()
       }
+      parsed.numStoppedTotal = parsed.numStoppedTotal ?? 0
       stat.value = parsed as typeof stat.value
     } catch (e) {
       logger.warn('AppStore.fetchGlobalStat', (e as Error).message)
@@ -246,6 +248,7 @@ export const useAppStore = defineStore('app', () => {
       numActive,
       numWaiting: payload.numWaiting,
       numStopped: payload.numStopped,
+      numStoppedTotal: payload.numStoppedTotal,
     }
     if (numActive > 0) {
       updateInterval(STAT_BASE_INTERVAL - STAT_PER_TASK_INTERVAL * numActive)

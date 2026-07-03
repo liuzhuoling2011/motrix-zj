@@ -70,6 +70,7 @@ const userKeys = [
   'share-time',
   'show-progress-bar',
   'shutdown-when-complete',
+  'sidebar-task-counts',
   'speed-limit-enabled',
   'speed-schedule-enabled',
   'speed-schedule-from',

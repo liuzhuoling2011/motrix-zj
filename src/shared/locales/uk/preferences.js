@@ -337,6 +337,7 @@ export default {
   'copied-to-clipboard': '{label} скопійовано',
   'color-scheme': 'Колірна схема',
   'task-card-mode': 'Картка завдання',
+  'sidebar-task-counts': 'Лічильники завдань на бічній панелі',
   'task-card-mode-full': 'Повна',
   'task-card-mode-compact': 'Компактна',
   'color-scheme-amber': 'Бурштинове золото',

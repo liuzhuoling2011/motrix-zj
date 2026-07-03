@@ -141,6 +141,7 @@ export interface Aria2GlobalStat {
   numActive: number
   numWaiting: number
   numStopped: number
+  numStoppedTotal: number
 }
 
 /** Engine version information returned by aria2.getVersion. */
@@ -264,6 +265,7 @@ export interface AppConfig {
   colorScheme: string
   customColorScheme: string
   taskCardMode: 'full' | 'compact'
+  sidebarTaskCounts: boolean
   taskPageSize: number
   locale: string
   dir: string
@@ -554,6 +556,8 @@ export interface HistoryMeta {
   magnetLink?: string
   /** Engine-serialized ED2K file link. */
   ed2kLink?: string
+  /** ED2K file hash — used to deduplicate shared-upload records across sessions. */
+  ed2kHash?: string
   /** BT announce tiers — used to restore tracker-aware magnet restart links. */
   announceList?: string[][]
   /** Complete file list with all URIs — present when files.length > 1. */

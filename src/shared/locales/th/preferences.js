@@ -332,6 +332,7 @@ export default {
   'copied-to-clipboard': 'คัดลอก {label} แล้ว',
   'color-scheme': 'ชุดสี',
   'task-card-mode': 'การ์ดงาน',
+  'sidebar-task-counts': 'จำนวนงานในแถบด้านข้าง',
   'task-card-mode-full': 'เต็ม',
   'task-card-mode-compact': 'กะทัดรัด',
   'color-scheme-amber': 'แอมเบอร์โกลด์',
