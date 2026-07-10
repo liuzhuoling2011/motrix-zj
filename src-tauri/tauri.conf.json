@@ -96,7 +96,10 @@
     },
     "linux": {
       "deb": {
-        "desktopTemplate": "deb/motrix-next.desktop.hbs"
+        "desktopTemplate": "linux/motrix-next.desktop.hbs"
+      },
+      "rpm": {
+        "desktopTemplate": "linux/motrix-next.desktop.hbs"
       }
     }
   },
