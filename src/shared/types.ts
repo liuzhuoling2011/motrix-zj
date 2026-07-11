@@ -314,6 +314,10 @@ export interface AppConfig {
   lightweightMode: boolean
   btTrackerAutoSync: boolean
   btTrackerSyncIntervalHours: number
+  btPeerBlocklistEnabled: boolean
+  btPeerBlocklistUrl: string
+  btPeerBlocklistAutoSync: boolean
+  btPeerBlocklistSyncIntervalHours: number
   keepSharing: boolean
   keepWindowState: boolean
 

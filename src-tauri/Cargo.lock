@@ -3125,6 +3125,7 @@ dependencies = [
  "dunce",
  "futures-util",
  "igd-next",
+ "ipnet",
  "keepawake",
  "log",
  "maxminddb",

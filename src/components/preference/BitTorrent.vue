@@ -19,6 +19,7 @@ import {
   SAFE_LIMIT_BT_MAX_PEERS,
 } from '@shared/constants'
 import { logger } from '@shared/logger'
+import { getErrorMessage } from '@shared/utils/errorMessage'
 import { useAppMessage } from '@/composables/useAppMessage'
 import {
   buildBtForm,
@@ -38,13 +39,14 @@ import {
   NButton,
   NDivider,
   NIcon,
+  NText,
   useDialog,
 } from 'naive-ui'
 import PreferenceActionBar from './PreferenceActionBar.vue'
 import PreferenceCheckboxGrid from './PreferenceCheckboxGrid.vue'
 import { SyncOutline, AddCircleOutline, CloseCircleOutline } from '@vicons/ionicons5'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const preferenceStore = usePreferenceStore()
 const dialog = useDialog()
 const message = useAppMessage()
@@ -52,8 +54,17 @@ const DHT_NETWORK_IPV4 = 'ipv4'
 const DHT_NETWORK_IPV6 = 'ipv6'
 
 const syncingTracker = ref(false)
+const syncingBlocklist = ref(false)
 const customTrackerInput = ref('')
 const needsRestart = ref(false)
+interface BtPeerBlocklistStatus {
+  ruleCount: number
+  fileSize: number
+  modified: number
+  source: string
+  bundled: boolean
+}
+const blocklistStatus = ref<BtPeerBlocklistStatus | null>(null)
 const syncIntervalOptions = computed(() => [
   { label: t('preferences.interval-every-startup'), value: 0 },
   { label: t('preferences.interval-6-hours'), value: 6 },
@@ -65,6 +76,21 @@ const dhtNetworkOptions = computed(() => [
   { label: t('preferences.bt-dht-ipv4'), value: DHT_NETWORK_IPV4 },
   { label: t('preferences.bt-dht-ipv6'), value: DHT_NETWORK_IPV6 },
 ])
+const blocklistStatusText = computed(() => {
+  const status = blocklistStatus.value
+  if (!status) return t('preferences.bt-peer-blocklist-unavailable')
+  const rules = t('preferences.bt-peer-blocklist-rule-count', { count: status.ruleCount })
+  const updated = status.modified
+    ? new Intl.DateTimeFormat(locale.value, {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(status.modified)
+    : ''
+  return updated ? `${rules} · ${t('preferences.last-sync-time')} ${updated}` : rules
+})
 const selectedDhtNetworks = computed({
   get: () => {
     const values: string[] = []
@@ -184,6 +210,10 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
   buildSystemConfig: buildBtSystemConfig,
   transformForStore: transformBtForStore,
   beforeSave: async (f) => {
+    if (!isValidTrackerSourceUrl(String(f.btPeerBlocklistUrl))) {
+      message.warning(t('preferences.bt-peer-blocklist-invalid-url'))
+      return false
+    }
     if (typeof f.btMaxPeers === 'number' && f.btMaxPeers > SAFE_LIMIT_BT_MAX_PEERS) {
       const ok = await confirmBtPeerSafeLimit(f)
       if (!ok) return false
@@ -209,16 +239,44 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
     return true
   },
   afterSave: async () => {
-    if (!needsRestart.value) return
-    needsRestart.value = false
-    const port = (preferenceStore.config.rpcListenPort as number) || ENGINE_RPC_PORT
-    const secret = (preferenceStore.config.rpcSecret as string) || ''
-    message.info(t('preferences.engine-restarting'))
-    await nextTick()
-    await new Promise((r) => requestAnimationFrame(r))
-    await restartEngine({ port, secret })
+    if (needsRestart.value) {
+      needsRestart.value = false
+      const port = (preferenceStore.config.rpcListenPort as number) || ENGINE_RPC_PORT
+      const secret = (preferenceStore.config.rpcSecret as string) || ''
+      message.info(t('preferences.engine-restarting'))
+      await nextTick()
+      await new Promise((r) => requestAnimationFrame(r))
+      await restartEngine({ port, secret })
+    }
+    try {
+      blocklistStatus.value = await invoke<BtPeerBlocklistStatus>('reconcile_bt_peer_blocklist')
+    } catch (e) {
+      logger.warn('BT.blocklistReconcile', getErrorMessage(e))
+      message.warning(t('preferences.bt-peer-blocklist-update-failed-keeping-current'))
+    }
   },
 })
+
+async function loadBlocklistStatus() {
+  try {
+    blocklistStatus.value = await invoke<BtPeerBlocklistStatus>('get_bt_peer_blocklist_status')
+  } catch (e) {
+    logger.debug('BT.blocklistStatus', e)
+  }
+}
+
+async function handleSyncBlocklist() {
+  syncingBlocklist.value = true
+  try {
+    blocklistStatus.value = await invoke<BtPeerBlocklistStatus>('sync_bt_peer_blocklist')
+    message.success(t('preferences.bt-peer-blocklist-update-succeed'))
+  } catch (e) {
+    logger.warn('BT.blocklistSync', getErrorMessage(e))
+    message.error(t('preferences.bt-peer-blocklist-update-failed-keeping-current'))
+  } finally {
+    syncingBlocklist.value = false
+  }
+}
 
 // ── Tracker sync ────────────────────────────────────────────────────
 async function handleSyncTracker() {
@@ -342,6 +400,7 @@ function handleManualRestart() {
 onMounted(() => {
   Object.assign(form.value, buildForm())
   resetSnapshot()
+  void loadBlocklistStatus()
 })
 </script>
 
@@ -372,6 +431,66 @@ onMounted(() => {
         <NFormItem :label="t('preferences.bt-dht-network')">
           <PreferenceCheckboxGrid v-model:value="selectedDhtNetworks" :options="dhtNetworkOptions" />
         </NFormItem>
+
+        <NDivider title-placement="left">{{ t('preferences.bt-peer-blocklist') }}</NDivider>
+        <NFormItem :label="t('preferences.bt-peer-blocklist-enable')">
+          <NSwitch v-model:value="form.btPeerBlocklistEnabled" />
+        </NFormItem>
+        <div class="blocklist-collapse" :class="{ 'blocklist-collapse--open': form.btPeerBlocklistEnabled }">
+          <div class="blocklist-collapse__inner">
+            <NFormItem :label="t('preferences.bt-peer-blocklist-url')">
+              <NInput
+                v-model:value="form.btPeerBlocklistUrl"
+                :placeholder="t('preferences.bt-peer-blocklist-url-placeholder')"
+                clearable
+              />
+            </NFormItem>
+            <NFormItem label=" ">
+              <div class="pref-action-stack">
+                <NButton
+                  class="pref-action-button bt-blocklist-update-button"
+                  :loading="syncingBlocklist"
+                  :disabled="isDirty"
+                  type="primary"
+                  secondary
+                  @click="handleSyncBlocklist"
+                >
+                  <template #icon>
+                    <NIcon><SyncOutline /></NIcon>
+                  </template>
+                  {{ t('preferences.bt-peer-blocklist-update') }}
+                </NButton>
+                <NText depth="3" class="pref-inline-row__meta">{{ blocklistStatusText }}</NText>
+              </div>
+            </NFormItem>
+            <NFormItem :label="t('preferences.auto-sync')">
+              <NSwitch v-model:value="form.btPeerBlocklistAutoSync" />
+            </NFormItem>
+            <div
+              class="blocklist-frequency-collapse"
+              :class="{ 'blocklist-frequency-collapse--open': form.btPeerBlocklistAutoSync }"
+            >
+              <div class="blocklist-frequency-collapse__inner">
+                <NFormItem :label="t('preferences.sync-frequency')">
+                  <NSelect
+                    v-model:value="form.btPeerBlocklistSyncIntervalHours"
+                    :options="syncIntervalOptions"
+                    class="pref-control-auto"
+                  />
+                </NFormItem>
+              </div>
+            </div>
+            <NFormItem :show-label="false">
+              <button
+                class="info-link"
+                type="button"
+                @click="openTrackerSource('https://github.com/PBH-BTN/BTN-Collected-Rules')"
+              >
+                PBH-BTN/BTN-Collected-Rules ↗
+              </button>
+            </NFormItem>
+          </div>
+        </div>
 
         <!-- Tracker Management -->
         <NDivider title-placement="left">{{ t('preferences.bt-tracker') }}</NDivider>
@@ -413,7 +532,7 @@ onMounted(() => {
           />
         </NFormItem>
         <NFormItem label=" ">
-          <div class="pref-inline-row">
+          <div class="pref-action-stack">
             <NButton
               class="pref-action-button bt-tracker-sync-button"
               :loading="syncingTracker"
@@ -426,10 +545,10 @@ onMounted(() => {
               </template>
               {{ t('preferences.bt-tracker-sync') }}
             </NButton>
-            <span class="pref-inline-row__meta">
+            <NText depth="3" class="pref-inline-row__meta">
               {{ t('preferences.last-sync-time') }}
               {{ form.lastSyncTrackerTime ? new Date(form.lastSyncTrackerTime as number).toLocaleString() : '—' }}
-            </span>
+            </NText>
           </div>
         </NFormItem>
         <NFormItem :label="t('preferences.bt-tracker-content')">
@@ -478,6 +597,23 @@ onMounted(() => {
 <style scoped>
 .bt-tracker-sync-button {
   min-width: 100px;
+}
+.bt-blocklist-update-button {
+  min-width: 100px;
+}
+.blocklist-collapse,
+.blocklist-frequency-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+.blocklist-collapse--open,
+.blocklist-frequency-collapse--open {
+  grid-template-rows: 1fr;
+}
+.blocklist-collapse__inner,
+.blocklist-frequency-collapse__inner {
+  overflow: hidden;
 }
 
 .info-text {

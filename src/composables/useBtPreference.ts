@@ -42,6 +42,10 @@ export interface BtForm {
   btPeerExchangeEnabled: boolean
   btLocalPeerDiscoveryEnabled: boolean
   btMaxPeers: number
+  btPeerBlocklistEnabled: boolean
+  btPeerBlocklistUrl: string
+  btPeerBlocklistAutoSync: boolean
+  btPeerBlocklistSyncIntervalHours: number
   trackerSource: string[]
   customTrackerUrls: string[]
   btTracker: string
@@ -68,6 +72,12 @@ export function buildBtForm(config: AppConfig): BtForm {
     btPeerExchangeEnabled: config.btPeerExchangeEnabled ?? D.btPeerExchangeEnabled,
     btLocalPeerDiscoveryEnabled: config.btLocalPeerDiscoveryEnabled ?? D.btLocalPeerDiscoveryEnabled,
     btMaxPeers: config.btMaxPeers ?? D.btMaxPeers,
+    btPeerBlocklistEnabled: config.btPeerBlocklistEnabled ?? D.btPeerBlocklistEnabled,
+    btPeerBlocklistUrl: config.btPeerBlocklistUrl ?? D.btPeerBlocklistUrl,
+    btPeerBlocklistAutoSync: config.btPeerBlocklistAutoSync ?? D.btPeerBlocklistAutoSync,
+    btPeerBlocklistSyncIntervalHours: Number(
+      config.btPeerBlocklistSyncIntervalHours ?? D.btPeerBlocklistSyncIntervalHours,
+    ),
     trackerSource: config.trackerSource ?? [...D.trackerSource],
     customTrackerUrls: config.customTrackerUrls ?? [...D.customTrackerUrls],
     btTracker: convertCommaToLine(config.btTracker ?? D.btTracker),

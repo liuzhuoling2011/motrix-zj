@@ -84,6 +84,19 @@ function normalizePositiveNumber(value: unknown, fallback: number, key: string, 
   return fallback
 }
 
+function normalizeHttpUrl(value: unknown, fallback: string, key: string, repairs: string[]): string {
+  if (typeof value === 'string') {
+    try {
+      const url = new URL(value.trim())
+      if (url.protocol === 'http:' || url.protocol === 'https:') return url.toString()
+    } catch {
+      // Repaired below.
+    }
+  }
+  repairs.push(key)
+  return fallback
+}
+
 function normalizeBoundedInteger(
   value: unknown,
   fallback: number,
@@ -245,6 +258,20 @@ function normalizeScalarValues(config: Record<string, unknown>, repairs: string[
     config.btTrackerSyncIntervalHours,
     DEFAULT_APP_CONFIG.btTrackerSyncIntervalHours,
     'btTrackerSyncIntervalHours',
+    repairs,
+  )
+  config.btPeerBlocklistSyncIntervalHours = normalizeBoundedInteger(
+    config.btPeerBlocklistSyncIntervalHours,
+    DEFAULT_APP_CONFIG.btPeerBlocklistSyncIntervalHours,
+    0,
+    8760,
+    'btPeerBlocklistSyncIntervalHours',
+    repairs,
+  )
+  config.btPeerBlocklistUrl = normalizeHttpUrl(
+    config.btPeerBlocklistUrl,
+    DEFAULT_APP_CONFIG.btPeerBlocklistUrl,
+    'btPeerBlocklistUrl',
     repairs,
   )
   config.ed2kBootstrapSyncIntervalHours = normalizePositiveNumber(

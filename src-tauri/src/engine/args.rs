@@ -126,6 +126,12 @@ fn preserves_empty_value(key: &str) -> bool {
     PROXY_CLEAR_KEYS.contains(&key) || key == "seed-time"
 }
 
+#[derive(Clone, Copy, Default)]
+pub(crate) struct ManagedEnginePaths<'a> {
+    pub ed2k_bootstrap: Option<(&'a str, &'a str)>,
+    pub bt_peer_blocklist: Option<&'a str>,
+}
+
 #[cfg(test)]
 pub(crate) fn build_start_args(
     config: &serde_json::Value,
@@ -142,18 +148,18 @@ pub(crate) fn build_start_args(
         session_exists,
         log_file_path,
         log_level,
-        None,
+        ManagedEnginePaths::default(),
     )
 }
 
-pub(crate) fn build_start_args_with_ed2k_bootstrap(
+pub(crate) fn build_start_args_with_managed_paths(
     config: &serde_json::Value,
     conf_path: Option<&str>,
     session_path: &str,
     session_exists: bool,
     log_file_path: &str,
     log_level: &str,
-    ed2k_bootstrap_paths: Option<(&str, &str)>,
+    managed_paths: ManagedEnginePaths<'_>,
 ) -> Vec<String> {
     build_start_args_impl(
         config,
@@ -162,7 +168,7 @@ pub(crate) fn build_start_args_with_ed2k_bootstrap(
         session_exists,
         log_file_path,
         log_level,
-        ed2k_bootstrap_paths,
+        managed_paths,
     )
 }
 
@@ -173,7 +179,7 @@ fn build_start_args_impl(
     session_exists: bool,
     log_file_path: &str,
     log_level: &str,
-    ed2k_bootstrap_paths: Option<(&str, &str)>,
+    managed_paths: ManagedEnginePaths<'_>,
 ) -> Vec<String> {
     let mut args: Vec<String> = Vec::new();
 
@@ -281,9 +287,12 @@ fn build_start_args_impl(
     args.push(format!("--rpc-listen-all={allow_remote_access}"));
     args.push("--rpc-allow-origin-all=true".to_string());
 
-    if let Some((server_met_path, nodes_dat_path)) = ed2k_bootstrap_paths {
+    if let Some((server_met_path, nodes_dat_path)) = managed_paths.ed2k_bootstrap {
         args.push(format!("--ed2k-server-list={server_met_path}"));
         args.push(format!("--ed2k-node-list={nodes_dat_path}"));
+    }
+    if let Some(path) = managed_paths.bt_peer_blocklist {
+        args.push(format!("--bt-peer-blocklist={path}"));
     }
 
     // If no conf file, ensure RPC is enabled
@@ -318,8 +327,8 @@ mod tests {
     }
 
     #[test]
-    fn build_args_injects_managed_ed2k_bootstrap_paths() {
-        let args = build_start_args_with_ed2k_bootstrap(
+    fn build_args_injects_managed_resource_paths() {
+        let args = build_start_args_with_managed_paths(
             &json!({
                 "ed2k-server-list": "/user/server.met",
                 "ed2k-node-list": "/user/nodes.dat"
@@ -329,7 +338,10 @@ mod tests {
             false,
             "/tmp/aria2-next.log",
             "debug",
-            Some(("/cache/server.met", "/cache/nodes.dat")),
+            ManagedEnginePaths {
+                ed2k_bootstrap: Some(("/cache/server.met", "/cache/nodes.dat")),
+                bt_peer_blocklist: Some("/cache/peer-blocklist.txt"),
+            },
         );
 
         assert!(!args
@@ -342,6 +354,9 @@ mod tests {
         assert!(args
             .iter()
             .any(|a| a == "--ed2k-node-list=/cache/nodes.dat"));
+        assert!(args
+            .iter()
+            .any(|a| a == "--bt-peer-blocklist=/cache/peer-blocklist.txt"));
     }
 
     #[test]

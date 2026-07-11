@@ -84,6 +84,7 @@ export const ED2K_LISTEN_PORT = 29140
 export const ED2K_UDP_LISTEN_PORT = 29150
 export const ED2K_SERVER_MET_URL = 'https://upd.emule-security.org/server.met'
 export const ED2K_NODES_DAT_URL = 'https://upd.emule-security.org/nodes.dat'
+export const BT_PEER_BLOCKLIST_URL = 'https://bcr.pbh-btn.com/combine/all.txt'
 export const PORT_RECOVERY_RANGE_START = 29000
 export const PORT_RECOVERY_RANGE_END = 29999
 export const ENGINE_MAX_CONCURRENT_DOWNLOADS = 100
@@ -465,6 +466,10 @@ export const DEFAULT_APP_CONFIG = {
   // ── Tracker ───────────────────────────────────────────────────
   btTrackerAutoSync: true,
   btTrackerSyncIntervalHours: 24,
+  btPeerBlocklistEnabled: true,
+  btPeerBlocklistUrl: BT_PEER_BLOCKLIST_URL,
+  btPeerBlocklistAutoSync: true,
+  btPeerBlocklistSyncIntervalHours: 24,
   trackerSource: [...DEFAULT_TRACKER_SOURCE],
   customTrackerUrls: [] as string[],
   btTracker: '',

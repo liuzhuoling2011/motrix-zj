@@ -14,6 +14,7 @@
 //! 4. Stops old background services and spawns fresh ones
 
 pub mod aria2_events;
+pub mod bt_blocklist;
 pub mod config;
 pub mod deep_link;
 pub mod external_input;
@@ -187,6 +188,7 @@ pub async fn on_engine_ready(app: &tauri::AppHandle) -> Result<(), AppError> {
 ///
 /// Safe to call multiple times — idempotent stop + fresh spawn.
 async fn spawn_background_services(app: &tauri::AppHandle) {
+    use bt_blocklist::{self, BtPeerBlocklistServiceState};
     use monitor::{self, TaskMonitorState};
     use speed::{self, SpeedSchedulerState};
     use stat::{self, StatServiceState};
@@ -231,6 +233,13 @@ async fn spawn_background_services(app: &tauri::AppHandle) {
             log::debug!("runtime_services: stopped old aria2_event_listener");
         }
     }
+    if let Some(bs) = app.try_state::<BtPeerBlocklistServiceState>() {
+        let mut guard = bs.0.lock().await;
+        if let Some(old) = guard.take() {
+            old.stop();
+            log::debug!("runtime_services: stopped old bt_peer_blocklist service");
+        }
+    }
 
     // Spawn fresh services
     let stat_handle = stat::spawn_stat_service(app.clone(), aria2_arc.clone());
@@ -241,6 +250,12 @@ async fn spawn_background_services(app: &tauri::AppHandle) {
     let scheduler_handle = speed::spawn_speed_scheduler(app.clone(), aria2_arc.clone());
     if let Some(ss) = app.try_state::<SpeedSchedulerState>() {
         *ss.0.lock().await = Some(scheduler_handle);
+    }
+
+    let blocklist_handle =
+        bt_blocklist::spawn_bt_peer_blocklist_service(app.clone(), aria2_arc.clone());
+    if let Some(bs) = app.try_state::<BtPeerBlocklistServiceState>() {
+        *bs.0.lock().await = Some(blocklist_handle);
     }
 
     let monitor_handle = monitor::spawn_task_monitor(app.clone(), aria2_arc);
@@ -289,7 +304,9 @@ async fn spawn_background_services(app: &tauri::AppHandle) {
         }
     }
 
-    log::info!("runtime_services: spawned stat_service + speed_scheduler + task_monitor");
+    log::info!(
+        "runtime_services: spawned stat_service + speed_scheduler + task_monitor + bt_peer_blocklist"
+    );
 }
 
 /// Read engine port and secret from the config store.

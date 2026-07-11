@@ -437,7 +437,7 @@ onMounted(() => {
           />
         </NFormItem>
         <NFormItem label=" ">
-          <div class="pref-inline-row">
+          <div class="pref-action-stack">
             <NButton
               class="pref-action-button ed2k-bootstrap-sync-button"
               :loading="bootstrapSyncing"

@@ -240,6 +240,8 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(services::speed::SpeedSchedulerState::new());
     app.manage(services::monitor::TaskMonitorState::new());
     app.manage(services::aria2_events::Aria2EventState::new());
+    app.manage(services::bt_blocklist::BtPeerBlocklistServiceState::new());
+    app.manage(commands::bt_blocklist::BtPeerBlocklistUpdateState::new());
     app.manage(services::http_api::HttpApiState::new());
     #[cfg(target_os = "linux")]
     app.manage(services::notification::LinuxNotificationRegistry::new());
@@ -843,6 +845,9 @@ pub fn run() {
             commands::get_upnp_status,
             commands::get_ed2k_bootstrap_status,
             commands::sync_ed2k_bootstrap_files,
+            commands::get_bt_peer_blocklist_status,
+            commands::sync_bt_peer_blocklist,
+            commands::reconcile_bt_peer_blocklist,
             commands::set_dock_visible,
             commands::minimize_to_tray,
             commands::probe_trackers,
