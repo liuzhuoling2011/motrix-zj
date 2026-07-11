@@ -190,6 +190,14 @@ fn build_start_args_impl(
 
     args.push(format!("--log={log_file_path}"));
     args.push(format!("--log-level={log_level}"));
+    args.push(format!(
+        "--log-max-size={}",
+        crate::log_policy::MAX_LOG_FILE_SIZE
+    ));
+    args.push(format!(
+        "--log-max-files={}",
+        crate::log_policy::MAX_LOG_FILES
+    ));
     args.push("--quiet=true".to_string());
 
     // Check keep-sharing flag (app-level logic, not an engine option).
@@ -219,7 +227,10 @@ fn build_start_args_impl(
                 continue;
             }
 
-            if matches!(key.as_str(), "log" | "log-file" | "log-level") {
+            if matches!(
+                key.as_str(),
+                "log" | "log-file" | "log-level" | "log-max-size" | "log-max-files"
+            ) {
                 continue;
             }
 
@@ -346,10 +357,10 @@ mod tests {
 
         assert!(args.iter().any(|a| a == "--log=/tmp/aria2-next.log"));
         assert!(args.iter().any(|a| a == "--log-level=info"));
+        assert!(args.iter().any(|a| a == "--log-max-size=52428800"));
+        assert!(args.iter().any(|a| a == "--log-max-files=1"));
         assert!(args.iter().any(|a| a == "--quiet=true"));
         assert!(!args.iter().any(|a| a.starts_with("--log-file=")));
-        assert!(!args.iter().any(|a| a.starts_with("--log-max-size=")));
-        assert!(!args.iter().any(|a| a.starts_with("--log-max-files=")));
         assert!(!args.iter().any(|a| a.starts_with("--console-level=")));
     }
 
@@ -359,8 +370,8 @@ mod tests {
             &json!({
                 "log-file": "/tmp/user.log",
                 "log-level": "error",
-                "log-max-size": "1M",
-                "log-max-files": "1"
+                "log-max-size": "2M",
+                "log-max-files": "4"
             }),
             None,
             "/tmp/s.session",
@@ -375,28 +386,10 @@ mod tests {
         assert!(!args.iter().any(|a| a == "--log-file=/tmp/user.log"));
         assert!(!args.iter().any(|a| a == "--log=/tmp/user.log"));
         assert!(!args.iter().any(|a| a == "--log-level=error"));
-        assert!(!args.iter().any(|a| a == "--log-max-size=1M"));
-        assert!(!args.iter().any(|a| a == "--log-max-files=1"));
-        assert!(!args.iter().any(|a| a.starts_with("--console-level=")));
-    }
-
-    #[test]
-    fn build_args_always_enables_aria2_file_log() {
-        let args = build_start_args(
-            &json!({}),
-            None,
-            "/tmp/s.session",
-            false,
-            "/tmp/aria2-next.log",
-            "notice",
-        );
-
-        assert!(args.iter().any(|a| a == "--log=/tmp/aria2-next.log"));
-        assert!(args.iter().any(|a| a == "--log-level=notice"));
-        assert!(args.iter().any(|a| a == "--quiet=true"));
-        assert!(!args.iter().any(|a| a.starts_with("--log-file=")));
-        assert!(!args.iter().any(|a| a.starts_with("--log-max-size=")));
-        assert!(!args.iter().any(|a| a.starts_with("--log-max-files=")));
+        assert!(args.iter().any(|a| a == "--log-max-size=52428800"));
+        assert!(args.iter().any(|a| a == "--log-max-files=1"));
+        assert!(!args.iter().any(|a| a == "--log-max-size=2M"));
+        assert!(!args.iter().any(|a| a == "--log-max-files=4"));
         assert!(!args.iter().any(|a| a.starts_with("--console-level=")));
     }
 

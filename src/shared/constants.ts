@@ -1,5 +1,6 @@
 /** @fileoverview Application-wide constants: themes, intervals, suffixes, limits. */
 import { DEFAULT_TASK_MANUAL_ORDER, DEFAULT_TASK_SORT } from '@/composables/useTaskSort'
+import type { AppLogLevel, Aria2LogLevel } from '@shared/types'
 export const EMPTY_STRING = ''
 export const IS_PORTABLE = false
 
@@ -69,8 +70,8 @@ export const TASK_STATUS = {
   SHARING: 'sharing',
 }
 
-export const APP_LOG_LEVELS = ['error', 'warn', 'info', 'debug'] as const
-export const ARIA2_LOG_LEVELS = ['error', 'warn', 'notice', 'info', 'debug'] as const
+export const APP_LOG_LEVELS = ['error', 'warn', 'info', 'debug'] as const satisfies readonly AppLogLevel[]
+export const ARIA2_LOG_LEVELS = ['error', 'warn', 'info', 'debug', 'trace'] as const satisfies readonly Aria2LogLevel[]
 
 export const MAX_NUM_OF_DIRECTORIES = 5
 
@@ -454,8 +455,8 @@ export const DEFAULT_APP_CONFIG = {
   userAgentProfiles: [],
   userAgentRules: [],
   recentUserAgentProfileIds: [],
-  logLevel: 'debug',
-  aria2LogLevel: 'notice',
+  logLevel: 'debug' as const,
+  aria2LogLevel: 'info' as const,
   cookie: '',
   runMode: '',
   engineBinPath: '',

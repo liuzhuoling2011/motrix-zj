@@ -3,6 +3,9 @@
 /** Task lifecycle status as reported by aria2 RPC. */
 export type TaskStatus = 'active' | 'waiting' | 'paused' | 'error' | 'complete' | 'removed'
 
+export type AppLogLevel = 'error' | 'warn' | 'info' | 'debug'
+export type Aria2LogLevel = AppLogLevel | 'trace'
+
 /** URI entry within an aria2 file descriptor. */
 export interface Aria2FileUri {
   uri: string
@@ -326,8 +329,8 @@ export interface AppConfig {
   showProgressBar: boolean
   traySpeedometer: boolean
   dockBadgeSpeed: boolean
-  logLevel: string
-  aria2LogLevel: string
+  logLevel: AppLogLevel
+  aria2LogLevel: Aria2LogLevel
   engineBinPath: string
   /** Directory for internal temporary engine files. Empty means the OS temporary directory. */
   tempFilesDir: string

@@ -5,6 +5,7 @@ mod engine;
 mod error;
 mod gpu_guard;
 mod history;
+mod log_policy;
 #[cfg(target_os = "macos")]
 mod menu;
 mod services;
@@ -207,6 +208,14 @@ pub(crate) fn handle_minimize_to_tray(app: &tauri::AppHandle, window: &tauri::We
 /// workarounds.  Called once by `Builder.setup()`.
 fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let handle = app.handle();
+    match handle.path().app_log_dir() {
+        Ok(log_dir) => {
+            if let Err(error) = log_policy::remove_legacy_log_files(&log_dir) {
+                log::warn!("Failed to remove legacy log files: {error}");
+            }
+        }
+        Err(error) => log::warn!("Failed to resolve log directory for cleanup: {error}"),
+    }
     #[cfg(target_os = "macos")]
     {
         let m = menu::build_menu(handle)?;
@@ -688,7 +697,7 @@ pub fn run() {
                         message
                     ))
                 })
-                .max_file_size(10_000_000)
+                .max_file_size(log_policy::MAX_LOG_FILE_SIZE.into())
                 .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepOne)
                 .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
                 .level(log_level)

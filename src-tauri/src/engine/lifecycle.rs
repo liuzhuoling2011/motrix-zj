@@ -56,7 +56,7 @@ fn engine_log_config(app: &tauri::AppHandle) -> Result<(String, String), String>
         .path()
         .app_log_dir()
         .map_err(|e| format!("Failed to get app log dir: {e}"))?
-        .join("aria2-next.log");
+        .join(crate::log_policy::ARIA2_LOG_FILE);
     let log_path = path_to_safe_string(&log_path);
     let log_level = read_aria2_log_level(app);
     Ok((log_path, log_level))
