@@ -29,43 +29,12 @@ pub mod speed;
 pub mod stat;
 
 use crate::aria2::client::Aria2State;
-use crate::engine::SUPPORTED_ENGINE_KEYS;
+use crate::engine::{non_hot_reloadable_keys, supported_engine_keys};
 use crate::error::AppError;
 use config::RuntimeConfigState;
 use port_guard::DEFAULT_RPC_PORT;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
-
-/// Keys that aria2 rejects via `changeGlobalOption` — they are bound at
-/// process startup via CLI args and cannot be changed at runtime.
-///
-/// Matches the `NON_HOT_RELOADABLE` set in `src/shared/utils/config.ts`.
-const NON_HOT_RELOADABLE: &[&str] = &[
-    // needRestartKeys
-    "dht-listen-port",
-    "ed2k-listen-port",
-    "ed2k-server",
-    "ed2k-udp-listen-port",
-    "ed2k-upload-slots",
-    "listen-port",
-    "allow-remote-access",
-    "rpc-listen-port",
-    "rpc-secret",
-    "bt-enable-lpd",
-    "bt-force-encryption",
-    "bt-max-peers",
-    "bt-require-crypto",
-    "enable-dht",
-    "enable-dht6",
-    "enable-peer-exchange",
-    // aria2 docs exclusions
-    "checksum",
-    "index-out",
-    "out",
-    "pause",
-    "select-file",
-    "rpc-save-upload-metadata",
-];
 
 /// Reads the `system.json` store and returns its key-value pairs as a
 /// flat `Map<String, String>`, filtered to only hot-reloadable keys.
@@ -82,8 +51,8 @@ fn read_system_options(
     // system.json stores all keys at the root level
     let mut opts = serde_json::Map::new();
     for key in store.keys() {
-        if !SUPPORTED_ENGINE_KEYS.contains(&key.as_str())
-            || NON_HOT_RELOADABLE.contains(&key.as_str())
+        if !supported_engine_keys().contains(key.as_str())
+            || non_hot_reloadable_keys().contains(key.as_str())
         {
             continue;
         }
@@ -514,34 +483,36 @@ mod tests {
         assert!(!is_in_scheduled_period_at("24:00", "23:59", 0, now));
     }
 
-    // ── NON_HOT_RELOADABLE ─────────────────────────────────────────
+    // ── non_hot_reloadable_keys (shared aria2Options.json) ─────────
 
     #[test]
-    fn non_hot_reloadable_contains_restart_keys() {
-        assert!(NON_HOT_RELOADABLE.contains(&"rpc-listen-port"));
-        assert!(NON_HOT_RELOADABLE.contains(&"allow-remote-access"));
-        assert!(NON_HOT_RELOADABLE.contains(&"rpc-secret"));
-        assert!(NON_HOT_RELOADABLE.contains(&"listen-port"));
-        assert!(NON_HOT_RELOADABLE.contains(&"dht-listen-port"));
-        assert!(NON_HOT_RELOADABLE.contains(&"ed2k-listen-port"));
-        assert!(NON_HOT_RELOADABLE.contains(&"ed2k-udp-listen-port"));
+    fn non_hot_reloadable_keys_cover_restart_and_startup_only_options() {
+        let keys = crate::engine::non_hot_reloadable_keys();
+        for key in [
+            "rpc-listen-port",
+            "allow-remote-access",
+            "rpc-secret",
+            "listen-port",
+            "dht-listen-port",
+            "ed2k-listen-port",
+            "ed2k-udp-listen-port",
+            "enable-dht",
+            "enable-dht6",
+            "enable-peer-exchange",
+            "bt-enable-lpd",
+            "bt-force-encryption",
+            "bt-require-crypto",
+            "bt-max-peers",
+        ] {
+            assert!(keys.contains(key), "missing: {key}");
+        }
     }
 
     #[test]
-    fn non_hot_reloadable_contains_startup_only_keys() {
-        assert!(NON_HOT_RELOADABLE.contains(&"enable-dht"));
-        assert!(NON_HOT_RELOADABLE.contains(&"enable-dht6"));
-        assert!(NON_HOT_RELOADABLE.contains(&"enable-peer-exchange"));
-        assert!(NON_HOT_RELOADABLE.contains(&"bt-enable-lpd"));
-        assert!(NON_HOT_RELOADABLE.contains(&"bt-force-encryption"));
-        assert!(NON_HOT_RELOADABLE.contains(&"bt-require-crypto"));
-        assert!(NON_HOT_RELOADABLE.contains(&"bt-max-peers"));
-    }
-
-    #[test]
-    fn non_hot_reloadable_does_not_contain_normal_keys() {
-        assert!(!NON_HOT_RELOADABLE.contains(&"max-overall-download-limit"));
-        assert!(!NON_HOT_RELOADABLE.contains(&"dir"));
-        assert!(!NON_HOT_RELOADABLE.contains(&"split"));
+    fn non_hot_reloadable_keys_exclude_hot_reloadable_options() {
+        let keys = crate::engine::non_hot_reloadable_keys();
+        assert!(!keys.contains("max-overall-download-limit"));
+        assert!(!keys.contains("dir"));
+        assert!(!keys.contains("split"));
     }
 }

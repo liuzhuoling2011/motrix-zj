@@ -1,110 +1,53 @@
 /// Builds the CLI argument list for spawning the bundled Motrix Next engine sidecar.
 ///
-/// Whitelists only valid Aria2 Next options from the config object and handles
-/// the `keep-sharing` app-level flag. Options managed exclusively by
+/// The whitelist of valid Aria2 Next options is loaded from the shared
+/// `aria2Options.json` — the single source of truth also consumed by the
+/// frontend (`src/shared/configKeys.ts`). Options managed exclusively by
 /// `aria2.conf` are excluded from the whitelist to prevent store overrides.
-pub(crate) const SUPPORTED_ENGINE_KEYS: &[&str] = &[
-    "all-proxy-passwd",
-    "all-proxy-user",
-    "all-proxy",
-    "allow-overwrite",
-    "allow-piece-length-change",
-    "always-resume",
-    "async-dns",
-    "auto-file-renaming",
-    "bt-enable-lpd",
-    "bt-exclude-tracker",
-    "bt-force-encryption",
-    "bt-max-peers",
-    "bt-require-crypto",
-    "bt-stop-timeout",
-    "bt-tracker",
-    "check-integrity",
-    "checksum",
-    "conditional-get",
-    "connect-timeout",
-    "content-disposition-default-utf8",
-    "continue",
-    "detach-share-only",
-    "dht-listen-port",
-    "dir",
-    "dry-run",
-    "ed2k-listen-port",
-    "ed2k-server",
-    "ed2k-udp-listen-port",
-    "ed2k-upload-slots",
-    "enable-dht",
-    "enable-dht6",
-    "enable-http-keep-alive",
-    "enable-http-pipelining",
-    "enable-mmap",
-    "enable-peer-exchange",
-    "file-allocation",
-    "force-sequential",
-    "ftp-passwd",
-    "ftp-pasv",
-    "ftp-proxy-passwd",
-    "ftp-proxy-user",
-    "ftp-proxy",
-    "ftp-type",
-    "ftp-user",
-    "gid",
-    "hash-check-only",
-    "header",
-    "http-accept-gzip",
-    "http-no-cache",
-    "http-passwd",
-    "http-proxy-passwd",
-    "http-proxy-user",
-    "http-proxy",
-    "http-user",
-    "https-proxy-passwd",
-    "https-proxy-user",
-    "https-proxy",
-    "index-out",
-    "listen-port",
-    "lowest-speed-limit",
-    "max-concurrent-downloads",
-    "max-connection-per-server",
-    "max-download-limit",
-    "max-file-not-found",
-    "max-mmap-limit",
-    "max-overall-download-limit",
-    "max-overall-upload-limit",
-    "max-resume-failure-tries",
-    "max-tries",
-    "max-upload-limit",
-    "min-split-size",
-    "no-file-allocation-limit",
-    "no-netrc",
-    "no-proxy",
-    "no-want-digest-header",
-    "out",
-    "parameterized-uri",
-    "pause-metadata",
-    "pause",
-    "piece-length",
-    "proxy-method",
-    "realtime-chunk-checksum",
-    "referer",
-    "remote-time",
-    "remove-control-file",
-    "retry-wait",
-    "reuse-uri",
-    "allow-remote-access",
-    "rpc-listen-port",
-    "rpc-save-upload-metadata",
-    "rpc-secret",
-    "seed-ratio",
-    "seed-time",
-    "select-file",
-    "split",
-    "stream-piece-selector",
-    "timeout",
-    "uri-selector",
-    "use-head",
-    "user-agent",
-];
+use std::collections::HashSet;
+use std::sync::OnceLock;
+
+/// Shared engine-option metadata, embedded at compile time.
+const ARIA2_OPTIONS_JSON: &str = include_str!("../../../src/shared/aria2Options.json");
+
+#[derive(serde::Deserialize)]
+struct Aria2Options {
+    #[serde(rename = "engineOptions")]
+    engine_options: Vec<String>,
+    #[serde(rename = "nonHotReloadable")]
+    non_hot_reloadable: Vec<String>,
+}
+
+fn aria2_options() -> &'static Aria2Options {
+    static OPTIONS: OnceLock<Aria2Options> = OnceLock::new();
+    OPTIONS.get_or_init(|| {
+        serde_json::from_str(ARIA2_OPTIONS_JSON).expect("aria2Options.json is valid JSON")
+    })
+}
+
+/// Every aria2 engine option the app may pass on the CLI or via RPC.
+pub(crate) fn supported_engine_keys() -> &'static HashSet<&'static str> {
+    static KEYS: OnceLock<HashSet<&'static str>> = OnceLock::new();
+    KEYS.get_or_init(|| {
+        aria2_options()
+            .engine_options
+            .iter()
+            .map(String::as_str)
+            .collect()
+    })
+}
+
+/// Options aria2 rejects via `changeGlobalOption` (bound at process start).
+pub(crate) fn non_hot_reloadable_keys() -> &'static HashSet<&'static str> {
+    static KEYS: OnceLock<HashSet<&'static str>> = OnceLock::new();
+    KEYS.get_or_init(|| {
+        aria2_options()
+            .non_hot_reloadable
+            .iter()
+            .map(String::as_str)
+            .collect()
+    })
+}
 
 const PROXY_CLEAR_KEYS: &[&str] = &[
     "all-proxy",
@@ -229,7 +172,7 @@ fn build_start_args_impl(
     if let Some(obj) = config.as_object() {
         for (key, value) in obj {
             // Only pass whitelisted Aria2 Next keys.
-            if !SUPPORTED_ENGINE_KEYS.contains(&key.as_str()) {
+            if !supported_engine_keys().contains(key.as_str()) {
                 continue;
             }
 
