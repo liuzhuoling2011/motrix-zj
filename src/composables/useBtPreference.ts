@@ -17,7 +17,7 @@ import { convertCommaToLine, convertLineToComma } from '@shared/utils'
 
 /**
  * Validates whether a string is a valid HTTP/HTTPS URL suitable for use as a
- * tracker source. Custom tracker sources are fetched via axios GET, so only
+ * tracker source. Custom tracker sources are fetched over HTTP, so only
  * HTTP-based protocols are accepted.
  */
 export function isValidTrackerSourceUrl(input: string): boolean {

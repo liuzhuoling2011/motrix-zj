@@ -4,7 +4,7 @@ import { ref, computed, watch, onMounted, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
 import { usePreferenceForm } from '@/composables/usePreferenceForm'
-import { useIpc } from '@/composables/useIpc'
+import { invoke } from '@tauri-apps/api/core'
 import { useEngineRestart } from '@/composables/useEngineRestart'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { arch as osArch, version as osVersion } from '@tauri-apps/plugin-os'
@@ -122,8 +122,7 @@ const { form, isDirty, handleSave, handleReset, patchSnapshot, resetSnapshot } =
           ? tt('preferences.language-changed-later')
           : `${tt('preferences.language-changed-later')} · Later`,
         onPositiveClick: async () => {
-          const { stopEngine } = useIpc()
-          await stopEngine()
+          await invoke('stop_engine_command')
           relaunch()
         },
       })

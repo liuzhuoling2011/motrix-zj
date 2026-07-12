@@ -13,7 +13,6 @@ import { useHistoryStore } from '@/stores/history'
 import { useAdvancedActions } from '@/composables/useAdvancedActions'
 import { useProtocolHandlers, type ProtocolKey } from '@/composables/useProtocolHandlers'
 import { relaunch } from '@tauri-apps/plugin-process'
-import { useIpc } from '@/composables/useIpc'
 import { appDataDir, appLogDir, join, tempDir } from '@tauri-apps/api/path'
 import { APP_LOG_LEVELS, ARIA2_LOG_LEVELS } from '@shared/constants'
 import {
@@ -205,8 +204,7 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
         negativeText: t('preferences.engine-restart-later'),
         maskClosable: false,
         onPositiveClick: async () => {
-          const { stopEngine } = useIpc()
-          await stopEngine()
+          await invoke('stop_engine_command')
           await relaunch()
         },
       })
@@ -221,8 +219,7 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
         negativeText: t('preferences.engine-restart-later'),
         maskClosable: false,
         onPositiveClick: async () => {
-          const { stopEngine } = useIpc()
-          await stopEngine()
+          await invoke('stop_engine_command')
           await relaunch()
         },
       })
