@@ -13,7 +13,7 @@ import { getVersion as getAppVersion } from '@tauri-apps/api/app'
 import { getVersion as getAria2Version } from '@/api/aria2'
 import { getLocale } from 'tauri-plugin-locale-api'
 import { resolveSystemLocale } from '@shared/utils/locale'
-import { i18n } from '@/composables/useLocale'
+import { SUPPORTED_LOCALES } from '@/composables/useLocale'
 import { logger } from '@shared/logger'
 import { writeAppClipboardText } from '@shared/utils'
 import {
@@ -298,7 +298,7 @@ onMounted(async () => {
   }
   try {
     const raw = (await getLocale()) || 'en-US'
-    detectedLocaleCode.value = resolveSystemLocale(raw, i18n.global.availableLocales)
+    detectedLocaleCode.value = resolveSystemLocale(raw, SUPPORTED_LOCALES)
   } catch (e) {
     logger.debug('General.detectLocale', e)
   }
