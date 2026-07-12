@@ -9,7 +9,7 @@ import {
 } from '@shared/constants'
 import { getAllowedColorSchemeIds, normalizeCustomColorScheme } from '@shared/utils/colorSchemeConfig'
 import { runMigrations, type MigrationResult } from '@shared/utils/configMigration'
-import { normalizeProxyMode } from '@shared/utils/proxyPolicy'
+import { normalizeProxyMode } from '@shared/utils/proxy'
 import type { AppConfig, ClipboardConfig, PortConflictRecoveryConfig, ProxyConfig } from '@shared/types'
 import { normalizeFileCategory } from '@shared/utils/fileCategory'
 import {

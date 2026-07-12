@@ -21,7 +21,7 @@ import {
   randomBtPort,
   randomDhtPort,
 } from '@/composables/useNetworkPreference'
-import { proxySwitchValueToMode } from '@shared/utils/proxyPolicy'
+import { proxySwitchValueToMode } from '@shared/utils/proxy'
 
 import userAgentMap from '@shared/ua'
 import { hasUnsafeHeaderChars, sanitizeHeaderValue } from '@shared/utils/headerSanitize'

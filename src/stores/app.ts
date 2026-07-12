@@ -37,7 +37,7 @@ import type {
   BatchItem,
 } from '@shared/types'
 import type { AddTaskForm } from '@/composables/useAddTaskSubmit'
-import { getDefaultTaskProxyMode } from '@shared/utils/proxyPolicy'
+import { getDefaultTaskProxyMode } from '@shared/utils/proxy'
 
 /** Payload shape emitted by Rust stat_service via `stat:update`. */
 interface StatPayload {

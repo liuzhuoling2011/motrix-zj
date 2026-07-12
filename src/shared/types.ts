@@ -166,7 +166,7 @@ export interface Aria2RawGlobalStat {
 
 /** HTTP proxy configuration for download tasks and scoped app requests. */
 export interface ProxyConfig {
-  mode?: import('@shared/utils/proxyPolicy').EngineProxyMode
+  mode?: import('@shared/utils/proxy').EngineProxyMode
   server: string
   username?: string
   password?: string
@@ -506,6 +506,8 @@ export interface TauriUpdate {
   date: string | null
   channel: ResolvedUpdateChannel
   requestedChannel: UpdateChannel
+  /** Computed by Rust via the semver crate — true for cross-channel downgrades. */
+  isRollback: boolean
 }
 
 // ── Batch Add Task ──────────────────────────────────────────────────
