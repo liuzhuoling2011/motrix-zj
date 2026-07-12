@@ -13,7 +13,7 @@ import { getVersion as getAppVersion } from '@tauri-apps/api/app'
 import { getVersion as getAria2Version } from '@/api/aria2'
 import { getLocale } from 'tauri-plugin-locale-api'
 import { resolveSystemLocale } from '@shared/utils/locale'
-import { SUPPORTED_LOCALES } from '@/composables/useLocale'
+import { SUPPORTED_LOCALES, loadLocale } from '@/composables/useLocale'
 import { logger } from '@shared/logger'
 import { writeAppClipboardText } from '@shared/utils'
 import {
@@ -98,6 +98,9 @@ const { form, isDirty, handleSave, handleReset, patchSnapshot, resetSnapshot } =
       // Determine the actual target locale for bilingual dialog rendering.
       const targetLocale = f.locale === 'auto' ? detectedLocaleCode.value || 'en-US' : f.locale
       const isEn = targetLocale === 'en-US'
+      // Locale messages are lazy-loaded — pull in the target locale so the
+      // dialog can render in it (falls back to English if loading fails).
+      if (!isEn) await loadLocale(targetLocale)
       const tt = (key: string) => t(key, {}, { locale: targetLocale })
       dialog.info({
         style: 'min-width: 520px',
