@@ -67,6 +67,11 @@
   --ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
+  /* Gold CTA — identical in both themes (never muddied by light mode) */
+  --cta-grad: linear-gradient(180deg, #ffd166, #f0b429 55%, #e09422);
+  --cta-text: #1a1206;
+  --cta-glow: rgba(240, 180, 41, 0.35);
+
   /* Layout */
   --col: min(720px, 92vw);
   --col-wide: min(1120px, 94vw);
@@ -75,12 +80,12 @@
 }
 
 :root[data-theme='light'] {
-  --bg: #faf9f7;
-  --bg-soft: #f3f1ec;
-  --surface: #ffffff;
-  --surface-2: #f6f4ef;
-  --line: rgba(28, 25, 20, 0.1);
-  --line-soft: rgba(28, 25, 20, 0.06);
+  --bg: #f1ede5;
+  --bg-soft: #eae5db;
+  --surface: #f9f7f2;
+  --surface-2: #f0ece3;
+  --line: rgba(28, 25, 20, 0.12);
+  --line-soft: rgba(28, 25, 20, 0.07);
   --text: #1b1917;
   --text-dim: #57534c;
   --text-muted: #a39e94;
@@ -90,15 +95,15 @@
   --gold-deep: #b0620a;
   --gold-soft: rgba(176, 127, 10, 0.08);
   --gold-line: rgba(176, 127, 10, 0.3);
-  --gold-glow: rgba(196, 148, 30, 0.2);
+  --gold-glow: rgba(196, 148, 30, 0.3);
 
   --rose: #d14e66;
   --rose-soft: rgba(209, 78, 102, 0.09);
   --rose-line: rgba(209, 78, 102, 0.25);
 
-  --grid-dot: rgba(28, 25, 20, 0.08);
-  --overlay: rgba(250, 249, 247, 0.9);
-  --nav-bg: rgba(250, 249, 247, 0.75);
+  --grid-dot: rgba(28, 25, 20, 0.13);
+  --overlay: rgba(241, 237, 229, 0.92);
+  --nav-bg: rgba(241, 237, 229, 0.75);
   --code-bg: rgba(176, 127, 10, 0.09);
   --chip-bg: rgba(28, 25, 20, 0.04);
   --shadow-app:
@@ -133,6 +138,34 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+/* Page-wide ambience — identical structure in both themes:
+   soft corner glows + an ultra-faint dot grid over the whole page. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 52% 40% at 10% 18%, var(--gold-glow), transparent 70%),
+    radial-gradient(ellipse 40% 32% at 92% 50%, var(--gold-glow), transparent 70%),
+    radial-gradient(ellipse 48% 36% at 30% 92%, var(--gold-glow), transparent 70%);
+  opacity: 0.5;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(circle, var(--grid-dot) 1px, transparent 1px);
+  background-size: 30px 30px;
+  opacity: 0.4;
+  mask-image: linear-gradient(180deg, black, transparent 55%, black);
+  -webkit-mask-image: linear-gradient(180deg, black, transparent 55%, black);
 }
 
 a {
@@ -282,8 +315,8 @@ footer.i18n-fade-in {
   font-family: var(--font-display);
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #14100a;
-  background: linear-gradient(180deg, var(--gold-hi), var(--gold));
+  color: var(--cta-text);
+  background: var(--cta-grad);
   padding: 0.42rem 1.1rem;
   border-radius: 99px;
   transition:
@@ -293,7 +326,7 @@ footer.i18n-fade-in {
 
 .nav-cta:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px var(--gold-glow);
+  box-shadow: 0 6px 20px var(--cta-glow);
 }
 
 /* ── Pickers (lang / theme) ────────────────────────────────────────── */
@@ -423,6 +456,31 @@ footer.i18n-fade-in {
   z-index: 0;
 }
 
+/* Launch beam — a glowing horizon line right under the nav */
+.hero-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(760px, 82vw);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: 0.55;
+}
+
+.hero-bg::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(560px, 66vw);
+  height: 90px;
+  background: radial-gradient(ellipse 50% 100% at 50% 0%, var(--gold-glow), transparent 70%);
+  opacity: 0.8;
+}
+
 /* Precision dot grid, faded at edges */
 .hero-grid {
   position: absolute;
@@ -442,9 +500,9 @@ footer.i18n-fade-in {
   height: 640px;
   transform: translateX(-50%);
   background:
-    radial-gradient(ellipse 45% 55% at 42% 40%, var(--gold-glow), transparent 65%),
-    radial-gradient(ellipse 42% 50% at 60% 45%, rgba(222, 143, 45, 0.1), transparent 65%);
-  filter: blur(8px);
+    radial-gradient(ellipse 46% 56% at 42% 40%, var(--gold-glow), transparent 65%),
+    radial-gradient(ellipse 44% 52% at 60% 45%, var(--gold-glow), transparent 68%);
+  filter: blur(10px);
 }
 
 /* Speed streaks — the download metaphor, restrained */
@@ -614,18 +672,18 @@ footer.i18n-fade-in {
 }
 
 .btn-gold {
-  color: #14100a;
-  background: linear-gradient(180deg, var(--gold-hi), var(--gold) 55%, var(--gold-deep));
+  color: var(--cta-text);
+  background: var(--cta-grad);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 1px 3px rgba(0, 0, 0, 0.3);
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
 .btn-gold:hover {
   transform: translateY(-2px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 10px 32px var(--gold-glow);
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 10px 32px var(--cta-glow);
 }
 
 .btn-ghost {
@@ -757,7 +815,26 @@ footer.i18n-fade-in {
 .duo-shot:hover {
   transform: translateY(-5px);
   border-color: var(--gold-line);
-  z-index: 3;
+}
+
+/* Hovering the back (dark) shot: the front one gracefully yields —
+   slides aside and fades so the full dark screenshot is readable.
+   No z-index jumps, everything transitions. */
+.hero-duo:has(.duo-dark:hover) .duo-light {
+  transform: translate(5%, 7%) scale(0.965);
+  opacity: 0.3;
+}
+
+[dir='rtl'] .hero-duo:has(.duo-dark:hover) .duo-light {
+  transform: translate(-5%, 7%) scale(0.965);
+}
+
+.duo-light {
+  transition:
+    transform 380ms var(--ease-enter),
+    opacity 380ms var(--ease-enter),
+    border-color 300ms,
+    box-shadow 300ms var(--ease-enter);
 }
 
 /* Scroll-driven un-tilt (progressive enhancement) */

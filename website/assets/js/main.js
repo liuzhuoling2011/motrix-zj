@@ -76,7 +76,7 @@ langDropdown.addEventListener('click', (e) => {
   const dropdown = document.getElementById('theme-dropdown')
   const label = document.getElementById('theme-toggle-label')
   const systemHint = document.getElementById('theme-system-hint')
-  const colors = { dark: '#08080a', light: '#faf9f7' }
+  const colors = { dark: '#08080a', light: '#f1ede5' }
   const i18nKeys = { system: 'theme.system', light: 'theme.light', dark: 'theme.dark' }
 
   const getSystemTheme = () =>
