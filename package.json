@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:repo": "node scripts/check-repo-integrity.mjs",
     "coverage": "vitest run --coverage",
     "lint": "eslint src/ --max-warnings=0",
     "lint:fix": "eslint src/ --fix",
