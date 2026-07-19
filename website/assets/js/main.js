@@ -100,20 +100,6 @@ langDropdown.addEventListener('click', (e) => {
     dropdown.querySelectorAll('.picker-option').forEach((opt) => {
       opt.classList.toggle('active', opt.dataset.theme === choice)
     })
-
-    // Star-history chart follows the theme; both variants stay warm in cache
-    const chart = document.getElementById('star-history-chart')
-    const preload = document.getElementById('star-history-preload')
-    if (chart && preload) {
-      const base =
-        'https://api.star-history.com/chart?repos=AnInsomniacy/motrix-next&type=date&legend=top-left'
-      const darkUrl = base + '&theme=dark'
-      const wantDark = effective === 'dark'
-      chart.src = wantDark ? darkUrl : base
-      preload.src = wantDark ? base : darkUrl
-      const frame = chart.closest('.star-history-frame')
-      if (frame && chart.complete && chart.naturalWidth > 0) frame.classList.add('loaded')
-    }
   }
 
   applyTheme(getStored())

@@ -1765,55 +1765,6 @@ footer.i18n-fade-in {
   animation: rise 400ms 120ms var(--ease-enter) both;
 }
 
-/* ═══ Star history ═════════════════════════════════════════════════ */
-.star-history-frame {
-  position: relative;
-  max-width: 720px;
-  margin: 0 auto;
-  aspect-ratio: 3 / 2;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--bg-soft);
-  overflow: hidden;
-}
-
-.star-history-frame::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, var(--line-soft) 40%, transparent 80%);
-  background-size: 200% 100%;
-  animation: shimmer 1.6s linear infinite;
-  pointer-events: none;
-  transition: opacity 400ms;
-}
-
-.star-history-frame.loaded::after {
-  opacity: 0;
-}
-
-@keyframes shimmer {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: -100% 0;
-  }
-}
-
-.star-history-frame img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  opacity: 0;
-  transition: opacity 500ms var(--ease-enter);
-}
-
-.star-history-frame.loaded img {
-  opacity: 1;
-}
-
 /* ═══ Footer ═══════════════════════════════════════════════════════ */
 #footer {
   max-width: var(--col);
