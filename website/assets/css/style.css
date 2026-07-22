@@ -62,20 +62,20 @@
   --nav-bg: rgba(8, 8, 10, 0.72);
   --code-bg: rgba(240, 180, 41, 0.08);
   --chip-bg: rgba(255, 255, 255, 0.04);
-  --ghost-color: #8fb4ff;
+  --ghost-color: #a99ade;
   --ghost-bg: linear-gradient(
     180deg,
-    rgba(143, 180, 255, 0.2),
-    rgba(80, 120, 220, 0.13)
+    rgba(169, 154, 222, 0.09),
+    rgba(112, 87, 180, 0.055)
   );
-  --ghost-border: rgba(143, 180, 255, 0.36);
+  --ghost-border: rgba(169, 154, 222, 0.26);
   --ghost-hover-bg: linear-gradient(
     180deg,
-    rgba(143, 180, 255, 0.28),
-    rgba(80, 120, 220, 0.19)
+    rgba(169, 154, 222, 0.14),
+    rgba(112, 87, 180, 0.09)
   );
-  --ghost-hover-border: rgba(143, 180, 255, 0.55);
-  --ghost-glow: rgba(80, 120, 220, 0.24);
+  --ghost-hover-border: rgba(169, 154, 222, 0.42);
+  --ghost-glow: rgba(112, 87, 180, 0.18);
   --secondary-btn-highlight: rgba(255, 255, 255, 0.12);
   --secondary-btn-shadow: rgba(0, 0, 0, 0.22);
   --shadow-app:
@@ -144,20 +144,20 @@
   --nav-bg: rgba(241, 237, 229, 0.75);
   --code-bg: rgba(176, 127, 10, 0.09);
   --chip-bg: rgba(28, 25, 20, 0.04);
-  --ghost-color: #315fae;
+  --ghost-color: #665298;
   --ghost-bg: linear-gradient(
     180deg,
-    rgba(49, 95, 174, 0.13),
-    rgba(49, 95, 174, 0.07)
+    rgba(102, 82, 152, 0.11),
+    rgba(102, 82, 152, 0.06)
   );
-  --ghost-border: rgba(49, 95, 174, 0.3);
+  --ghost-border: rgba(102, 82, 152, 0.26);
   --ghost-hover-bg: linear-gradient(
     180deg,
-    rgba(49, 95, 174, 0.19),
-    rgba(49, 95, 174, 0.11)
+    rgba(102, 82, 152, 0.17),
+    rgba(102, 82, 152, 0.1)
   );
-  --ghost-hover-border: rgba(49, 95, 174, 0.45);
-  --ghost-glow: rgba(49, 95, 174, 0.2);
+  --ghost-hover-border: rgba(102, 82, 152, 0.4);
+  --ghost-glow: rgba(102, 82, 152, 0.17);
   --secondary-btn-highlight: rgba(255, 255, 255, 0.55);
   --secondary-btn-shadow: rgba(30, 25, 15, 0.12);
   --shadow-app:
