@@ -43,18 +43,41 @@
   --gold-glow: rgba(240, 180, 41, 0.18);
 
   --rose: #e85d75;
-  --rose-soft: rgba(232, 93, 117, 0.1);
+  --rose-soft: linear-gradient(
+    180deg,
+    rgba(232, 93, 117, 0.14),
+    rgba(232, 93, 117, 0.08)
+  );
+  --rose-hover: linear-gradient(
+    180deg,
+    rgba(232, 93, 117, 0.2),
+    rgba(232, 93, 117, 0.12)
+  );
   --rose-line: rgba(232, 93, 117, 0.25);
+  --rose-hover-line: rgba(232, 93, 117, 0.42);
+  --rose-glow: rgba(232, 93, 117, 0.2);
 
   --grid-dot: rgba(255, 255, 255, 0.055);
   --overlay: rgba(4, 4, 6, 0.86);
   --nav-bg: rgba(8, 8, 10, 0.72);
   --code-bg: rgba(240, 180, 41, 0.08);
   --chip-bg: rgba(255, 255, 255, 0.04);
-  --ghost-bg: rgba(255, 255, 255, 0.075);
-  --ghost-border: rgba(255, 255, 255, 0.16);
-  --ghost-hover-bg: rgba(255, 255, 255, 0.11);
-  --ghost-hover-border: rgba(255, 255, 255, 0.24);
+  --ghost-color: #8fb4ff;
+  --ghost-bg: linear-gradient(
+    180deg,
+    rgba(143, 180, 255, 0.2),
+    rgba(80, 120, 220, 0.13)
+  );
+  --ghost-border: rgba(143, 180, 255, 0.36);
+  --ghost-hover-bg: linear-gradient(
+    180deg,
+    rgba(143, 180, 255, 0.28),
+    rgba(80, 120, 220, 0.19)
+  );
+  --ghost-hover-border: rgba(143, 180, 255, 0.55);
+  --ghost-glow: rgba(80, 120, 220, 0.24);
+  --secondary-btn-highlight: rgba(255, 255, 255, 0.12);
+  --secondary-btn-shadow: rgba(0, 0, 0, 0.22);
   --shadow-app:
     0 40px 120px -24px rgba(0, 0, 0, 0.7),
     0 0 140px -40px rgba(240, 180, 41, 0.14);
@@ -102,18 +125,41 @@
   --gold-glow: rgba(196, 148, 30, 0.3);
 
   --rose: #d14e66;
-  --rose-soft: rgba(209, 78, 102, 0.09);
+  --rose-soft: linear-gradient(
+    180deg,
+    rgba(209, 78, 102, 0.13),
+    rgba(209, 78, 102, 0.07)
+  );
+  --rose-hover: linear-gradient(
+    180deg,
+    rgba(209, 78, 102, 0.19),
+    rgba(209, 78, 102, 0.11)
+  );
   --rose-line: rgba(209, 78, 102, 0.25);
+  --rose-hover-line: rgba(209, 78, 102, 0.4);
+  --rose-glow: rgba(209, 78, 102, 0.18);
 
   --grid-dot: rgba(28, 25, 20, 0.13);
   --overlay: rgba(241, 237, 229, 0.92);
   --nav-bg: rgba(241, 237, 229, 0.75);
   --code-bg: rgba(176, 127, 10, 0.09);
   --chip-bg: rgba(28, 25, 20, 0.04);
-  --ghost-bg: rgba(28, 25, 20, 0.06);
-  --ghost-border: rgba(28, 25, 20, 0.18);
-  --ghost-hover-bg: rgba(28, 25, 20, 0.1);
-  --ghost-hover-border: rgba(28, 25, 20, 0.28);
+  --ghost-color: #315fae;
+  --ghost-bg: linear-gradient(
+    180deg,
+    rgba(49, 95, 174, 0.13),
+    rgba(49, 95, 174, 0.07)
+  );
+  --ghost-border: rgba(49, 95, 174, 0.3);
+  --ghost-hover-bg: linear-gradient(
+    180deg,
+    rgba(49, 95, 174, 0.19),
+    rgba(49, 95, 174, 0.11)
+  );
+  --ghost-hover-border: rgba(49, 95, 174, 0.45);
+  --ghost-glow: rgba(49, 95, 174, 0.2);
+  --secondary-btn-highlight: rgba(255, 255, 255, 0.55);
+  --secondary-btn-shadow: rgba(30, 25, 15, 0.12);
   --shadow-app:
     0 40px 120px -24px rgba(30, 25, 15, 0.25),
     0 0 140px -40px rgba(196, 148, 30, 0.12);
@@ -697,15 +743,21 @@ footer.i18n-fade-in {
 }
 
 .btn-ghost {
-  color: var(--text);
+  color: var(--ghost-color);
   background: var(--ghost-bg);
   border: 1px solid var(--ghost-border);
+  box-shadow:
+    inset 0 1px 0 var(--secondary-btn-highlight),
+    0 1px 3px var(--secondary-btn-shadow);
 }
 
 .btn-ghost:hover {
   background: var(--ghost-hover-bg);
   border-color: var(--ghost-hover-border);
   transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 var(--secondary-btn-highlight),
+    0 8px 28px var(--ghost-glow);
 }
 
 .btn-ghost .ic-fill {
@@ -716,11 +768,18 @@ footer.i18n-fade-in {
   color: var(--rose);
   background: var(--rose-soft);
   border: 1px solid var(--rose-line);
+  box-shadow:
+    inset 0 1px 0 var(--secondary-btn-highlight),
+    0 1px 3px var(--secondary-btn-shadow);
 }
 
 .btn-sponsor:hover {
+  background: var(--rose-hover);
+  border-color: var(--rose-hover-line);
   transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(232, 93, 117, 0.18);
+  box-shadow:
+    inset 0 1px 0 var(--secondary-btn-highlight),
+    0 8px 28px var(--rose-glow);
 }
 
 .btn-lg {
