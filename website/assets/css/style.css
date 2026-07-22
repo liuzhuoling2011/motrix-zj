@@ -616,9 +616,11 @@ footer.i18n-fade-in {
 }
 
 .stat-value {
+  display: inline-block;
   font-weight: 700;
   color: var(--gold);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .stat-value.loading {

@@ -32,7 +32,36 @@ document.querySelectorAll('.bcard').forEach((card) => {
 })
 
 /* ═══ Count-up animation for hero stats ═════════════════════════════ */
+function reserveCountWidth(el, sample) {
+  const probe = el.cloneNode()
+  probe.removeAttribute('id')
+  probe.classList.remove('loading')
+  probe.textContent = sample
+  Object.assign(probe.style, {
+    position: 'fixed',
+    inset: 'auto auto 100% 100%',
+    inlineSize: 'max-content',
+    visibility: 'hidden',
+  })
+  document.body.appendChild(probe)
+  el.style.inlineSize = `${Math.ceil(probe.getBoundingClientRect().width)}px`
+  probe.remove()
+}
+
+function compactNumberWidthSample(target) {
+  if (target < 1000) return '0'.repeat(String(target).length)
+  const thousandsDigits = String(Math.floor(target / 1000)).length
+  return `${'0'.repeat(thousandsDigits)}.0k`
+}
+
 function countUp(el, target, format) {
+  reserveCountWidth(el, compactNumberWidthSample(target))
+
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    el.textContent = format(target)
+    return
+  }
+
   const duration = 900
   const start = performance.now()
   function frame(now) {
