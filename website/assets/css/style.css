@@ -582,7 +582,7 @@ footer.i18n-fade-in {
 .tagline {
   font-size: clamp(1.05rem, 2.3vw, 1.25rem);
   color: var(--text-dim);
-  max-width: 46ch;
+  max-width: 60ch;
   animation: rise 700ms 120ms var(--ease-enter) both;
 }
 
