@@ -51,6 +51,10 @@
   --nav-bg: rgba(8, 8, 10, 0.72);
   --code-bg: rgba(240, 180, 41, 0.08);
   --chip-bg: rgba(255, 255, 255, 0.04);
+  --ghost-bg: rgba(255, 255, 255, 0.075);
+  --ghost-border: rgba(255, 255, 255, 0.16);
+  --ghost-hover-bg: rgba(255, 255, 255, 0.11);
+  --ghost-hover-border: rgba(255, 255, 255, 0.24);
   --shadow-app:
     0 40px 120px -24px rgba(0, 0, 0, 0.7),
     0 0 140px -40px rgba(240, 180, 41, 0.14);
@@ -106,6 +110,10 @@
   --nav-bg: rgba(241, 237, 229, 0.75);
   --code-bg: rgba(176, 127, 10, 0.09);
   --chip-bg: rgba(28, 25, 20, 0.04);
+  --ghost-bg: rgba(28, 25, 20, 0.06);
+  --ghost-border: rgba(28, 25, 20, 0.18);
+  --ghost-hover-bg: rgba(28, 25, 20, 0.1);
+  --ghost-hover-border: rgba(28, 25, 20, 0.28);
   --shadow-app:
     0 40px 120px -24px rgba(30, 25, 15, 0.25),
     0 0 140px -40px rgba(196, 148, 30, 0.12);
@@ -689,14 +697,14 @@ footer.i18n-fade-in {
 }
 
 .btn-ghost {
-  color: var(--text-dim);
-  background: var(--chip-bg);
-  border: 1px solid var(--line);
+  color: var(--text);
+  background: var(--ghost-bg);
+  border: 1px solid var(--ghost-border);
 }
 
 .btn-ghost:hover {
-  color: var(--text);
-  border-color: var(--text-muted);
+  background: var(--ghost-hover-bg);
+  border-color: var(--ghost-hover-border);
   transform: translateY(-2px);
 }
 
