@@ -1040,7 +1040,7 @@ onUnmounted(() => {
     <NModal
       :show="showExitDialog"
       preset="dialog"
-      type="warning"
+      type="default"
       :title="t('app.close-action-title')"
       :closable="true"
       :mask-closable="true"
@@ -1182,7 +1182,7 @@ onUnmounted(() => {
   left: 0;
   height: 2px;
   width: 30%;
-  background: linear-gradient(90deg, transparent, var(--color-primary), transparent);
+  background: linear-gradient(90deg, transparent, var(--m3-primary), transparent);
   animation: engine-indeterminate 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   will-change: transform;
   contain: layout style paint;

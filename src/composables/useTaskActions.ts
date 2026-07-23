@@ -96,7 +96,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
     }
     const deleteFiles = ref(false)
     const name = getTaskDisplayName(task, { defaultName: 'Unknown' })
-    const d = dialog.warning({
+    const d = dialog.error({
       title: t('task.delete-task'),
       content: () =>
         h('div', {}, [
@@ -152,7 +152,7 @@ export function useTaskActions(deps: TaskActionsDeps) {
     }
     const deleteFiles = ref(false)
     const name = getTaskDisplayName(task, { defaultName: 'Unknown' })
-    const d = dialog.warning({
+    const d = dialog.error({
       title: t('task.delete-task'),
       content: () =>
         h('div', {}, [

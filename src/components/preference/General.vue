@@ -260,7 +260,7 @@ const { restartEngine } = useEngineRestart()
 function handleManualRestart() {
   const port = (preferenceStore.config.rpcListenPort as number) || ENGINE_RPC_PORT
   const secret = (preferenceStore.config.rpcSecret as string) || ''
-  const d = dialog.warning({
+  const d = dialog.info({
     title: t('preferences.engine-restart-title'),
     content: t('preferences.engine-restart-manual-confirm'),
     positiveText: t('preferences.engine-restart-now'),
@@ -542,16 +542,16 @@ onMounted(async () => {
   gap: 12px;
   height: 30px;
   padding: 0 10px;
-  border: 1px solid var(--m3-outline-variant, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--m3-outline-variant);
   border-radius: 8px;
-  background: var(--about-card-bg, rgba(255, 255, 255, 0.03));
+  background: var(--about-card-bg);
   cursor: pointer;
-  transition: var(--transition-all, 0.2s ease);
+  transition: var(--transition-all);
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo, Monaco, 'Courier New', monospace;
 }
 .sysinfo-ver-badge:hover {
-  border-color: var(--color-primary);
-  background: var(--about-card-hover-bg, rgba(255, 255, 255, 0.06));
+  border-color: var(--m3-primary);
+  background: var(--about-card-hover-bg);
 }
 .sysinfo-ver-badge:hover .sysinfo-ver-copy {
   opacity: 0.7;
@@ -562,27 +562,27 @@ onMounted(async () => {
 .sysinfo-ver-value {
   font-size: 13px;
   font-weight: 520;
-  color: var(--m3-on-surface, rgba(255, 255, 255, 0.9));
+  color: var(--m3-on-surface);
   letter-spacing: 0.3px;
 }
 .sysinfo-ver-copy {
   opacity: 0.35;
   margin-left: auto;
-  color: var(--m3-on-surface-variant, rgba(255, 255, 255, 0.5));
-  transition: var(--transition-all, 0.2s ease);
+  color: var(--m3-on-surface-variant);
+  transition: var(--transition-all);
   flex-shrink: 0;
 }
 .sysinfo-ver-badge--muted {
   cursor: default;
 }
 .sysinfo-ver-badge--muted:hover {
-  border-color: var(--m3-outline-variant, rgba(255, 255, 255, 0.08));
-  background: var(--about-card-bg, rgba(255, 255, 255, 0.03));
+  border-color: var(--m3-outline-variant);
+  background: var(--about-card-bg);
 }
 .sysinfo-ver-muted {
   font-size: 12px;
   font-weight: 500;
-  color: var(--m3-outline, rgba(255, 255, 255, 0.38));
+  color: var(--m3-outline);
   letter-spacing: 0.3px;
 }
 
@@ -618,7 +618,7 @@ onMounted(async () => {
   transform: scale(1.05);
 }
 .color-swatch.active {
-  border-color: var(--m3-on-surface, #fff);
+  border-color: var(--m3-on-surface);
   box-shadow:
     0 0 0 2px var(--swatch-color),
     0 2px 8px rgba(0, 0, 0, 0.25);

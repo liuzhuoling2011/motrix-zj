@@ -195,7 +195,7 @@ function handleCancel() {
 .task-name-subtitle {
   margin-bottom: 12px;
   font-size: 13px;
-  color: var(--n-text-color-3, var(--m3-on-surface-variant));
+  color: var(--m3-on-surface-variant);
   line-height: 1.4;
 }
 
@@ -206,7 +206,7 @@ function handleCancel() {
   font-size: 14px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--n-text-color-2, var(--m3-on-surface));
+  color: var(--m3-on-surface);
 }
 
 .file-summary-count,

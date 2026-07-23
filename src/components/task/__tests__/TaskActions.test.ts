@@ -100,7 +100,11 @@ vi.mock('naive-ui', () => ({
     template: '<div><slot name="trigger" /></div>',
     props: ['show', 'trigger', 'placement', 'showArrow', 'raw'],
   },
-  useDialog: () => ({ warning: mockDialogWarning }),
+  useDialog: () => ({
+    error: mockDialogWarning,
+    info: mockDialogWarning,
+    warning: mockDialogWarning,
+  }),
   useMessage: () => ({
     success: mockMessageSuccess,
     error: mockMessageError,

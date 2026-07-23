@@ -141,13 +141,12 @@ function renderCustomOption(info: {
   selected: boolean
 }): VNodeChild {
   const url = String(info.option.value ?? '')
-  return h('div', { style: 'display:flex;align-items:center;position:relative;padding-right:32px' }, [
-    h('div', { style: 'flex:1;min-width:0' }, [info.node]),
+  return h('div', { class: 'custom-tracker-option' }, [
+    h('div', { class: 'custom-tracker-option__content' }, [info.node]),
     h(
       'span',
       {
-        style:
-          'position:absolute;right:8px;display:flex;align-items:center;cursor:pointer;color:var(--error-color, #e88080)',
+        class: 'custom-tracker-option__delete',
         onClick: (e: Event) => onDeleteCustomTracker(url, e),
       },
       [h(NIcon, { size: 18 }, { default: () => h(CloseCircleOutline) })],
@@ -223,7 +222,7 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
     if (!checkIsNeedRestart(changed)) return true
 
     const ok = await new Promise<boolean>((resolve) => {
-      dialog.warning({
+      dialog.info({
         title: t('preferences.engine-restart-title'),
         content: t('preferences.engine-restart-confirm'),
         positiveText: t('preferences.engine-restart-now'),
@@ -341,27 +340,20 @@ function showSyncFailureDialog(
   dialog[dialogType]({
     title,
     content: () =>
-      h('div', { style: 'max-height:300px;overflow-y:auto' }, [
+      h('div', { class: 'tracker-sync-failures' }, [
         isPartial
           ? h(
               'p',
-              { style: 'margin:0 0 8px;color:var(--text-color-secondary, #999)' },
+              { class: 'tracker-sync-failures__summary' },
               `${successCount}/${totalCount} ${t('preferences.bt-tracker-sync-sources-ok')}`,
             )
           : null,
-        h('p', { style: 'margin:0 0 8px;font-weight:500' }, t('preferences.bt-tracker-sync-failed-sources')),
+        h('p', { class: 'tracker-sync-failures__heading' }, t('preferences.bt-tracker-sync-failed-sources')),
         ...failures.map((f) =>
-          h(
-            'div',
-            {
-              style:
-                'margin:6px 0;padding:6px 8px;border-radius:4px;background:var(--error-color-hover, rgba(232,128,128,0.08))',
-            },
-            [
-              h('div', { style: 'font-size:12px;word-break:break-all;font-weight:500' }, f.url),
-              h('div', { style: 'font-size:11px;color:var(--error-color, #e88080);margin-top:2px' }, f.reason),
-            ],
-          ),
+          h('div', { class: 'tracker-sync-failure' }, [
+            h('div', { class: 'tracker-sync-failure__url' }, f.url),
+            h('div', { class: 'tracker-sync-failure__reason' }, f.reason),
+          ]),
         ),
       ]),
     positiveText: 'OK',
@@ -388,7 +380,7 @@ const { restartEngine } = useEngineRestart()
 function handleManualRestart() {
   const port = (preferenceStore.config.rpcListenPort as number) || ENGINE_RPC_PORT
   const secret = (preferenceStore.config.rpcSecret as string) || ''
-  const d = dialog.warning({
+  const d = dialog.info({
     title: t('preferences.engine-restart-title'),
     content: t('preferences.engine-restart-manual-confirm'),
     positiveText: t('preferences.engine-restart-now'),
@@ -595,6 +587,52 @@ onMounted(() => {
 .bt-tracker-sync-button {
   min-width: 100px;
 }
+:global(.custom-tracker-option) {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding-right: 32px;
+}
+:global(.custom-tracker-option__content) {
+  flex: 1;
+  min-width: 0;
+}
+:global(.custom-tracker-option__delete) {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  color: var(--m3-error);
+  cursor: pointer;
+}
+:global(.tracker-sync-failures) {
+  max-height: 300px;
+  overflow-y: auto;
+}
+:global(.tracker-sync-failures__summary) {
+  margin: 0 0 8px;
+  color: var(--m3-on-surface-variant);
+}
+:global(.tracker-sync-failures__heading) {
+  margin: 0 0 8px;
+  font-weight: 500;
+}
+:global(.tracker-sync-failure) {
+  margin: 6px 0;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--m3-error-container);
+  color: var(--m3-on-error-container);
+}
+:global(.tracker-sync-failure__url) {
+  font-size: 12px;
+  font-weight: 500;
+  word-break: break-all;
+}
+:global(.tracker-sync-failure__reason) {
+  margin-top: 2px;
+  font-size: 11px;
+}
 .tracker-source-group {
   width: 100%;
 }
@@ -616,15 +654,15 @@ onMounted(() => {
     background-color 180ms ease;
 }
 .tracker-source-option:hover {
-  border-color: color-mix(in srgb, var(--color-primary) 42%, var(--m3-outline-variant));
+  border-color: color-mix(in srgb, var(--m3-primary) 42%, var(--m3-outline-variant));
   background: var(--m3-surface-container-low);
 }
 .tracker-source-option.n-checkbox--checked {
-  border-color: color-mix(in srgb, var(--color-primary) 58%, var(--m3-outline-variant));
-  background: color-mix(in srgb, var(--color-primary) 7%, var(--m3-surface-container-low));
+  border-color: color-mix(in srgb, var(--m3-primary) 58%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary) 7%, var(--m3-surface-container-low));
 }
 .tracker-source-option:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--color-primary) 68%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--m3-primary) 68%, transparent);
   outline-offset: 2px;
 }
 .tracker-source-option :deep(.n-checkbox__label) {
@@ -674,7 +712,7 @@ onMounted(() => {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--color-primary);
+  color: var(--m3-primary);
   cursor: pointer;
   text-decoration: none;
   font-size: 12px;
