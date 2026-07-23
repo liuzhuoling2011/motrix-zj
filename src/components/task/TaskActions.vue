@@ -208,7 +208,9 @@ function resumeAll() {
     onPositiveClick: () => {
       taskStore
         .resumeAllTask()
-        .then(() => message.success(t('task.resume-all-task-success')))
+        .then((result) => {
+          if (result.resumed > 0) message.success(t('task.resume-all-task-success'))
+        })
         .catch((e) => {
           logger.warn('TaskActions.resumeAll', getErrorMessage(e))
           message.error(t('task.resume-all-task-fail'))

@@ -23,6 +23,10 @@ export interface MagnetMetadataDeps {
   fallbackName: () => string
 }
 
+export interface MagnetMetadataResolver {
+  request: (gid?: string) => Promise<void>
+}
+
 export async function resolvePendingMagnetMetadata(deps: MagnetMetadataDeps, gid: string): Promise<boolean> {
   const { state } = deps
   if (state.visible) return false
@@ -38,7 +42,8 @@ export async function resolvePendingMagnetMetadata(deps: MagnetMetadataDeps, gid
     const realFiles = files.filter((file) => Number(file.length) > 0)
     if (realFiles.length === 0) return false
 
-    state.pendingGids = state.pendingGids.filter((pendingGid) => pendingGid !== gid)
+    if (state.visible || !state.pendingGids.includes(gid)) return false
+
     const parsed = parseFilesForSelection(realFiles)
     state.files = parsed
     state.session = resolved
@@ -56,6 +61,32 @@ export async function resolveNextPendingMagnetMetadata(deps: MagnetMetadataDeps)
   for (const gid of [...deps.state.pendingGids]) {
     if (await resolvePendingMagnetMetadata(deps, gid)) return
   }
+}
+
+export function createMagnetMetadataResolver(getDeps: () => MagnetMetadataDeps): MagnetMetadataResolver {
+  let running = false
+  let requested = false
+
+  async function request(gid?: string): Promise<void> {
+    if (gid && !getDeps().state.pendingGids.includes(gid)) return
+
+    requested = true
+    if (running) return
+
+    running = true
+    try {
+      while (requested) {
+        requested = false
+        const deps = getDeps()
+        if (deps.state.visible) continue
+        await resolveNextPendingMagnetMetadata(deps)
+      }
+    } finally {
+      running = false
+    }
+  }
+
+  return { request }
 }
 
 export async function listenForAria2DownloadComplete(

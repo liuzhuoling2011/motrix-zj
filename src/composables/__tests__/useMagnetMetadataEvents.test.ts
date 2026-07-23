@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { resolvePendingMagnetMetadata, type MagnetMetadataState } from '@/composables/useMagnetMetadataEvents'
+import {
+  createMagnetMetadataResolver,
+  resolvePendingMagnetMetadata,
+  type MagnetMetadataState,
+} from '@/composables/useMagnetMetadataEvents'
 import type { Aria2Task } from '@shared/types'
 
 vi.mock('@shared/logger', () => ({
@@ -59,7 +63,7 @@ describe('useMagnetMetadataEvents', () => {
     )
 
     expect(resolved).toBe(true)
-    expect(state.pendingGids).toEqual([])
+    expect(state.pendingGids).toEqual(['metadata-gid'])
     expect(state.visible).toBe(true)
     expect(state.session).toEqual({ metadataGid: 'metadata-gid', downloadGid: 'download-gid' })
     expect(state.name).toBe('Ubuntu ISO')
@@ -99,5 +103,35 @@ describe('useMagnetMetadataEvents', () => {
     expect(resolved).toBe(false)
     expect(fetchTaskStatus).not.toHaveBeenCalled()
     expect(state.pendingGids).toEqual(['metadata-gid'])
+  })
+
+  it('serializes simultaneous metadata completions without replacing the open selection', async () => {
+    const state: MagnetMetadataState = {
+      pendingGids: ['metadata-a', 'metadata-b'],
+      visible: false,
+      files: [],
+      session: null,
+      name: '',
+    }
+    const fetchTaskStatus = vi.fn(async (gid: string) => {
+      if (gid.startsWith('metadata-')) return makeTask(gid, { followedBy: [`download-${gid.slice(-1)}`] })
+      return makeTask(gid, { bittorrent: { info: { name: gid } } })
+    })
+    const resolver = createMagnetMetadataResolver(() => ({
+      state,
+      fetchTaskStatus,
+      getFiles: vi
+        .fn()
+        .mockResolvedValue([
+          { index: '1', path: '/downloads/file.bin', length: '1024', completedLength: '0', selected: 'true', uris: [] },
+        ]),
+      fallbackName: () => 'Magnet task',
+    }))
+
+    await Promise.all([resolver.request('metadata-a'), resolver.request('metadata-b')])
+
+    expect(state.visible).toBe(true)
+    expect(state.session).toEqual({ metadataGid: 'metadata-a', downloadGid: 'download-a' })
+    expect(state.pendingGids).toEqual(['metadata-a', 'metadata-b'])
   })
 })

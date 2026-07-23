@@ -18,7 +18,7 @@ import { createPinia, setActivePinia } from 'pinia'
 
 const mockIsEngineReady = vi.fn().mockReturnValue(true)
 const mockFetchList = vi.fn().mockResolvedValue(undefined)
-const mockResumeAllTask = vi.fn().mockResolvedValue(undefined)
+const mockResumeAllTask = vi.fn().mockResolvedValue({ resumed: 1, blocked: 0 })
 const mockPauseAllTask = vi.fn().mockResolvedValue(undefined)
 const mockPurgeTaskRecord = vi.fn().mockResolvedValue(undefined)
 const mockBatchRemoveTask = vi.fn().mockResolvedValue(undefined)

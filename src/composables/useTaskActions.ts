@@ -72,7 +72,9 @@ export function useTaskActions(deps: TaskActionsDeps) {
     } else {
       taskStore
         .resumeTask(task)
-        .then(() => message.success(t('task.resume-task-success', { taskName })))
+        .then((resumed) => {
+          if (resumed !== false) message.success(t('task.resume-task-success', { taskName }))
+        })
         .catch((e) => {
           logger.warn('TaskView.resumeTask', getErrorMessage(e))
           message.error(t('task.resume-task-fail', { taskName }))
