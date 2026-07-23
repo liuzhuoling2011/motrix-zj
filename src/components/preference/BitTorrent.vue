@@ -17,6 +17,7 @@ import {
   ENGINE_MAX_BT_MAX_PEERS,
   ENGINE_RPC_PORT,
   SAFE_LIMIT_BT_MAX_PEERS,
+  TRACKER_SOURCE_OPTIONS,
 } from '@shared/constants'
 import { logger } from '@shared/logger'
 import { getErrorMessage } from '@shared/utils/errorMessage'
@@ -27,7 +28,6 @@ import {
   transformBtForStore,
   isValidTrackerSourceUrl,
 } from '@/composables/useBtPreference'
-import { trackerSourceOptions } from '@shared/constants/trackerSources'
 import {
   NForm,
   NFormItem,
@@ -39,6 +39,8 @@ import {
   NButton,
   NDivider,
   NIcon,
+  NCheckbox,
+  NCheckboxGroup,
   NText,
   useDialog,
 } from 'naive-ui'
@@ -105,9 +107,7 @@ const selectedDhtNetworks = computed({
 })
 
 // ── Tracker source management ───────────────────────────────────────
-const presetTrackerValues = new Set<string>(
-  trackerSourceOptions.flatMap((group) => ('children' in group ? group.children.map((c) => c.value) : [])),
-)
+const presetTrackerValues = new Set<string>(TRACKER_SOURCE_OPTIONS.map((source) => source.value))
 
 const presetSources = computed({
   get: () => form.value.trackerSource.filter((v: string) => presetTrackerValues.has(v)),
@@ -256,6 +256,14 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
     }
   },
 })
+
+const mergedTrackerCount = computed(
+  () =>
+    form.value.btTracker
+      .split(/\r?\n/)
+      .map((tracker) => tracker.trim())
+      .filter(Boolean).length,
+)
 
 async function loadBlocklistStatus() {
   try {
@@ -495,14 +503,21 @@ onMounted(() => {
         <!-- Tracker Management -->
         <NDivider title-placement="left">{{ t('preferences.bt-tracker') }}</NDivider>
         <NFormItem :label="t('preferences.bt-tracker-source-preset')">
-          <NSelect
-            v-model:value="presetSources"
-            :options="trackerSourceOptions"
-            multiple
-            :placeholder="t('preferences.bt-tracker-source-placeholder')"
-            clearable
-            max-tag-count="responsive"
-          />
+          <NCheckboxGroup v-model:value="presetSources" class="tracker-source-group">
+            <div class="tracker-source-list">
+              <NCheckbox
+                v-for="source in TRACKER_SOURCE_OPTIONS"
+                :key="source.value"
+                :value="source.value"
+                class="tracker-source-option"
+              >
+                <span class="tracker-source-option__content">
+                  <span class="tracker-source-option__owner">{{ source.owner }}</span>
+                  <span class="tracker-source-option__repository">{{ source.repository }}</span>
+                </span>
+              </NCheckbox>
+            </div>
+          </NCheckboxGroup>
         </NFormItem>
         <NFormItem :label="t('preferences.bt-tracker-source-custom')">
           <NInputGroup>
@@ -546,6 +561,7 @@ onMounted(() => {
               {{ t('preferences.bt-tracker-sync') }}
             </NButton>
             <NText depth="3" class="pref-inline-row__meta">
+              {{ t('preferences.bt-tracker-count', { count: mergedTrackerCount }) }} ·
               {{ t('preferences.last-sync-time') }}
               {{ form.lastSyncTrackerTime ? new Date(form.lastSyncTrackerTime as number).toLocaleString() : '—' }}
             </NText>
@@ -558,25 +574,6 @@ onMounted(() => {
             :autosize="{ minRows: 3, maxRows: 8 }"
             :placeholder="t('preferences.bt-tracker-input-tips')"
           />
-        </NFormItem>
-        <NFormItem :show-label="false">
-          <div class="info-text">
-            {{ t('preferences.bt-tracker-tips') }}
-            <button
-              class="info-link"
-              type="button"
-              @click="openTrackerSource('https://github.com/ngosang/trackerslist')"
-            >
-              ngosang/trackerslist ↗
-            </button>
-            <button
-              class="info-link pref-meta-link"
-              type="button"
-              @click="openTrackerSource('https://github.com/XIU2/TrackersListCollection')"
-            >
-              XIU2/TrackersListCollection ↗
-            </button>
-          </div>
         </NFormItem>
         <NFormItem :label="t('preferences.auto-sync')">
           <NSwitch v-model:value="form.btTrackerAutoSync" />
@@ -598,6 +595,63 @@ onMounted(() => {
 .bt-tracker-sync-button {
   min-width: 100px;
 }
+.tracker-source-group {
+  width: 100%;
+}
+.tracker-source-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+}
+.tracker-source-option {
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--m3-outline-variant);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--m3-surface-container-low) 72%, transparent);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+.tracker-source-option:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 42%, var(--m3-outline-variant));
+  background: var(--m3-surface-container-low);
+}
+.tracker-source-option.n-checkbox--checked {
+  border-color: color-mix(in srgb, var(--color-primary) 58%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--color-primary) 7%, var(--m3-surface-container-low));
+}
+.tracker-source-option:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 68%, transparent);
+  outline-offset: 2px;
+}
+.tracker-source-option :deep(.n-checkbox__label) {
+  min-width: 0;
+  flex: 1;
+}
+.tracker-source-option__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.tracker-source-option__owner,
+.tracker-source-option__repository {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tracker-source-option__owner {
+  color: var(--m3-on-surface);
+  font-size: 13px;
+  font-weight: 600;
+}
+.tracker-source-option__repository {
+  color: var(--m3-on-surface-variant);
+  font-size: 12px;
+}
 .bt-blocklist-update-button {
   min-width: 100px;
 }
@@ -616,12 +670,6 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.info-text {
-  color: var(--m3-on-surface-variant);
-  font-size: 12px;
-  max-width: 520px;
-  word-wrap: break-word;
-}
 .info-link {
   padding: 0;
   border: 0;
@@ -634,7 +682,9 @@ onMounted(() => {
 .info-link:hover {
   text-decoration: underline;
 }
-.info-text .pref-meta-link {
-  margin-left: 18px;
+@media (max-width: 720px) {
+  .tracker-source-list {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
