@@ -67,16 +67,24 @@ export function shouldShowFileSelection(config: { pauseMetadata?: boolean | stri
   return config.pauseMetadata !== false && config.pauseMetadata !== 'false'
 }
 
+function isPendingMagnetSelectionTask(task: Aria2Task): boolean {
+  return Boolean(
+    task.bittorrent &&
+    task.status === 'paused' &&
+    task.bittorrent.info?.name &&
+    task.following &&
+    task.files.some((file) => Number(file.length) > 0),
+  )
+}
+
 export function getPendingMagnetSelectionGids(tasks: Aria2Task[]): string[] {
   return tasks
-    .map((task) => {
-      if (!task.bittorrent || task.status !== 'paused') return false
-      if (!task.bittorrent.info?.name) return false
-      if (!task.following) return false
-      if (!task.files.some((file) => Number(file.length) > 0)) return false
-      return task.following
-    })
+    .map((task) => (isPendingMagnetSelectionTask(task) ? task.following : false))
     .filter((gid): gid is string => typeof gid === 'string' && gid.length > 0)
+}
+
+export function findPendingMagnetSelectionTask(tasks: Aria2Task[], metadataGid: string): Aria2Task | undefined {
+  return tasks.find((task) => isPendingMagnetSelectionTask(task) && task.following === metadataGid)
 }
 
 export interface MagnetSelectionResolution {

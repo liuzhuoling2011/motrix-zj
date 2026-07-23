@@ -349,6 +349,7 @@ function magnetMetadataDeps() {
   return {
     state,
     fetchTaskStatus: taskStore.fetchTaskStatus,
+    fetchPendingTasks: () => aria2Api.fetchTaskList({ type: 'active' }),
     getFiles: taskStore.getFiles,
     fallbackName: () => t('task.magnet-task'),
   }
