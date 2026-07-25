@@ -165,7 +165,6 @@ onBeforeUnmount(() => {
     ref="cardRef"
     class="task-item"
     :class="{
-      'file-missing': fileMissing,
       'is-sharing': isSharing,
       'sharing-enter': sharingEnter,
     }"
@@ -422,9 +421,6 @@ onBeforeUnmount(() => {
     opacity: 0.9;
     transform: translateY(0);
   }
-}
-.task-item.file-missing {
-  border-color: var(--m3-error);
 }
 /* M3 progress-bar transition between semantic status colors. */
 .task-progress :deep(.n-progress-graph-line-fill) {

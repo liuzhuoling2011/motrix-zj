@@ -129,7 +129,6 @@ onBeforeUnmount(() => {
     ref="cardRef"
     class="task-compact-item"
     :class="{
-      'file-missing': fileMissing,
       'is-sharing': isSharing,
       'sharing-enter': sharingEnter,
     }"
@@ -225,9 +224,6 @@ onBeforeUnmount(() => {
 }
 .task-compact-item.is-sharing::before {
   opacity: 1;
-}
-.task-compact-item.file-missing {
-  border-color: var(--m3-error);
 }
 .task-compact-item:hover {
   border-color: var(--task-item-hover-border);
