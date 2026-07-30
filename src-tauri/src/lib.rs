@@ -32,8 +32,8 @@ use upnp::UpnpState;
 /// Pre-reads the user's log-level preference from the raw config.json file.
 ///
 /// `tauri-plugin-store` isn't available until after `Builder.build()`, so we
-/// read the raw JSON file directly.  Falls back to `Debug` if absent so that
-/// first-run users get full diagnostic output for bug reports.
+/// read the raw JSON file directly. Falls back to `Warn` when no preference
+/// has been persisted yet.
 pub(crate) fn read_log_level() -> log::LevelFilter {
     (|| -> Option<log::LevelFilter> {
         let data_dir = dirs::data_dir()?.join("com.motrix.next");
@@ -49,7 +49,7 @@ pub(crate) fn read_log_level() -> log::LevelFilter {
             _ => None,
         }
     })()
-    .unwrap_or(log::LevelFilter::Debug)
+    .unwrap_or(log::LevelFilter::Warn)
 }
 
 /// Tracks the application lifecycle phase for window visibility decisions.

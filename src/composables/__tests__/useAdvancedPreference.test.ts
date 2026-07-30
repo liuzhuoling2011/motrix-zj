@@ -58,7 +58,6 @@ describe('buildAdvancedForm', () => {
   it('returns defaults for empty config', () => {
     const { form } = buildAdvancedForm(emptyConfig)
     expect(form.proxy.mode).toBe('direct')
-    expect(form.proxy.mode).toBe('direct')
     expect(form.proxy.server).toBe('')
     // Default scope must include ALL scopes so proxy works on first enable
     // (legacy Motrix behavior — scope defaults to PROXY_SCOPE_OPTIONS)
@@ -68,8 +67,8 @@ describe('buildAdvancedForm', () => {
     expect(form.allowRemoteAccess).toBe(false)
     expect(form.listenPort).toBe(29120)
     expect(form.dhtListenPort).toBe(29130)
-    expect(form.logLevel).toBe('debug')
-    expect(form.aria2LogLevel).toBe('info')
+    expect(form.logLevel).toBe('warn')
+    expect(form.aria2LogLevel).toBe('warn')
     expect(form.enableUpnp).toBe(true)
   })
 
