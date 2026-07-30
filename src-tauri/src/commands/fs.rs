@@ -101,8 +101,8 @@ fn sanitize_config_snapshot(raw: &Value) -> Value {
 /// Logging strategy (privacy-safe):
 /// - `info!`: argument count and boolean result only
 /// - `debug!`: structured diagnostics (match type counts) — no raw argv,
-///   because the default log level is `Debug` and diagnostic exports bundle
-///   all log files into user-submitted ZIPs
+///   because diagnostic exports can include debug logs when users enable them
+///   for issue reproduction
 #[tauri::command]
 pub fn is_autostart_launch(lifecycle: tauri::State<'_, crate::AppLifecycleState>) -> bool {
     // After the cold-start phase ends (user dismissed the window at least

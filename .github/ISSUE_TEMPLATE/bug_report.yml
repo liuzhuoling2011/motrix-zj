@@ -93,7 +93,7 @@ body:
     attributes:
       label: Diagnostic Logs
       description: |
-        Please export logs via **Advanced Settings → Export Diagnostic Logs**. Keep **Motrix Next Log Level** at `debug` and **Aria2 Next Log Level** at `notice` unless maintainers ask otherwise.
+        Before reproducing the issue, set both **Motrix Next Log Level** and **Aria2 Next Log Level** to `debug`, then restart Motrix Next. Reproduce the issue and export the logs via **Advanced Settings → Export Diagnostic Logs**.
         Upload the exported `.zip` directly. Do not extract it.
         If you must redact sensitive data, keep the same ZIP file structure and filenames when repacking.
         Do not paste only a few log lines unless a maintainer asks for that.
