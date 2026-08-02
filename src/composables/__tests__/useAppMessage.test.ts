@@ -2,7 +2,7 @@
  * @fileoverview Tests for the useAppMessage composable.
  *
  * Key behaviors under test:
- * - All message types invoke Naive UI's message API
+ * - All four message types invoke Naive UI's message API
  * - Content is truncated via ellipsis when exceeding TOAST_MAX_LENGTH
  * - Duplicate messages within the dedup window are coalesced (destroy + rescheduled)
  * - Different content strings are tracked independently
@@ -29,9 +29,6 @@ function createMessageHandle(options?: { duration?: number; onAfterLeave?: () =>
 }
 
 const mockMessageApi = {
-  loading: vi.fn((_content: unknown, options?: { duration?: number; onAfterLeave?: () => void }) =>
-    createMessageHandle(options),
-  ),
   success: vi.fn((_content: unknown, options?: { duration?: number; onAfterLeave?: () => void }) =>
     createMessageHandle(options),
   ),
@@ -69,11 +66,8 @@ describe('useAppMessage', () => {
     vi.useRealTimers()
   })
 
-  it('delegates every message type to the underlying message API', () => {
+  it('delegates success/error/warning/info to the underlying message API', () => {
     const msg = useAppMessage()
-
-    msg.loading('working')
-    expect(mockMessageApi.loading).toHaveBeenCalledOnce()
 
     msg.success('done')
     expect(mockMessageApi.success).toHaveBeenCalledOnce()

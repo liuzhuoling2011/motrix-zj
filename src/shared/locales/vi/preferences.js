@@ -21,7 +21,7 @@ export default {
   'transfer-speed-unlimited': 'Không giới hạn',
   'bt-settings': 'BitTorrent',
   'bt-connection-section': 'Kết nối BitTorrent',
-  'bt-connection-applying': 'Đang áp dụng cài đặt kết nối BitTorrent',
+  'bt-connection-apply-succeeded': 'Đã áp dụng cài đặt kết nối BitTorrent',
   'bt-connection-restore-succeeded': 'Không thể áp dụng cài đặt kết nối BitTorrent. Đã khôi phục cài đặt trước đó',
   'bt-connection-restore-failed': 'Không thể khôi phục cài đặt kết nối BitTorrent trước đó. Hãy khởi động lại engine',
   'bt-discovery-section': 'Phát hiện peer',

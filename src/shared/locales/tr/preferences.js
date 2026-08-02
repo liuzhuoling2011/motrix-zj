@@ -21,7 +21,7 @@ export default {
   'transfer-speed-unlimited': 'Sınırsız',
   'bt-settings': 'BitTorrent',
   'bt-connection-section': 'BitTorrent Bağlantısı',
-  'bt-connection-applying': 'BitTorrent bağlantı ayarları uygulanıyor',
+  'bt-connection-apply-succeeded': 'BitTorrent bağlantı ayarları uygulandı',
   'bt-connection-restore-succeeded': 'BitTorrent bağlantı ayarları uygulanamadı. Önceki ayarlar geri yüklendi',
   'bt-connection-restore-failed': 'Önceki BitTorrent bağlantı ayarları geri yüklenemedi. Motoru yeniden başlatın',
   'bt-discovery-section': 'Eş keşfi',

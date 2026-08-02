@@ -96,7 +96,7 @@ Download the latest release from [GitHub Releases](https://github.com/AnInsomnia
 ```bash
 brew tap AnInsomniacy/motrix-next
 brew install --cask motrix-next
-xattr -cr /Applications/MotrixNext.app  # remove quarantine (app is unsigned)
+xattr -dr com.apple.quarantine /Applications/MotrixNext.app
 ```
 
 Or download the `.dmg` installer from [Releases](https://github.com/AnInsomniacy/motrix-next/releases):
@@ -164,10 +164,10 @@ All formats are available for both x64 and ARM64.
 This app is not code-signed. Open Terminal and run:
 
 ```bash
-xattr -cr /Applications/MotrixNext.app
+xattr -dr com.apple.quarantine /Applications/MotrixNext.app
 ```
 
-This removes the quarantine flag that macOS Gatekeeper applies to unsigned apps. If you installed via Homebrew with `--no-quarantine`, you won't hit this issue.
+This removes only Gatekeeper's quarantine attribute. Run it again after each Homebrew upgrade.
 
 </details>
 

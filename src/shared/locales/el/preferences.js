@@ -22,7 +22,7 @@ export default {
   'transfer-speed-unlimited': 'Χωρίς όριο',
   'bt-settings': 'BitTorrent',
   'bt-connection-section': 'Σύνδεση BitTorrent',
-  'bt-connection-applying': 'Εφαρμογή ρυθμίσεων σύνδεσης BitTorrent',
+  'bt-connection-apply-succeeded': 'Οι ρυθμίσεις σύνδεσης BitTorrent εφαρμόστηκαν',
   'bt-connection-restore-succeeded':
     'Δεν ήταν δυνατή η εφαρμογή των ρυθμίσεων σύνδεσης BitTorrent. Έγινε επαναφορά των προηγούμενων ρυθμίσεων',
   'bt-connection-restore-failed':

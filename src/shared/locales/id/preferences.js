@@ -21,7 +21,7 @@ export default {
   'transfer-speed-unlimited': 'Tanpa batas',
   'bt-settings': 'BitTorrent',
   'bt-connection-section': 'Koneksi BitTorrent',
-  'bt-connection-applying': 'Menerapkan pengaturan koneksi BitTorrent',
+  'bt-connection-apply-succeeded': 'Pengaturan koneksi BitTorrent diterapkan',
   'bt-connection-restore-succeeded':
     'Pengaturan koneksi BitTorrent tidak dapat diterapkan. Pengaturan sebelumnya dipulihkan',
   'bt-connection-restore-failed': 'Pengaturan koneksi BitTorrent sebelumnya tidak dapat dipulihkan. Mulai ulang mesin',

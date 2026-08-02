@@ -22,7 +22,7 @@ export default {
   'transfer-speed-unlimited': 'Sin límite',
   'bt-settings': 'BitTorrent',
   'bt-connection-section': 'Conexión BitTorrent',
-  'bt-connection-applying': 'Aplicando la configuración de conexión BitTorrent',
+  'bt-connection-apply-succeeded': 'Configuración de conexión BitTorrent aplicada',
   'bt-connection-restore-succeeded':
     'No se pudo aplicar la configuración de conexión BitTorrent. Se restauró la configuración anterior',
   'bt-connection-restore-failed':

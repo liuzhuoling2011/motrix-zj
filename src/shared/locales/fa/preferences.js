@@ -21,7 +21,7 @@ export default {
   'transfer-speed-unlimited': 'بدون محدودیت',
   'bt-settings': 'BitTorrent',
   'bt-connection-section': 'اتصال BitTorrent',
-  'bt-connection-applying': 'در حال اعمال تنظیمات اتصال BitTorrent',
+  'bt-connection-apply-succeeded': 'تنظیمات اتصال BitTorrent اعمال شد',
   'bt-connection-restore-succeeded': 'تنظیمات اتصال BitTorrent اعمال نشد. تنظیمات قبلی بازیابی شد',
   'bt-connection-restore-failed': 'تنظیمات قبلی اتصال BitTorrent بازیابی نشد. موتور را راه‌اندازی مجدد کنید',
   'bt-discovery-section': 'کشف همتا',

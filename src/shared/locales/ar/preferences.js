@@ -21,7 +21,7 @@ export default {
   'transfer-speed-unlimited': 'بلا حدود',
   'bt-settings': 'BitTorrent',
   'bt-connection-section': 'اتصال BitTorrent',
-  'bt-connection-applying': 'جارٍ تطبيق إعدادات اتصال BitTorrent',
+  'bt-connection-apply-succeeded': 'تم تطبيق إعدادات اتصال BitTorrent',
   'bt-connection-restore-succeeded': 'تعذر تطبيق إعدادات اتصال BitTorrent. تمت استعادة الإعدادات السابقة',
   'bt-connection-restore-failed': 'تعذر استعادة إعدادات اتصال BitTorrent السابقة. أعد تشغيل المحرك',
   'bt-discovery-section': 'اكتشاف الأقران',

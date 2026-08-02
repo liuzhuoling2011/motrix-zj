@@ -21,7 +21,7 @@ export default {
   'transfer-speed-unlimited': 'Korlátlan',
   'bt-settings': 'BitTorrent',
   'bt-connection-section': 'BitTorrent-kapcsolat',
-  'bt-connection-applying': 'A BitTorrent-kapcsolat beállításainak alkalmazása',
+  'bt-connection-apply-succeeded': 'A BitTorrent-kapcsolat beállításai alkalmazva',
   'bt-connection-restore-succeeded':
     'A BitTorrent-kapcsolat beállításai nem alkalmazhatók. A korábbi beállítások visszaállítva',
   'bt-connection-restore-failed':

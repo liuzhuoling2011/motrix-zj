@@ -22,7 +22,7 @@ export default {
   'transfer-speed-unlimited': 'Unlimited',
   'bt-settings': 'BitTorrent',
   'bt-connection-section': 'BitTorrent Connection',
-  'bt-connection-applying': 'Applying BitTorrent connection settings',
+  'bt-connection-apply-succeeded': 'BitTorrent connection settings applied',
   'bt-connection-restore-succeeded': 'Could not apply BitTorrent connection settings. Previous settings restored',
   'bt-connection-restore-failed': 'Could not restore the previous BitTorrent connection settings. Restart the engine',
   'bt-discovery-section': 'Peer Discovery',

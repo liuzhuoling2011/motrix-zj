@@ -22,7 +22,6 @@ import { setActivePinia, createPinia } from 'pinia'
 const mockMessage = vi.hoisted(() => {
   const createMessageFn = () => vi.fn((_message?: unknown, _options?: unknown) => ({ destroy: vi.fn() }))
   return {
-    loading: createMessageFn(),
     success: createMessageFn(),
     error: createMessageFn(),
     warning: createMessageFn(),
@@ -268,14 +267,14 @@ describe('usePreferenceForm', () => {
     unmount()
   })
 
-  it('stacks save progress with the final result', async () => {
+  it('shows the specific and standard success messages', async () => {
     const store = usePreferenceStore()
     store.updateAndSave = vi.fn().mockResolvedValue(true)
     const { result, unmount } = withSetup(() =>
       usePreferenceForm(
         makeOptions({
           saveFeedback: {
-            progress: 'Applying settings',
+            success: 'Settings applied',
             restored: 'Previous settings restored',
             rollbackFailed: 'Rollback failed',
           },
@@ -287,12 +286,9 @@ describe('usePreferenceForm', () => {
     await result.handleSave()
     await new Promise((resolve) => setTimeout(resolve, 100))
 
-    expect(mockMessage.loading).toHaveBeenCalled()
-    expect(extractMessageText(mockMessage.loading.mock.calls[0][0])).toBe('Applying settings')
-    expect(mockMessage.loading.mock.calls[0][1]).toEqual(
-      expect.objectContaining({ closable: true, keepAliveOnHover: true }),
-    )
-    expect(mockMessage.success).toHaveBeenCalled()
+    const successMessages = mockMessage.success.mock.calls.map(([content]) => extractMessageText(content))
+    expect(successMessages).toContain('Settings applied')
+    expect(successMessages).toContain('preferences.save-success-message')
 
     unmount()
   })
@@ -307,7 +303,7 @@ describe('usePreferenceForm', () => {
         makeOptions({
           afterSave,
           saveFeedback: {
-            progress: 'Applying settings',
+            success: 'Settings applied',
             restored: 'Previous settings restored',
             rollbackFailed: 'Rollback failed',
           },
@@ -341,7 +337,7 @@ describe('usePreferenceForm', () => {
         makeOptions({
           afterSave: () => Promise.reject(new Error('apply failed')),
           saveFeedback: {
-            progress: 'Applying settings',
+            success: 'Settings applied',
             restored: 'Previous settings restored',
             rollbackFailed: 'Rollback failed',
           },

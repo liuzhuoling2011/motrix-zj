@@ -21,7 +21,7 @@ export default {
   'transfer-speed-unlimited': 'असीमित',
   'bt-settings': 'BitTorrent',
   'bt-connection-section': 'BitTorrent कनेक्शन',
-  'bt-connection-applying': 'BitTorrent कनेक्शन सेटिंग लागू की जा रही हैं',
+  'bt-connection-apply-succeeded': 'BitTorrent कनेक्शन सेटिंग लागू हो गई हैं',
   'bt-connection-restore-succeeded': 'BitTorrent कनेक्शन सेटिंग लागू नहीं हो सकीं। पिछली सेटिंग बहाल कर दी गई हैं',
   'bt-connection-restore-failed': 'पिछली BitTorrent कनेक्शन सेटिंग बहाल नहीं हो सकीं। इंजन पुनः आरंभ करें',
   'bt-discovery-section': 'पीयर खोज',

@@ -21,7 +21,7 @@ export default {
   'transfer-speed-unlimited': 'ไม่จำกัด',
   'bt-settings': 'BitTorrent',
   'bt-connection-section': 'การเชื่อมต่อ BitTorrent',
-  'bt-connection-applying': 'กำลังใช้การตั้งค่าการเชื่อมต่อ BitTorrent',
+  'bt-connection-apply-succeeded': 'ใช้การตั้งค่าการเชื่อมต่อ BitTorrent แล้ว',
   'bt-connection-restore-succeeded': 'ไม่สามารถใช้การตั้งค่าการเชื่อมต่อ BitTorrent ได้ คืนค่าการตั้งค่าก่อนหน้าแล้ว',
   'bt-connection-restore-failed': 'ไม่สามารถคืนค่าการตั้งค่าการเชื่อมต่อ BitTorrent ก่อนหน้าได้ โปรดรีสตาร์ตเอนจิน',
   'bt-discovery-section': 'การค้นหา peer',

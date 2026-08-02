@@ -21,7 +21,7 @@ export default {
   'transfer-speed-unlimited': '不限速',
   'bt-settings': 'BT 设置',
   'bt-connection-section': 'BT 连接',
-  'bt-connection-applying': '正在应用 BT 连接设置',
+  'bt-connection-apply-succeeded': 'BT 连接设置已应用',
   'bt-connection-restore-succeeded': '无法应用 BT 连接设置，已恢复原设置',
   'bt-connection-restore-failed': '无法恢复原 BT 连接设置，请重启引擎',
   'bt-discovery-section': '节点发现',

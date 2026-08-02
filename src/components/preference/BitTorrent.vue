@@ -66,6 +66,7 @@ const syncingTracker = ref(false)
 const syncingBlocklist = ref(false)
 const customTrackerInput = ref('')
 const needsRestart = ref(false)
+const pendingPortSwitch = ref<{ from: number; to: number } | null>(null)
 interface BtPeerBlocklistStatus {
   ruleCount: number
   fileSize: number
@@ -221,12 +222,13 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
     f.btExternalPort !== prevConfig.btExternalPort ||
     f.dhtListenPort !== prevConfig.dhtListenPort
       ? {
-          progress: t('preferences.bt-connection-applying'),
+          success: t('preferences.bt-connection-apply-succeeded'),
           restored: t('preferences.bt-connection-restore-succeeded'),
           rollbackFailed: t('preferences.bt-connection-restore-failed'),
         }
       : null,
   beforeSave: async (f) => {
+    pendingPortSwitch.value = null
     const endpointValidationKey = validateBtEndpoint(f)
     if (endpointValidationKey) {
       message.error(t(endpointValidationKey))
@@ -234,10 +236,15 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
     }
     f.btExternalIp = f.btExternalIp.trim()
     if (Number(f.listenPort) !== Number(preferenceStore.config.listenPort)) {
+      const requestedPort = Number(f.listenPort)
       try {
-        f.listenPort = await invoke<number>('resolve_bt_listen_port', {
+        const resolvedPort = await invoke<number>('resolve_bt_listen_port', {
           requestedPort: f.listenPort,
         })
+        if (resolvedPort !== requestedPort) {
+          pendingPortSwitch.value = { from: requestedPort, to: resolvedPort }
+        }
+        f.listenPort = resolvedPort
       } catch (e) {
         logger.warn('BT.listenPort', getErrorMessage(e))
         message.error(t('preferences.bt-port-unavailable'))
@@ -254,22 +261,22 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
     }
 
     const changed = diffConfig(preferenceStore.config, transformBtForStore(f))
-    if (!checkIsNeedRestart(changed)) return true
-
-    const ok = await new Promise<boolean>((resolve) => {
-      dialog.info({
-        title: t('preferences.engine-restart-title'),
-        content: t('preferences.engine-restart-confirm'),
-        positiveText: t('preferences.engine-restart-now'),
-        negativeText: t('app.cancel'),
-        maskClosable: false,
-        onPositiveClick: () => resolve(true),
-        onNegativeClick: () => resolve(false),
-        onClose: () => resolve(false),
+    if (checkIsNeedRestart(changed)) {
+      const ok = await new Promise<boolean>((resolve) => {
+        dialog.info({
+          title: t('preferences.engine-restart-title'),
+          content: t('preferences.engine-restart-confirm'),
+          positiveText: t('preferences.engine-restart-now'),
+          negativeText: t('app.cancel'),
+          maskClosable: false,
+          onPositiveClick: () => resolve(true),
+          onNegativeClick: () => resolve(false),
+          onClose: () => resolve(false),
+        })
       })
-    })
-    if (!ok) return false
-    needsRestart.value = true
+      if (!ok) return false
+      needsRestart.value = true
+    }
     return true
   },
   afterSave: async (f, prevConfig) => {
@@ -289,6 +296,12 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
         f.dhtListenPort !== prevConfig.dhtListenPort)
     ) {
       syncUpnpInBackground(f)
+    }
+    if (pendingPortSwitch.value) {
+      const { from, to } = pendingPortSwitch.value
+      pendingPortSwitch.value = null
+      const ports = `${t('preferences.bt-port')} ${from} -> ${to}`
+      message.info(t('preferences.port-auto-switched', { ports }))
     }
     reconcileBlocklistInBackground()
   },

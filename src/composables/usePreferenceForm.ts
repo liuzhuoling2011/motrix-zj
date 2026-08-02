@@ -42,7 +42,7 @@ export interface UsePreferenceFormOptions<T extends Record<string, unknown>> {
   /** Persistent progress and rollback messages for saves with visible latency. */
   saveFeedback?:
     | {
-        progress: string
+        success: string
         restored: string
         rollbackFailed: string
       }
@@ -50,7 +50,7 @@ export interface UsePreferenceFormOptions<T extends Record<string, unknown>> {
         form: T,
         prevConfig: Partial<AppConfig>,
       ) => {
-        progress: string
+        success: string
         restored: string
         rollbackFailed: string
       } | null)
@@ -119,8 +119,6 @@ export function usePreferenceForm<T extends Record<string, unknown>>(options: Us
       typeof options.saveFeedback === 'function'
         ? options.saveFeedback(form.value as T, prevConfig)
         : options.saveFeedback
-    if (saveFeedback) message.loading(saveFeedback.progress)
-
     try {
       if (shouldHotReload) {
         hotReloadAttempted = true
@@ -185,6 +183,7 @@ export function usePreferenceForm<T extends Record<string, unknown>>(options: Us
     // causing route-leave guards to skip if an async save fails.
     savedSnapshot.value = JSON.parse(JSON.stringify(form.value)) as T
 
+    if (saveFeedback) message.success(saveFeedback.success)
     message.success(t('preferences.save-success-message'))
   }
 

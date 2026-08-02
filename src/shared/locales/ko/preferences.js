@@ -21,7 +21,7 @@ export default {
   'transfer-speed-unlimited': '무제한',
   'bt-settings': 'BitTorrent',
   'bt-connection-section': 'BitTorrent 연결',
-  'bt-connection-applying': 'BitTorrent 연결 설정 적용 중',
+  'bt-connection-apply-succeeded': 'BitTorrent 연결 설정이 적용되었습니다',
   'bt-connection-restore-succeeded': 'BitTorrent 연결 설정을 적용하지 못했습니다. 이전 설정을 복원했습니다',
   'bt-connection-restore-failed': '이전 BitTorrent 연결 설정을 복원하지 못했습니다. 엔진을 다시 시작하세요',
   'bt-discovery-section': '피어 검색',

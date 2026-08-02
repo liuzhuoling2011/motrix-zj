@@ -21,7 +21,7 @@ export default {
   'transfer-speed-unlimited': 'Ubegrenset',
   'bt-settings': 'BitTorrent',
   'bt-connection-section': 'BitTorrent-tilkobling',
-  'bt-connection-applying': 'Bruker innstillinger for BitTorrent-tilkobling',
+  'bt-connection-apply-succeeded': 'Innstillinger for BitTorrent-tilkobling er brukt',
   'bt-connection-restore-succeeded':
     'Innstillingene for BitTorrent-tilkobling kunne ikke brukes. Tidligere innstillinger er gjenopprettet',
   'bt-connection-restore-failed':

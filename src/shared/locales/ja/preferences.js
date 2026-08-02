@@ -22,7 +22,7 @@ export default {
   'transfer-speed-unlimited': '無制限',
   'bt-settings': 'BitTorrent',
   'bt-connection-section': 'BitTorrent 接続',
-  'bt-connection-applying': 'BitTorrent 接続設定を適用しています',
+  'bt-connection-apply-succeeded': 'BitTorrent 接続設定を適用しました',
   'bt-connection-restore-succeeded': 'BitTorrent 接続設定を適用できませんでした。以前の設定を復元しました',
   'bt-connection-restore-failed': '以前の BitTorrent 接続設定を復元できませんでした。エンジンを再起動してください',
   'bt-discovery-section': 'ピア検出',
