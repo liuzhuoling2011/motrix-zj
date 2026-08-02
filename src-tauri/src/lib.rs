@@ -789,6 +789,7 @@ pub fn run() {
             commands::start_engine_command,
             commands::stop_engine_command,
             commands::restart_engine_command,
+            commands::resolve_bt_listen_port,
             commands::factory_reset,
             commands::clear_session_file,
             commands::update_tray_title,

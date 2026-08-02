@@ -221,6 +221,10 @@ impl Aria2Client {
             .await
     }
 
+    pub async fn get_bt_endpoint(&self) -> Result<Aria2BtEndpoint, AppError> {
+        self.call("getBtEndpoint", vec![]).await
+    }
+
     /// Adds a URI-based download.
     pub async fn add_uri(
         &self,

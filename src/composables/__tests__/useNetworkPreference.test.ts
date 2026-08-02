@@ -174,6 +174,12 @@ describe('buildNetworkForm', () => {
     expect(form.dhtListenPort).toBe(29130)
   })
 
+  it('defaults the external BitTorrent endpoint to automatic values', () => {
+    const form = buildNetworkForm(emptyConfig)
+    expect(form.btExternalIp).toBe('')
+    expect(form.btExternalPort).toBe(0)
+  })
+
   it('coerces string port values to numbers', () => {
     const config = { listenPort: '12345' as unknown, dhtListenPort: '54321' as unknown } as AppConfig
     const form = buildNetworkForm(config)
@@ -302,6 +308,8 @@ describe('buildNetworkSystemConfig', () => {
     autoChangeConflictingPorts: true,
     portConflictRecovery: { ...DEFAULT_APP_CONFIG.portConflictRecovery },
     listenPort: 29120,
+    btExternalIp: '',
+    btExternalPort: 0,
     dhtListenPort: 29130,
     connectTimeout: 10,
     timeout: 10,
@@ -319,9 +327,21 @@ describe('buildNetworkSystemConfig', () => {
   it('maps port and protocol keys to aria2 config', () => {
     const config = buildNetworkSystemConfig(baseForm)
     expect(config['listen-port']).toBe('29120')
+    expect(config['bt-external-ip']).toBe('')
+    expect(config['bt-external-port']).toBe('0')
     expect(config['dht-listen-port']).toBe('29130')
     expect(config).not.toHaveProperty('enable-dht')
     expect(config).not.toHaveProperty('enable-peer-exchange')
+  })
+
+  it('maps a custom external BitTorrent endpoint', () => {
+    const config = buildNetworkSystemConfig({
+      ...baseForm,
+      btExternalIp: '203.0.113.7',
+      btExternalPort: 62000,
+    })
+    expect(config['bt-external-ip']).toBe('203.0.113.7')
+    expect(config['bt-external-port']).toBe('62000')
   })
 
   it('maps transfer parameter keys to aria2 config', () => {
@@ -486,6 +506,8 @@ describe('transformNetworkForStore', () => {
     autoChangeConflictingPorts: true,
     portConflictRecovery: { ...DEFAULT_APP_CONFIG.portConflictRecovery },
     listenPort: 29120,
+    btExternalIp: '',
+    btExternalPort: 0,
     dhtListenPort: 29130,
     connectTimeout: 10,
     timeout: 10,
@@ -569,6 +591,8 @@ describe('validateNetworkForm', () => {
     autoChangeConflictingPorts: true,
     portConflictRecovery: { ...DEFAULT_APP_CONFIG.portConflictRecovery },
     listenPort: 29120,
+    btExternalIp: '',
+    btExternalPort: 0,
     dhtListenPort: 29130,
     connectTimeout: 10,
     timeout: 10,
@@ -585,6 +609,16 @@ describe('validateNetworkForm', () => {
 
   it('returns null for valid form', () => {
     expect(validateNetworkForm(validForm)).toBeNull()
+  })
+
+  it('rejects an invalid external BitTorrent IP address', () => {
+    expect(validateNetworkForm({ ...validForm, btExternalIp: 'tracker.example.com' })).toBe(
+      'preferences.bt-external-ip-invalid',
+    )
+  })
+
+  it('rejects an invalid external BitTorrent port', () => {
+    expect(validateNetworkForm({ ...validForm, btExternalPort: 65536 })).toBe('preferences.bt-external-port-invalid')
   })
 
   it('rejects invalid port recovery ranges', () => {

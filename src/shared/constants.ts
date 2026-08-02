@@ -330,6 +330,8 @@ export const DEFAULT_APP_CONFIG = {
   //   '' → user intentionally cleared (respected, not regenerated).
   //   'abc' → user-set or auto-generated secret (kept as-is).
   listenPort: BT_LISTEN_PORT,
+  btExternalIp: '',
+  btExternalPort: 0,
   dhtListenPort: DHT_LISTEN_PORT,
   ed2kListenPort: ED2K_LISTEN_PORT,
   ed2kUdpListenPort: ED2K_UDP_LISTEN_PORT,

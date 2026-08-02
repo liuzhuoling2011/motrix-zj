@@ -492,7 +492,6 @@ mod tests {
             "rpc-listen-port",
             "allow-remote-access",
             "rpc-secret",
-            "listen-port",
             "dht-listen-port",
             "ed2k-listen-port",
             "ed2k-udp-listen-port",
@@ -514,5 +513,8 @@ mod tests {
         assert!(!keys.contains("max-overall-download-limit"));
         assert!(!keys.contains("dir"));
         assert!(!keys.contains("split"));
+        assert!(!keys.contains("listen-port"));
+        assert!(!keys.contains("bt-external-ip"));
+        assert!(!keys.contains("bt-external-port"));
     }
 }

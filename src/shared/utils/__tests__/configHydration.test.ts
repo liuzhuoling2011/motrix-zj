@@ -147,6 +147,18 @@ describe('hydrateAppConfig', () => {
     )
   })
 
+  it('repairs invalid external BitTorrent endpoint values', () => {
+    const result = hydrateAppConfig({
+      configVersion: CONFIG_VERSION,
+      btExternalIp: 'tracker.example.com',
+      btExternalPort: 70000,
+    })
+
+    expect(result.config.btExternalIp).toBe(DEFAULT_APP_CONFIG.btExternalIp)
+    expect(result.config.btExternalPort).toBe(DEFAULT_APP_CONFIG.btExternalPort)
+    expect(result.repairs).toEqual(expect.arrayContaining(['btExternalIp', 'btExternalPort']))
+  })
+
   it('repairs invalid nested values and keeps valid nested values', () => {
     const result = hydrateAppConfig({
       configVersion: CONFIG_VERSION,

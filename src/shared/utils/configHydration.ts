@@ -12,6 +12,7 @@ import { runMigrations, type MigrationResult } from '@shared/utils/configMigrati
 import { normalizeProxyMode } from '@shared/utils/proxy'
 import type { AppConfig, ClipboardConfig, PortConflictRecoveryConfig, ProxyConfig } from '@shared/types'
 import { normalizeFileCategory } from '@shared/utils/fileCategory'
+import { isValidOptionalIpAddress } from '@shared/utils/ipAddress'
 import {
   normalizeRecentUserAgentProfileIds,
   normalizeUserAgentProfiles,
@@ -219,6 +220,18 @@ function normalizeScalarValues(config: Record<string, unknown>, repairs: string[
     repairs,
   )
   config.listenPort = normalizePort(config.listenPort, DEFAULT_APP_CONFIG.listenPort, 'listenPort', repairs)
+  config.btExternalPort = normalizePort(
+    config.btExternalPort,
+    DEFAULT_APP_CONFIG.btExternalPort,
+    'btExternalPort',
+    repairs,
+  )
+  if (typeof config.btExternalIp !== 'string' || !isValidOptionalIpAddress(config.btExternalIp)) {
+    config.btExternalIp = DEFAULT_APP_CONFIG.btExternalIp
+    repairs.push('btExternalIp')
+  } else {
+    config.btExternalIp = config.btExternalIp.trim()
+  }
   config.dhtListenPort = normalizePort(config.dhtListenPort, DEFAULT_APP_CONFIG.dhtListenPort, 'dhtListenPort', repairs)
   config.ed2kListenPort = normalizePort(
     config.ed2kListenPort,

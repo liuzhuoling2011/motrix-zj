@@ -34,7 +34,6 @@ export const needRestartKeys = [
   'enable-dht',
   'enable-dht6',
   'enable-peer-exchange',
-  'listen-port',
   'rpc-listen-port',
   'allow-remote-access',
   'rpc-secret',

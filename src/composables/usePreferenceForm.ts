@@ -78,37 +78,56 @@ export function usePreferenceForm<T extends Record<string, unknown>>(options: Us
       return
     }
 
-    // Snapshot previous config BEFORE mutating the store,
-    // so afterSave hooks can compare old vs new values.
     const prevConfig = { ...preferenceStore.config }
+    const previousSystemConfig = options.buildSystemConfig(options.buildForm())
 
     const storeData: Partial<AppConfig> = options.transformForStore
       ? options.transformForStore(form.value as T)
       : { ...(form.value as T) }
-
-    const saved = await preferenceStore.updateAndSave(storeData)
-    if (!saved) {
-      message.error(t('preferences.save-fail-message'))
-      throw new Error('Preference persistence failed')
-    }
-
     const systemConfig = options.buildSystemConfig(form.value as T)
-    if (Object.keys(systemConfig).length > 0) {
-      await invoke('save_system_config', { config: systemConfig })
+    const hotConfig = filterHotReloadableKeys(systemConfig)
+    const previousHotConfig = filterHotReloadableKeys(previousSystemConfig)
+    const changedHotConfig = Object.fromEntries(
+      Object.entries(hotConfig).filter(([key, value]) => previousHotConfig[key] !== value),
+    )
+    const rollbackHotConfig = Object.fromEntries(
+      Object.keys(changedHotConfig)
+        .filter((key) => previousHotConfig[key] !== undefined)
+        .map((key) => [key, previousHotConfig[key]]),
+    )
+    const shouldHotReload = isEngineReady() && Object.keys(changedHotConfig).length > 0
+    let hotReloaded = false
+    let preferencesPersisted = false
 
-      // Hot-reload changeable options to the running aria2 engine via RPC.
-      // Keys that require an engine restart (ports, secret) are filtered out;
-      // the afterSave hook is responsible for prompting the user to restart.
-      if (isEngineReady()) {
-        const hotKeys = filterHotReloadableKeys(systemConfig)
-        if (Object.keys(hotKeys).length > 0) {
-          try {
-            await changeGlobalOption(hotKeys as Partial<AppConfig>)
-          } catch (e) {
-            logger.debug('PreferenceForm.hotReload', `changeGlobalOption failed (engine may be mid-restart): ${e}`)
-          }
+    try {
+      if (shouldHotReload) {
+        await changeGlobalOption(changedHotConfig as Partial<AppConfig>)
+        hotReloaded = true
+      }
+
+      const saved = await preferenceStore.updateAndSave(storeData)
+      if (!saved) {
+        throw new Error('Preference persistence failed')
+      }
+      preferencesPersisted = true
+
+      if (Object.keys(systemConfig).length > 0) {
+        await invoke('save_system_config', { config: systemConfig })
+      }
+    } catch (error) {
+      if (preferencesPersisted) {
+        const restored = await preferenceStore.updateAndSave(prevConfig)
+        if (!restored) logger.error('PreferenceForm.rollback', 'failed to restore preference config')
+      }
+      if (hotReloaded && Object.keys(rollbackHotConfig).length > 0) {
+        try {
+          await changeGlobalOption(rollbackHotConfig as Partial<AppConfig>)
+        } catch (rollbackError) {
+          logger.error('PreferenceForm.rollback', rollbackError)
         }
       }
+      message.error(t('preferences.save-fail-message'))
+      throw error
     }
 
     // Only mark as saved AFTER both stores persist successfully.

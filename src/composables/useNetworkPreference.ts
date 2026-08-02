@@ -18,6 +18,7 @@ import {
 import { generateRandomInt } from '@shared/utils'
 import { isValidAria2ProxyUrl, UNSUPPORTED_PROXY_SCHEME_RE } from '@shared/utils/proxy'
 import { buildDownloadProxyOptions, normalizeProxyMode, type EngineProxyMode } from '@shared/utils/proxy'
+import { isValidOptionalIpAddress } from '@shared/utils/ipAddress'
 
 export { isValidAria2ProxyUrl } from '@shared/utils/proxy'
 
@@ -37,6 +38,8 @@ export interface NetworkForm {
   autoChangeConflictingPorts: boolean
   portConflictRecovery: PortConflictRecoveryConfig
   listenPort: number
+  btExternalIp: string
+  btExternalPort: number
   dhtListenPort: number
   sharingMode: 'stop-by-condition' | 'manual-stop'
   shareRatio: number
@@ -88,6 +91,8 @@ export function buildNetworkForm(config: AppConfig): NetworkForm {
     autoChangeConflictingPorts: config.autoChangeConflictingPorts ?? D.autoChangeConflictingPorts,
     portConflictRecovery: buildPortConflictRecovery(config),
     listenPort: Number(config.listenPort ?? D.listenPort),
+    btExternalIp: config.btExternalIp ?? D.btExternalIp,
+    btExternalPort: Number(config.btExternalPort ?? D.btExternalPort),
     dhtListenPort: Number(config.dhtListenPort ?? D.dhtListenPort),
     sharingMode: (config.keepSharing ?? D.keepSharing) ? 'manual-stop' : 'stop-by-condition',
     shareRatio: config.shareRatio ?? D.shareRatio,
@@ -111,6 +116,8 @@ export function buildNetworkSystemConfig(f: NetworkForm): Record<string, string>
   const keepSharing = f.sharingMode === 'manual-stop'
   const config: Record<string, string> = {
     'listen-port': String(f.listenPort),
+    'bt-external-ip': f.btExternalIp.trim(),
+    'bt-external-port': String(f.btExternalPort),
     'dht-listen-port': String(f.dhtListenPort),
     'detach-share-only': 'true',
     'seed-ratio': keepSharing ? '0' : String(f.shareRatio),
@@ -150,6 +157,12 @@ export function transformNetworkForStore(f: NetworkForm): Partial<AppConfig> {
  */
 export function validateNetworkForm(f: NetworkForm): string | null {
   const recovery = f.portConflictRecovery
+  if (!isValidOptionalIpAddress(f.btExternalIp)) {
+    return 'preferences.bt-external-ip-invalid'
+  }
+  if (!Number.isInteger(f.btExternalPort) || f.btExternalPort < 0 || f.btExternalPort > 65535) {
+    return 'preferences.bt-external-port-invalid'
+  }
   if (
     recovery.enabled &&
     (!Number.isInteger(recovery.rangeStart) ||

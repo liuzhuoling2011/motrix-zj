@@ -123,10 +123,21 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
       message.error(t(validationKey))
       return false
     }
+    f.btExternalIp = f.btExternalIp.trim()
 
-    // Gate: engine restart confirmation (BT/DHT port change).
-    // Must confirm BEFORE saving — declining cancels the entire save so
-    // config.json never contains values the running engine doesn't match.
+    if (Number(f.listenPort) !== Number(preferenceStore.config.listenPort)) {
+      try {
+        f.listenPort = await invoke<number>('resolve_bt_listen_port', {
+          requestedPort: f.listenPort,
+        })
+      } catch (e) {
+        logger.warn('Network.btPort', getErrorMessage(e))
+        message.error(t('preferences.bt-port-unavailable'))
+        return false
+      }
+    }
+
+    // Gate restart-only network settings before persistence.
     const changed = diffConfig(preferenceStore.config, f)
     if (checkIsNeedRestart(changed)) {
       const ok = await new Promise<boolean>((resolve) => {
@@ -151,11 +162,15 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
     // Sync UPnP mapping state after save
     if (
       f.enableUpnp !== prevConfig.enableUpnp ||
-      (f.enableUpnp && (f.listenPort !== prevConfig.listenPort || f.dhtListenPort !== prevConfig.dhtListenPort))
+      (f.enableUpnp &&
+        (f.listenPort !== prevConfig.listenPort ||
+          f.btExternalPort !== prevConfig.btExternalPort ||
+          f.dhtListenPort !== prevConfig.dhtListenPort))
     ) {
       syncUpnpState(
         !!f.enableUpnp,
         f.listenPort,
+        f.btExternalPort,
         f.dhtListenPort,
         preferenceStore.config.ed2kListenPort,
         preferenceStore.config.ed2kUdpListenPort,
@@ -184,11 +199,19 @@ function onDhtPortDice() {
 }
 
 // ── UPnP save-time sync ─────────────────────────────────────────────
-async function syncUpnpState(enabled: boolean, btPort: number, dhtPort: number, ed2kPort: number, ed2kUdpPort: number) {
+async function syncUpnpState(
+  enabled: boolean,
+  btPort: number,
+  btExternalPort: number,
+  dhtPort: number,
+  ed2kPort: number,
+  ed2kUdpPort: number,
+) {
   try {
     if (enabled) {
       await invoke('start_upnp_mapping', {
         btPort,
+        btExternalPort,
         dhtPort,
         ed2kPort: ed2kPort > 0 ? ed2kPort : null,
         ed2kUdpPort: ed2kUdpPort > 0 ? ed2kUdpPort : null,
@@ -438,6 +461,29 @@ onMounted(() => {
               </template>
             </NButton>
           </NInputGroup>
+        </NFormItem>
+        <NFormItem>
+          <template #label>
+            <PreferenceHintLabel
+              :label="t('preferences.bt-external-ip')"
+              :hint="t('preferences.bt-external-ip-hint')"
+            />
+          </template>
+          <NInput
+            v-model:value="form.btExternalIp"
+            :placeholder="t('preferences.bt-external-ip-placeholder')"
+            clearable
+            class="pref-control-auto"
+          />
+        </NFormItem>
+        <NFormItem>
+          <template #label>
+            <PreferenceHintLabel
+              :label="t('preferences.bt-external-port')"
+              :hint="t('preferences.bt-external-port-hint')"
+            />
+          </template>
+          <NInputNumber v-model:value="form.btExternalPort" :min="0" :max="65535" class="pref-port" />
         </NFormItem>
         <NFormItem :label="t('preferences.dht-port')">
           <NInputGroup>

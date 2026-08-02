@@ -183,6 +183,14 @@ pub struct Aria2GlobalStat {
     pub num_stopped_total: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Aria2BtEndpoint {
+    pub listen_port: String,
+    pub announce_port: String,
+    pub external_ip: String,
+}
+
 // ── Internal JSON-RPC protocol types ────────────────────────────────
 
 /// JSON-RPC 2.0 request envelope.

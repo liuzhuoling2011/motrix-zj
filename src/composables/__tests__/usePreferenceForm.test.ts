@@ -310,14 +310,32 @@ describe('usePreferenceForm', () => {
     mockIsEngineReady.mockReturnValue(true)
 
     const { result, unmount } = withSetup(() => usePreferenceForm(makeOptions()))
-    const { handleSave } = result
+    const { form, handleSave } = result
 
+    form.value.maxConcurrentDownloads = 8
     await handleSave()
 
-    // Should call changeGlobalOption with filtered keys (no restart-only keys)
-    expect(mockChangeGlobalOption).toHaveBeenCalledWith(
-      expect.objectContaining({ dir: '/downloads', 'max-concurrent-downloads': '6' }),
+    expect(mockChangeGlobalOption).toHaveBeenCalledWith({ 'max-concurrent-downloads': '8' })
+    expect(mockChangeGlobalOption.mock.invocationCallOrder[0]).toBeLessThan(
+      (store.updateAndSave as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0],
     )
+
+    unmount()
+  })
+
+  it('aborts persistence when the engine rejects a live option', async () => {
+    const store = usePreferenceStore()
+    store.updateAndSave = vi.fn().mockResolvedValue(true)
+    mockIsEngineReady.mockReturnValue(true)
+    mockChangeGlobalOption.mockRejectedValueOnce(new Error('bind failed'))
+
+    const { result, unmount } = withSetup(() => usePreferenceForm(makeOptions()))
+    result.form.value.maxConcurrentDownloads = 8
+
+    await expect(result.handleSave()).rejects.toThrow('bind failed')
+
+    expect(store.updateAndSave).not.toHaveBeenCalled()
+    expect(mockInvoke).not.toHaveBeenCalledWith('save_system_config', expect.anything())
 
     unmount()
   })
@@ -328,8 +346,9 @@ describe('usePreferenceForm', () => {
     mockIsEngineReady.mockReturnValue(false)
 
     const { result, unmount } = withSetup(() => usePreferenceForm(makeOptions()))
-    const { handleSave } = result
+    const { form, handleSave } = result
 
+    form.value.maxConcurrentDownloads = 8
     await handleSave()
 
     expect(mockChangeGlobalOption).not.toHaveBeenCalled()

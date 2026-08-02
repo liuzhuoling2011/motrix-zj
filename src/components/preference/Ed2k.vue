@@ -179,6 +179,7 @@ async function syncUpnpState(ed2kPort: number, ed2kUdpPort: number) {
   try {
     await invoke('start_upnp_mapping', {
       btPort: Number(preferenceStore.config.listenPort) || BT_LISTEN_PORT,
+      btExternalPort: Number(preferenceStore.config.btExternalPort) || 0,
       dhtPort: Number(preferenceStore.config.dhtListenPort) || DHT_LISTEN_PORT,
       ed2kPort: ed2kPort > 0 ? ed2kPort : null,
       ed2kUdpPort: ed2kUdpPort > 0 ? ed2kUdpPort : null,

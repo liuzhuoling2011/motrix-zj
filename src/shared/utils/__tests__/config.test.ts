@@ -93,8 +93,8 @@ describe('checkIsNeedRestart', () => {
   it('returns true for rpcSecret', () => {
     expect(checkIsNeedRestart({ rpcSecret: 'new-secret-value' })).toBe(true)
   })
-  it('returns true for listenPort (BT)', () => {
-    expect(checkIsNeedRestart({ listenPort: 21302 })).toBe(true)
+  it('returns false for the hot-reloadable BitTorrent listen port', () => {
+    expect(checkIsNeedRestart({ listenPort: 21302 })).toBe(false)
   })
   it('returns true for dhtListenPort', () => {
     expect(checkIsNeedRestart({ dhtListenPort: 26702 })).toBe(true)
@@ -184,12 +184,14 @@ describe('filterHotReloadableKeys', () => {
     expect(filterHotReloadableKeys(config)).toEqual(config)
   })
 
-  it('strips restart-required keys (ports + secret)', () => {
+  it('keeps the live BitTorrent endpoint and strips restart-only ports and secrets', () => {
     const config = {
       'rpc-listen-port': '29100',
       'allow-remote-access': 'false',
       'rpc-secret': 'abc',
       'listen-port': '29120',
+      'bt-external-ip': '203.0.113.7',
+      'bt-external-port': '62000',
       'dht-listen-port': '29130',
       'ed2k-listen-port': '29140',
       'ed2k-udp-listen-port': '29150',
@@ -200,7 +202,11 @@ describe('filterHotReloadableKeys', () => {
       'bt-require-crypto': 'false',
       'bt-max-peers': '128',
     }
-    expect(filterHotReloadableKeys(config)).toEqual({})
+    expect(filterHotReloadableKeys(config)).toEqual({
+      'listen-port': '29120',
+      'bt-external-ip': '203.0.113.7',
+      'bt-external-port': '62000',
+    })
   })
 
   it('strips aria2 changeGlobalOption exclusions', () => {

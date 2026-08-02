@@ -379,6 +379,7 @@ if (import.meta.env.PROD) {
         .then(({ invoke }) =>
           invoke('start_upnp_mapping', {
             btPort: Number(config.listenPort) || BT_LISTEN_PORT,
+            btExternalPort: Number(config.btExternalPort) || 0,
             dhtPort: Number(config.dhtListenPort) || DHT_LISTEN_PORT,
             ed2kPort: Number(config.ed2kListenPort) > 0 ? Number(config.ed2kListenPort) : null,
             ed2kUdpPort: Number(config.ed2kUdpListenPort) > 0 ? Number(config.ed2kUdpListenPort) : null,

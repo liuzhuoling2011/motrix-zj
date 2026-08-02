@@ -381,6 +381,8 @@ export interface AppConfig {
   autoChangeConflictingPorts: boolean
   portConflictRecovery: PortConflictRecoveryConfig
   listenPort: number
+  btExternalIp: string
+  btExternalPort: number
   dhtListenPort: number
   ed2kListenPort: number
   ed2kUdpListenPort: number

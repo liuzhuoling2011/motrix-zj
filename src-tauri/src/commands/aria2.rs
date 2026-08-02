@@ -101,7 +101,20 @@ pub async fn aria2_change_global_option(
     state: State<'_, Aria2State>,
     options: serde_json::Map<String, serde_json::Value>,
 ) -> Result<String, AppError> {
-    state.0.change_global_option(options).await
+    let endpoint_changed = options.contains_key("listen-port")
+        || options.contains_key("bt-external-ip")
+        || options.contains_key("bt-external-port");
+    let result = state.0.change_global_option(options).await?;
+    if endpoint_changed {
+        let endpoint = state.0.get_bt_endpoint().await?;
+        log::info!(
+            "aria2:bt-endpoint listen_port={} announce_port={} external_ip_configured={}",
+            endpoint.listen_port,
+            endpoint.announce_port,
+            !endpoint.external_ip.is_empty()
+        );
+    }
+    Ok(result)
 }
 
 /// Get per-task options.
