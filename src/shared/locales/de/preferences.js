@@ -20,6 +20,12 @@ export default {
   'transfer-speed-download': 'Download-Limit',
   'transfer-speed-unlimited': 'Unbegrenzt',
   'bt-settings': 'BitTorrent',
+  'bt-connection-section': 'BitTorrent-Verbindung',
+  'bt-connection-applying': 'BitTorrent-Verbindungseinstellungen werden angewendet',
+  'bt-connection-restore-succeeded':
+    'Die BitTorrent-Verbindungseinstellungen konnten nicht angewendet werden. Die vorherigen Einstellungen wurden wiederhergestellt',
+  'bt-connection-restore-failed':
+    'Die vorherigen BitTorrent-Verbindungseinstellungen konnten nicht wiederhergestellt werden. Starten Sie die Engine neu',
   'bt-discovery-section': 'Peer-Erkennung',
   'p2p-sharing-section': 'P2P-Freigaberichtlinie',
   'sharing-mode': 'Freigaberichtlinie',
@@ -118,7 +124,8 @@ export default {
   'bt-peer-blocklist-invalid-url': 'Gültige HTTP/HTTPS-URL eingeben',
   'bt-peer-blocklist-update': 'Aktualisieren',
   'bt-peer-blocklist-update-succeed': 'BT Peer: Blockliste aktualisiert',
-  'bt-peer-blocklist-update-failed-keeping-current': 'BT Peer: Blockliste konnte nicht aktualisiert werden; aktuelle Regeln bleiben aktiv',
+  'bt-peer-blocklist-update-failed-keeping-current':
+    'BT Peer: Blockliste konnte nicht aktualisiert werden; aktuelle Regeln bleiben aktiv',
   'bt-tracker': 'Tracker-Server',
   'bt-tracker-input-tips': 'Ein Tracker pro Zeile',
   'auto-sync': 'Automatisch synchronisieren',
@@ -169,10 +176,10 @@ export default {
     'Portkonflikt bei {label}: Port {port} ist belegt. Automatischer Portwechsel ist deaktiviert.',
   'bt-port': 'BT-Port',
   'bt-external-ip': 'Externe BT-IP',
-  'bt-external-ip-hint': 'Numerische IP-Adresse für Tracker- und DHT-Ankündigungen.',
+  'bt-external-ip-hint': 'Numerische IP-Adresse für Tracker- und DHT-Ankündigungen',
   'bt-external-ip-placeholder': 'Für automatische Erkennung leer lassen',
   'bt-external-port': 'Externer BT-Port',
-  'bt-external-port-hint': 'Mit 0 wird der BT-Listen-Port angekündigt.',
+  'bt-external-port-hint': 'Mit 0 wird der BT-Listen-Port angekündigt',
   'bt-external-ip-invalid': 'Geben Sie eine gültige numerische IPv4- oder IPv6-Adresse ein',
   'bt-external-port-invalid': 'Der externe BT-Port muss zwischen 0 und 65535 liegen',
   'bt-port-unavailable': 'Der BT-Listen-Port ist nicht verfügbar',
@@ -508,5 +515,5 @@ export default {
   'ed2k-invalid-upload-slots': 'ED2K upload slots must be between 1 and 100',
   'ed2k-invalid-search-timeout': 'Die ED2K-Suchdauer muss zwischen 10 und 600 Sekunden liegen',
   'ed2k-invalid-server': 'ED2K server must use host:port format',
-  'ed2k-random-port': 'Zufällig',
+  'random-port': 'Zufällig',
 }

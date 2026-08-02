@@ -13,8 +13,6 @@ import {
   validateAdvancedForm,
   isValidAria2ProxyUrl,
   randomRpcPort,
-  randomBtPort,
-  randomDhtPort,
   type AdvancedForm,
 } from '../useAdvancedPreference'
 import {
@@ -65,8 +63,6 @@ describe('buildAdvancedForm', () => {
     expect(form.proxy.scope).toHaveLength(PROXY_SCOPE_OPTIONS.length)
     expect(form.rpcListenPort).toBe(ENGINE_RPC_PORT)
     expect(form.allowRemoteAccess).toBe(false)
-    expect(form.listenPort).toBe(29120)
-    expect(form.dhtListenPort).toBe(29130)
     expect(form.logLevel).toBe('warn')
     expect(form.aria2LogLevel).toBe('warn')
     expect(form.enableUpnp).toBe(true)
@@ -112,13 +108,6 @@ describe('buildAdvancedForm', () => {
     const { form } = buildAdvancedForm(config)
     expect(form.enableUpnp).toBe(false)
   })
-
-  it('coerces string port values to numbers', () => {
-    const config = { listenPort: '12345' as unknown, dhtListenPort: '54321' as unknown } as AppConfig
-    const { form } = buildAdvancedForm(config)
-    expect(form.listenPort).toBe(12345)
-    expect(form.dhtListenPort).toBe(54321)
-  })
 })
 
 // ── buildAdvancedSystemConfig ───────────────────────────────────────
@@ -129,8 +118,6 @@ describe('buildAdvancedSystemConfig', () => {
     rpcListenPort: 29100,
     rpcSecret: 'testSecret',
     enableUpnp: true,
-    listenPort: 29120,
-    dhtListenPort: 29130,
     userAgent: '',
     logLevel: 'warn',
     aria2LogLevel: 'info',
@@ -162,8 +149,8 @@ describe('buildAdvancedSystemConfig', () => {
     expect(config['rpc-secret']).toBe('testSecret')
     expect(config).not.toHaveProperty('enable-dht')
     expect(config).not.toHaveProperty('enable-peer-exchange')
-    expect(config['listen-port']).toBe('29120')
-    expect(config['dht-listen-port']).toBe('29130')
+    expect(config).not.toHaveProperty('listen-port')
+    expect(config).not.toHaveProperty('dht-listen-port')
     expect(config).not.toHaveProperty('log-level')
   })
 
@@ -219,8 +206,6 @@ describe('transformAdvancedForStore', () => {
       rpcListenPort: 29100,
       rpcSecret: 'x',
       enableUpnp: true,
-      listenPort: 29120,
-      dhtListenPort: 29130,
       userAgent: '',
       logLevel: 'warn',
       aria2LogLevel: 'info',
@@ -250,44 +235,6 @@ describe('transformAdvancedForStore', () => {
     expect(result.clipboard).toMatchObject({ ed2k: false })
   })
 
-  it('preserves port numbers as numbers (not strings)', () => {
-    const form: AdvancedForm = {
-      proxy: { mode: 'direct', server: '', bypass: '', scope: [] },
-      rpcListenPort: 29100,
-      rpcSecret: 'x',
-      enableUpnp: true,
-      listenPort: 29120,
-      dhtListenPort: 29130,
-      userAgent: '',
-      logLevel: 'warn',
-      aria2LogLevel: 'info',
-      tempFilesDir: '',
-      hardwareRendering: false,
-      extensionApiPort: 29110,
-      extensionApiSecret: 'test-api-secret',
-      allowRemoteAccess: false,
-      autoSubmitFromExtension: false,
-      autoSelectAllBtFilesFromExtension: false,
-      silentAutoSubmitFromExtension: true,
-      autoChangeConflictingPorts: true,
-      clipboardEnable: true,
-      clipboardHttp: true,
-      clipboardFtp: false,
-      clipboardMagnet: true,
-      clipboardEd2k: true,
-      clipboardThunder: false,
-      clipboardBtHash: true,
-      connectTimeout: 60,
-      timeout: 60,
-      fileAllocation: 'prealloc',
-    }
-    const result = transformAdvancedForStore(form)
-    expect(result.listenPort).toBe(29120)
-    expect(typeof result.listenPort).toBe('number')
-    expect(result.dhtListenPort).toBe(29130)
-    expect(typeof result.dhtListenPort).toBe('number')
-  })
-
   it('preserves automatic conflicting port switching preference', () => {
     const form = buildAdvancedForm({ ...createDefaultAppConfig(), autoChangeConflictingPorts: false } as AppConfig).form
     const result = transformAdvancedForStore(form)
@@ -304,8 +251,6 @@ describe('transformAdvancedForStore', () => {
     // This is the exact scenario that caused the bug: config → form → store → diffConfig
     // should report ZERO changes when the user didn't touch anything.
     const config = {
-      listenPort: 29120,
-      dhtListenPort: 29130,
       rpcListenPort: 29100,
       rpcSecret: 'existingSecret',
       enableUpnp: false,
@@ -314,8 +259,6 @@ describe('transformAdvancedForStore', () => {
     const stored = transformAdvancedForStore(form)
     const diff = diffConfig(config as Record<string, unknown>, stored)
     // None of the restart-relevant keys should appear in the diff
-    expect(diff).not.toHaveProperty('listenPort')
-    expect(diff).not.toHaveProperty('dhtListenPort')
     expect(diff).not.toHaveProperty('rpcListenPort')
     expect(diff).not.toHaveProperty('rpcSecret')
   })
@@ -401,8 +344,6 @@ describe('validateAdvancedForm', () => {
     rpcListenPort: 29100,
     rpcSecret: 'validSecret',
     enableUpnp: true,
-    listenPort: 29120,
-    dhtListenPort: 29130,
     userAgent: '',
     logLevel: 'warn',
     aria2LogLevel: 'info',
@@ -505,22 +446,6 @@ describe('port randomizers', () => {
       expect(port).toBeLessThanOrEqual(PORT_RECOVERY_RANGE_END)
     }
   })
-
-  it('randomBtPort stays within the port recovery range', () => {
-    for (let i = 0; i < 20; i++) {
-      const port = randomBtPort()
-      expect(port).toBeGreaterThanOrEqual(PORT_RECOVERY_RANGE_START)
-      expect(port).toBeLessThanOrEqual(PORT_RECOVERY_RANGE_END)
-    }
-  })
-
-  it('randomDhtPort stays within the port recovery range', () => {
-    for (let i = 0; i < 20; i++) {
-      const port = randomDhtPort()
-      expect(port).toBeGreaterThanOrEqual(PORT_RECOVERY_RANGE_START)
-      expect(port).toBeLessThanOrEqual(PORT_RECOVERY_RANGE_END)
-    }
-  })
 })
 
 // ── Proxy Configuration Invariants ──────────────────────────────────
@@ -571,8 +496,6 @@ describe('proxy configuration invariants', () => {
       rpcListenPort: 29100,
       rpcSecret: 'x',
       enableUpnp: true,
-      listenPort: 29120,
-      dhtListenPort: 29130,
       userAgent: '',
       logLevel: 'debug',
       aria2LogLevel: 'info',
@@ -613,8 +536,6 @@ describe('proxy configuration invariants', () => {
       rpcListenPort: 29100,
       rpcSecret: 'x',
       enableUpnp: true,
-      listenPort: 29120,
-      dhtListenPort: 29130,
       userAgent: '',
       logLevel: 'debug',
       aria2LogLevel: 'info',
@@ -654,8 +575,6 @@ describe('proxy configuration invariants', () => {
       rpcListenPort: 29100,
       rpcSecret: 'x',
       enableUpnp: true,
-      listenPort: 29120,
-      dhtListenPort: 29130,
       userAgent: '',
       logLevel: 'debug',
       aria2LogLevel: 'info',
@@ -714,8 +633,6 @@ describe('transformAdvancedForStore — hardwareRendering', () => {
       rpcListenPort: 29100,
       rpcSecret: 'x',
       enableUpnp: true,
-      listenPort: 29120,
-      dhtListenPort: 29130,
       userAgent: '',
       logLevel: 'warn',
       aria2LogLevel: 'info',

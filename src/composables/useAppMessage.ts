@@ -114,6 +114,8 @@ function dedupShow(fn: MessageFn, content: MessageContent, options?: MessageOpti
 export function useAppMessage() {
   const message = useMessage()
   return {
+    loading: (content: MessageContent, options?: MessageOptions) =>
+      dedupShow(message.loading.bind(message), content, options),
     success: (content: MessageContent, options?: MessageOptions) =>
       dedupShow(message.success.bind(message), content, options),
     error: (content: MessageContent, options?: MessageOptions) =>

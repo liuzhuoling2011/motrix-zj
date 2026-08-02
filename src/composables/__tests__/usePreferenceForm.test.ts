@@ -22,6 +22,7 @@ import { setActivePinia, createPinia } from 'pinia'
 const mockMessage = vi.hoisted(() => {
   const createMessageFn = () => vi.fn((_message?: unknown, _options?: unknown) => ({ destroy: vi.fn() }))
   return {
+    loading: createMessageFn(),
     success: createMessageFn(),
     error: createMessageFn(),
     warning: createMessageFn(),
@@ -267,6 +268,99 @@ describe('usePreferenceForm', () => {
     unmount()
   })
 
+  it('stacks save progress with the final result', async () => {
+    const store = usePreferenceStore()
+    store.updateAndSave = vi.fn().mockResolvedValue(true)
+    const { result, unmount } = withSetup(() =>
+      usePreferenceForm(
+        makeOptions({
+          saveFeedback: {
+            progress: 'Applying settings',
+            restored: 'Previous settings restored',
+            rollbackFailed: 'Rollback failed',
+          },
+        }),
+      ),
+    )
+
+    result.form.value.maxConcurrentDownloads = 8
+    await result.handleSave()
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    expect(mockMessage.loading).toHaveBeenCalled()
+    expect(extractMessageText(mockMessage.loading.mock.calls[0][0])).toBe('Applying settings')
+    expect(mockMessage.loading.mock.calls[0][1]).toEqual(
+      expect.objectContaining({ closable: true, keepAliveOnHover: true }),
+    )
+    expect(mockMessage.success).toHaveBeenCalled()
+
+    unmount()
+  })
+
+  it('restores every completed save stage when a post-save side effect fails', async () => {
+    const store = usePreferenceStore()
+    store.config.maxConcurrentDownloads = 6
+    store.updateAndSave = vi.fn().mockResolvedValue(true)
+    const afterSave = vi.fn().mockRejectedValue(new Error('mapping failed'))
+    const { result, unmount } = withSetup(() =>
+      usePreferenceForm(
+        makeOptions({
+          afterSave,
+          saveFeedback: {
+            progress: 'Applying settings',
+            restored: 'Previous settings restored',
+            rollbackFailed: 'Rollback failed',
+          },
+        }),
+      ),
+    )
+
+    result.form.value.maxConcurrentDownloads = 8
+    await expect(result.handleSave()).rejects.toThrow('mapping failed')
+
+    expect(store.updateAndSave).toHaveBeenCalledTimes(2)
+    expect(mockInvoke).toHaveBeenCalledWith('save_system_config', {
+      config: expect.objectContaining({ 'max-concurrent-downloads': '6' }),
+    })
+    expect(mockChangeGlobalOption).toHaveBeenLastCalledWith({ 'max-concurrent-downloads': '6' })
+    expect(result.form.value.maxConcurrentDownloads).toBe(6)
+    expect(result.isDirty.value).toBe(false)
+    expect(extractMessageText(mockMessage.error.mock.calls[mockMessage.error.mock.calls.length - 1]?.[0])).toBe(
+      'Previous settings restored',
+    )
+
+    unmount()
+  })
+
+  it('reports rollback failure without claiming the form was restored', async () => {
+    const store = usePreferenceStore()
+    store.updateAndSave = vi.fn().mockResolvedValue(true)
+    mockChangeGlobalOption.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('rollback failed'))
+    const { result, unmount } = withSetup(() =>
+      usePreferenceForm(
+        makeOptions({
+          afterSave: () => Promise.reject(new Error('apply failed')),
+          saveFeedback: {
+            progress: 'Applying settings',
+            restored: 'Previous settings restored',
+            rollbackFailed: 'Rollback failed',
+          },
+        }),
+      ),
+    )
+
+    result.form.value.maxConcurrentDownloads = 8
+    await expect(result.handleSave()).rejects.toThrow('apply failed')
+
+    expect(result.form.value.maxConcurrentDownloads).toBe(8)
+    expect(result.isDirty.value).toBe(true)
+    expect(extractMessageText(mockMessage.error.mock.calls[mockMessage.error.mock.calls.length - 1]?.[0])).toBe(
+      'Rollback failed',
+    )
+
+    unmount()
+  })
+
   it('patchSnapshot updates only specified fields in the baseline', async () => {
     const { result, unmount } = withSetup(() => usePreferenceForm(makeOptions()))
     const { form, isDirty, patchSnapshot, resetSnapshot } = result
@@ -336,6 +430,9 @@ describe('usePreferenceForm', () => {
 
     expect(store.updateAndSave).not.toHaveBeenCalled()
     expect(mockInvoke).not.toHaveBeenCalledWith('save_system_config', expect.anything())
+    expect(mockChangeGlobalOption).toHaveBeenLastCalledWith({ 'max-concurrent-downloads': '6' })
+    expect(result.form.value.maxConcurrentDownloads).toBe(6)
+    expect(result.isDirty.value).toBe(false)
 
     unmount()
   })

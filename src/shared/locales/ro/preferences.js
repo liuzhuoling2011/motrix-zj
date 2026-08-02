@@ -20,6 +20,12 @@ export default {
   'transfer-speed-download': 'Limită descărcare',
   'transfer-speed-unlimited': 'Nelimitat',
   'bt-settings': 'BitTorrent',
+  'bt-connection-section': 'Conexiune BitTorrent',
+  'bt-connection-applying': 'Se aplică setările conexiunii BitTorrent',
+  'bt-connection-restore-succeeded':
+    'Setările conexiunii BitTorrent nu au putut fi aplicate. Setările anterioare au fost restaurate',
+  'bt-connection-restore-failed':
+    'Setările anterioare ale conexiunii BitTorrent nu au putut fi restaurate. Reporniți motorul',
   'bt-discovery-section': 'Descoperire peeri',
   'p2p-sharing-section': 'Politică de partajare P2P',
   'sharing-mode': 'Politică de partajare',
@@ -168,10 +174,10 @@ export default {
     'Conflict de port {label}: portul {port} este folosit. Schimbarea automată a porturilor este dezactivată.',
   'bt-port': 'Port BT',
   'bt-external-ip': 'IP BT extern',
-  'bt-external-ip-hint': 'Adresa IP numerică anunțată trackerelor și DHT.',
+  'bt-external-ip-hint': 'Adresa IP numerică anunțată trackerelor și DHT',
   'bt-external-ip-placeholder': 'Lăsați necompletat pentru detectare automată',
   'bt-external-port': 'Port BT extern',
-  'bt-external-port-hint': 'Folosiți 0 pentru a anunța portul de ascultare BT.',
+  'bt-external-port-hint': 'Folosiți 0 pentru a anunța portul de ascultare BT',
   'bt-external-ip-invalid': 'Introduceți o adresă IPv4 sau IPv6 numerică validă',
   'bt-external-port-invalid': 'Portul BT extern trebuie să fie între 0 și 65535',
   'bt-port-unavailable': 'Portul de ascultare BT nu este disponibil',
@@ -343,7 +349,8 @@ export default {
   'system-runtime': 'Mediu de execuție',
   'clipboard-detection': 'Detectare clipboard',
   'clipboard-auto-detect': 'Detectează automat linkuri de descărcare din clipboard',
-  'clipboard-filter-hint': 'Opțiunile filtrează doar linkuri individuale; conținutul pe mai multe linii nu este filtrat după tip',
+  'clipboard-filter-hint':
+    'Opțiunile filtrează doar linkuri individuale; conținutul pe mai multe linii nu este filtrat după tip',
   'clipboard-http': 'Linkuri HTTP / HTTPS',
   'clipboard-ftp': 'Linkuri FTP',
   'clipboard-ed2k': 'Linkuri ED2K',
@@ -506,5 +513,5 @@ export default {
   'ed2k-invalid-upload-slots': 'ED2K upload slots must be between 1 and 100',
   'ed2k-invalid-search-timeout': 'Durata căutării ED2K trebuie să fie între 10 și 600 de secunde',
   'ed2k-invalid-server': 'ED2K server must use host:port format',
-  'ed2k-random-port': 'Random',
+  'random-port': 'Random',
 }

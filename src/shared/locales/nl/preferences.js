@@ -20,6 +20,12 @@ export default {
   'transfer-speed-download': 'Downloadlimiet',
   'transfer-speed-unlimited': 'Onbeperkt',
   'bt-settings': 'BitTorrent',
+  'bt-connection-section': 'BitTorrent-verbinding',
+  'bt-connection-applying': 'BitTorrent-verbindingsinstellingen toepassen',
+  'bt-connection-restore-succeeded':
+    'De BitTorrent-verbindingsinstellingen konden niet worden toegepast. De vorige instellingen zijn hersteld',
+  'bt-connection-restore-failed':
+    'De vorige BitTorrent-verbindingsinstellingen konden niet worden hersteld. Start de engine opnieuw',
   'bt-discovery-section': 'Peer-detectie',
   'p2p-sharing-section': 'P2P-deelbeleid',
   'sharing-mode': 'Deelbeleid',
@@ -169,10 +175,10 @@ export default {
     'Poortconflict voor {label}: poort {port} is in gebruik. Automatisch poort wisselen is uitgeschakeld.',
   'bt-port': 'BT-poort',
   'bt-external-ip': 'Extern BT-IP-adres',
-  'bt-external-ip-hint': 'Numeriek IP-adres dat aan trackers en DHT wordt gemeld.',
+  'bt-external-ip-hint': 'Numeriek IP-adres dat aan trackers en DHT wordt gemeld',
   'bt-external-ip-placeholder': 'Leeg laten voor automatische detectie',
   'bt-external-port': 'Externe BT-poort',
-  'bt-external-port-hint': 'Gebruik 0 om de BT-luisterpoort te melden.',
+  'bt-external-port-hint': 'Gebruik 0 om de BT-luisterpoort te melden',
   'bt-external-ip-invalid': 'Voer een geldig numeriek IPv4- of IPv6-adres in',
   'bt-external-port-invalid': 'De externe BT-poort moet tussen 0 en 65535 liggen',
   'bt-port-unavailable': 'De BT-luisterpoort is niet beschikbaar',
@@ -344,7 +350,8 @@ export default {
   'system-runtime': 'Runtime',
   'clipboard-detection': 'Klemborddetectie',
   'clipboard-auto-detect': 'Downloadlinks automatisch detecteren vanuit het klembord',
-  'clipboard-filter-hint': 'Opties filteren alleen losse links; inhoud met meerdere regels wordt niet op type gefilterd',
+  'clipboard-filter-hint':
+    'Opties filteren alleen losse links; inhoud met meerdere regels wordt niet op type gefilterd',
   'clipboard-http': 'HTTP / HTTPS-links',
   'clipboard-ftp': 'FTP-links',
   'clipboard-ed2k': 'ED2K-links',
@@ -507,5 +514,5 @@ export default {
   'ed2k-invalid-upload-slots': 'ED2K upload slots must be between 1 and 100',
   'ed2k-invalid-search-timeout': 'ED2K-zoekduur moet tussen 10 en 600 seconden zijn',
   'ed2k-invalid-server': 'ED2K server must use host:port format',
-  'ed2k-random-port': 'Random',
+  'random-port': 'Random',
 }

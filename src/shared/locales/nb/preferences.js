@@ -20,6 +20,12 @@ export default {
   'transfer-speed-download': 'Nedlastingsgrense',
   'transfer-speed-unlimited': 'Ubegrenset',
   'bt-settings': 'BitTorrent',
+  'bt-connection-section': 'BitTorrent-tilkobling',
+  'bt-connection-applying': 'Bruker innstillinger for BitTorrent-tilkobling',
+  'bt-connection-restore-succeeded':
+    'Innstillingene for BitTorrent-tilkobling kunne ikke brukes. Tidligere innstillinger er gjenopprettet',
+  'bt-connection-restore-failed':
+    'Tidligere innstillinger for BitTorrent-tilkobling kunne ikke gjenopprettes. Start motoren på nytt',
   'bt-discovery-section': 'Peer-oppdaging',
   'p2p-sharing-section': 'P2P-delingspolicy',
   'sharing-mode': 'Delingspolicy',
@@ -118,7 +124,8 @@ export default {
   'bt-peer-blocklist-invalid-url': 'Skriv inn en gyldig HTTP/HTTPS-URL',
   'bt-peer-blocklist-update': 'Oppdater',
   'bt-peer-blocklist-update-succeed': 'BT Peer: Blokkeringslisten er oppdatert',
-  'bt-peer-blocklist-update-failed-keeping-current': 'BT Peer: Kunne ikke oppdatere listen; gjeldende regler forblir aktive',
+  'bt-peer-blocklist-update-failed-keeping-current':
+    'BT Peer: Kunne ikke oppdatere listen; gjeldende regler forblir aktive',
   'bt-tracker': 'Trackerservere',
   'bt-tracker-input-tips': 'Én trackerserver per linje',
   'auto-sync': 'Automatisk synkronisering',
@@ -167,10 +174,10 @@ export default {
   'port-auto-switch-disabled': 'Portkonflikt for {label}: port {port} er i bruk. Automatisk portbytte er deaktivert.',
   'bt-port': 'BT-port',
   'bt-external-ip': 'Ekstern BT-IP',
-  'bt-external-ip-hint': 'Numerisk IP-adresse som kunngjøres til trackere og DHT.',
+  'bt-external-ip-hint': 'Numerisk IP-adresse som kunngjøres til trackere og DHT',
   'bt-external-ip-placeholder': 'La stå tomt for automatisk registrering',
   'bt-external-port': 'Ekstern BT-port',
-  'bt-external-port-hint': 'Bruk 0 for å kunngjøre BT-lytteporten.',
+  'bt-external-port-hint': 'Bruk 0 for å kunngjøre BT-lytteporten',
   'bt-external-ip-invalid': 'Angi en gyldig numerisk IPv4- eller IPv6-adresse',
   'bt-external-port-invalid': 'Ekstern BT-port må være mellom 0 og 65535',
   'bt-port-unavailable': 'BT-lytteporten er ikke tilgjengelig',
@@ -503,5 +510,5 @@ export default {
   'ed2k-invalid-upload-slots': 'ED2K upload slots must be between 1 and 100',
   'ed2k-invalid-search-timeout': 'ED2K-søketid må være mellom 10 og 600 sekunder',
   'ed2k-invalid-server': 'ED2K server must use host:port format',
-  'ed2k-random-port': 'Random',
+  'random-port': 'Random',
 }

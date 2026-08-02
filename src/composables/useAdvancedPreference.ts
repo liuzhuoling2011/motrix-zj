@@ -40,8 +40,6 @@ export interface AdvancedForm {
   silentAutoSubmitFromExtension: boolean
   autoChangeConflictingPorts: boolean
   enableUpnp: boolean
-  listenPort: number
-  dhtListenPort: number
   userAgent: string
   logLevel: AppLogLevel
   aria2LogLevel: Aria2LogLevel
@@ -100,8 +98,6 @@ export function buildAdvancedForm(config: AppConfig): {
       silentAutoSubmitFromExtension: config.silentAutoSubmitFromExtension ?? D.silentAutoSubmitFromExtension,
       autoChangeConflictingPorts: config.autoChangeConflictingPorts ?? D.autoChangeConflictingPorts,
       enableUpnp: config.enableUpnp ?? D.enableUpnp,
-      listenPort: Number(config.listenPort ?? D.listenPort),
-      dhtListenPort: Number(config.dhtListenPort ?? D.dhtListenPort),
       userAgent: config.userAgent ?? D.userAgent,
       logLevel: config.logLevel ?? D.logLevel,
       aria2LogLevel: config.aria2LogLevel ?? D.aria2LogLevel,
@@ -132,8 +128,6 @@ export function buildAdvancedSystemConfig(f: AdvancedForm): Record<string, strin
     'rpc-listen-port': String(f.rpcListenPort),
     'allow-remote-access': String(!!f.allowRemoteAccess),
     'rpc-secret': f.rpcSecret,
-    'listen-port': String(f.listenPort),
-    'dht-listen-port': String(f.dhtListenPort),
     'user-agent': f.userAgent || '',
     ...buildDownloadProxyOptions(f.proxy),
   }
@@ -189,13 +183,5 @@ export function validateAdvancedForm(f: AdvancedForm): string | null {
 // ── Port Randomization ──────────────────────────────────────────────
 
 export function randomRpcPort(): number {
-  return generateRandomInt(PORT_RECOVERY_RANGE_START, PORT_RECOVERY_RANGE_END + 1)
-}
-
-export function randomBtPort(): number {
-  return generateRandomInt(PORT_RECOVERY_RANGE_START, PORT_RECOVERY_RANGE_END + 1)
-}
-
-export function randomDhtPort(): number {
   return generateRandomInt(PORT_RECOVERY_RANGE_START, PORT_RECOVERY_RANGE_END + 1)
 }

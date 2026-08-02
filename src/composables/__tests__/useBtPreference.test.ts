@@ -2,13 +2,21 @@
  * @fileoverview Tests for useBtPreference pure functions.
  *
  * The BT tab manages BitTorrent-specific config: auto-download, encryption,
- * discovery, max peers, and tracker management. Key business logic:
+ * connection, discovery, seeding, max peers, and tracker management. Key business logic:
  * - btAutoDownloadContent ↔ pauseMetadata mapping
  * - Tracker comma ↔ newline conversion
  * - force-save must NOT appear in global config (per-download only)
  */
 import { describe, it, expect } from 'vitest'
-import { buildBtForm, buildBtSystemConfig, transformBtForStore, type BtForm } from '../useBtPreference'
+import {
+  buildBtForm,
+  buildBtSystemConfig,
+  transformBtForStore,
+  validateBtEndpoint,
+  randomBtPort,
+  randomDhtPort,
+  type BtForm,
+} from '../useBtPreference'
 import type { AppConfig } from '@shared/types'
 import { createDefaultAppConfig } from '@shared/utils/configHydration'
 import { DEFAULT_APP_CONFIG, ENGINE_DEFAULT_BT_MAX_PEERS } from '@shared/constants'
@@ -81,6 +89,22 @@ describe('buildBtForm', () => {
     expect(DEFAULT_APP_CONFIG.btMaxPeers).toBe(ENGINE_DEFAULT_BT_MAX_PEERS)
   })
 
+  it('owns the BitTorrent connection and seeding defaults', () => {
+    const form = buildBtForm(emptyConfig)
+    expect(form.listenPort).toBe(DEFAULT_APP_CONFIG.listenPort)
+    expect(form.btExternalIp).toBe('')
+    expect(form.btExternalPort).toBe(0)
+    expect(form.dhtListenPort).toBe(DEFAULT_APP_CONFIG.dhtListenPort)
+    expect(form.sharingMode).toBe('stop-by-condition')
+    expect(form.shareRatio).toBe(DEFAULT_APP_CONFIG.shareRatio)
+    expect(form.shareTime).toBe(DEFAULT_APP_CONFIG.shareTime)
+  })
+
+  it('maps keepSharing=true to manual stop mode', () => {
+    const form = buildBtForm({ keepSharing: true } as AppConfig)
+    expect(form.sharingMode).toBe('manual-stop')
+  })
+
   // ── Tracker management ──────────────────────────────────────────
 
   it('defaults trackerSource from DEFAULT_APP_CONFIG', () => {
@@ -132,6 +156,13 @@ describe('buildBtForm', () => {
       'btPeerExchangeEnabled',
       'btLocalPeerDiscoveryEnabled',
       'btMaxPeers',
+      'listenPort',
+      'btExternalIp',
+      'btExternalPort',
+      'dhtListenPort',
+      'sharingMode',
+      'shareRatio',
+      'shareTime',
       'btPeerBlocklistEnabled',
       'btPeerBlocklistUrl',
       'btPeerBlocklistAutoSync',
@@ -161,6 +192,13 @@ describe('buildBtSystemConfig', () => {
     btPeerExchangeEnabled: true,
     btLocalPeerDiscoveryEnabled: true,
     btMaxPeers: 128,
+    listenPort: 29120,
+    btExternalIp: '',
+    btExternalPort: 0,
+    dhtListenPort: 29130,
+    sharingMode: 'stop-by-condition',
+    shareRatio: 2,
+    shareTime: 2880,
     btPeerBlocklistEnabled: true,
     btPeerBlocklistUrl: 'https://bcr.pbh-btn.com/combine/all.txt',
     btPeerBlocklistAutoSync: true,
@@ -177,10 +215,10 @@ describe('buildBtSystemConfig', () => {
     const config = buildBtSystemConfig(baseForm)
     expect(config['bt-max-peers']).toBe('128')
     expect(config['bt-force-encryption']).toBe('false')
-    expect(config).not.toHaveProperty('keep-sharing')
-    expect(config).not.toHaveProperty('seed-ratio')
-    expect(config).not.toHaveProperty('seed-time')
-    expect(config).not.toHaveProperty('detach-share-only')
+    expect(config['listen-port']).toBe('29120')
+    expect(config['bt-external-ip']).toBe('')
+    expect(config['bt-external-port']).toBe('0')
+    expect(config['dht-listen-port']).toBe('29130')
   })
 
   it('maps BT discovery toggles to aria2 config', () => {
@@ -205,6 +243,21 @@ describe('buildBtSystemConfig', () => {
     })
     expect(config['enable-dht']).toBe('true')
     expect(config['enable-dht6']).toBe('false')
+  })
+
+  it('maps condition-based seeding to aria2 config', () => {
+    const config = buildBtSystemConfig({ ...baseForm, shareRatio: 3, shareTime: 1440 })
+    expect(config['detach-share-only']).toBe('true')
+    expect(config['keep-sharing']).toBe('false')
+    expect(config['seed-ratio']).toBe('3')
+    expect(config['seed-time']).toBe('1440')
+  })
+
+  it('maps manual seeding to aria2 config', () => {
+    const config = buildBtSystemConfig({ ...baseForm, sharingMode: 'manual-stop' })
+    expect(config['keep-sharing']).toBe('true')
+    expect(config['seed-ratio']).toBe('0')
+    expect(config['seed-time']).toBe('')
   })
 
   it('mirrors force encryption into both aria2 encryption switches', () => {
@@ -269,6 +322,13 @@ describe('transformBtForStore', () => {
     btPeerExchangeEnabled: true,
     btLocalPeerDiscoveryEnabled: true,
     btMaxPeers: 128,
+    listenPort: 29120,
+    btExternalIp: '',
+    btExternalPort: 0,
+    dhtListenPort: 29130,
+    sharingMode: 'stop-by-condition',
+    shareRatio: 2,
+    shareTime: 2880,
     btPeerBlocklistEnabled: true,
     btPeerBlocklistUrl: 'https://bcr.pbh-btn.com/combine/all.txt',
     btPeerBlocklistAutoSync: true,
@@ -328,10 +388,42 @@ describe('transformBtForStore', () => {
     expect(result.btLocalPeerDiscoveryEnabled).toBe(false)
   })
 
-  it('does not persist global P2P sharing config from BT transform', () => {
-    const result = transformBtForStore(baseForm)
-    expect(result).not.toHaveProperty('keepSharing')
-    expect(result).not.toHaveProperty('shareRatio')
-    expect(result).not.toHaveProperty('shareTime')
+  it('persists BitTorrent seeding config with app-level naming', () => {
+    const result = transformBtForStore({ ...baseForm, sharingMode: 'manual-stop', shareRatio: 4, shareTime: 720 })
+    expect(result.keepSharing).toBe(true)
+    expect(result.shareRatio).toBe(4)
+    expect(result.shareTime).toBe(720)
+    expect(result).not.toHaveProperty('sharingMode')
+  })
+})
+
+describe('validateBtEndpoint', () => {
+  const form = buildBtForm({} as AppConfig)
+
+  it('accepts the default endpoint', () => {
+    expect(validateBtEndpoint(form)).toBeNull()
+  })
+
+  it('rejects invalid listen ports', () => {
+    expect(validateBtEndpoint({ ...form, listenPort: 80 })).toBe('preferences.bt-port-unavailable')
+    expect(validateBtEndpoint({ ...form, dhtListenPort: 65536 })).toBe('preferences.dht-port-invalid')
+  })
+
+  it('rejects invalid external endpoint values', () => {
+    expect(validateBtEndpoint({ ...form, btExternalIp: 'tracker.example.com' })).toBe(
+      'preferences.bt-external-ip-invalid',
+    )
+    expect(validateBtEndpoint({ ...form, btExternalPort: 65536 })).toBe('preferences.bt-external-port-invalid')
+  })
+})
+
+describe('BitTorrent port randomizers', () => {
+  it('stay within the configured recovery range', () => {
+    for (let i = 0; i < 20; i++) {
+      expect(randomBtPort()).toBeGreaterThanOrEqual(29000)
+      expect(randomBtPort()).toBeLessThanOrEqual(29999)
+      expect(randomDhtPort()).toBeGreaterThanOrEqual(29000)
+      expect(randomDhtPort()).toBeLessThanOrEqual(29999)
+    }
   })
 })

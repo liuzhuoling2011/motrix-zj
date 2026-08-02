@@ -20,6 +20,12 @@ export default {
   'transfer-speed-download': 'Лимит на изтегляне',
   'transfer-speed-unlimited': 'Без ограничение',
   'bt-settings': 'BitTorrent',
+  'bt-connection-section': 'BitTorrent връзка',
+  'bt-connection-applying': 'Прилагане на настройките за BitTorrent връзка',
+  'bt-connection-restore-succeeded':
+    'Настройките за BitTorrent връзка не можаха да бъдат приложени. Предишните настройки са възстановени',
+  'bt-connection-restore-failed':
+    'Предишните настройки за BitTorrent връзка не можаха да бъдат възстановени. Рестартирайте двигателя',
   'bt-discovery-section': 'Откриване на peers',
   'p2p-sharing-section': 'Политика за P2P споделяне',
   'sharing-mode': 'Политика за споделяне',
@@ -118,7 +124,8 @@ export default {
   'bt-peer-blocklist-invalid-url': 'Въведете валиден HTTP/HTTPS URL',
   'bt-peer-blocklist-update': 'Обновяване',
   'bt-peer-blocklist-update-succeed': 'BT Peer: Списъкът е обновен',
-  'bt-peer-blocklist-update-failed-keeping-current': 'BT Peer: Списъкът не бе обновен; текущите правила остават активни',
+  'bt-peer-blocklist-update-failed-keeping-current':
+    'BT Peer: Списъкът не бе обновен; текущите правила остават активни',
   'bt-tracker': 'Тракер сървъри',
   'bt-tracker-input-tips': 'Един тракер сървър на ред',
   'auto-sync': 'Автоматично синхронизиране',
@@ -168,10 +175,10 @@ export default {
     'Конфликт на порт {label}: порт {port} е зает. Автоматичното превключване на портове е изключено.',
   'bt-port': 'BT порт',
   'bt-external-ip': 'Външен BT IP',
-  'bt-external-ip-hint': 'Цифровият IP адрес, обявяван към тракерите и DHT.',
+  'bt-external-ip-hint': 'Цифровият IP адрес, обявяван към тракерите и DHT',
   'bt-external-ip-placeholder': 'Оставете празно за автоматично откриване',
   'bt-external-port': 'Външен BT порт',
-  'bt-external-port-hint': 'Използвайте 0, за да обявите BT порта за слушане.',
+  'bt-external-port-hint': 'Използвайте 0, за да обявите BT порта за слушане',
   'bt-external-ip-invalid': 'Въведете валиден цифров IPv4 или IPv6 адрес',
   'bt-external-port-invalid': 'Външният BT порт трябва да е между 0 и 65535',
   'bt-port-unavailable': 'BT портът за слушане не е наличен',
@@ -504,5 +511,5 @@ export default {
   'ed2k-invalid-upload-slots': 'ED2K upload slots must be between 1 and 100',
   'ed2k-invalid-search-timeout': 'Времето за ED2K търсене трябва да е между 10 и 600 секунди',
   'ed2k-invalid-server': 'ED2K server must use host:port format',
-  'ed2k-random-port': 'Random',
+  'random-port': 'Random',
 }

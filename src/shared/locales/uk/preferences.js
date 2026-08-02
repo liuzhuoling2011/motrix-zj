@@ -20,6 +20,12 @@ export default {
   'transfer-speed-download': 'Ліміт завантаження',
   'transfer-speed-unlimited': 'Без обмежень',
   'bt-settings': 'BitTorrent',
+  'bt-connection-section': 'Підключення BitTorrent',
+  'bt-connection-applying': 'Застосування налаштувань підключення BitTorrent',
+  'bt-connection-restore-succeeded':
+    'Не вдалося застосувати налаштування підключення BitTorrent. Попередні налаштування відновлено',
+  'bt-connection-restore-failed':
+    'Не вдалося відновити попередні налаштування підключення BitTorrent. Перезапустіть рушій',
   'bt-discovery-section': 'Пошук peers',
   'p2p-sharing-section': 'Політика P2P-поширення',
   'sharing-mode': 'Політика поширення',
@@ -118,7 +124,8 @@ export default {
   'bt-peer-blocklist-invalid-url': 'Введіть коректний URL HTTP/HTTPS',
   'bt-peer-blocklist-update': 'Оновити',
   'bt-peer-blocklist-update-succeed': 'BT Peer: Список блокування оновлено',
-  'bt-peer-blocklist-update-failed-keeping-current': 'BT Peer: Не вдалося оновити список; поточні правила залишаються активними',
+  'bt-peer-blocklist-update-failed-keeping-current':
+    'BT Peer: Не вдалося оновити список; поточні правила залишаються активними',
   'bt-tracker': 'Сервери трекерів',
   'bt-tracker-input-tips': 'Один сервер трекера на рядок',
   'auto-sync': 'Автоматична синхронізація',
@@ -169,10 +176,10 @@ export default {
     'Конфлікт порту {label}: порт {port} використовується. Автоматичне перемикання портів вимкнено.',
   'bt-port': 'Порт BT',
   'bt-external-ip': 'Зовнішня IP-адреса BT',
-  'bt-external-ip-hint': 'Числова IP-адреса, яку оголошено трекерам і DHT.',
+  'bt-external-ip-hint': 'Числова IP-адреса, яку оголошено трекерам і DHT',
   'bt-external-ip-placeholder': 'Залиште порожнім для автоматичного визначення',
   'bt-external-port': 'Зовнішній порт BT',
-  'bt-external-port-hint': 'Укажіть 0, щоб оголошувати порт прослуховування BT.',
+  'bt-external-port-hint': 'Укажіть 0, щоб оголошувати порт прослуховування BT',
   'bt-external-ip-invalid': 'Введіть дійсну числову адресу IPv4 або IPv6',
   'bt-external-port-invalid': 'Зовнішній порт BT має бути від 0 до 65535',
   'bt-port-unavailable': 'Порт прослуховування BT недоступний',
@@ -505,5 +512,5 @@ export default {
   'ed2k-invalid-upload-slots': 'ED2K upload slots must be between 1 and 100',
   'ed2k-invalid-search-timeout': 'Тривалість пошуку ED2K має бути від 10 до 600 секунд',
   'ed2k-invalid-server': 'ED2K server must use host:port format',
-  'ed2k-random-port': 'Random',
+  'random-port': 'Random',
 }

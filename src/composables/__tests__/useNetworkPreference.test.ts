@@ -5,8 +5,7 @@
  * file allocation), and User-Agent. All keys here map to aria2 engine options
  * via buildNetworkSystemConfig.
  *
- * Proxy validation logic (isValidAria2ProxyUrl, validateNetworkForm) and
- * port randomizers (randomBtPort, randomDhtPort) are also covered here.
+ * Proxy validation logic is covered here with the form transformations.
  */
 import { describe, it, expect } from 'vitest'
 import {
@@ -15,8 +14,6 @@ import {
   transformNetworkForStore,
   validateNetworkForm,
   isValidAria2ProxyUrl,
-  randomBtPort,
-  randomDhtPort,
   type NetworkForm,
 } from '../useNetworkPreference'
 import { PROXY_SCOPES, PROXY_SCOPE_OPTIONS, DEFAULT_APP_CONFIG } from '@shared/constants'
@@ -164,29 +161,6 @@ describe('buildNetworkForm', () => {
     expect(form.enableUpnp).toBe(false)
   })
 
-  it('defaults listenPort to 29120', () => {
-    const form = buildNetworkForm(emptyConfig)
-    expect(form.listenPort).toBe(29120)
-  })
-
-  it('defaults dhtListenPort to 29130', () => {
-    const form = buildNetworkForm(emptyConfig)
-    expect(form.dhtListenPort).toBe(29130)
-  })
-
-  it('defaults the external BitTorrent endpoint to automatic values', () => {
-    const form = buildNetworkForm(emptyConfig)
-    expect(form.btExternalIp).toBe('')
-    expect(form.btExternalPort).toBe(0)
-  })
-
-  it('coerces string port values to numbers', () => {
-    const config = { listenPort: '12345' as unknown, dhtListenPort: '54321' as unknown } as AppConfig
-    const form = buildNetworkForm(config)
-    expect(form.listenPort).toBe(12345)
-    expect(form.dhtListenPort).toBe(54321)
-  })
-
   // ── Transfer Parameters ─────────────────────────────────────────
 
   it('defaults connectTimeout to 10', () => {
@@ -234,18 +208,6 @@ describe('buildNetworkForm', () => {
     expect(form.asyncDns).toBe(false)
   })
 
-  it('defaults P2P sharing to condition-based stopping', () => {
-    const form = buildNetworkForm(emptyConfig)
-    expect(form.sharingMode).toBe('stop-by-condition')
-    expect(form.shareRatio).toBe(2)
-    expect(form.shareTime).toBe(2880)
-  })
-
-  it('maps keepSharing=true to manual stop mode', () => {
-    const form = buildNetworkForm({ keepSharing: true } as AppConfig)
-    expect(form.sharingMode).toBe('manual-stop')
-  })
-
   it('reads asyncDns from config', () => {
     const config = { asyncDns: true } as AppConfig
     const form = buildNetworkForm(config)
@@ -266,16 +228,11 @@ describe('buildNetworkForm', () => {
     expect(form).toHaveProperty('enableUpnp')
     expect(form).toHaveProperty('autoChangeConflictingPorts')
     expect(form).toHaveProperty('portConflictRecovery')
-    expect(form).toHaveProperty('listenPort')
-    expect(form).toHaveProperty('dhtListenPort')
     expect(form).toHaveProperty('connectTimeout')
     expect(form).toHaveProperty('timeout')
     expect(form).toHaveProperty('fileAllocation')
     expect(form).toHaveProperty('userAgent')
     expect(form).toHaveProperty('asyncDns')
-    expect(form).toHaveProperty('sharingMode')
-    expect(form).toHaveProperty('shareRatio')
-    expect(form).toHaveProperty('shareTime')
   })
 
   it('defaults port conflict recovery to enabled for every managed port type', () => {
@@ -307,10 +264,6 @@ describe('buildNetworkSystemConfig', () => {
     enableUpnp: true,
     autoChangeConflictingPorts: true,
     portConflictRecovery: { ...DEFAULT_APP_CONFIG.portConflictRecovery },
-    listenPort: 29120,
-    btExternalIp: '',
-    btExternalPort: 0,
-    dhtListenPort: 29130,
     connectTimeout: 10,
     timeout: 10,
     fileAllocation: 'none',
@@ -319,29 +272,17 @@ describe('buildNetworkSystemConfig', () => {
     userAgentRules: [],
     recentUserAgentProfileIds: [],
     asyncDns: false,
-    sharingMode: 'stop-by-condition',
-    shareRatio: 2,
-    shareTime: 2880,
   }
 
-  it('maps port and protocol keys to aria2 config', () => {
+  it('does not emit protocol-specific options', () => {
     const config = buildNetworkSystemConfig(baseForm)
-    expect(config['listen-port']).toBe('29120')
-    expect(config['bt-external-ip']).toBe('')
-    expect(config['bt-external-port']).toBe('0')
-    expect(config['dht-listen-port']).toBe('29130')
+    expect(config).not.toHaveProperty('listen-port')
+    expect(config).not.toHaveProperty('bt-external-ip')
+    expect(config).not.toHaveProperty('bt-external-port')
+    expect(config).not.toHaveProperty('dht-listen-port')
     expect(config).not.toHaveProperty('enable-dht')
     expect(config).not.toHaveProperty('enable-peer-exchange')
-  })
-
-  it('maps a custom external BitTorrent endpoint', () => {
-    const config = buildNetworkSystemConfig({
-      ...baseForm,
-      btExternalIp: '203.0.113.7',
-      btExternalPort: 62000,
-    })
-    expect(config['bt-external-ip']).toBe('203.0.113.7')
-    expect(config['bt-external-port']).toBe('62000')
+    expect(config).not.toHaveProperty('keep-sharing')
   })
 
   it('maps transfer parameter keys to aria2 config', () => {
@@ -375,32 +316,6 @@ describe('buildNetworkSystemConfig', () => {
   it('maps async-dns to aria2 config', () => {
     expect(buildNetworkSystemConfig(baseForm)['async-dns']).toBe('false')
     expect(buildNetworkSystemConfig({ ...baseForm, asyncDns: true })['async-dns']).toBe('true')
-  })
-
-  it('condition mode emits P2P sharing stop conditions', () => {
-    const config = buildNetworkSystemConfig({
-      ...baseForm,
-      sharingMode: 'stop-by-condition',
-      shareRatio: 3,
-      shareTime: 1440,
-    })
-    expect(config['detach-share-only']).toBe('true')
-    expect(config['keep-sharing']).toBe('false')
-    expect(config['seed-ratio']).toBe('3')
-    expect(config['seed-time']).toBe('1440')
-  })
-
-  it('manual mode keeps sharing until manual stop', () => {
-    const config = buildNetworkSystemConfig({
-      ...baseForm,
-      sharingMode: 'manual-stop',
-      shareRatio: 3,
-      shareTime: 1440,
-    })
-    expect(config['detach-share-only']).toBe('true')
-    expect(config['keep-sharing']).toBe('true')
-    expect(config['seed-ratio']).toBe('0')
-    expect(config['seed-time']).toBe('')
   })
 
   // ── Proxy flow ──────────────────────────────────────────────────
@@ -505,10 +420,6 @@ describe('transformNetworkForStore', () => {
     enableUpnp: true,
     autoChangeConflictingPorts: true,
     portConflictRecovery: { ...DEFAULT_APP_CONFIG.portConflictRecovery },
-    listenPort: 29120,
-    btExternalIp: '',
-    btExternalPort: 0,
-    dhtListenPort: 29130,
     connectTimeout: 10,
     timeout: 10,
     fileAllocation: 'none',
@@ -517,17 +428,13 @@ describe('transformNetworkForStore', () => {
     userAgentRules: [],
     recentUserAgentProfileIds: [],
     asyncDns: false,
-    sharingMode: 'stop-by-condition',
-    shareRatio: 2,
-    shareTime: 2880,
   }
 
-  it('preserves port numbers as numbers (not strings)', () => {
+  it('does not persist BitTorrent-owned fields', () => {
     const result = transformNetworkForStore(baseForm)
-    expect(result.listenPort).toBe(29120)
-    expect(typeof result.listenPort).toBe('number')
-    expect(result.dhtListenPort).toBe(29130)
-    expect(typeof result.dhtListenPort).toBe('number')
+    expect(result).not.toHaveProperty('listenPort')
+    expect(result).not.toHaveProperty('dhtListenPort')
+    expect(result).not.toHaveProperty('keepSharing')
   })
 
   it('preserves automatic conflicting port switching preference', () => {
@@ -567,19 +474,6 @@ describe('transformNetworkForStore', () => {
     const result = transformNetworkForStore({ ...baseForm, asyncDns: true })
     expect(result.asyncDns).toBe(true)
   })
-
-  it('stores P2P sharing config with app-level naming', () => {
-    const result = transformNetworkForStore({
-      ...baseForm,
-      sharingMode: 'manual-stop',
-      shareRatio: 4,
-      shareTime: 720,
-    })
-    expect(result.keepSharing).toBe(true)
-    expect(result.shareRatio).toBe(4)
-    expect(result.shareTime).toBe(720)
-    expect((result as Record<string, unknown>).sharingMode).toBeUndefined()
-  })
 })
 
 // ── validateNetworkForm ─────────────────────────────────────────────
@@ -590,10 +484,6 @@ describe('validateNetworkForm', () => {
     enableUpnp: true,
     autoChangeConflictingPorts: true,
     portConflictRecovery: { ...DEFAULT_APP_CONFIG.portConflictRecovery },
-    listenPort: 29120,
-    btExternalIp: '',
-    btExternalPort: 0,
-    dhtListenPort: 29130,
     connectTimeout: 10,
     timeout: 10,
     fileAllocation: 'none',
@@ -602,23 +492,10 @@ describe('validateNetworkForm', () => {
     userAgentRules: [],
     recentUserAgentProfileIds: [],
     asyncDns: false,
-    sharingMode: 'stop-by-condition',
-    shareRatio: 2,
-    shareTime: 2880,
   }
 
   it('returns null for valid form', () => {
     expect(validateNetworkForm(validForm)).toBeNull()
-  })
-
-  it('rejects an invalid external BitTorrent IP address', () => {
-    expect(validateNetworkForm({ ...validForm, btExternalIp: 'tracker.example.com' })).toBe(
-      'preferences.bt-external-ip-invalid',
-    )
-  })
-
-  it('rejects an invalid external BitTorrent port', () => {
-    expect(validateNetworkForm({ ...validForm, btExternalPort: 65536 })).toBe('preferences.bt-external-port-invalid')
   })
 
   it('rejects invalid port recovery ranges', () => {
@@ -687,25 +564,5 @@ describe('validateNetworkForm', () => {
         proxy: { ...validForm.proxy, mode: 'manual', server: '' },
       }),
     ).toBeNull()
-  })
-})
-
-// ── Port Randomizers ────────────────────────────────────────────────
-
-describe('port randomizers', () => {
-  it('randomBtPort stays within the port recovery range', () => {
-    for (let i = 0; i < 20; i++) {
-      const port = randomBtPort()
-      expect(port).toBeGreaterThanOrEqual(29000)
-      expect(port).toBeLessThanOrEqual(29999)
-    }
-  })
-
-  it('randomDhtPort stays within the port recovery range', () => {
-    for (let i = 0; i < 20; i++) {
-      const port = randomDhtPort()
-      expect(port).toBeGreaterThanOrEqual(29000)
-      expect(port).toBeLessThanOrEqual(29999)
-    }
   })
 })

@@ -21,6 +21,12 @@ export default {
   'transfer-speed-download': 'Όριο λήψης',
   'transfer-speed-unlimited': 'Χωρίς όριο',
   'bt-settings': 'BitTorrent',
+  'bt-connection-section': 'Σύνδεση BitTorrent',
+  'bt-connection-applying': 'Εφαρμογή ρυθμίσεων σύνδεσης BitTorrent',
+  'bt-connection-restore-succeeded':
+    'Δεν ήταν δυνατή η εφαρμογή των ρυθμίσεων σύνδεσης BitTorrent. Έγινε επαναφορά των προηγούμενων ρυθμίσεων',
+  'bt-connection-restore-failed':
+    'Δεν ήταν δυνατή η επαναφορά των προηγούμενων ρυθμίσεων σύνδεσης BitTorrent. Επανεκκινήστε τη μηχανή',
   'bt-discovery-section': 'Εντοπισμός peers',
   'p2p-sharing-section': 'Πολιτική κοινής χρήσης P2P',
   'sharing-mode': 'Πολιτική κοινής χρήσης',
@@ -120,7 +126,8 @@ export default {
   'bt-peer-blocklist-invalid-url': 'Εισαγάγετε έγκυρο URL HTTP/HTTPS',
   'bt-peer-blocklist-update': 'Ενημέρωση',
   'bt-peer-blocklist-update-succeed': 'BT Peer: Η λίστα ενημερώθηκε',
-  'bt-peer-blocklist-update-failed-keeping-current': 'BT Peer: Η ενημέρωση απέτυχε· οι τρέχοντες κανόνες παραμένουν ενεργοί',
+  'bt-peer-blocklist-update-failed-keeping-current':
+    'BT Peer: Η ενημέρωση απέτυχε· οι τρέχοντες κανόνες παραμένουν ενεργοί',
   'bt-tracker': 'Διακομιστές tracker',
   'bt-tracker-input-tips': 'Ένας tracker ανά γραμμή',
   'auto-sync': 'Αυτόματος συγχρονισμός',
@@ -171,10 +178,10 @@ export default {
     'Διένεξη θύρας {label}: η θύρα {port} χρησιμοποιείται. Η αυτόματη αλλαγή θυρών είναι απενεργοποιημένη.',
   'bt-port': 'Θύρα BT',
   'bt-external-ip': 'Εξωτερική IP BT',
-  'bt-external-ip-hint': 'Η αριθμητική διεύθυνση IP που ανακοινώνεται σε trackers και DHT.',
+  'bt-external-ip-hint': 'Η αριθμητική διεύθυνση IP που ανακοινώνεται σε trackers και DHT',
   'bt-external-ip-placeholder': 'Αφήστε το κενό για αυτόματο εντοπισμό',
   'bt-external-port': 'Εξωτερική θύρα BT',
-  'bt-external-port-hint': 'Χρησιμοποιήστε 0 για ανακοίνωση της θύρας ακρόασης BT.',
+  'bt-external-port-hint': 'Χρησιμοποιήστε 0 για ανακοίνωση της θύρας ακρόασης BT',
   'bt-external-ip-invalid': 'Εισαγάγετε έγκυρη αριθμητική διεύθυνση IPv4 ή IPv6',
   'bt-external-port-invalid': 'Η εξωτερική θύρα BT πρέπει να είναι μεταξύ 0 και 65535',
   'bt-port-unavailable': 'Η θύρα ακρόασης BT δεν είναι διαθέσιμη',
@@ -346,7 +353,8 @@ export default {
   'system-runtime': 'Περιβάλλον εκτέλεσης',
   'clipboard-detection': 'Ανίχνευση Πρόχειρου',
   'clipboard-auto-detect': 'Αυτόματη ανίχνευση συνδέσμων λήψης από το πρόχειρο',
-  'clipboard-filter-hint': 'Οι επιλογές φιλτράρουν μόνο μεμονωμένους συνδέσμους· το πολυγραμμικό περιεχόμενο δεν φιλτράρεται κατά τύπο',
+  'clipboard-filter-hint':
+    'Οι επιλογές φιλτράρουν μόνο μεμονωμένους συνδέσμους· το πολυγραμμικό περιεχόμενο δεν φιλτράρεται κατά τύπο',
   'clipboard-http': 'Σύνδεσμοι HTTP / HTTPS',
   'clipboard-ftp': 'Σύνδεσμοι FTP',
   'clipboard-ed2k': 'Σύνδεσμοι ED2K',
@@ -512,5 +520,5 @@ export default {
   'ed2k-invalid-upload-slots': 'ED2K upload slots must be between 1 and 100',
   'ed2k-invalid-search-timeout': 'Ο χρόνος αναζήτησης ED2K πρέπει να είναι μεταξύ 10 και 600 δευτερολέπτων',
   'ed2k-invalid-server': 'ED2K server must use host:port format',
-  'ed2k-random-port': 'Random',
+  'random-port': 'Random',
 }

@@ -20,6 +20,12 @@ export default {
   'transfer-speed-download': 'Limit pobierania',
   'transfer-speed-unlimited': 'Bez limitu',
   'bt-settings': 'BitTorrent',
+  'bt-connection-section': 'Połączenie BitTorrent',
+  'bt-connection-applying': 'Stosowanie ustawień połączenia BitTorrent',
+  'bt-connection-restore-succeeded':
+    'Nie można zastosować ustawień połączenia BitTorrent. Przywrócono poprzednie ustawienia',
+  'bt-connection-restore-failed':
+    'Nie można przywrócić poprzednich ustawień połączenia BitTorrent. Uruchom ponownie silnik',
   'bt-discovery-section': 'Wykrywanie peerów',
   'p2p-sharing-section': 'Zasady udostępniania P2P',
   'sharing-mode': 'Zasady udostępniania',
@@ -118,7 +124,8 @@ export default {
   'bt-peer-blocklist-invalid-url': 'Wprowadź prawidłowy URL HTTP/HTTPS',
   'bt-peer-blocklist-update': 'Aktualizuj',
   'bt-peer-blocklist-update-succeed': 'BT Peer: Lista została zaktualizowana',
-  'bt-peer-blocklist-update-failed-keeping-current': 'BT Peer: Aktualizacja nie powiodła się; bieżące reguły pozostają aktywne',
+  'bt-peer-blocklist-update-failed-keeping-current':
+    'BT Peer: Aktualizacja nie powiodła się; bieżące reguły pozostają aktywne',
   'bt-tracker': 'Serwery tracker',
   'bt-tracker-input-tips': 'Jeden serwer tracker na linię',
   'auto-sync': 'Automatyczna synchronizacja',
@@ -169,10 +176,10 @@ export default {
     'Konflikt portu {label}: port {port} jest używany. Automatyczna zmiana portów jest wyłączona.',
   'bt-port': 'Port BT',
   'bt-external-ip': 'Zewnętrzny adres IP BT',
-  'bt-external-ip-hint': 'Numeryczny adres IP ogłaszany trackerom i DHT.',
+  'bt-external-ip-hint': 'Numeryczny adres IP ogłaszany trackerom i DHT',
   'bt-external-ip-placeholder': 'Pozostaw puste, aby wykryć automatycznie',
   'bt-external-port': 'Zewnętrzny port BT',
-  'bt-external-port-hint': 'Użyj 0, aby ogłaszać port nasłuchiwania BT.',
+  'bt-external-port-hint': 'Użyj 0, aby ogłaszać port nasłuchiwania BT',
   'bt-external-ip-invalid': 'Wprowadź prawidłowy numeryczny adres IPv4 lub IPv6',
   'bt-external-port-invalid': 'Zewnętrzny port BT musi mieścić się w zakresie od 0 do 65535',
   'bt-port-unavailable': 'Port nasłuchiwania BT jest niedostępny',
@@ -343,7 +350,8 @@ export default {
   'system-runtime': 'Środowisko uruchomieniowe',
   'clipboard-detection': 'Wykrywanie schowka',
   'clipboard-auto-detect': 'Automatycznie wykrywaj linki do pobrania ze schowka',
-  'clipboard-filter-hint': 'Opcje filtrują tylko pojedyncze linki; treść wielowierszowa nie jest filtrowana według typu',
+  'clipboard-filter-hint':
+    'Opcje filtrują tylko pojedyncze linki; treść wielowierszowa nie jest filtrowana według typu',
   'clipboard-http': 'Linki HTTP / HTTPS',
   'clipboard-ftp': 'Linki FTP',
   'clipboard-ed2k': 'Linki ED2K',
@@ -506,5 +514,5 @@ export default {
   'ed2k-invalid-upload-slots': 'ED2K upload slots must be between 1 and 100',
   'ed2k-invalid-search-timeout': 'Czas wyszukiwania ED2K musi wynosić od 10 do 600 sekund',
   'ed2k-invalid-server': 'ED2K server must use host:port format',
-  'ed2k-random-port': 'Random',
+  'random-port': 'Random',
 }

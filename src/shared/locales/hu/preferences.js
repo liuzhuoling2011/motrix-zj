@@ -20,6 +20,12 @@ export default {
   'transfer-speed-download': 'Letöltési korlát',
   'transfer-speed-unlimited': 'Korlátlan',
   'bt-settings': 'BitTorrent',
+  'bt-connection-section': 'BitTorrent-kapcsolat',
+  'bt-connection-applying': 'A BitTorrent-kapcsolat beállításainak alkalmazása',
+  'bt-connection-restore-succeeded':
+    'A BitTorrent-kapcsolat beállításai nem alkalmazhatók. A korábbi beállítások visszaállítva',
+  'bt-connection-restore-failed':
+    'A korábbi BitTorrent-kapcsolati beállítások nem állíthatók vissza. Indítsa újra a motort',
   'bt-discovery-section': 'Peer felderítés',
   'p2p-sharing-section': 'P2P megosztási szabály',
   'sharing-mode': 'Megosztási szabály',
@@ -119,7 +125,8 @@ export default {
   'bt-peer-blocklist-invalid-url': 'Adjon meg érvényes HTTP/HTTPS URL-t',
   'bt-peer-blocklist-update': 'Frissítés',
   'bt-peer-blocklist-update-succeed': 'BT Peer: Tiltólista frissítve',
-  'bt-peer-blocklist-update-failed-keeping-current': 'BT Peer: A frissítés sikertelen; a jelenlegi szabályok aktívak maradnak',
+  'bt-peer-blocklist-update-failed-keeping-current':
+    'BT Peer: A frissítés sikertelen; a jelenlegi szabályok aktívak maradnak',
   'bt-tracker': 'Tracker szerverek',
   'bt-tracker-input-tips': 'Soronként egy tracker szerver',
   'auto-sync': 'Automatikus szinkronizálás',
@@ -170,10 +177,10 @@ export default {
     'Portütközés itt: {label}: a(z) {port} port használatban van. Az automatikus portváltás ki van kapcsolva.',
   'bt-port': 'BT port',
   'bt-external-ip': 'Külső BT IP',
-  'bt-external-ip-hint': 'A trackerek és a DHT felé közzétett numerikus IP-cím.',
+  'bt-external-ip-hint': 'A trackerek és a DHT felé közzétett numerikus IP-cím',
   'bt-external-ip-placeholder': 'Hagyja üresen az automatikus észleléshez',
   'bt-external-port': 'Külső BT port',
-  'bt-external-port-hint': 'A BT figyelőport közzétételéhez használjon 0 értéket.',
+  'bt-external-port-hint': 'A BT figyelőport közzétételéhez használjon 0 értéket',
   'bt-external-ip-invalid': 'Adjon meg érvényes numerikus IPv4- vagy IPv6-címet',
   'bt-external-port-invalid': 'A külső BT portnak 0 és 65535 között kell lennie',
   'bt-port-unavailable': 'A BT figyelőport nem érhető el',
@@ -343,7 +350,8 @@ export default {
   'system-runtime': 'Futtatókörnyezet',
   'clipboard-detection': 'Vágólap-érzékelés',
   'clipboard-auto-detect': 'Letöltési hivatkozások automatikus felismerése a vágólapról',
-  'clipboard-filter-hint': 'A beállítások csak az egyedi hivatkozásokat szűrik; a többsoros tartalom nincs típus szerint szűrve',
+  'clipboard-filter-hint':
+    'A beállítások csak az egyedi hivatkozásokat szűrik; a többsoros tartalom nincs típus szerint szűrve',
   'clipboard-http': 'HTTP / HTTPS hivatkozások',
   'clipboard-ftp': 'FTP hivatkozások',
   'clipboard-ed2k': 'ED2K hivatkozások',
@@ -505,5 +513,5 @@ export default {
   'ed2k-invalid-upload-slots': 'ED2K upload slots must be between 1 and 100',
   'ed2k-invalid-search-timeout': 'Az ED2K keresési időnek 10 és 600 másodperc között kell lennie',
   'ed2k-invalid-server': 'ED2K server must use host:port format',
-  'ed2k-random-port': 'Random',
+  'random-port': 'Random',
 }

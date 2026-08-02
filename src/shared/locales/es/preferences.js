@@ -21,6 +21,12 @@ export default {
   'transfer-speed-download': 'Límite de descarga',
   'transfer-speed-unlimited': 'Sin límite',
   'bt-settings': 'BitTorrent',
+  'bt-connection-section': 'Conexión BitTorrent',
+  'bt-connection-applying': 'Aplicando la configuración de conexión BitTorrent',
+  'bt-connection-restore-succeeded':
+    'No se pudo aplicar la configuración de conexión BitTorrent. Se restauró la configuración anterior',
+  'bt-connection-restore-failed':
+    'No se pudo restaurar la configuración anterior de conexión BitTorrent. Reinicia el motor',
   'bt-discovery-section': 'Descubrimiento de pares',
   'p2p-sharing-section': 'Política de compartición P2P',
   'sharing-mode': 'Política de compartición',
@@ -120,7 +126,8 @@ export default {
   'bt-peer-blocklist-invalid-url': 'Introduce una URL HTTP/HTTPS válida',
   'bt-peer-blocklist-update': 'Actualizar',
   'bt-peer-blocklist-update-succeed': 'BT Peer: Lista actualizada',
-  'bt-peer-blocklist-update-failed-keeping-current': 'BT Peer: No se pudo actualizar; las reglas actuales siguen activas',
+  'bt-peer-blocklist-update-failed-keeping-current':
+    'BT Peer: No se pudo actualizar; las reglas actuales siguen activas',
   'bt-tracker': 'Servidores tracker',
   'bt-tracker-input-tips': 'Un servidor tracker por línea',
   'auto-sync': 'Sincronización automática',
@@ -172,10 +179,10 @@ export default {
     'Conflicto del puerto {label}: el puerto {port} está en uso. El cambio automático de puertos está desactivado.',
   'bt-port': 'Puerto BT',
   'bt-external-ip': 'IP externa de BT',
-  'bt-external-ip-hint': 'Dirección IP numérica anunciada a trackers y DHT.',
+  'bt-external-ip-hint': 'Dirección IP numérica anunciada a trackers y DHT',
   'bt-external-ip-placeholder': 'Déjalo vacío para la detección automática',
   'bt-external-port': 'Puerto externo de BT',
-  'bt-external-port-hint': 'Usa 0 para anunciar el puerto de escucha de BT.',
+  'bt-external-port-hint': 'Usa 0 para anunciar el puerto de escucha de BT',
   'bt-external-ip-invalid': 'Introduce una dirección IPv4 o IPv6 numérica válida',
   'bt-external-port-invalid': 'El puerto externo de BT debe estar entre 0 y 65535',
   'bt-port-unavailable': 'El puerto de escucha de BT no está disponible',
@@ -349,7 +356,8 @@ export default {
   'system-runtime': 'Entorno de ejecución',
   'clipboard-detection': 'Detección del portapapeles',
   'clipboard-auto-detect': 'Detectar automáticamente enlaces de descarga del portapapeles',
-  'clipboard-filter-hint': 'Las opciones solo filtran enlaces individuales; el contenido de varias líneas no se filtra por tipo',
+  'clipboard-filter-hint':
+    'Las opciones solo filtran enlaces individuales; el contenido de varias líneas no se filtra por tipo',
   'clipboard-http': 'Enlaces HTTP / HTTPS',
   'clipboard-ftp': 'Enlaces FTP',
   'clipboard-ed2k': 'Enlaces ED2K',
@@ -514,5 +522,5 @@ export default {
   'ed2k-invalid-upload-slots': 'ED2K upload slots must be between 1 and 100',
   'ed2k-invalid-search-timeout': 'La duración de búsqueda ED2K debe estar entre 10 y 600 segundos',
   'ed2k-invalid-server': 'ED2K server must use host:port format',
-  'ed2k-random-port': 'Aleatorio',
+  'random-port': 'Aleatorio',
 }

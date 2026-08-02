@@ -20,6 +20,12 @@ export default {
   'transfer-speed-download': 'Лимит загрузки',
   'transfer-speed-unlimited': 'Без ограничений',
   'bt-settings': 'BitTorrent',
+  'bt-connection-section': 'Подключение BitTorrent',
+  'bt-connection-applying': 'Применение настроек подключения BitTorrent',
+  'bt-connection-restore-succeeded':
+    'Не удалось применить настройки подключения BitTorrent. Предыдущие настройки восстановлены',
+  'bt-connection-restore-failed':
+    'Не удалось восстановить предыдущие настройки подключения BitTorrent. Перезапустите движок',
   'bt-discovery-section': 'Поиск peers',
   'p2p-sharing-section': 'Политика P2P-раздачи',
   'sharing-mode': 'Политика раздачи',
@@ -118,7 +124,8 @@ export default {
   'bt-peer-blocklist-invalid-url': 'Введите корректный URL HTTP/HTTPS',
   'bt-peer-blocklist-update': 'Обновить',
   'bt-peer-blocklist-update-succeed': 'BT Peer: Список блокировки обновлён',
-  'bt-peer-blocklist-update-failed-keeping-current': 'BT Peer: Не удалось обновить список; текущие правила остаются активными',
+  'bt-peer-blocklist-update-failed-keeping-current':
+    'BT Peer: Не удалось обновить список; текущие правила остаются активными',
   'bt-tracker': 'Серверы трекеров',
   'bt-tracker-input-tips': 'Один сервер трекера на строку',
   'auto-sync': 'Автоматическая синхронизация',
@@ -169,10 +176,10 @@ export default {
     'Конфликт порта {label}: порт {port} уже используется. Автоматическое переключение портов отключено.',
   'bt-port': 'Порт BT',
   'bt-external-ip': 'Внешний IP BT',
-  'bt-external-ip-hint': 'Числовой IP-адрес, объявляемый трекерам и DHT.',
+  'bt-external-ip-hint': 'Числовой IP-адрес, объявляемый трекерам и DHT',
   'bt-external-ip-placeholder': 'Оставьте пустым для автоматического определения',
   'bt-external-port': 'Внешний порт BT',
-  'bt-external-port-hint': 'Укажите 0, чтобы объявлять порт прослушивания BT.',
+  'bt-external-port-hint': 'Укажите 0, чтобы объявлять порт прослушивания BT',
   'bt-external-ip-invalid': 'Введите допустимый числовой адрес IPv4 или IPv6',
   'bt-external-port-invalid': 'Внешний порт BT должен быть от 0 до 65535',
   'bt-port-unavailable': 'Порт прослушивания BT недоступен',
@@ -342,7 +349,8 @@ export default {
   'system-runtime': 'Среда выполнения',
   'clipboard-detection': 'Обнаружение буфера обмена',
   'clipboard-auto-detect': 'Автоматически обнаруживать ссылки для скачивания из буфера обмена',
-  'clipboard-filter-hint': 'Параметры фильтруют только одиночные ссылки; многострочное содержимое не фильтруется по типу',
+  'clipboard-filter-hint':
+    'Параметры фильтруют только одиночные ссылки; многострочное содержимое не фильтруется по типу',
   'clipboard-http': 'Ссылки HTTP / HTTPS',
   'clipboard-ftp': 'Ссылки FTP',
   'clipboard-ed2k': 'Ссылки ED2K',
@@ -505,5 +513,5 @@ export default {
   'ed2k-invalid-upload-slots': 'ED2K upload slots must be between 1 and 100',
   'ed2k-invalid-search-timeout': 'Длительность поиска ED2K должна быть от 10 до 600 секунд',
   'ed2k-invalid-server': 'ED2K server must use host:port format',
-  'ed2k-random-port': 'Случайно',
+  'random-port': 'Случайно',
 }

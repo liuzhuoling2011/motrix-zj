@@ -27,6 +27,9 @@ import {
   buildBtSystemConfig,
   transformBtForStore,
   isValidTrackerSourceUrl,
+  validateBtEndpoint,
+  randomBtPort,
+  randomDhtPort,
 } from '@/composables/useBtPreference'
 import {
   NForm,
@@ -42,11 +45,15 @@ import {
   NCheckbox,
   NCheckboxGroup,
   NText,
+  NRadioButton,
+  NRadioGroup,
+  NCollapseTransition,
   useDialog,
 } from 'naive-ui'
 import PreferenceActionBar from './PreferenceActionBar.vue'
 import PreferenceCheckboxGrid from './PreferenceCheckboxGrid.vue'
-import { SyncOutline, AddCircleOutline, CloseCircleOutline } from '@vicons/ionicons5'
+import PreferenceHintLabel from './PreferenceHintLabel.vue'
+import { SyncOutline, AddCircleOutline, CloseCircleOutline, DiceOutline } from '@vicons/ionicons5'
 
 const { t, locale } = useI18n()
 const preferenceStore = usePreferenceStore()
@@ -208,7 +215,35 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
   buildForm,
   buildSystemConfig: buildBtSystemConfig,
   transformForStore: transformBtForStore,
+  saveFeedback: (f, prevConfig) =>
+    f.listenPort !== prevConfig.listenPort ||
+    f.btExternalIp.trim() !== String(prevConfig.btExternalIp ?? '').trim() ||
+    f.btExternalPort !== prevConfig.btExternalPort ||
+    f.dhtListenPort !== prevConfig.dhtListenPort
+      ? {
+          progress: t('preferences.bt-connection-applying'),
+          restored: t('preferences.bt-connection-restore-succeeded'),
+          rollbackFailed: t('preferences.bt-connection-restore-failed'),
+        }
+      : null,
   beforeSave: async (f) => {
+    const endpointValidationKey = validateBtEndpoint(f)
+    if (endpointValidationKey) {
+      message.error(t(endpointValidationKey))
+      return false
+    }
+    f.btExternalIp = f.btExternalIp.trim()
+    if (Number(f.listenPort) !== Number(preferenceStore.config.listenPort)) {
+      try {
+        f.listenPort = await invoke<number>('resolve_bt_listen_port', {
+          requestedPort: f.listenPort,
+        })
+      } catch (e) {
+        logger.warn('BT.listenPort', getErrorMessage(e))
+        message.error(t('preferences.bt-port-unavailable'))
+        return false
+      }
+    }
     if (!isValidTrackerSourceUrl(String(f.btPeerBlocklistUrl))) {
       message.warning(t('preferences.bt-peer-blocklist-invalid-url'))
       return false
@@ -237,7 +272,7 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
     needsRestart.value = true
     return true
   },
-  afterSave: async () => {
+  afterSave: async (f, prevConfig) => {
     if (needsRestart.value) {
       needsRestart.value = false
       const port = (preferenceStore.config.rpcListenPort as number) || ENGINE_RPC_PORT
@@ -247,14 +282,50 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } =
       await new Promise((r) => requestAnimationFrame(r))
       await restartEngine({ port, secret })
     }
-    try {
-      blocklistStatus.value = await invoke<BtPeerBlocklistStatus>('reconcile_bt_peer_blocklist')
-    } catch (e) {
-      logger.warn('BT.blocklistReconcile', getErrorMessage(e))
-      message.warning(t('preferences.bt-peer-blocklist-update-failed-keeping-current'))
+    if (
+      preferenceStore.config.enableUpnp &&
+      (f.listenPort !== prevConfig.listenPort ||
+        f.btExternalPort !== prevConfig.btExternalPort ||
+        f.dhtListenPort !== prevConfig.dhtListenPort)
+    ) {
+      syncUpnpInBackground(f)
     }
+    reconcileBlocklistInBackground()
   },
 })
+
+function onBtPortDice() {
+  form.value.listenPort = randomBtPort()
+}
+
+function onDhtPortDice() {
+  form.value.dhtListenPort = randomDhtPort()
+}
+
+function syncUpnpInBackground(f: typeof form.value) {
+  const config = preferenceStore.config
+  void invoke('start_upnp_mapping', {
+    btPort: Number(f.listenPort),
+    btExternalPort: Number(f.btExternalPort) || 0,
+    dhtPort: Number(f.dhtListenPort),
+    ed2kPort: Number(config.ed2kListenPort) > 0 ? Number(config.ed2kListenPort) : null,
+    ed2kUdpPort: Number(config.ed2kUdpListenPort) > 0 ? Number(config.ed2kUdpListenPort) : null,
+  }).catch((error) => {
+    logger.warn('BT.upnp', getErrorMessage(error))
+    message.warning(t('preferences.upnp-mapping-failed'))
+  })
+}
+
+function reconcileBlocklistInBackground() {
+  void invoke<BtPeerBlocklistStatus>('reconcile_bt_peer_blocklist')
+    .then((status) => {
+      blocklistStatus.value = status
+    })
+    .catch((error) => {
+      logger.warn('BT.blocklistReconcile', getErrorMessage(error))
+      message.warning(t('preferences.bt-peer-blocklist-update-failed-keeping-current'))
+    })
+}
 
 const mergedTrackerCount = computed(
   () =>
@@ -421,6 +492,42 @@ onMounted(() => {
           <NInputNumber v-model:value="form.btMaxPeers" :min="0" :max="ENGINE_MAX_BT_MAX_PEERS" class="pref-number" />
         </NFormItem>
 
+        <NDivider title-placement="left">{{ t('preferences.bt-connection-section') }}</NDivider>
+        <NFormItem :label="t('preferences.bt-port')">
+          <NInputGroup>
+            <NInputNumber v-model:value="form.listenPort" :min="1024" :max="65535" class="pref-port" />
+            <NButton secondary class="pref-action-button pref-action-button--compact" @click="onBtPortDice">
+              <template #icon>
+                <NIcon><DiceOutline /></NIcon>
+              </template>
+              {{ t('preferences.random-port') }}
+            </NButton>
+          </NInputGroup>
+        </NFormItem>
+        <NFormItem>
+          <template #label>
+            <PreferenceHintLabel
+              :label="t('preferences.bt-external-ip')"
+              :hint="t('preferences.bt-external-ip-hint')"
+            />
+          </template>
+          <NInput
+            v-model:value="form.btExternalIp"
+            :placeholder="t('preferences.bt-external-ip-placeholder')"
+            clearable
+            class="pref-control-auto"
+          />
+        </NFormItem>
+        <NFormItem>
+          <template #label>
+            <PreferenceHintLabel
+              :label="t('preferences.bt-external-port')"
+              :hint="t('preferences.bt-external-port-hint')"
+            />
+          </template>
+          <NInputNumber v-model:value="form.btExternalPort" :min="0" :max="65535" class="pref-port" />
+        </NFormItem>
+
         <NDivider title-placement="left">{{ t('preferences.bt-discovery-section') }}</NDivider>
         <NFormItem :label="t('preferences.bt-peer-exchange')">
           <NSwitch v-model:value="form.btPeerExchangeEnabled" />
@@ -431,6 +538,51 @@ onMounted(() => {
         <NFormItem :label="t('preferences.bt-dht-network')">
           <PreferenceCheckboxGrid v-model:value="selectedDhtNetworks" :options="dhtNetworkOptions" />
         </NFormItem>
+        <NFormItem :label="t('preferences.dht-port')">
+          <NInputGroup>
+            <NInputNumber v-model:value="form.dhtListenPort" :min="1024" :max="65535" class="pref-port" />
+            <NButton secondary class="pref-action-button pref-action-button--compact" @click="onDhtPortDice">
+              <template #icon>
+                <NIcon><DiceOutline /></NIcon>
+              </template>
+              {{ t('preferences.random-port') }}
+            </NButton>
+          </NInputGroup>
+        </NFormItem>
+
+        <NDivider title-placement="left">{{ t('preferences.p2p-sharing-section') }}</NDivider>
+        <NFormItem>
+          <template #label>
+            <PreferenceHintLabel
+              :label="t('preferences.sharing-mode')"
+              :hint="t('preferences.sharing-mode-scope-hint')"
+            />
+          </template>
+          <NRadioGroup v-model:value="form.sharingMode" size="small">
+            <NRadioButton value="stop-by-condition">
+              {{ t('preferences.sharing-mode-stop-by-condition') }}
+            </NRadioButton>
+            <NRadioButton value="manual-stop">{{ t('preferences.sharing-mode-manual-stop') }}</NRadioButton>
+          </NRadioGroup>
+        </NFormItem>
+        <NCollapseTransition :show="form.sharingMode === 'stop-by-condition'" class="collapse-indent">
+          <NFormItem :label="t('preferences.share-ratio')">
+            <NInputNumber v-model:value="form.shareRatio" :min="1" :max="100" :step="0.1" class="pref-number" />
+          </NFormItem>
+          <NFormItem :label="t('preferences.share-time') + ' (' + t('preferences.share-time-unit') + ')'">
+            <NInputNumber v-model:value="form.shareTime" :min="60" :max="525600" class="pref-number" />
+          </NFormItem>
+        </NCollapseTransition>
+        <NCollapseTransition :show="form.sharingMode === 'manual-stop'" class="collapse-indent">
+          <NFormItem>
+            <template #label>
+              <PreferenceHintLabel
+                :label="t('preferences.sharing-mode-manual-stop')"
+                :hint="t('preferences.sharing-mode-manual-stop-tips')"
+              />
+            </template>
+          </NFormItem>
+        </NCollapseTransition>
 
         <NDivider title-placement="left">{{ t('preferences.bt-peer-blocklist') }}</NDivider>
         <NFormItem :label="t('preferences.bt-peer-blocklist-enable')">

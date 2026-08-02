@@ -20,6 +20,10 @@ export default {
   'transfer-speed-download': 'จำกัดดาวน์โหลด',
   'transfer-speed-unlimited': 'ไม่จำกัด',
   'bt-settings': 'BitTorrent',
+  'bt-connection-section': 'การเชื่อมต่อ BitTorrent',
+  'bt-connection-applying': 'กำลังใช้การตั้งค่าการเชื่อมต่อ BitTorrent',
+  'bt-connection-restore-succeeded': 'ไม่สามารถใช้การตั้งค่าการเชื่อมต่อ BitTorrent ได้ คืนค่าการตั้งค่าก่อนหน้าแล้ว',
+  'bt-connection-restore-failed': 'ไม่สามารถคืนค่าการตั้งค่าการเชื่อมต่อ BitTorrent ก่อนหน้าได้ โปรดรีสตาร์ตเอนจิน',
   'bt-discovery-section': 'การค้นหา peer',
   'p2p-sharing-section': 'นโยบายการแชร์ P2P',
   'sharing-mode': 'นโยบายการแชร์',
@@ -498,5 +502,5 @@ export default {
   'ed2k-invalid-upload-slots': 'ED2K upload slots must be between 1 and 100',
   'ed2k-invalid-search-timeout': 'ระยะเวลาค้นหา ED2K ต้องอยู่ระหว่าง 10 ถึง 600 วินาที',
   'ed2k-invalid-server': 'ED2K server must use host:port format',
-  'ed2k-random-port': 'Random',
+  'random-port': 'Random',
 }

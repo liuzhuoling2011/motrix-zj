@@ -381,7 +381,7 @@ onMounted(() => {
               <template #icon>
                 <NIcon><DiceOutline /></NIcon>
               </template>
-              {{ t('preferences.ed2k-random-port') }}
+              {{ t('preferences.random-port') }}
             </NButton>
           </NInputGroup>
         </NFormItem>
@@ -392,7 +392,7 @@ onMounted(() => {
               <template #icon>
                 <NIcon><DiceOutline /></NIcon>
               </template>
-              {{ t('preferences.ed2k-random-port') }}
+              {{ t('preferences.random-port') }}
             </NButton>
           </NInputGroup>
         </NFormItem>
@@ -466,9 +466,6 @@ onMounted(() => {
 .search-results {
   width: 100%;
   min-width: 0;
-}
-.pref-action-button--compact {
-  min-width: fit-content;
 }
 .ed2k-bootstrap-sync-button {
   min-width: 100px;

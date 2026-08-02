@@ -39,6 +39,22 @@ export interface UsePreferenceFormOptions<T extends Record<string, unknown>> {
    */
   afterSave?: (form: T, prevConfig: Partial<AppConfig>) => void | Promise<void>
 
+  /** Persistent progress and rollback messages for saves with visible latency. */
+  saveFeedback?:
+    | {
+        progress: string
+        restored: string
+        rollbackFailed: string
+      }
+    | ((
+        form: T,
+        prevConfig: Partial<AppConfig>,
+      ) => {
+        progress: string
+        restored: string
+        rollbackFailed: string
+      } | null)
+
   /**
    * Optional transform applied to the form data before passing it to
    * `preferenceStore.updateAndSave`. Defaults to spreading the form as-is.
@@ -96,13 +112,19 @@ export function usePreferenceForm<T extends Record<string, unknown>>(options: Us
         .map((key) => [key, previousHotConfig[key]]),
     )
     const shouldHotReload = isEngineReady() && Object.keys(changedHotConfig).length > 0
-    let hotReloaded = false
+    let hotReloadAttempted = false
     let preferencesPersisted = false
+    let systemConfigWriteAttempted = false
+    const saveFeedback =
+      typeof options.saveFeedback === 'function'
+        ? options.saveFeedback(form.value as T, prevConfig)
+        : options.saveFeedback
+    if (saveFeedback) message.loading(saveFeedback.progress)
 
     try {
       if (shouldHotReload) {
+        hotReloadAttempted = true
         await changeGlobalOption(changedHotConfig as Partial<AppConfig>)
-        hotReloaded = true
       }
 
       const saved = await preferenceStore.updateAndSave(storeData)
@@ -112,21 +134,49 @@ export function usePreferenceForm<T extends Record<string, unknown>>(options: Us
       preferencesPersisted = true
 
       if (Object.keys(systemConfig).length > 0) {
+        systemConfigWriteAttempted = true
         await invoke('save_system_config', { config: systemConfig })
       }
+
+      await options.afterSave?.(form.value as T, prevConfig)
     } catch (error) {
+      let rollbackFailed = false
+      logger.error('PreferenceForm.save', error)
+
       if (preferencesPersisted) {
         const restored = await preferenceStore.updateAndSave(prevConfig)
-        if (!restored) logger.error('PreferenceForm.rollback', 'failed to restore preference config')
+        if (!restored) {
+          rollbackFailed = true
+          logger.error('PreferenceForm.rollback', 'failed to restore preference config')
+        }
       }
-      if (hotReloaded && Object.keys(rollbackHotConfig).length > 0) {
+      if (systemConfigWriteAttempted && Object.keys(previousSystemConfig).length > 0) {
+        try {
+          await invoke('save_system_config', { config: previousSystemConfig })
+        } catch (rollbackError) {
+          rollbackFailed = true
+          logger.error('PreferenceForm.rollbackSystemConfig', rollbackError)
+        }
+      }
+      if (hotReloadAttempted && Object.keys(rollbackHotConfig).length > 0) {
         try {
           await changeGlobalOption(rollbackHotConfig as Partial<AppConfig>)
         } catch (rollbackError) {
+          rollbackFailed = true
           logger.error('PreferenceForm.rollback', rollbackError)
         }
       }
-      message.error(t('preferences.save-fail-message'))
+      if (!rollbackFailed) {
+        Object.assign(form.value, options.buildForm())
+        savedSnapshot.value = JSON.parse(JSON.stringify(form.value)) as T
+      }
+      message.error(
+        saveFeedback
+          ? rollbackFailed
+            ? saveFeedback.rollbackFailed
+            : saveFeedback.restored
+          : t('preferences.save-fail-message'),
+      )
       throw error
     }
 
@@ -134,8 +184,6 @@ export function usePreferenceForm<T extends Record<string, unknown>>(options: Us
     // Moving this earlier would clear the dirty flag prematurely,
     // causing route-leave guards to skip if an async save fails.
     savedSnapshot.value = JSON.parse(JSON.stringify(form.value)) as T
-
-    await options.afterSave?.(form.value as T, prevConfig)
 
     message.success(t('preferences.save-success-message'))
   }
