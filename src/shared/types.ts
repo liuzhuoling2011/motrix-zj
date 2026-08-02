@@ -5,6 +5,7 @@ export type TaskStatus = 'active' | 'waiting' | 'paused' | 'error' | 'complete' 
 
 export type AppLogLevel = 'error' | 'warn' | 'info' | 'debug'
 export type Aria2LogLevel = AppLogLevel | 'trace'
+export type FileDeletionMode = 'trash' | 'permanent'
 
 /** URI entry within an aria2 file descriptor. */
 export interface Aria2FileUri {
@@ -323,6 +324,7 @@ export interface AppConfig {
 
   newTaskShowDownloading: boolean
   noConfirmBeforeDeleteTask: boolean
+  fileDeletionMode: FileDeletionMode
   deleteFilesWhenSkipConfirm: boolean
   resumeAllWhenAppLaunched: boolean
   taskNotification: boolean

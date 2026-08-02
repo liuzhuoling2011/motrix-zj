@@ -3,6 +3,7 @@ use crate::error::AppError;
 use crate::log_policy::{
     is_managed_active_log_file, remove_legacy_log_files, ARIA2_LOG_FILE, MOTRIX_LOG_FILE,
 };
+use serde::Deserialize;
 use serde_json::Value;
 use std::path::Path;
 use tauri::AppHandle;
@@ -706,16 +707,40 @@ pub fn open_path_normalized(app: AppHandle, path: String) -> Result<(), AppError
         .map_err(|e| AppError::Io(format!("Failed to open {}: {}", path, e)))
 }
 
-/// Moves a file to the OS trash / recycle bin.
-///
-/// Uses the `trash` crate for cross-platform support:
-/// - macOS: NSFileManager.trashItemAtURL
-/// - Windows: IFileOperation + FOFX_RECYCLEONDELETE
-/// - Linux: FreeDesktop Trash spec (XDG_DATA_HOME/Trash)
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FileDeletionMode {
+    Trash,
+    Permanent,
+}
+
 #[tauri::command]
-pub fn trash_file(path: String) -> Result<(), AppError> {
-    log::info!("file:trash path={path:?}");
-    trash::delete(&path).map_err(|e| AppError::Io(e.to_string()))
+pub fn delete_path(path: String, mode: FileDeletionMode) -> Result<bool, AppError> {
+    if path.trim().is_empty() {
+        return Ok(false);
+    }
+
+    let target = Path::new(&path);
+    let metadata = match std::fs::symlink_metadata(target) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(AppError::Io(error.to_string())),
+    };
+
+    log::info!("file:delete mode={mode:?} path={path:?}");
+    match mode {
+        FileDeletionMode::Trash => {
+            trash::delete(target).map_err(|error| AppError::Io(error.to_string()))?
+        }
+        FileDeletionMode::Permanent if metadata.file_type().is_dir() => {
+            std::fs::remove_dir_all(target).map_err(|error| AppError::Io(error.to_string()))?;
+        }
+        FileDeletionMode::Permanent => {
+            std::fs::remove_file(target).map_err(|error| AppError::Io(error.to_string()))?;
+        }
+    }
+
+    Ok(true)
 }
 
 /// Moves a file to a target directory, creating the directory if needed.
@@ -801,25 +826,6 @@ pub fn move_file(source: String, target_dir: String) -> Result<String, AppError>
     // Normalize to forward slashes — aria2 and the frontend canonicalize
     // all paths with `/`.  On Windows, PathBuf::join() produces `\`.
     Ok(crate::engine::path_to_safe_string(&dest).replace('\\', "/"))
-}
-
-/// Permanently deletes a file from disk (NOT move to trash).
-///
-/// Used for internal aria2 metadata files that have no user value:
-/// - `.aria2` control files (piece bitmap + checksums)
-/// - hex40-named `.torrent` metadata (`rpc-save-upload-metadata`)
-///
-/// This replicates what aria2's native `removeControlFile()` does (`std::remove`).
-/// The frontend MUST only call this for files it has verified are internal
-/// aria2 metadata — never for user-downloaded content (use `trash_file` instead).
-#[tauri::command]
-pub fn remove_file(path: String) -> Result<(), AppError> {
-    let p = std::path::Path::new(&path);
-    if !p.exists() {
-        return Ok(());
-    }
-    log::debug!("file:remove path={path:?}");
-    std::fs::remove_file(p).map_err(|e| AppError::Io(e.to_string()))
 }
 
 #[cfg(test)]
@@ -947,70 +953,74 @@ mod tests {
         assert_eq!(result, "/var/log/app.log");
     }
 
-    // ── remove_file ─────────────────────────────────────────────────
+    // ── delete_path ─────────────────────────────────────────────────
 
     #[test]
-    fn remove_file_deletes_existing_file() {
-        let dir = std::env::temp_dir().join("motrix_test_remove");
-        let _ = std::fs::create_dir_all(&dir);
-        let file = dir.join("test.aria2");
+    fn delete_path_permanently_deletes_existing_file() {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let file = dir.path().join("test.aria2");
         std::fs::write(&file, "control data").expect("write test file");
-        assert!(file.exists(), "precondition: file must exist");
 
-        let result = remove_file(file.to_string_lossy().to_string());
-        assert!(result.is_ok());
+        let result = delete_path(
+            file.to_string_lossy().to_string(),
+            FileDeletionMode::Permanent,
+        );
+        assert!(result.expect("delete file"));
         assert!(!file.exists(), "file must be permanently deleted");
-
-        // Cleanup
-        let _ = std::fs::remove_dir(&dir);
     }
 
     #[test]
-    fn remove_file_returns_ok_for_nonexistent() {
-        let result = remove_file("/definitely/does/not/exist/file.aria2".to_string());
+    fn delete_path_permanently_deletes_directory_tree() {
+        let root = tempfile::tempdir().expect("create temp dir");
+        let directory = root.path().join("download");
+        std::fs::create_dir_all(directory.join("nested")).expect("create directory tree");
+        std::fs::write(directory.join("nested/file.bin"), "data").expect("write file");
+
+        let result = delete_path(
+            directory.to_string_lossy().to_string(),
+            FileDeletionMode::Permanent,
+        );
+        assert!(result.expect("delete directory"));
         assert!(
-            result.is_ok(),
-            "remove_file must be a silent no-op for missing files"
+            !directory.exists(),
+            "directory tree must be permanently deleted"
         );
     }
 
     #[test]
-    fn remove_file_returns_ok_for_empty_string() {
-        let result = remove_file(String::new());
-        assert!(
-            result.is_ok(),
-            "remove_file must handle empty path gracefully"
+    fn delete_path_returns_false_for_nonexistent_path() {
+        let result = delete_path(
+            "/definitely/does/not/exist/file.aria2".to_string(),
+            FileDeletionMode::Permanent,
         );
+        assert!(!result.expect("missing path is a no-op"));
     }
 
     #[test]
-    fn remove_file_handles_path_with_spaces() {
-        let dir = std::env::temp_dir().join("motrix test remove spaces");
-        let _ = std::fs::create_dir_all(&dir);
-        let file = dir.join("my download.aria2");
-        std::fs::write(&file, "data").expect("write");
-
-        let result = remove_file(file.to_string_lossy().to_string());
-        assert!(result.is_ok());
-        assert!(!file.exists());
-
-        let _ = std::fs::remove_dir(&dir);
+    fn delete_path_returns_false_for_empty_path() {
+        let result = delete_path(String::new(), FileDeletionMode::Permanent);
+        assert!(!result.expect("empty path is a no-op"));
     }
 
+    #[cfg(unix)]
     #[test]
-    fn remove_file_does_not_delete_directories() {
-        let dir = std::env::temp_dir().join("motrix_test_remove_dir_guard");
-        let _ = std::fs::create_dir_all(&dir);
-        assert!(dir.exists(), "precondition: dir must exist");
+    fn delete_path_removes_symlink_without_following_target() {
+        let root = tempfile::tempdir().expect("create temp dir");
+        let target = root.path().join("target");
+        let link = root.path().join("link");
+        std::fs::create_dir_all(&target).expect("create target");
+        std::fs::write(target.join("file.bin"), "data").expect("write target file");
+        std::os::unix::fs::symlink(&target, &link).expect("create symlink");
 
-        // std::fs::remove_file on a directory fails — verify it returns Err
-        let result = remove_file(dir.to_string_lossy().to_string());
-        assert!(result.is_err(), "remove_file must not delete directories");
-        assert!(
-            dir.exists(),
-            "directory must still exist after failed removal"
+        let result = delete_path(
+            link.to_string_lossy().to_string(),
+            FileDeletionMode::Permanent,
         );
-
-        let _ = std::fs::remove_dir(&dir);
+        assert!(result.expect("delete symlink"));
+        assert!(!link.exists(), "symlink must be deleted");
+        assert!(
+            target.join("file.bin").exists(),
+            "symlink target must remain"
+        );
     }
 }

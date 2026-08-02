@@ -122,6 +122,7 @@ describe('hydrateAppConfig', () => {
       logLevel: 'verbose' as AppConfig['logLevel'],
       aria2LogLevel: 'verbose' as AppConfig['aria2LogLevel'],
       fileAllocation: 'magic',
+      fileDeletionMode: 'erase' as AppConfig['fileDeletionMode'],
     })
 
     expect(result.config.theme).toBe(DEFAULT_APP_CONFIG.theme)
@@ -131,6 +132,7 @@ describe('hydrateAppConfig', () => {
     expect(result.config.logLevel).toBe(DEFAULT_APP_CONFIG.logLevel)
     expect(result.config.aria2LogLevel).toBe(DEFAULT_APP_CONFIG.aria2LogLevel)
     expect(result.config.fileAllocation).toBe(DEFAULT_APP_CONFIG.fileAllocation)
+    expect(result.config.fileDeletionMode).toBe(DEFAULT_APP_CONFIG.fileDeletionMode)
     expect(result.repairs).toEqual(
       expect.arrayContaining([
         'theme',
@@ -140,6 +142,7 @@ describe('hydrateAppConfig', () => {
         'logLevel',
         'aria2LogLevel',
         'fileAllocation',
+        'fileDeletionMode',
       ]),
     )
   })

@@ -294,6 +294,7 @@ export const DEFAULT_APP_CONFIG = {
   notifyOnComplete: true, // main value of OS notification: background completion alert
   newTaskShowDownloading: true, // auto-navigate to downloads after adding task
   noConfirmBeforeDeleteTask: false, // require confirmation to prevent accidental deletion
+  fileDeletionMode: 'trash' as const,
   deleteFilesWhenSkipConfirm: false, // when skip-confirm is on, default to keeping files (safe)
   resumeAllWhenAppLaunched: false, // don't flood bandwidth on launch
 
