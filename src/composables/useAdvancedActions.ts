@@ -9,16 +9,20 @@
 import { ref, h, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { relaunch } from '@tauri-apps/plugin-process'
-import { downloadDir, appDataDir } from '@tauri-apps/api/path'
-import { save as saveDialog } from '@tauri-apps/plugin-dialog'
+import { appDataDir, join } from '@tauri-apps/api/path'
+import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
+import { getVersion } from '@tauri-apps/api/app'
 import { NTag, useDialog, type DataTableColumns } from 'naive-ui'
 import { logger } from '@shared/logger'
 import { bytesToSize } from '@shared/utils/format'
 import { calcColumnWidth } from '@shared/utils/calcColumnWidth'
-import { useIpc } from '@/composables/useIpc'
+import { resolveUserVisibleDownloadDir } from '@shared/utils/userVisibleDirectory'
+import { buildSettingsBackup, parseSettingsBackup } from '@shared/utils/settingsBackup'
+import { buildSystemConfigFromAppConfig } from '@shared/utils/systemConfig'
 import { useEngineRestart } from '@/composables/useEngineRestart'
 import { ENGINE_RPC_PORT } from '@shared/constants'
-import type { HistoryRecord } from '@shared/types'
+import type { AppConfig, HistoryRecord } from '@shared/types'
+import type { DataTableSortState, PaginationProps } from 'naive-ui'
 
 interface AdvancedActionsDeps {
   t: (key: string, params?: Record<string, unknown>) => string
@@ -34,10 +38,17 @@ interface AdvancedActionsDeps {
   }
   historyStore: {
     checkIntegrity: () => Promise<string>
-    getRecords: () => Promise<HistoryRecord[]>
+    getRecordsPage: (input: {
+      page: number
+      pageSize: number
+      sortField?: string
+      sortOrder?: 'ascend' | 'descend' | false
+    }) => Promise<{ records: HistoryRecord[]; total: number }>
     clearRecords: () => Promise<void>
   }
   preferenceStore: {
+    config: AppConfig
+    replaceAndSave: (nextConfig: Partial<AppConfig>) => Promise<boolean>
     resetToDefaults: () => Promise<boolean>
   }
   form: { value: Record<string, unknown> }
@@ -61,15 +72,11 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
   const showDbBrowse = ref(false)
   const dbRecords = ref<HistoryRecord[]>([])
   const dbRecordsLoading = ref(false)
-
-  const DB_STATUS_ORDER: Record<string, number> = {
-    active: 0,
-    waiting: 1,
-    paused: 2,
-    complete: 3,
-    error: 4,
-    removed: 5,
-  }
+  const dbRecordsPage = ref(1)
+  const dbRecordsPageSize = ref(50)
+  const dbRecordsTotal = ref(0)
+  const dbRecordsSortField = ref<string | undefined>(undefined)
+  const dbRecordsSortOrder = ref<'ascend' | 'descend' | false>(false)
 
   const dbBrowseColumns = computed<DataTableColumns<HistoryRecord>>(() => {
     const data = dbRecords.value
@@ -84,7 +91,7 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
           sortable: true,
           extraWidth: 20,
         }),
-        sorter: (a, b) => (DB_STATUS_ORDER[a.status] ?? 5) - (DB_STATUS_ORDER[b.status] ?? 5),
+        sorter: true,
         render: (row) =>
           h(
             NTag,
@@ -100,10 +107,10 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
         key: 'total_length',
         width: calcColumnWidth({
           title: t('task.task-file-size'),
-          values: data.map((r) => (r.total_length ? bytesToSize(r.total_length) : '—')),
+          values: data.slice(0, 50).map((r) => (r.total_length ? bytesToSize(r.total_length) : '—')),
           sortable: true,
         }),
-        sorter: (a, b) => (a.total_length ?? 0) - (b.total_length ?? 0),
+        sorter: true,
         render: (row) => (row.total_length ? bytesToSize(row.total_length) : '—'),
       },
       {
@@ -111,38 +118,54 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
         key: 'task_type',
         width: calcColumnWidth({
           title: t('task.task-type'),
-          values: data.map((r) => r.task_type ?? ''),
+          values: data.slice(0, 50).map((r) => r.task_type ?? ''),
           sortable: true,
         }),
-        sorter: 'default' as const,
+        sorter: true,
       },
       {
         title: t('task.task-completed-at'),
         key: 'completed_at',
         width: calcColumnWidth({
           title: t('task.task-completed-at'),
-          values: data.map((r) => (r.completed_at ? new Date(r.completed_at).toLocaleString() : '—')),
+          values: data.slice(0, 50).map((r) => (r.completed_at ? new Date(r.completed_at).toLocaleString() : '—')),
           sortable: true,
         }),
-        sorter: (a, b) => {
-          const ta = a.completed_at ? new Date(a.completed_at).getTime() : 0
-          const tb = b.completed_at ? new Date(b.completed_at).getTime() : 0
-          return ta - tb
-        },
+        sorter: true,
         render: (row) => (row.completed_at ? new Date(row.completed_at).toLocaleString() : '—'),
       },
     ]
   })
 
+  const dbBrowsePagination = computed<PaginationProps>(() => ({
+    page: dbRecordsPage.value,
+    pageSize: dbRecordsPageSize.value,
+    itemCount: dbRecordsTotal.value,
+    showSizePicker: true,
+    pageSizes: [20, 50, 100],
+    prefix: () => t('preferences.db-record-count', { count: dbRecordsTotal.value }),
+    onUpdatePage: (page) => {
+      dbRecordsPage.value = page
+      void loadDbRecords()
+    },
+    onUpdatePageSize: (pageSize) => {
+      dbRecordsPageSize.value = pageSize
+      dbRecordsPage.value = 1
+      void loadDbRecords()
+    },
+  }))
+
   // ── Export logs state ────────────────────────────────────────────────
   const exportingLogs = ref(false)
+  const exportingSettings = ref(false)
+  const importingSettings = ref(false)
 
   // ── Handlers ─────────────────────────────────────────────────────────
 
   function handleManualRestart(rpcListenPort: number, rpcSecret: string) {
     const port = rpcListenPort || ENGINE_RPC_PORT
     const secret = rpcSecret || ''
-    const d = dialog.warning({
+    const d = dialog.info({
       title: t('preferences.engine-restart-title'),
       content: t('preferences.engine-restart-manual-confirm'),
       positiveText: t('preferences.engine-restart-now'),
@@ -160,7 +183,7 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
   }
 
   function handleSessionReset() {
-    dialog.warning({
+    dialog.error({
       title: t('preferences.clear-all-tasks'),
       content: t('preferences.clear-all-tasks-confirm'),
       positiveText: t('app.yes'),
@@ -187,7 +210,7 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
   }
 
   function handleRestoreDefaults() {
-    dialog.warning({
+    dialog.error({
       title: t('preferences.restore-defaults'),
       content: t('preferences.restore-defaults-confirm'),
       positiveText: t('preferences.restore-defaults'),
@@ -204,8 +227,7 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
             positiveText: t('preferences.restart-now'),
             negativeText: t('app.cancel'),
             onPositiveClick: async () => {
-              const { stopEngine } = useIpc()
-              await stopEngine()
+              await invoke('stop_engine_command')
               relaunch()
             },
           })
@@ -223,8 +245,7 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
       onPositiveClick: async () => {
         try {
           await invoke('factory_reset')
-          const { stopEngine } = useIpc()
-          await stopEngine()
+          await invoke('stop_engine_command')
           relaunch()
         } catch (e) {
           logger.error('Advanced.factoryReset', e)
@@ -250,15 +271,35 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
 
   async function handleDbBrowse() {
     showDbBrowse.value = true
+    dbRecordsPage.value = 1
+    await loadDbRecords()
+  }
+
+  async function loadDbRecords() {
     dbRecordsLoading.value = true
     try {
-      dbRecords.value = await historyStore.getRecords()
+      const page = await historyStore.getRecordsPage({
+        page: dbRecordsPage.value,
+        pageSize: dbRecordsPageSize.value,
+        sortField: dbRecordsSortField.value,
+        sortOrder: dbRecordsSortOrder.value,
+      })
+      dbRecords.value = page.records
+      dbRecordsTotal.value = page.total
     } catch (e) {
       logger.error('Advanced.dbBrowse', e)
       message.error((e as Error).message)
     } finally {
       dbRecordsLoading.value = false
     }
+  }
+
+  function handleDbSorterChange(sorter: DataTableSortState | DataTableSortState[] | null) {
+    const next = Array.isArray(sorter) ? sorter[0] : sorter
+    dbRecordsSortField.value = next?.columnKey ? String(next.columnKey) : undefined
+    dbRecordsSortOrder.value = next?.order ?? false
+    dbRecordsPage.value = 1
+    void loadDbRecords()
   }
 
   function handleDbReset() {
@@ -281,10 +322,12 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
 
   async function handleExportLogs() {
     try {
-      const defaultDir = await downloadDir()
+      const resolvedDir = await resolveUserVisibleDownloadDir({ configuredDir: preferenceStore.config.dir })
+      const defaultPath = await join(resolvedDir.path, 'motrix-next-logs.zip')
+      logger.info('Advanced.exportLogs', `defaultDir source=${resolvedDir.source} fallback=${resolvedDir.usedFallback}`)
       const savePath = await saveDialog({
         title: t('preferences.export-diagnostic-logs'),
-        defaultPath: `${defaultDir}/motrix-next-logs.zip`,
+        defaultPath,
         filters: [{ name: 'ZIP', extensions: ['zip'] }],
       })
       if (!savePath) return
@@ -308,8 +351,89 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
     }
   }
 
-  function handleClearLog() {
+  async function handleExportSettings() {
+    try {
+      const resolvedDir = await resolveUserVisibleDownloadDir({ configuredDir: preferenceStore.config.dir })
+      const date = new Date().toISOString().slice(0, 10)
+      const defaultPath = await join(resolvedDir.path, `motrix-next-settings-backup-${date}.json`)
+      const savePath = await saveDialog({
+        title: t('preferences.export-settings'),
+        defaultPath,
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+      })
+      if (!savePath) return
+
+      exportingSettings.value = true
+      const appVersion = await getVersion()
+      const backup = buildSettingsBackup(preferenceStore.config, appVersion)
+      await invoke('write_settings_backup_file', { path: savePath, content: `${JSON.stringify(backup, null, 2)}\n` })
+      message.success(t('preferences.export-settings-success', { path: savePath }))
+    } catch (e) {
+      logger.error('Advanced.exportSettings', e)
+      message.error(t('preferences.export-settings-failed'))
+    } finally {
+      exportingSettings.value = false
+    }
+  }
+
+  async function handleImportSettings() {
+    const selected = await openDialog({
+      title: t('preferences.import-settings'),
+      multiple: false,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    })
+    if (typeof selected !== 'string') return
+
+    let imported: AppConfig
+    try {
+      imported = parseSettingsBackup(await invoke<string>('read_settings_backup_file', { path: selected }))
+    } catch (e) {
+      logger.warn('Advanced.importSettings', e instanceof Error ? e.message : String(e))
+      message.error(t('preferences.import-settings-invalid'))
+      return
+    }
+
     dialog.warning({
+      title: t('preferences.import-settings'),
+      content: t('preferences.import-settings-confirm'),
+      positiveText: t('preferences.import-settings'),
+      negativeText: t('app.cancel'),
+      maskClosable: false,
+      onPositiveClick: async () => {
+        importingSettings.value = true
+        try {
+          const ok = await preferenceStore.replaceAndSave(imported)
+          if (!ok) {
+            message.error(t('preferences.import-settings-failed'))
+            return
+          }
+          await invoke('save_system_config', { config: buildSystemConfigFromAppConfig(imported, imported.dir) })
+          Object.assign(form.value, buildForm())
+          resetSnapshot()
+          message.success(t('preferences.import-settings-success'))
+          dialog.info({
+            title: t('preferences.settings-imported'),
+            content: t('preferences.import-settings-restart-confirm'),
+            positiveText: t('preferences.restart-now'),
+            negativeText: t('preferences.engine-restart-later'),
+            maskClosable: false,
+            onPositiveClick: async () => {
+              await invoke('stop_engine_command')
+              await relaunch()
+            },
+          })
+        } catch (e) {
+          logger.error('Advanced.importSettings', e)
+          message.error(t('preferences.import-settings-failed'))
+        } finally {
+          importingSettings.value = false
+        }
+      },
+    })
+  }
+
+  function handleClearLog() {
+    dialog.error({
       title: t('preferences.clear-log'),
       content: t('preferences.clear-log-confirm'),
       positiveText: t('app.yes'),
@@ -359,7 +483,11 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
     dbRecords,
     dbRecordsLoading,
     dbBrowseColumns,
+    dbBrowsePagination,
+    handleDbSorterChange,
     exportingLogs,
+    exportingSettings,
+    importingSettings,
     // Handlers
     handleManualRestart,
     handleSessionReset,
@@ -369,6 +497,8 @@ export function useAdvancedActions(deps: AdvancedActionsDeps) {
     handleDbBrowse,
     handleDbReset,
     handleExportLogs,
+    handleExportSettings,
+    handleImportSettings,
     handleClearLog,
     handleRevealPath,
     handleOpenConfigFolder,

@@ -1,9 +1,28 @@
 /** @fileoverview Centralized logging utility bridging to tauri-plugin-log for persistent file output. */
 import { error as tauriError, warn as tauriWarn, info as tauriInfo, debug as tauriDebug } from '@tauri-apps/plugin-log'
+import { getErrorMessage } from '@shared/utils/errorMessage'
+
+export type LogFieldValue = string | number | boolean | null | undefined
+export type LogFields = Record<string, LogFieldValue>
 
 /** Formats a context-prefixed log message suitable for both console and file output. */
 function formatMessage(context: string, message: string): string {
   return `[${context}] ${message}`
+}
+
+function formatLogFieldValue(value: LogFieldValue): string {
+  if (value === null) return 'null'
+  if (value === undefined) return 'undefined'
+
+  const raw = String(value)
+  return /[\s="]/.test(raw) ? JSON.stringify(raw) : raw
+}
+
+/** Formats structured diagnostics as compact key-value fields. */
+export function formatLogFields(fields: LogFields): string {
+  return Object.entries(fields)
+    .map(([key, value]) => `${key}=${formatLogFieldValue(value)}`)
+    .join(' ')
 }
 
 function serializeDebugValue(value: unknown, seen = new WeakSet<object>()): string {
@@ -92,7 +111,7 @@ function formatDebugMessage(data: unknown): string {
 export const logger = {
   /** Logs an error with full Error object serialization to both console and log file. */
   error(context: string, error: unknown): void {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = getErrorMessage(error)
     const formatted = formatMessage(context, message)
     console.error(formatted)
     tauriError(formatted).catch(() => {})

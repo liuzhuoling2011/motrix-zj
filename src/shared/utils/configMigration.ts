@@ -6,9 +6,13 @@
  * electron-store, VS Code, Obsidian, etc.):
  *
  *   1. Store a `configVersion` integer alongside user preferences.
- *   2. On each app launch, compare stored version against CONFIG_VERSION.
+ *   2. hydrateAppConfig() compares stored version against CONFIG_VERSION.
  *   3. Execute any pending migration functions in order.
- *   4. Stamp the new version and persist.
+ *   4. Stamp the new version.
+ *
+ * This file handles semantic schema changes only. Default materialization,
+ * selective nested merges, invalid-value repair, and secret preservation
+ * belong in configHydration.ts.
  *
  * Adding a new migration:
  *   1. Append a function to the `migrations` array.
@@ -21,7 +25,7 @@ import { logger } from '@shared/logger'
 import type { AppConfig } from '@shared/types'
 
 /** Current schema version. Must equal `migrations.length`. */
-export const CONFIG_VERSION = 4
+export const CONFIG_VERSION = 5
 
 /** Result returned by runMigrations for callers to act on (e.g. toast). */
 export interface MigrationResult {
@@ -48,8 +52,7 @@ const migrations: Migration[] = [
   // ── v0 → v1 ──────────────────────────────────────────────────────
   // Backfill empty proxy.scope for users who configured proxy before
   // the scope feature was introduced (pre-#81). Without scope values,
-  // buildAdvancedSystemConfig() emits all-proxy='' and aria2 receives
-  // no proxy configuration, causing Bug #103.
+  // the download proxy settings cannot target download tasks.
   //
   // Empty scope is treated as "never explicitly configured" rather than
   // "user intentionally deselected all scopes", because the scope UI
@@ -89,15 +92,15 @@ const migrations: Migration[] = [
   // Flatten autoSubmitFromExtension from nested object to boolean.
   //
   // Before v3, autoSubmitFromExtension was an object with sub-toggles
-  // per download type: { enable, http, magnet, torrent, metalink }.
-  // The torrent/metalink sub-toggles were architecturally broken —
+  // per download type: { enable, http, magnet, torrent } legacy data.
+  // The torrent sub-toggle was architecturally broken —
   // auto-submitting them called addUri() which downloaded the .torrent
   // file itself rather than its content.  The sub-toggles for HTTP and
   // magnet added unnecessary UX complexity without practical benefit.
   //
   // After v3, autoSubmitFromExtension is a simple boolean derived from
   // the old master switch (enable).  URI types (HTTP/FTP/magnet) are
-  // auto-submitted when true; torrent/metalink always show the dialog.
+  // auto-submitted when true; torrent always shows the dialog.
   function migrateV3(config: Partial<AppConfig>): void {
     const old = (config as Record<string, unknown>).autoSubmitFromExtension
     if (old && typeof old === 'object' && 'enable' in old) {
@@ -162,6 +165,15 @@ const migrations: Migration[] = [
 
     if (changed) {
       logger.info('ConfigMigration', 'v4: normalized path separators and/or populated file categories')
+    }
+  },
+
+  // ── v4 → v5 ──────────────────────────────────────────────────────
+  // Add ED2K to clipboard detection.
+  function migrateV5(config: Partial<AppConfig>): void {
+    if (config.clipboard && config.clipboard.ed2k === undefined) {
+      config.clipboard.ed2k = true
+      logger.info('ConfigMigration', 'v5: backfilled clipboard.ed2k')
     }
   },
 ]

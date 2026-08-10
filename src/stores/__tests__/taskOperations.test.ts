@@ -31,13 +31,13 @@ vi.mock('@/stores/history', () => ({
   }),
 }))
 
-// ── Mock cleanupAria2ControlFile + cleanupAria2MetadataFiles ────────
-const mockCleanupAria2ControlFile = vi.fn().mockResolvedValue(undefined)
+// ── Mock cleanupAria2ControlFiles + cleanupAria2MetadataFiles ───────
+const mockCleanupAria2ControlFiles = vi.fn().mockResolvedValue(undefined)
 const mockDeleteTaskFiles = vi.fn().mockResolvedValue(undefined)
 const mockCleanupAria2MetadataFiles = vi.fn().mockResolvedValue(false)
 
 vi.mock('@/composables/useFileDelete', () => ({
-  cleanupAria2ControlFile: (...args: unknown[]) => mockCleanupAria2ControlFile(...args),
+  cleanupAria2ControlFiles: (...args: unknown[]) => mockCleanupAria2ControlFiles(...args),
   deleteTaskFiles: (...args: unknown[]) => mockDeleteTaskFiles(...args),
 }))
 
@@ -45,9 +45,9 @@ vi.mock('@/composables/useDownloadCleanup', () => ({
   cleanupAria2MetadataFiles: (...args: unknown[]) => mockCleanupAria2MetadataFiles(...args),
 }))
 
-// ── Mock buildBtCompletionRecord ───────────────────────────────────
+// ── Mock buildSharingCompletionRecord ───────────────────────────────
 vi.mock('@/composables/useTaskLifecycle', () => ({
-  buildBtCompletionRecord: (task: Aria2Task) => ({
+  buildSharingCompletionRecord: (task: Aria2Task) => ({
     gid: task.gid,
     status: 'complete',
     dir: '',
@@ -70,7 +70,6 @@ function createMockApi(): TaskApi {
     addUri: vi.fn().mockResolvedValue([]),
     addUriAtomic: vi.fn().mockResolvedValue(''),
     addTorrent: vi.fn().mockResolvedValue(''),
-    addMetalink: vi.fn().mockResolvedValue([]),
     getOption: vi.fn().mockResolvedValue({}),
     changeOption: vi.fn().mockResolvedValue(undefined),
     getFiles: vi.fn().mockResolvedValue([]),
@@ -78,9 +77,6 @@ function createMockApi(): TaskApi {
     forcePauseTask: vi.fn().mockResolvedValue('OK'),
     pauseTask: vi.fn().mockResolvedValue('OK'),
     resumeTask: vi.fn().mockResolvedValue('OK'),
-    pauseAllTask: vi.fn().mockResolvedValue('OK'),
-    forcePauseAllTask: vi.fn().mockResolvedValue('OK'),
-    resumeAllTask: vi.fn().mockResolvedValue('OK'),
     batchResumeTask: vi.fn().mockResolvedValue([]),
     batchPauseTask: vi.fn().mockResolvedValue([]),
     batchForcePauseTask: vi.fn().mockResolvedValue([]),
@@ -162,6 +158,32 @@ describe('removeTask', () => {
     expect(deps.fetchList).toHaveBeenCalledOnce()
     expect(api.saveSession).toHaveBeenCalledOnce()
   })
+
+  it('removes persisted sharing history before refreshing the list', async () => {
+    const calls: string[] = []
+    const task = makeTask({
+      gid: 'seed-1',
+      status: TASK_STATUS.ACTIVE,
+      seeder: 'true',
+      infoHash: 'abcdef1234567890',
+      bittorrent: { info: { name: 'seed' } },
+    })
+    mockRemoveByInfoHash.mockImplementationOnce(async () => {
+      calls.push('removeByInfoHash')
+    })
+    mockRemoveRecord.mockImplementationOnce(async () => {
+      calls.push('removeRecord')
+    })
+    deps.fetchList.mockImplementationOnce(async () => {
+      calls.push('fetchList')
+    })
+
+    await ops.removeTask(task)
+
+    expect(mockRemoveByInfoHash).toHaveBeenCalledWith('abcdef1234567890')
+    expect(mockRemoveRecord).toHaveBeenCalledWith('seed-1')
+    expect(calls).toEqual(['removeByInfoHash', 'removeRecord', 'fetchList'])
+  })
 })
 
 // ═══════════════════════════════════════════════════════════════════
@@ -205,8 +227,8 @@ describe('cancelMagnetSelectionDownload', () => {
     expect(api.removeTaskRecord).toHaveBeenNthCalledWith(1, { gid: 'child-gid' })
     expect(api.removeTaskRecord).toHaveBeenNthCalledWith(2, { gid: 'child-gid' })
     expect(api.removeTaskRecord).toHaveBeenNthCalledWith(3, { gid: 'metadata-gid' })
-    expect(mockCleanupAria2ControlFile).toHaveBeenCalledWith(childTask)
-    expect(mockDeleteTaskFiles).toHaveBeenCalledWith(childTask)
+    expect(mockCleanupAria2ControlFiles).toHaveBeenCalledWith(childTask)
+    expect(mockDeleteTaskFiles).toHaveBeenCalledWith(childTask, 'trash')
     expect(mockCleanupAria2MetadataFiles).toHaveBeenCalledWith('/downloads', 'abcdef1234567890abcdef1234567890abcdef12')
     expect(mockRemoveRecord).toHaveBeenCalledWith('child-gid')
     expect(mockRemoveRecord).toHaveBeenCalledWith('metadata-gid')
@@ -226,7 +248,7 @@ describe('cancelMagnetSelectionDownload', () => {
     expect(mockRemoveRecord).toHaveBeenCalledWith('child-gid')
     expect(mockRemoveRecord).toHaveBeenCalledWith('metadata-gid')
     expect(mockRemoveBirthRecords).toHaveBeenCalledWith(['child-gid', 'metadata-gid'])
-    expect(mockCleanupAria2ControlFile).not.toHaveBeenCalled()
+    expect(mockCleanupAria2ControlFiles).not.toHaveBeenCalled()
     expect(mockDeleteTaskFiles).not.toHaveBeenCalled()
     expect(deps.fetchList).toHaveBeenCalledOnce()
     expect(api.saveSession).toHaveBeenCalledOnce()
@@ -303,6 +325,40 @@ describe('resumeTask', () => {
     expect(deps.fetchList).toHaveBeenCalledOnce()
     expect(api.saveSession).toHaveBeenCalledOnce()
   })
+
+  it('keeps a resolved magnet paused until file selection is applied', async () => {
+    const task = makeTask({
+      gid: 'magnet-download',
+      status: TASK_STATUS.PAUSED,
+      following: 'metadata-gid',
+      bittorrent: { info: { name: 'Archive' } },
+      files: [{ index: '1', path: '/downloads/file.bin', length: '1024' }],
+    })
+
+    await expect(ops.resumeTask(task)).resolves.toBe(false)
+    expect(api.getOption).toHaveBeenCalledWith({ gid: 'magnet-download' })
+    expect(api.resumeTask).not.toHaveBeenCalled()
+  })
+
+  it('applies magnet file selection before resuming the paused task', async () => {
+    const calls: string[] = []
+    vi.mocked(api.changeOption).mockImplementation(async () => {
+      calls.push('select')
+    })
+    vi.mocked(api.resumeTask).mockImplementation(async () => {
+      calls.push('resume')
+      return 'OK'
+    })
+    const task = makeTask({ gid: 'magnet-download', status: TASK_STATUS.PAUSED })
+
+    await ops.applyMagnetFileSelection(task, '2-9')
+
+    expect(api.changeOption).toHaveBeenCalledWith({
+      gid: 'magnet-download',
+      options: { 'select-file': '2-9' },
+    })
+    expect(calls).toEqual(['select', 'resume'])
+  })
 })
 
 // ═══════════════════════════════════════════════════════════════════
@@ -358,26 +414,17 @@ describe('pauseAllTask', () => {
     const ops = createTaskOperations(deps)
     await ops.pauseAllTask()
     expect(api.forcePauseTask).not.toHaveBeenCalled()
-    expect(api.forcePauseAllTask).not.toHaveBeenCalled()
-  })
-
-  it('does not call forcePauseAllTask (replaced by per-task calls)', async () => {
-    const api = createMockApi()
-    const deps = createDeps(api)
-    deps.taskList.value = [makeTask({ gid: 'dl-1', status: TASK_STATUS.ACTIVE })] as Aria2Task[]
-    const ops = createTaskOperations(deps)
-    await ops.pauseAllTask()
-    expect(api.forcePauseAllTask).not.toHaveBeenCalled()
   })
 })
 
 describe('resumeAllTask', () => {
-  it('calls resumeAllTask, then refreshes and saves', async () => {
+  it('resumes eligible paused tasks, then refreshes and saves', async () => {
     const api = createMockApi()
     const deps = createDeps(api)
+    deps.taskList.value = [makeTask({ gid: 'paused-1', status: TASK_STATUS.PAUSED })]
     const ops = createTaskOperations(deps)
-    await ops.resumeAllTask()
-    expect(api.resumeAllTask).toHaveBeenCalledOnce()
+    await expect(ops.resumeAllTask()).resolves.toEqual({ resumed: 1, blocked: 0 })
+    expect(api.batchResumeTask).toHaveBeenCalledWith({ gids: ['paused-1'] })
     expect(deps.fetchList).toHaveBeenCalledOnce()
     expect(api.saveSession).toHaveBeenCalledOnce()
   })
@@ -411,10 +458,11 @@ describe('toggleTask', () => {
     expect(api.resumeTask).toHaveBeenCalledWith({ gid: task.gid })
   })
 
-  it('resumes a waiting task', async () => {
+  it('pauses a waiting task', async () => {
     const task = makeTask({ status: TASK_STATUS.WAITING })
     await ops.toggleTask(task)
-    expect(api.resumeTask).toHaveBeenCalledWith({ gid: task.gid })
+    expect(api.pauseTask).toHaveBeenCalledWith({ gid: task.gid })
+    expect(api.resumeTask).not.toHaveBeenCalled()
   })
 
   it('does nothing for a completed task', async () => {
@@ -447,10 +495,10 @@ describe('toggleTask', () => {
 })
 
 // ═══════════════════════════════════════════════════════════════════
-// stopSeeding
+// stopSharing
 // ═══════════════════════════════════════════════════════════════════
 
-describe('stopSeeding', () => {
+describe('stopSharing', () => {
   let api: TaskApi
   let deps: ReturnType<typeof createDeps>
   let ops: ReturnType<typeof createTaskOperations>
@@ -464,7 +512,7 @@ describe('stopSeeding', () => {
 
   it('force-pauses then removes the task then purges from stopped list', async () => {
     const task = makeTask({ gid: 'seed-1' })
-    await ops.stopSeeding(task)
+    await ops.stopSharing(task)
     expect(api.forcePauseTask).toHaveBeenCalledWith({ gid: 'seed-1' })
     expect(api.removeTask).toHaveBeenCalledWith({ gid: 'seed-1' })
     // Must also call removeTaskRecord (aria2.removeDownloadResult) to purge
@@ -477,12 +525,12 @@ describe('stopSeeding', () => {
     const task = makeTask({ gid: 'seed-1b' })
     ;(api.removeTaskRecord as Mock).mockRejectedValueOnce(new Error('not found'))
     // Should NOT throw — removeTaskRecord is best-effort
-    await expect(ops.stopSeeding(task)).resolves.not.toThrow()
+    await expect(ops.stopSharing(task)).resolves.not.toThrow()
   })
 
   it('adds a history record with status "complete"', async () => {
     const task = makeTask({ gid: 'seed-2', status: TASK_STATUS.ACTIVE })
-    await ops.stopSeeding(task)
+    await ops.stopSharing(task)
     expect(mockAddRecord).toHaveBeenCalledOnce()
     const record = mockAddRecord.mock.calls[0][0]
     expect(record.status).toBe('complete')
@@ -491,7 +539,7 @@ describe('stopSeeding', () => {
 
   it('saves session after stopping seeding to persist removal to disk', async () => {
     const task = makeTask({ gid: 'seed-3' })
-    await ops.stopSeeding(task)
+    await ops.stopSharing(task)
     expect(api.saveSession).toHaveBeenCalledOnce()
   })
 
@@ -507,7 +555,7 @@ describe('stopSeeding', () => {
         ),
     )
     const task = makeTask({ gid: 'seed-4' })
-    await ops.stopSeeding(task)
+    await ops.stopSharing(task)
     expect(sessionSaved).toBe(true)
   })
 
@@ -518,7 +566,7 @@ describe('stopSeeding', () => {
       infoHash: 'abcdef1234567890',
       bittorrent: { info: { name: 'torrent' } },
     } as Partial<Aria2Task>)
-    await ops.stopSeeding(task)
+    await ops.stopSharing(task)
     // removeByInfoHash should be called WITH excludeGid to avoid deleting the record about to be written
     expect(mockRemoveByInfoHash).toHaveBeenCalledWith('abcdef1234567890', 'new-gid')
     expect(mockAddRecord).toHaveBeenCalledOnce()
@@ -526,7 +574,7 @@ describe('stopSeeding', () => {
 
   it('skips infoHash cleanup for tasks without infoHash', async () => {
     const task = makeTask({ gid: 'no-hash', status: TASK_STATUS.ACTIVE })
-    await ops.stopSeeding(task)
+    await ops.stopSharing(task)
     expect(mockRemoveByInfoHash).not.toHaveBeenCalled()
     expect(mockAddRecord).toHaveBeenCalledOnce()
   })
@@ -537,7 +585,7 @@ describe('stopSeeding', () => {
     ;(api.forcePauseTask as Mock).mockRejectedValueOnce(new Error('pause failed'))
     const task = makeTask({ gid: 'fail-pause' })
 
-    await expect(ops.stopSeeding(task)).rejects.toThrow('pause failed')
+    await expect(ops.stopSharing(task)).rejects.toThrow('pause failed')
 
     // Critical: UI refresh and session persistence must happen even on failure
     expect(deps.fetchList).toHaveBeenCalledOnce()
@@ -548,14 +596,14 @@ describe('stopSeeding', () => {
     ;(api.removeTask as Mock).mockRejectedValueOnce(new Error('remove failed'))
     const task = makeTask({ gid: 'fail-remove' })
 
-    await expect(ops.stopSeeding(task)).rejects.toThrow('remove failed')
+    await expect(ops.stopSharing(task)).rejects.toThrow('remove failed')
 
     // Critical: UI refresh and session persistence must happen even on failure
     expect(deps.fetchList).toHaveBeenCalledOnce()
     expect(api.saveSession).toHaveBeenCalledOnce()
   })
 
-  it('calls cleanupAria2ControlFile with the task after stopping seeding', async () => {
+  it('calls cleanupAria2ControlFiles with the task after stopping seeding', async () => {
     const task = makeTask({
       gid: 'seed-cleanup',
       bittorrent: { info: { name: 'movie.mkv' } },
@@ -572,23 +620,23 @@ describe('stopSeeding', () => {
       ],
     } as Partial<Aria2Task>)
 
-    await ops.stopSeeding(task)
+    await ops.stopSharing(task)
 
-    expect(mockCleanupAria2ControlFile).toHaveBeenCalledWith(task)
+    expect(mockCleanupAria2ControlFiles).toHaveBeenCalledWith(task)
   })
 
-  it('does not throw if cleanupAria2ControlFile fails (best-effort cleanup)', async () => {
-    mockCleanupAria2ControlFile.mockRejectedValueOnce(new Error('cleanup failed'))
+  it('does not throw if cleanupAria2ControlFiles fails (best-effort cleanup)', async () => {
+    mockCleanupAria2ControlFiles.mockRejectedValueOnce(new Error('cleanup failed'))
     const task = makeTask({
       gid: 'seed-cleanup-fail',
       bittorrent: { info: { name: 'movie.mkv' } },
     } as Partial<Aria2Task>)
 
-    await expect(ops.stopSeeding(task)).resolves.not.toThrow()
-    expect(mockCleanupAria2ControlFile).toHaveBeenCalledWith(task)
+    await expect(ops.stopSharing(task)).resolves.not.toThrow()
+    expect(mockCleanupAria2ControlFiles).toHaveBeenCalledWith(task)
   })
 
-  it('calls cleanupAria2MetadataFiles with task.dir and task.infoHash', async () => {
+  it('removes cached magnet metadata when stopping seeding', async () => {
     const task = makeTask({
       gid: 'seed-meta',
       dir: '/downloads',
@@ -596,41 +644,34 @@ describe('stopSeeding', () => {
       infoHash: 'deadbeef'.repeat(5),
     } as Partial<Aria2Task>)
 
-    await ops.stopSeeding(task)
+    await ops.stopSharing(task)
 
     expect(mockCleanupAria2MetadataFiles).toHaveBeenCalledWith('/downloads', 'deadbeef'.repeat(5))
   })
-
-  it('skips cleanupAria2MetadataFiles when dir or infoHash missing', async () => {
+  it('stops ED2K sharing and cleans control files without touching BT-only metadata cleanup', async () => {
     const task = makeTask({
-      gid: 'seed-no-hash',
-      bittorrent: { info: { name: 'movie.mkv' } },
-      // no infoHash, no dir
+      gid: 'ed2k-share',
+      status: TASK_STATUS.ACTIVE,
+      ed2k: { name: 'linux.iso', hash: 'ed2khash' },
+      seeder: 'true',
     } as Partial<Aria2Task>)
 
-    await ops.stopSeeding(task)
+    await ops.stopSharing(task)
 
+    expect(api.forcePauseTask).toHaveBeenCalledWith({ gid: 'ed2k-share' })
+    expect(api.removeTask).toHaveBeenCalledWith({ gid: 'ed2k-share' })
+    expect(mockAddRecord).toHaveBeenCalledOnce()
+    expect(mockRemoveByInfoHash).not.toHaveBeenCalled()
+    expect(mockCleanupAria2ControlFiles).toHaveBeenCalledWith(task)
     expect(mockCleanupAria2MetadataFiles).not.toHaveBeenCalled()
-  })
-
-  it('does not throw if cleanupAria2MetadataFiles fails', async () => {
-    mockCleanupAria2MetadataFiles.mockRejectedValueOnce(new Error('metadata cleanup failed'))
-    const task = makeTask({
-      gid: 'seed-meta-fail',
-      dir: '/downloads',
-      bittorrent: { info: { name: 'movie.mkv' } },
-      infoHash: 'abcdef12'.repeat(5),
-    } as Partial<Aria2Task>)
-
-    await expect(ops.stopSeeding(task)).resolves.not.toThrow()
   })
 })
 
 // ═══════════════════════════════════════════════════════════════════
-// stopAllSeeding
+// stopAllSharing
 // ═══════════════════════════════════════════════════════════════════
 
-describe('stopAllSeeding', () => {
+describe('stopAllSharing', () => {
   let api: TaskApi
   let deps: ReturnType<typeof createDeps>
   let ops: ReturnType<typeof createTaskOperations>
@@ -644,7 +685,7 @@ describe('stopAllSeeding', () => {
 
   it('returns 0 when no seeders exist', async () => {
     deps.taskList.value = [makeTask({ status: TASK_STATUS.ACTIVE })]
-    const count = await ops.stopAllSeeding()
+    const count = await ops.stopAllSharing()
     expect(count).toBe(0)
     expect(api.forcePauseTask).not.toHaveBeenCalled()
   })
@@ -660,16 +701,41 @@ describe('stopAllSeeding', () => {
       bittorrent: { info: { name: 'file.torrent' } },
     } as Partial<Aria2Task>)
     deps.taskList.value = [seeder]
-    const count = await ops.stopAllSeeding()
-    // checkTaskIsSeeder checks: BT task + complete + uploading
+    const count = await ops.stopAllSharing()
+    // checkTaskIsSharing checks active P2P tasks with seeder=true.
     // Count depends on actual seeder detection logic
     expect(count).toBeGreaterThanOrEqual(0)
   })
 
   it('returns 0 for empty task list', async () => {
     deps.taskList.value = []
-    const count = await ops.stopAllSeeding()
+    const count = await ops.stopAllSharing()
     expect(count).toBe(0)
+  })
+
+  it('stops BT seeding and ED2K sharing together', async () => {
+    deps.taskList.value = [
+      makeTask({
+        gid: 'bt-share',
+        status: TASK_STATUS.ACTIVE,
+        bittorrent: { info: { name: 'file.torrent' } },
+        seeder: 'true',
+      } as Partial<Aria2Task>),
+      makeTask({
+        gid: 'ed2k-share',
+        status: TASK_STATUS.ACTIVE,
+        ed2k: { name: 'file.bin', hash: 'ed2khash' },
+        seeder: 'true',
+      } as Partial<Aria2Task>),
+      makeTask({ gid: 'normal', status: TASK_STATUS.ACTIVE }),
+    ]
+
+    const count = await ops.stopAllSharing()
+
+    expect(count).toBe(2)
+    expect(api.forcePauseTask).toHaveBeenCalledWith({ gid: 'bt-share' })
+    expect(api.forcePauseTask).toHaveBeenCalledWith({ gid: 'ed2k-share' })
+    expect(api.forcePauseTask).not.toHaveBeenCalledWith({ gid: 'normal' })
   })
 })
 

@@ -5,11 +5,14 @@ import { isEmpty } from 'lodash-es'
 import { load } from '@tauri-apps/plugin-store'
 import { invoke } from '@tauri-apps/api/core'
 import { getLangDirection, pushItemToFixedLengthArray, removeArrayItem } from '@shared/utils'
+import { activeLocale } from '@shared/utils/i18n'
 import { fetchBtTrackerFromSource } from '@shared/utils/tracker'
 import { DEFAULT_APP_CONFIG, MAX_NUM_OF_DIRECTORIES } from '@shared/constants'
 import { logger } from '@shared/logger'
-import { runMigrations, type MigrationResult } from '@shared/utils/configMigration'
-import type { AppConfig, ProxyConfig } from '@shared/types'
+import { type MigrationResult } from '@shared/utils/configMigration'
+import { createDefaultAppConfig, hydrateAppConfig } from '@shared/utils/configHydration'
+import { recordRecentUserAgentProfileId } from '@shared/utils/userAgentPolicy'
+import type { AppConfig } from '@shared/types'
 
 const STORE_KEY = 'preferences'
 
@@ -18,7 +21,7 @@ export const usePreferenceStore = defineStore('preference', () => {
   const pendingChanges = ref(false)
   /** Callback registered by the active preference page to save before navigation. */
   const saveBeforeLeave = ref<(() => Promise<void>) | null>(null)
-  const config = ref<AppConfig>({ ...DEFAULT_APP_CONFIG } as AppConfig)
+  const config = ref<AppConfig>(createDefaultAppConfig())
   /** Result from the last migration run (null = no migration attempted yet). */
   const migrationResult = ref<MigrationResult | null>(null)
   /** Set when DB schema upgrade is detected during loadPreference.
@@ -35,10 +38,25 @@ export const usePreferenceStore = defineStore('preference', () => {
 
   const theme = computed(() => config.value.theme)
   const locale = computed(() => config.value.locale)
-  const direction = computed(() => getLangDirection(config.value.locale || 'en-US'))
+
+  /** The actual locale code in use — resolves 'auto' to the live vue-i18n locale. */
+  const resolvedLocale = computed(() => {
+    const l = config.value.locale
+    if (!l || l === 'auto') {
+      return activeLocale.value
+    }
+    return l
+  })
+
+  const direction = computed(() => getLangDirection(resolvedLocale.value))
 
   async function getStore() {
     return await load('config.json')
+  }
+
+  async function persistConfig(store: Awaited<ReturnType<typeof getStore>>, next: AppConfig): Promise<void> {
+    await store.set(STORE_KEY, next)
+    await store.save()
   }
 
   async function loadPreference() {
@@ -49,7 +67,7 @@ export const usePreferenceStore = defineStore('preference', () => {
         // Backfill dbSchemaVersion for existing users upgrading to a version
         // that includes this field. saved being non-empty proves this is NOT
         // a fresh install — fresh installs have empty config.json and take
-        // the DEFAULT_APP_CONFIG path (which already has dbSchemaVersion = 2).
+        // the DEFAULT_APP_CONFIG path (which already has the current DB version).
         if (saved.dbSchemaVersion === undefined) {
           saved.dbSchemaVersion = 1
         }
@@ -58,14 +76,22 @@ export const usePreferenceStore = defineStore('preference', () => {
         // reach here (saved is null), so no false toast.
         pendingDbUpgradeVersion = saved.dbSchemaVersion
 
-        const result = runMigrations(saved)
-        config.value = { ...config.value, ...saved }
-        if (result.migrated) {
-          pendingMigrationResult = result
-          await store.set(STORE_KEY, config.value)
-          await store.save()
-          logger.info('PreferenceStore', 'config migrated and persisted')
+        const hydrated = hydrateAppConfig(saved)
+        config.value = hydrated.config
+        if (hydrated.migration.migrated) {
+          pendingMigrationResult = hydrated.migration
         }
+        if (hydrated.shouldPersist) {
+          await persistConfig(store, config.value)
+          logger.info(
+            'PreferenceStore',
+            `config hydrated and persisted migration=${hydrated.migration.migrated} repairCount=${hydrated.repairs.length}`,
+          )
+        }
+        invoke('refresh_runtime_config').catch((e: unknown) => logger.debug('PreferenceStore.refreshRuntimeConfig', e))
+      } else {
+        config.value = createDefaultAppConfig()
+        await persistConfig(store, config.value)
         invoke('refresh_runtime_config').catch((e: unknown) => logger.debug('PreferenceStore.refreshRuntimeConfig', e))
       }
     } catch (e) {
@@ -73,11 +99,34 @@ export const usePreferenceStore = defineStore('preference', () => {
     }
   }
 
+  async function reloadPreferenceFromDisk(): Promise<boolean> {
+    try {
+      const store = await getStore()
+      const saved = await store.get<Partial<AppConfig>>(STORE_KEY)
+      if (!saved || isEmpty(saved)) return false
+      const hydrated = hydrateAppConfig(saved)
+      config.value = hydrated.config
+      if (hydrated.shouldPersist) {
+        await persistConfig(store, config.value)
+        logger.info(
+          'PreferenceStore',
+          `config reloaded and repaired repairCount=${hydrated.repairs.length} migration=${hydrated.migration.migrated}`,
+        )
+      }
+      invoke('refresh_runtime_config').catch((e: unknown) => logger.debug('PreferenceStore.refreshRuntimeConfig', e))
+      return true
+    } catch (e) {
+      logger.error('PreferenceStore.reloadPreferenceFromDisk', e)
+      return false
+    }
+  }
+
   async function savePreference(): Promise<boolean> {
     try {
       const store = await getStore()
-      await store.set(STORE_KEY, config.value)
-      await store.save()
+      const hydrated = hydrateAppConfig(config.value)
+      config.value = hydrated.config
+      await persistConfig(store, config.value)
       invoke('refresh_runtime_config').catch((e: unknown) => logger.debug('PreferenceStore.refreshRuntimeConfig', e))
       return true
     } catch (e) {
@@ -87,11 +136,10 @@ export const usePreferenceStore = defineStore('preference', () => {
   }
 
   async function updateAndSave(cfg: Partial<AppConfig>): Promise<boolean> {
-    const merged = { ...config.value, ...cfg }
+    const merged = hydrateAppConfig({ ...config.value, ...cfg }).config
     try {
       const store = await getStore()
-      await store.set(STORE_KEY, merged)
-      await store.save()
+      await persistConfig(store, merged)
       config.value = merged
       invoke('refresh_runtime_config').catch((e: unknown) => logger.debug('PreferenceStore.refreshRuntimeConfig', e))
       return true
@@ -101,8 +149,22 @@ export const usePreferenceStore = defineStore('preference', () => {
     }
   }
 
+  async function replaceAndSave(nextConfig: Partial<AppConfig>): Promise<boolean> {
+    try {
+      const store = await getStore()
+      const hydrated = hydrateAppConfig(nextConfig)
+      config.value = hydrated.config
+      await persistConfig(store, config.value)
+      invoke('refresh_runtime_config').catch((e: unknown) => logger.debug('PreferenceStore.refreshRuntimeConfig', e))
+      return true
+    } catch (e) {
+      logger.error('PreferenceStore.replaceAndSave', e)
+      return false
+    }
+  }
+
   function updatePreference(cfg: Partial<AppConfig>) {
-    config.value = { ...config.value, ...cfg }
+    config.value = hydrateAppConfig({ ...config.value, ...cfg }).config
   }
 
   function recordHistoryDirectory(directory: string) {
@@ -149,6 +211,18 @@ export const usePreferenceStore = defineStore('preference', () => {
     void savePreference()
   }
 
+  function recordRecentUserAgentProfile(profileId: string) {
+    config.value = {
+      ...config.value,
+      recentUserAgentProfileIds: recordRecentUserAgentProfileId(
+        config.value.recentUserAgentProfileIds,
+        profileId,
+        config.value.userAgentProfiles,
+      ),
+    }
+    void savePreference()
+  }
+
   function updateAppTheme(t: AppConfig['theme']) {
     updatePreference({ theme: t })
   }
@@ -164,13 +238,11 @@ export const usePreferenceStore = defineStore('preference', () => {
   async function resetToDefaults(): Promise<boolean> {
     const currentLocale = config.value.locale
     try {
-      const { generateSecret } = await import('@/composables/useAdvancedPreference')
       const store = await getStore()
       const defaults = {
-        ...DEFAULT_APP_CONFIG,
+        ...createDefaultAppConfig(),
         locale: currentLocale,
-        rpcSecret: generateSecret(),
-      } as AppConfig
+      }
       await store.set(STORE_KEY, defaults)
       await store.save()
       config.value = defaults
@@ -183,7 +255,7 @@ export const usePreferenceStore = defineStore('preference', () => {
   }
 
   async function fetchBtTracker(trackerSource: string[] = []) {
-    const proxy = config.value.proxy || ({ enable: false } as ProxyConfig)
+    const proxy = config.value.proxy || DEFAULT_APP_CONFIG.proxy
     return fetchBtTrackerFromSource(trackerSource, proxy)
   }
 
@@ -211,16 +283,20 @@ export const usePreferenceStore = defineStore('preference', () => {
     dbUpgradeVersion,
     theme,
     locale,
+    resolvedLocale,
     direction,
     updatePreference,
     updateAndSave,
+    replaceAndSave,
     loadPreference,
+    reloadPreferenceFromDisk,
     savePreference,
     recordHistoryDirectory,
     addHistoryDirectory,
     favoriteDirectory,
     cancelFavoriteDirectory,
     removeDirectory,
+    recordRecentUserAgentProfile,
     updateAppTheme,
     updateAppLocale,
     fetchBtTracker,

@@ -5,8 +5,7 @@
  * file allocation), and User-Agent. All keys here map to aria2 engine options
  * via buildNetworkSystemConfig.
  *
- * Proxy validation logic (isValidAria2ProxyUrl, validateNetworkForm) and
- * port randomizers (randomBtPort, randomDhtPort) are also covered here.
+ * Proxy validation logic is covered here with the form transformations.
  */
 import { describe, it, expect } from 'vitest'
 import {
@@ -15,8 +14,6 @@ import {
   transformNetworkForStore,
   validateNetworkForm,
   isValidAria2ProxyUrl,
-  randomBtPort,
-  randomDhtPort,
   type NetworkForm,
 } from '../useNetworkPreference'
 import { PROXY_SCOPES, PROXY_SCOPE_OPTIONS, DEFAULT_APP_CONFIG } from '@shared/constants'
@@ -101,9 +98,10 @@ describe('buildNetworkForm', () => {
 
   // ── Proxy ───────────────────────────────────────────────────────
 
-  it('defaults proxy.enable to false', () => {
+  it('defaults proxy mode to direct', () => {
     const form = buildNetworkForm(emptyConfig)
-    expect(form.proxy.enable).toBe(false)
+    expect(form.proxy.mode).toBe('direct')
+    expect(form.proxy.mode).toBe('direct')
   })
 
   it('defaults proxy.server to empty string', () => {
@@ -119,18 +117,32 @@ describe('buildNetworkForm', () => {
 
   it('preserves proxy configuration from config', () => {
     const config = {
-      proxy: { enable: true, server: 'http://127.0.0.1:7890', bypass: '*.local', scope: ['download'] },
+      proxy: {
+        mode: 'manual',
+        server: 'http://127.0.0.1:7890',
+        username: 'proxy-user',
+        password: 'proxy-pass',
+        bypass: '*.local',
+        scope: ['download'],
+      },
     } as AppConfig
     const form = buildNetworkForm(config)
-    expect(form.proxy.enable).toBe(true)
+    expect(form.proxy.mode).toBe('manual')
     expect(form.proxy.server).toBe('http://127.0.0.1:7890')
+    expect(form.proxy.username).toBe('proxy-user')
+    expect(form.proxy.password).toBe('proxy-pass')
     expect(form.proxy.bypass).toBe('*.local')
     expect(form.proxy.scope).toEqual(['download'])
   })
 
   it('preserves user-selected subset of scopes', () => {
     const config = {
-      proxy: { enable: true, server: 'http://127.0.0.1:7890', bypass: '', scope: [PROXY_SCOPES.DOWNLOAD] },
+      proxy: {
+        mode: 'manual',
+        server: 'http://127.0.0.1:7890',
+        bypass: '',
+        scope: [PROXY_SCOPES.DOWNLOAD],
+      },
     } as AppConfig
     const form = buildNetworkForm(config)
     expect(form.proxy.scope).toEqual([PROXY_SCOPES.DOWNLOAD])
@@ -147,23 +159,6 @@ describe('buildNetworkForm', () => {
     const config = { enableUpnp: false } as unknown as AppConfig
     const form = buildNetworkForm(config)
     expect(form.enableUpnp).toBe(false)
-  })
-
-  it('defaults listenPort to 21301', () => {
-    const form = buildNetworkForm(emptyConfig)
-    expect(form.listenPort).toBe(21301)
-  })
-
-  it('defaults dhtListenPort to 26701', () => {
-    const form = buildNetworkForm(emptyConfig)
-    expect(form.dhtListenPort).toBe(26701)
-  })
-
-  it('coerces string port values to numbers', () => {
-    const config = { listenPort: '12345' as unknown, dhtListenPort: '54321' as unknown } as AppConfig
-    const form = buildNetworkForm(config)
-    expect(form.listenPort).toBe(12345)
-    expect(form.dhtListenPort).toBe(54321)
   })
 
   // ── Transfer Parameters ─────────────────────────────────────────
@@ -190,9 +185,9 @@ describe('buildNetworkForm', () => {
     expect(form.timeout).toBe(60)
   })
 
-  it('defaults fileAllocation to none', () => {
+  it('defaults fileAllocation from DEFAULT_APP_CONFIG', () => {
     const form = buildNetworkForm(emptyConfig)
-    expect(form.fileAllocation).toBe('none')
+    expect(form.fileAllocation).toBe(DEFAULT_APP_CONFIG.fileAllocation)
   })
 
   it('reads fileAllocation from config', () => {
@@ -208,6 +203,17 @@ describe('buildNetworkForm', () => {
     expect(form.userAgent).toBe(DEFAULT_APP_CONFIG.userAgent)
   })
 
+  it('defaults asyncDns to false', () => {
+    const form = buildNetworkForm(emptyConfig)
+    expect(form.asyncDns).toBe(false)
+  })
+
+  it('reads asyncDns from config', () => {
+    const config = { asyncDns: true } as AppConfig
+    const form = buildNetworkForm(config)
+    expect(form.asyncDns).toBe(true)
+  })
+
   it('reads userAgent from config', () => {
     const config = { userAgent: 'Mozilla/5.0 Custom' } as AppConfig
     const form = buildNetworkForm(config)
@@ -220,12 +226,33 @@ describe('buildNetworkForm', () => {
     const form = buildNetworkForm(emptyConfig)
     expect(form).toHaveProperty('proxy')
     expect(form).toHaveProperty('enableUpnp')
-    expect(form).toHaveProperty('listenPort')
-    expect(form).toHaveProperty('dhtListenPort')
+    expect(form).toHaveProperty('autoChangeConflictingPorts')
+    expect(form).toHaveProperty('portConflictRecovery')
     expect(form).toHaveProperty('connectTimeout')
     expect(form).toHaveProperty('timeout')
     expect(form).toHaveProperty('fileAllocation')
     expect(form).toHaveProperty('userAgent')
+    expect(form).toHaveProperty('asyncDns')
+  })
+
+  it('defaults port conflict recovery to enabled for every managed port type', () => {
+    const form = buildNetworkForm(emptyConfig)
+    expect(form.portConflictRecovery).toEqual({
+      enabled: true,
+      rangeStart: 29000,
+      rangeEnd: 29999,
+      rpc: true,
+      extensionApi: true,
+      bt: true,
+      dht: true,
+      ed2k: true,
+      ed2kUdp: true,
+    })
+  })
+
+  it('uses the legacy auto switch value when no recovery policy exists', () => {
+    const form = buildNetworkForm({ autoChangeConflictingPorts: false } as AppConfig)
+    expect(form.portConflictRecovery.enabled).toBe(false)
   })
 })
 
@@ -233,22 +260,29 @@ describe('buildNetworkForm', () => {
 
 describe('buildNetworkSystemConfig', () => {
   const baseForm: NetworkForm = {
-    proxy: { enable: false, server: '', bypass: '', scope: [] },
+    proxy: { mode: 'direct', server: '', bypass: '', scope: [] },
     enableUpnp: true,
-    listenPort: 21301,
-    dhtListenPort: 26701,
+    autoChangeConflictingPorts: true,
+    portConflictRecovery: { ...DEFAULT_APP_CONFIG.portConflictRecovery },
     connectTimeout: 10,
     timeout: 10,
     fileAllocation: 'none',
     userAgent: '',
+    userAgentProfiles: [],
+    userAgentRules: [],
+    recentUserAgentProfileIds: [],
+    asyncDns: false,
   }
 
-  it('maps port and protocol keys to aria2 config', () => {
+  it('does not emit protocol-specific options', () => {
     const config = buildNetworkSystemConfig(baseForm)
-    expect(config['listen-port']).toBe('21301')
-    expect(config['dht-listen-port']).toBe('26701')
-    expect(config['enable-dht']).toBe('true')
-    expect(config['enable-peer-exchange']).toBe('true')
+    expect(config).not.toHaveProperty('listen-port')
+    expect(config).not.toHaveProperty('bt-external-ip')
+    expect(config).not.toHaveProperty('bt-external-port')
+    expect(config).not.toHaveProperty('dht-listen-port')
+    expect(config).not.toHaveProperty('enable-dht')
+    expect(config).not.toHaveProperty('enable-peer-exchange')
+    expect(config).not.toHaveProperty('keep-sharing')
   })
 
   it('maps transfer parameter keys to aria2 config', () => {
@@ -269,58 +303,97 @@ describe('buildNetworkSystemConfig', () => {
     expect(config['file-allocation']).toBe('prealloc')
   })
 
+  it('falls back empty file-allocation to DEFAULT_APP_CONFIG', () => {
+    const config = buildNetworkSystemConfig({ ...baseForm, fileAllocation: '' })
+    expect(config['file-allocation']).toBe(DEFAULT_APP_CONFIG.fileAllocation)
+  })
+
   it('maps user-agent to aria2 config', () => {
     const config = buildNetworkSystemConfig({ ...baseForm, userAgent: 'Custom/1.0' })
     expect(config['user-agent']).toBe('Custom/1.0')
   })
 
+  it('maps async-dns to aria2 config', () => {
+    expect(buildNetworkSystemConfig(baseForm)['async-dns']).toBe('false')
+    expect(buildNetworkSystemConfig({ ...baseForm, asyncDns: true })['async-dns']).toBe('true')
+  })
+
   // ── Proxy flow ──────────────────────────────────────────────────
 
-  it('sets proxy when enabled for downloads', () => {
+  it('sets manual proxy options when enabled for downloads', () => {
     const config = buildNetworkSystemConfig({
       ...baseForm,
-      proxy: { enable: true, server: 'http://proxy:8080', bypass: '*.local', scope: [PROXY_SCOPES.DOWNLOAD] },
+      proxy: {
+        mode: 'manual',
+        server: 'http://proxy:8080',
+        bypass: '*.local',
+        scope: [PROXY_SCOPES.DOWNLOAD],
+      },
     })
+    expect(config['proxy-mode']).toBeUndefined()
     expect(config['all-proxy']).toBe('http://proxy:8080')
     expect(config['no-proxy']).toBe('*.local')
   })
 
-  it('clears proxy when not enabled for downloads', () => {
-    const config = buildNetworkSystemConfig({
-      ...baseForm,
-      proxy: { enable: true, server: 'http://proxy:8080', bypass: '*.local', scope: ['app'] },
-    })
-    expect(config['all-proxy']).toBe('')
-    expect(config['no-proxy']).toBe('')
-  })
-
-  it('clears proxy when proxy is disabled', () => {
-    const config = buildNetworkSystemConfig({
-      ...baseForm,
-      proxy: { enable: false, server: 'http://proxy:8080', bypass: '', scope: [PROXY_SCOPES.DOWNLOAD] },
-    })
-    expect(config['all-proxy']).toBe('')
-  })
-
-  it('enabling proxy with default scope produces non-empty all-proxy', () => {
-    const form = buildNetworkForm({} as AppConfig)
-    form.proxy.enable = true
-    form.proxy.server = 'http://127.0.0.1:7890'
-    const config = buildNetworkSystemConfig(form)
-    expect(config['all-proxy']).toBe('http://127.0.0.1:7890')
-    expect(config['no-proxy']).toBe('')
-  })
-
-  it('proxy with download scope excluded produces empty all-proxy', () => {
+  it('emits structured proxy authentication options', () => {
     const config = buildNetworkSystemConfig({
       ...baseForm,
       proxy: {
-        enable: true,
-        server: 'http://127.0.0.1:7890',
+        mode: 'manual',
+        server: 'http://proxy:8080',
+        username: 'proxy-user',
+        password: 'proxy-pass',
         bypass: '',
-        scope: [PROXY_SCOPES.UPDATE_APP, PROXY_SCOPES.UPDATE_TRACKERS],
+        scope: [PROXY_SCOPES.DOWNLOAD],
       },
     })
+    expect(config['all-proxy']).toBe('http://proxy:8080')
+    expect(config['all-proxy-user']).toBe('proxy-user')
+    expect(config['all-proxy-passwd']).toBe('proxy-pass')
+  })
+
+  it('clears proxy options when download scope is excluded', () => {
+    const config = buildNetworkSystemConfig({
+      ...baseForm,
+      proxy: { mode: 'manual', server: 'http://proxy:8080', bypass: '*.local', scope: ['app'] },
+    })
+    expect(config['proxy-mode']).toBeUndefined()
+    expect(config['all-proxy']).toBe('')
+    expect(config['all-proxy-user']).toBe('')
+    expect(config['all-proxy-passwd']).toBe('')
+    expect(config['no-proxy']).toBe('')
+  })
+
+  it('clears proxy options when proxy is direct', () => {
+    const config = buildNetworkSystemConfig({
+      ...baseForm,
+      proxy: { mode: 'direct', server: 'http://proxy:8080', bypass: '', scope: [PROXY_SCOPES.DOWNLOAD] },
+    })
+    expect(config['proxy-mode']).toBeUndefined()
+    expect(config['all-proxy']).toBe('')
+  })
+
+  it('manual mode with default scope produces non-empty all-proxy', () => {
+    const form = buildNetworkForm({} as AppConfig)
+    form.proxy.mode = 'manual'
+    form.proxy.server = 'http://127.0.0.1:7890'
+    const config = buildNetworkSystemConfig(form)
+    expect(config['proxy-mode']).toBeUndefined()
+    expect(config['all-proxy']).toBe('http://127.0.0.1:7890')
+    expect(config['no-proxy']).toBeUndefined()
+  })
+
+  it('normalizes legacy auto mode to direct and clears proxy options', () => {
+    const config = buildNetworkSystemConfig({
+      ...baseForm,
+      proxy: {
+        mode: 'auto' as never,
+        server: 'http://127.0.0.1:7890',
+        bypass: '',
+        scope: [PROXY_SCOPES.DOWNLOAD],
+      },
+    })
+    expect(config['proxy-mode']).toBeUndefined()
     expect(config['all-proxy']).toBe('')
   })
 
@@ -328,7 +401,7 @@ describe('buildNetworkSystemConfig', () => {
     const config = buildNetworkSystemConfig({
       ...baseForm,
       proxy: {
-        enable: true,
+        mode: 'manual',
         server: 'http://proxy:8080',
         bypass: '192.168.0.0/16,*.local',
         scope: [PROXY_SCOPES.DOWNLOAD],
@@ -343,31 +416,43 @@ describe('buildNetworkSystemConfig', () => {
 
 describe('transformNetworkForStore', () => {
   const baseForm: NetworkForm = {
-    proxy: { enable: false, server: '', bypass: '', scope: [] },
+    proxy: { mode: 'direct', server: '', bypass: '', scope: [] },
     enableUpnp: true,
-    listenPort: 21301,
-    dhtListenPort: 26701,
+    autoChangeConflictingPorts: true,
+    portConflictRecovery: { ...DEFAULT_APP_CONFIG.portConflictRecovery },
     connectTimeout: 10,
     timeout: 10,
     fileAllocation: 'none',
     userAgent: '',
+    userAgentProfiles: [],
+    userAgentRules: [],
+    recentUserAgentProfileIds: [],
+    asyncDns: false,
   }
 
-  it('preserves port numbers as numbers (not strings)', () => {
+  it('does not persist BitTorrent-owned fields', () => {
     const result = transformNetworkForStore(baseForm)
-    expect(result.listenPort).toBe(21301)
-    expect(typeof result.listenPort).toBe('number')
-    expect(result.dhtListenPort).toBe(26701)
-    expect(typeof result.dhtListenPort).toBe('number')
+    expect(result).not.toHaveProperty('listenPort')
+    expect(result).not.toHaveProperty('dhtListenPort')
+    expect(result).not.toHaveProperty('keepSharing')
+  })
+
+  it('preserves automatic conflicting port switching preference', () => {
+    const result = transformNetworkForStore({
+      ...baseForm,
+      portConflictRecovery: { ...baseForm.portConflictRecovery, enabled: false },
+    })
+    expect(result.autoChangeConflictingPorts).toBe(false)
+    expect(result.portConflictRecovery).toMatchObject({ enabled: false })
   })
 
   it('preserves proxy config through transform', () => {
     const result = transformNetworkForStore({
       ...baseForm,
-      proxy: { enable: true, server: 'http://127.0.0.1:7890', bypass: '*.local', scope: ['download'] },
+      proxy: { mode: 'manual', server: 'http://127.0.0.1:7890', bypass: '*.local', scope: ['download'] },
     })
     expect(result.proxy).toEqual({
-      enable: true,
+      mode: 'manual',
       server: 'http://127.0.0.1:7890',
       bypass: '*.local',
       scope: ['download'],
@@ -384,88 +469,100 @@ describe('transformNetworkForStore', () => {
     const result = transformNetworkForStore({ ...baseForm, fileAllocation: 'prealloc' })
     expect(result.fileAllocation).toBe('prealloc')
   })
+
+  it('preserves asyncDns through transform', () => {
+    const result = transformNetworkForStore({ ...baseForm, asyncDns: true })
+    expect(result.asyncDns).toBe(true)
+  })
 })
 
 // ── validateNetworkForm ─────────────────────────────────────────────
 
 describe('validateNetworkForm', () => {
   const validForm: NetworkForm = {
-    proxy: { enable: false, server: '', bypass: '', scope: [] },
+    proxy: { mode: 'direct', server: '', bypass: '', scope: [] },
     enableUpnp: true,
-    listenPort: 21301,
-    dhtListenPort: 26701,
+    autoChangeConflictingPorts: true,
+    portConflictRecovery: { ...DEFAULT_APP_CONFIG.portConflictRecovery },
     connectTimeout: 10,
     timeout: 10,
     fileAllocation: 'none',
     userAgent: '',
+    userAgentProfiles: [],
+    userAgentRules: [],
+    recentUserAgentProfileIds: [],
+    asyncDns: false,
   }
 
   it('returns null for valid form', () => {
     expect(validateNetworkForm(validForm)).toBeNull()
   })
 
-  it('returns null for valid proxy URL when proxy enabled', () => {
+  it('rejects invalid port recovery ranges', () => {
     expect(
       validateNetworkForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: 'http://proxy.example.com:8080' },
+        portConflictRecovery: { ...validForm.portConflictRecovery, rangeStart: 25000, rangeEnd: 23999 },
+      }),
+    ).toBe('preferences.port-conflict-recovery-invalid-range')
+  })
+
+  it('ignores invalid hidden port recovery ranges when recovery is disabled', () => {
+    expect(
+      validateNetworkForm({
+        ...validForm,
+        portConflictRecovery: {
+          ...validForm.portConflictRecovery,
+          enabled: false,
+          rangeStart: 25000,
+          rangeEnd: 23999,
+        },
       }),
     ).toBeNull()
   })
 
-  it('returns invalid-proxy-url for malformed URL when proxy enabled', () => {
+  it('returns null for valid proxy URL in manual mode', () => {
     expect(
       validateNetworkForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: 'http://:invalid:url:' },
+        proxy: { ...validForm.proxy, mode: 'manual', server: 'http://proxy.example.com:8080' },
+      }),
+    ).toBeNull()
+  })
+
+  it('returns invalid-proxy-url for malformed URL in manual mode', () => {
+    expect(
+      validateNetworkForm({
+        ...validForm,
+        proxy: { ...validForm.proxy, mode: 'manual', server: 'http://:invalid:url:' },
       }),
     ).toBe('preferences.invalid-proxy-url')
   })
 
-  it('returns proxy-unsupported-protocol for socks5 when proxy enabled', () => {
+  it('returns proxy-unsupported-protocol for socks5 in manual mode', () => {
     expect(
       validateNetworkForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: 'socks5://127.0.0.1:1080' },
+        proxy: { ...validForm.proxy, mode: 'manual', server: 'socks5://127.0.0.1:1080' },
       }),
     ).toBe('preferences.proxy-unsupported-protocol')
   })
 
-  it('returns null for invalid proxy URL when proxy disabled', () => {
+  it('returns null for invalid proxy URL in direct mode', () => {
     expect(
       validateNetworkForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: false, server: 'socks5://127.0.0.1:1080' },
+        proxy: { ...validForm.proxy, mode: 'direct', server: 'socks5://127.0.0.1:1080' },
       }),
     ).toBeNull()
   })
 
-  it('returns null for empty proxy server when proxy enabled', () => {
+  it('returns null for empty proxy server in manual mode', () => {
     expect(
       validateNetworkForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: '' },
+        proxy: { ...validForm.proxy, mode: 'manual', server: '' },
       }),
     ).toBeNull()
-  })
-})
-
-// ── Port Randomizers ────────────────────────────────────────────────
-
-describe('port randomizers', () => {
-  it('randomBtPort stays within [20000, 24999)', () => {
-    for (let i = 0; i < 20; i++) {
-      const port = randomBtPort()
-      expect(port).toBeGreaterThanOrEqual(20000)
-      expect(port).toBeLessThan(24999)
-    }
-  })
-
-  it('randomDhtPort stays within [25000, 29999)', () => {
-    for (let i = 0; i < 20; i++) {
-      const port = randomDhtPort()
-      expect(port).toBeGreaterThanOrEqual(25000)
-      expect(port).toBeLessThan(29999)
-    }
   })
 })

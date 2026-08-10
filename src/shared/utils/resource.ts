@@ -8,21 +8,44 @@ import {
 } from '@shared/constants'
 import { splitTextRows } from './format'
 import { isAudioOrVideo } from './file'
+import { parseAria2Input } from './batchHelpers'
 import type { ClipboardConfig } from '@shared/types'
 
 /** Decodes a Thunder (迅雷) protocol link to its original HTTP/FTP URL. */
 export const decodeThunderLink = (url = ''): string => {
-  if (!url.startsWith('thunder://')) return url
-  let result = url.trim()
-  result = result.split('thunder://')[1]
-  result = atob(result)
-  result = result.substring(2, result.length - 2)
-  return result
+  const trimmed = url.trim()
+  if (!trimmed.toLowerCase().startsWith('thunder://')) return url
+  const rawPayload = trimmed.slice('thunder://'.length)
+  const payload = decodeThunderPayload(rawPayload)
+  if (!payload) return url
+
+  try {
+    const decoded = decodeBase64Utf8(payload)
+    if (!decoded.startsWith('AA') || !decoded.endsWith('ZZ')) return url
+    const result = decoded.substring(2, decoded.length - 2)
+    return result || url
+  } catch {
+    return url
+  }
+}
+
+function decodeThunderPayload(payload: string): string {
+  try {
+    return decodeURIComponent(payload)
+  } catch {
+    return payload
+  }
+}
+
+function decodeBase64Utf8(payload: string): string {
+  const normalized = payload.padEnd(payload.length + ((4 - (payload.length % 4)) % 4), '=')
+  const binary = atob(normalized)
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+  return new TextDecoder().decode(bytes)
 }
 
 export const splitTaskLinks = (links = ''): string[] => {
-  const temp = compact(splitTextRows(links))
-  return temp.map((item) => decodeThunderLink(item))
+  return compact(splitTextRows(links))
 }
 
 /**
@@ -42,10 +65,32 @@ function buildAllowedTags(filter?: ClipboardConfig): string[] {
   if (filter.magnet) {
     tags.push('magnet:')
   }
+  if (filter.ed2k) {
+    tags.push('ed2k://')
+  }
   if (filter.thunder) {
     tags.push('thunder://')
   }
   return tags
+}
+
+function lineMatchesAllowedResource(line: string, allowedTags: string[], allowHash: boolean): boolean {
+  const lower = line.toLowerCase()
+  return (
+    allowedTags.some((tag) => lower.startsWith(tag) && line.length > tag.length) ||
+    (allowHash && BARE_INFO_HASH_RE.test(line))
+  )
+}
+
+function lineMatchesAnyResource(line: string): boolean {
+  return lineMatchesAllowedResource(line, RESOURCE_TAGS, true)
+}
+
+function countMeaningfulInputLines(content: string): number {
+  return content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#')).length
 }
 
 /**
@@ -78,13 +123,14 @@ export const detectResource = (content: string, filter?: ClipboardConfig): boole
   const allowedTags = buildAllowedTags(filter)
   const allowHash = filter ? filter.btHash : true
 
-  return lines.every((line) => {
-    const lower = line.toLowerCase()
-    return (
-      allowedTags.some((tag) => lower.startsWith(tag) && line.length > tag.length) ||
-      (allowHash && BARE_INFO_HASH_RE.test(line))
-    )
-  })
+  if (lines.length === 1) return lineMatchesAllowedResource(lines[0], allowedTags, allowHash)
+
+  const parsed = parseAria2Input(content)
+  if (parsed.entries.length === 0) return false
+
+  if (parsed.validLineCount !== countMeaningfulInputLines(content)) return false
+
+  return parsed.entries.every((entry) => entry.uris.length > 0 && entry.uris.every(lineMatchesAnyResource))
 }
 
 export const needCheckCopyright = (links = ''): boolean => {

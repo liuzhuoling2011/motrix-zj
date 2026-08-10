@@ -46,22 +46,25 @@ export function renderCompletionToast(options: CompletionToastOptions): string |
       'div',
       {
         style: {
-          display: 'flex',
+          display: 'grid',
           alignItems: 'center',
-          gap: '20px',
-          width: '100%',
+          gridTemplateColumns: 'minmax(0, 1fr) max-content',
+          gap: '16px',
+          maxWidth: '100%',
+          minWidth: '0',
         },
       },
       [
         h(
           'span',
           {
+            class: 'technical-text-wrap',
             style: {
-              flex: '1',
               minWidth: '0',
               overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+              display: '-webkit-box',
+              WebkitLineClamp: '2',
+              WebkitBoxOrient: 'vertical',
             },
           },
           body,
@@ -72,7 +75,9 @@ export function renderCompletionToast(options: CompletionToastOptions): string |
             style: {
               display: 'inline-flex',
               gap: '8px',
-              flexShrink: '0',
+              alignItems: 'center',
+              flexWrap: 'nowrap',
+              whiteSpace: 'nowrap',
             },
           },
           [

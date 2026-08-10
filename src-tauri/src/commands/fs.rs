@@ -1,8 +1,43 @@
+use crate::engine::{valid_aria2_log_level, DEFAULT_ARIA2_LOG_LEVEL};
 use crate::error::AppError;
+use crate::log_policy::{
+    is_managed_active_log_file, remove_legacy_log_files, ARIA2_LOG_FILE, MOTRIX_LOG_FILE,
+};
+use serde::Deserialize;
 use serde_json::Value;
 use std::path::Path;
 use tauri::AppHandle;
 use tauri::Manager;
+
+fn diagnostic_log_zip_path(name: &str) -> Option<String> {
+    if name == MOTRIX_LOG_FILE {
+        Some(format!("motrix-next/{name}"))
+    } else if name == ARIA2_LOG_FILE {
+        Some(format!("aria2-next/{name}"))
+    } else {
+        None
+    }
+}
+
+fn should_export_log_file(path: &Path, name: &str) -> Result<bool, AppError> {
+    let Some(_) = diagnostic_log_zip_path(name) else {
+        return Ok(false);
+    };
+    let metadata = std::fs::metadata(path)
+        .map_err(|e| AppError::Io(format!("Failed to read log metadata: {e}")))?;
+    Ok(metadata.len() > 0)
+}
+
+fn config_aria2_log_level(raw: Option<&Value>) -> &str {
+    raw.and_then(|config| {
+        config
+            .get("preferences")
+            .and_then(|prefs| prefs.get("aria2LogLevel"))
+            .and_then(Value::as_str)
+    })
+    .filter(|level| valid_aria2_log_level(level))
+    .unwrap_or(DEFAULT_ARIA2_LOG_LEVEL)
+}
 
 fn redact_url_credentials(value: &str) -> String {
     match url::Url::parse(value) {
@@ -26,8 +61,10 @@ fn sanitize_config_snapshot(raw: &Value) -> Value {
         .get_mut("preferences")
         .and_then(Value::as_object_mut)
     {
-        if let Some(secret) = prefs.get_mut("rpcSecret") {
-            *secret = Value::String("[REDACTED]".into());
+        for key in ["rpcSecret", "extensionApiSecret"] {
+            if let Some(secret) = prefs.get_mut(key) {
+                *secret = Value::String("[REDACTED]".into());
+            }
         }
         if let Some(cookie) = prefs.get_mut("cookie") {
             *cookie = Value::String("[REDACTED]".into());
@@ -37,6 +74,9 @@ fn sanitize_config_snapshot(raw: &Value) -> Value {
                 if let Some(server) = server_value.as_str() {
                     *server_value = Value::String(redact_url_credentials(server));
                 }
+            }
+            if let Some(password) = proxy.get_mut("password") {
+                *password = Value::String("[REDACTED]".into());
             }
         }
     }
@@ -62,8 +102,8 @@ fn sanitize_config_snapshot(raw: &Value) -> Value {
 /// Logging strategy (privacy-safe):
 /// - `info!`: argument count and boolean result only
 /// - `debug!`: structured diagnostics (match type counts) — no raw argv,
-///   because the default log level is `Debug` and diagnostic exports bundle
-///   all log files into user-submitted ZIPs
+///   because diagnostic exports can include debug logs when users enable them
+///   for issue reproduction
 #[tauri::command]
 pub fn is_autostart_launch(lifecycle: tauri::State<'_, crate::AppLifecycleState>) -> bool {
     // After the cold-start phase ends (user dismissed the window at least
@@ -92,28 +132,51 @@ pub fn is_autostart_launch(lifecycle: tauri::State<'_, crate::AppLifecycleState>
     result
 }
 
-/// Truncates the application log file to zero bytes.
-/// Uses `app_log_dir()` to locate the log — no frontend FS permission required.
+fn clear_managed_log_files_in_dir(log_dir: &Path) -> Result<(), AppError> {
+    if !log_dir.exists() {
+        return Ok(());
+    }
+    remove_legacy_log_files(log_dir)
+        .map_err(|e| AppError::Io(format!("Failed to remove legacy logs: {e}")))?;
+    for entry in std::fs::read_dir(log_dir)
+        .map_err(|e| AppError::Io(format!("Failed to read log dir: {e}")))?
+        .flatten()
+    {
+        let path = entry.path();
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("");
+        if !path.is_file() {
+            continue;
+        }
+        if is_managed_active_log_file(name) {
+            std::fs::OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open(&path)
+                .map_err(|e| AppError::Io(format!("Failed to clear active log: {e}")))?;
+        }
+    }
+    Ok(())
+}
+
+/// Clears managed logs in the app log directory.
 #[tauri::command]
 pub fn clear_log_file(app: AppHandle) -> Result<(), AppError> {
     let log_dir = app
         .path()
         .app_log_dir()
         .map_err(|e| AppError::Io(e.to_string()))?;
-    let log_path = log_dir.join("motrix-next.log");
-    if log_path.exists() {
-        std::fs::write(&log_path, "")
-            .map_err(|e| AppError::Io(format!("Failed to clear log: {}", e)))?;
-        log::info!("log file cleared: {}", log_path.display());
-    }
-    Ok(())
+    clear_managed_log_files_in_dir(&log_dir)
 }
 
 /// Collects all log files from the app log directory and compresses them
 /// into a ZIP archive at the user-specified path (chosen via a save dialog
 /// on the frontend). Includes:
 /// - `system-info.json` with enriched machine/runtime context for diagnostics
-/// - All log files from the app log directory
+/// - Motrix Next logs under `motrix-next/`
+/// - Aria2 Next logs under `aria2-next/`
 /// - `config.json` user configuration snapshot for issue reproduction
 ///
 /// Returns the full path to the created ZIP file.
@@ -136,6 +199,28 @@ pub async fn export_diagnostic_logs(app: AppHandle, save_path: String) -> Result
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
 
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| AppError::Io(e.to_string()))?;
+    let config_path = data_dir.join("config.json");
+    let raw_config = if config_path.exists() {
+        match std::fs::read(&config_path) {
+            Ok(content) => match serde_json::from_slice::<Value>(&content) {
+                Ok(value) => Some(value),
+                Err(e) => {
+                    log::warn!("diagnostic export: config parse failed, omitting raw config: {e}");
+                    None
+                }
+            },
+            Err(e) => {
+                log::warn!("diagnostic export: config read failed: {e}");
+                None
+            }
+        }
+    } else {
+        None
+    };
     // ── System info: enriched machine context for diagnostics ────────
     let pkg = app.package_info();
     let engine_pid = app
@@ -152,11 +237,16 @@ pub async fn export_diagnostic_logs(app: AppHandle, save_path: String) -> Result
         "locale": sys_locale::get_locale().unwrap_or_default(),
         "app_version": pkg.version.to_string(),
         "app_name": pkg.name,
-        "log_level": format!("{}", crate::read_log_level()),
+        "motrix_next_log_level": format!("{}", crate::read_log_level()),
+        "aria2_next_log_level": config_aria2_log_level(raw_config.as_ref()),
         "engine_pid": engine_pid,
-        "webkit_dmabuf_disabled": std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER")
-            .unwrap_or_default(),
-        "gpu_hardware_rendering": crate::gpu_guard::is_hardware_rendering_enabled(),
+        "webkit_dmabuf_disabled": std::env::var(crate::gpu_guard::WEBKIT_DISABLE_DMABUF_RENDERER).unwrap_or_default(),
+        "webkit_compositing_disabled": std::env::var(crate::gpu_guard::WEBKIT_DISABLE_COMPOSITING_MODE).unwrap_or_default(),
+        "webkit_hardware_acceleration_enabled": crate::gpu_guard::is_hardware_rendering_enabled(),
+        "appimage": std::env::var("APPIMAGE").unwrap_or_default(),
+        "appdir": std::env::var("APPDIR").unwrap_or_default(),
+        "xdg_session_type": std::env::var("XDG_SESSION_TYPE").unwrap_or_default(),
+        "gdk_backend": std::env::var("GDK_BACKEND").unwrap_or_default(),
         "exported_at": chrono::Local::now().to_rfc3339(),
     });
     let info_bytes = serde_json::to_vec_pretty(&system_info)
@@ -175,10 +265,16 @@ pub async fn export_diagnostic_logs(app: AppHandle, save_path: String) -> Result
         let path = entry.path();
         if path.is_file() {
             let name = path.file_name().unwrap_or_default().to_string_lossy();
+            let Some(zip_name) = diagnostic_log_zip_path(&name) else {
+                continue;
+            };
+            if !should_export_log_file(&path, &name)? {
+                continue;
+            }
             let content = std::fs::read(&path)
                 .map_err(|e| AppError::Io(format!("Failed to read {}: {}", name, e)))?;
             zip_writer
-                .start_file(name.to_string(), options)
+                .start_file(zip_name, options)
                 .map_err(|e| AppError::Io(format!("Failed to add {} to zip: {}", name, e)))?;
             std::io::Write::write_all(&mut zip_writer, &content)
                 .map_err(|e| AppError::Io(format!("Failed to write {}: {}", name, e)))?;
@@ -186,27 +282,9 @@ pub async fn export_diagnostic_logs(app: AppHandle, save_path: String) -> Result
     }
 
     // ── Config snapshot: user preferences for issue reproduction ─────
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| AppError::Io(e.to_string()))?;
-    let config_path = data_dir.join("config.json");
-    if config_path.exists() {
-        let config_content = std::fs::read(&config_path)
-            .map_err(|e| AppError::Io(format!("Failed to read config: {}", e)))?;
-        let sanitized = match serde_json::from_slice::<Value>(&config_content) {
-            Ok(value) => serde_json::to_vec_pretty(&sanitize_config_snapshot(&value))
-                .map_err(|e| AppError::Io(format!("Failed to sanitize config: {}", e)))?,
-            Err(e) => {
-                log::warn!("diagnostic export: config parse failed, omitting raw config: {e}");
-                serde_json::to_vec_pretty(&serde_json::json!({
-                    "error": "Failed to sanitize config snapshot"
-                }))
-                .map_err(|serr| {
-                    AppError::Io(format!("Failed to serialize config fallback: {}", serr))
-                })?
-            }
-        };
+    if let Some(value) = raw_config {
+        let sanitized = serde_json::to_vec_pretty(&sanitize_config_snapshot(&value))
+            .map_err(|e| AppError::Io(format!("Failed to sanitize config: {}", e)))?;
         zip_writer
             .start_file("config.json", options)
             .map_err(|e| AppError::Io(format!("Failed to add config.json: {}", e)))?;
@@ -235,13 +313,15 @@ mod export_tests {
     }
 
     #[test]
-    fn sanitize_config_snapshot_redacts_rpc_secret_cookie_and_proxy_server() {
+    fn sanitize_config_snapshot_redacts_api_secrets_cookie_and_proxy_server() {
         let raw = serde_json::json!({
             "preferences": {
                 "rpcSecret": "secret",
+                "extensionApiSecret": "api-secret",
                 "cookie": "session=abc",
                 "proxy": {
-                    "server": "http://user:pass@example.com:8080"
+                    "server": "http://user:pass@example.com:8080",
+                    "password": "proxy-secret"
                 }
             }
         });
@@ -255,6 +335,10 @@ mod export_tests {
             Some("[REDACTED]")
         );
         assert_eq!(
+            prefs.get("extensionApiSecret").and_then(Value::as_str),
+            Some("[REDACTED]")
+        );
+        assert_eq!(
             prefs.get("cookie").and_then(Value::as_str),
             Some("[REDACTED]")
         );
@@ -265,6 +349,102 @@ mod export_tests {
                 .and_then(|proxy| proxy.get("server"))
                 .and_then(Value::as_str),
             Some("http://[REDACTED]@example.com:8080")
+        );
+        assert_eq!(
+            prefs
+                .get("proxy")
+                .and_then(Value::as_object)
+                .and_then(|proxy| proxy.get("password"))
+                .and_then(Value::as_str),
+            Some("[REDACTED]")
+        );
+    }
+
+    #[test]
+    fn diagnostic_log_zip_path_separates_motrix_and_aria2_logs_without_export_toggle() {
+        assert_eq!(
+            diagnostic_log_zip_path("motrix-next.log"),
+            Some("motrix-next/motrix-next.log".to_string())
+        );
+        assert_eq!(
+            diagnostic_log_zip_path("aria2-next.log"),
+            Some("aria2-next/aria2-next.log".to_string())
+        );
+        assert_eq!(diagnostic_log_zip_path("aria2-next.1.log"), None);
+        assert_eq!(diagnostic_log_zip_path("aria2-next.log.1"), None);
+        assert_eq!(diagnostic_log_zip_path("other.log"), None);
+        assert_eq!(diagnostic_log_zip_path("motrix-next.log.1"), None);
+    }
+
+    #[test]
+    fn clear_managed_log_files_truncates_active_logs_and_removes_legacy_logs() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let motrix = dir.path().join("motrix-next.log");
+        let aria2 = dir.path().join("aria2-next.log");
+        let rotated = dir.path().join("aria2-next.1.log");
+        let current_rotated = dir.path().join("aria2-next.log.1");
+        let motrix_rotated = dir.path().join("motrix-next.log.1");
+        let other = dir.path().join("other.log");
+
+        std::fs::write(&motrix, "motrix log").expect("motrix log");
+        std::fs::write(&aria2, "aria2 log").expect("aria2 log");
+        std::fs::write(&rotated, "rotated log").expect("rotated log");
+        std::fs::write(&current_rotated, "rotated log").expect("current rotated log");
+        std::fs::write(&motrix_rotated, "rotated log").expect("motrix rotated log");
+        std::fs::write(&other, "other log").expect("other log");
+
+        clear_managed_log_files_in_dir(dir.path()).expect("clear logs");
+
+        assert_eq!(
+            std::fs::metadata(&motrix).expect("motrix metadata").len(),
+            0
+        );
+        assert_eq!(std::fs::metadata(&aria2).expect("aria2 metadata").len(), 0);
+        assert!(!rotated.exists());
+        assert!(!current_rotated.exists());
+        assert!(!motrix_rotated.exists());
+        assert_eq!(
+            std::fs::read_to_string(&other).expect("other content"),
+            "other log"
+        );
+    }
+
+    #[test]
+    fn should_export_log_file_skips_empty_logs() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let empty = dir.path().join("aria2-next.log");
+        let non_empty = dir.path().join("motrix-next.log");
+        let other = dir.path().join("other.log");
+
+        std::fs::write(&empty, "").expect("empty log");
+        std::fs::write(&non_empty, "log").expect("non-empty log");
+        std::fs::write(&other, "log").expect("other log");
+
+        assert!(!should_export_log_file(&empty, "aria2-next.log").expect("empty export"));
+        assert!(should_export_log_file(&non_empty, "motrix-next.log").expect("non-empty export"));
+        assert!(!should_export_log_file(&other, "other.log").expect("other export"));
+    }
+
+    #[test]
+    fn config_aria2_log_level_reads_current_field_only() {
+        assert_eq!(config_aria2_log_level(None), "warn");
+        assert_eq!(
+            config_aria2_log_level(Some(&serde_json::json!({
+                "preferences": { "aria2LogLevel": "debug" }
+            }))),
+            "debug"
+        );
+        assert_eq!(
+            config_aria2_log_level(Some(&serde_json::json!({
+                "preferences": { "aria2LogLevel": "verbose" }
+            }))),
+            "warn"
+        );
+        assert_eq!(
+            config_aria2_log_level(Some(&serde_json::json!({
+                "preferences": { "aria2LogsEnabled": false }
+            }))),
+            "warn"
         );
     }
 }
@@ -294,6 +474,34 @@ pub fn check_path_is_dir(path: String) -> bool {
     let result = std::path::Path::new(&path).is_dir();
     log::debug!("check_path_is_dir: path={path:?} result={result}");
     result
+}
+
+/// Reads a local file selected or referenced by the user.
+///
+/// This command keeps arbitrary user-path reads behind Rust IPC instead of
+/// granting the frontend plugin a wildcard filesystem scope.
+#[tauri::command]
+pub fn read_local_file(path: String) -> Result<Vec<u8>, AppError> {
+    std::fs::read(&path).map_err(|e| AppError::Io(format!("Failed to read file: {e}")))
+}
+
+/// Lists regular file names in a directory.
+///
+/// Used for aria2 metadata cleanup without exposing a wildcard frontend FS
+/// scope. Directory traversal stays in Rust, and only file names are returned.
+#[tauri::command]
+pub fn list_dir_files(path: String) -> Result<Vec<String>, AppError> {
+    let entries =
+        std::fs::read_dir(&path).map_err(|e| AppError::Io(format!("Failed to read dir: {e}")))?;
+    let mut files = Vec::new();
+    for entry in entries.flatten() {
+        if entry.path().is_file() {
+            if let Some(name) = entry.file_name().to_str() {
+                files.push(name.to_string());
+            }
+        }
+    }
+    Ok(files)
 }
 
 /// Normalizes a file-system path for safe use with OS shell APIs.
@@ -499,16 +707,40 @@ pub fn open_path_normalized(app: AppHandle, path: String) -> Result<(), AppError
         .map_err(|e| AppError::Io(format!("Failed to open {}: {}", path, e)))
 }
 
-/// Moves a file to the OS trash / recycle bin.
-///
-/// Uses the `trash` crate for cross-platform support:
-/// - macOS: NSFileManager.trashItemAtURL
-/// - Windows: IFileOperation + FOFX_RECYCLEONDELETE
-/// - Linux: FreeDesktop Trash spec (XDG_DATA_HOME/Trash)
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FileDeletionMode {
+    Trash,
+    Permanent,
+}
+
 #[tauri::command]
-pub fn trash_file(path: String) -> Result<(), AppError> {
-    log::info!("file:trash path={path:?}");
-    trash::delete(&path).map_err(|e| AppError::Io(e.to_string()))
+pub fn delete_path(path: String, mode: FileDeletionMode) -> Result<bool, AppError> {
+    if path.trim().is_empty() {
+        return Ok(false);
+    }
+
+    let target = Path::new(&path);
+    let metadata = match std::fs::symlink_metadata(target) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(AppError::Io(error.to_string())),
+    };
+
+    log::info!("file:delete mode={mode:?} path={path:?}");
+    match mode {
+        FileDeletionMode::Trash => {
+            trash::delete(target).map_err(|error| AppError::Io(error.to_string()))?
+        }
+        FileDeletionMode::Permanent if metadata.file_type().is_dir() => {
+            std::fs::remove_dir_all(target).map_err(|error| AppError::Io(error.to_string()))?;
+        }
+        FileDeletionMode::Permanent => {
+            std::fs::remove_file(target).map_err(|error| AppError::Io(error.to_string()))?;
+        }
+    }
+
+    Ok(true)
 }
 
 /// Moves a file to a target directory, creating the directory if needed.
@@ -594,59 +826,6 @@ pub fn move_file(source: String, target_dir: String) -> Result<String, AppError>
     // Normalize to forward slashes — aria2 and the frontend canonicalize
     // all paths with `/`.  On Windows, PathBuf::join() produces `\`.
     Ok(crate::engine::path_to_safe_string(&dest).replace('\\', "/"))
-}
-
-/// Permanently deletes a file from disk (NOT move to trash).
-///
-/// Used for internal aria2 metadata files that have no user value:
-/// - `.aria2` control files (piece bitmap + checksums)
-/// - hex40-named `.torrent` metadata (`bt-save-metadata` / `rpc-save-upload-metadata`)
-/// - hex40-named `.meta4` metadata (`rpc-save-upload-metadata` for metalink)
-///
-/// This replicates what aria2's native `removeControlFile()` does (`std::remove`).
-/// The frontend MUST only call this for files it has verified are internal
-/// aria2 metadata — never for user-downloaded content (use `trash_file` instead).
-#[tauri::command]
-pub fn remove_file(path: String) -> Result<(), AppError> {
-    let p = std::path::Path::new(&path);
-    if !p.exists() {
-        return Ok(());
-    }
-    log::debug!("file:remove path={path:?}");
-    std::fs::remove_file(p).map_err(|e| AppError::Io(e.to_string()))
-}
-
-/// Returns `true` when the WebKitGTK DMABuf renderer has been disabled via
-/// the `WEBKIT_DISABLE_DMABUF_RENDERER` environment variable.
-///
-/// # Context
-///
-/// WORKAROUND for WebKitGTK Bug #262607 (RESOLVED WONTFIX).
-/// <https://bugs.webkit.org/show_bug.cgi?id=262607>
-///
-/// WebKitGTK's DMA-BUF renderer crashes on various GPU/driver/compositor
-/// combinations (NVIDIA, Intel UHD + Wayland, Broadcom on RPi, VM guests).
-/// By default, hardware rendering is OFF (`WEBKIT_DISABLE_DMABUF_RENDERER=1`).
-/// Users can opt in via Advanced → "Hardware Rendering"; if it crashes, the
-/// `gpu_guard` module automatically reverts the preference on next launch.
-///
-/// The frontend uses this flag to decide:
-/// - `false` → safe to remove border-radius on maximize (normal behavior)
-/// - `true`  → keep border-radius at all times (software compositing workaround)
-///
-/// On non-Linux platforms this always returns `false`.
-#[tauri::command]
-pub fn is_dmabuf_renderer_disabled() -> bool {
-    #[cfg(target_os = "linux")]
-    {
-        std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER")
-            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-            .unwrap_or(false)
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        false
-    }
 }
 
 #[cfg(test)]
@@ -1108,69 +1287,74 @@ mod tests {
     }
 
     // ── remove_file ─────────────────────────────────────────────────
+    // ── delete_path ─────────────────────────────────────────────────
 
     #[test]
-    fn remove_file_deletes_existing_file() {
-        let dir = std::env::temp_dir().join("motrix_test_remove");
-        let _ = std::fs::create_dir_all(&dir);
-        let file = dir.join("test.aria2");
+    fn delete_path_permanently_deletes_existing_file() {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let file = dir.path().join("test.aria2");
         std::fs::write(&file, "control data").expect("write test file");
-        assert!(file.exists(), "precondition: file must exist");
 
-        let result = remove_file(file.to_string_lossy().to_string());
-        assert!(result.is_ok());
+        let result = delete_path(
+            file.to_string_lossy().to_string(),
+            FileDeletionMode::Permanent,
+        );
+        assert!(result.expect("delete file"));
         assert!(!file.exists(), "file must be permanently deleted");
-
-        // Cleanup
-        let _ = std::fs::remove_dir(&dir);
     }
 
     #[test]
-    fn remove_file_returns_ok_for_nonexistent() {
-        let result = remove_file("/definitely/does/not/exist/file.aria2".to_string());
+    fn delete_path_permanently_deletes_directory_tree() {
+        let root = tempfile::tempdir().expect("create temp dir");
+        let directory = root.path().join("download");
+        std::fs::create_dir_all(directory.join("nested")).expect("create directory tree");
+        std::fs::write(directory.join("nested/file.bin"), "data").expect("write file");
+
+        let result = delete_path(
+            directory.to_string_lossy().to_string(),
+            FileDeletionMode::Permanent,
+        );
+        assert!(result.expect("delete directory"));
         assert!(
-            result.is_ok(),
-            "remove_file must be a silent no-op for missing files"
+            !directory.exists(),
+            "directory tree must be permanently deleted"
         );
     }
 
     #[test]
-    fn remove_file_returns_ok_for_empty_string() {
-        let result = remove_file(String::new());
-        assert!(
-            result.is_ok(),
-            "remove_file must handle empty path gracefully"
+    fn delete_path_returns_false_for_nonexistent_path() {
+        let result = delete_path(
+            "/definitely/does/not/exist/file.aria2".to_string(),
+            FileDeletionMode::Permanent,
         );
+        assert!(!result.expect("missing path is a no-op"));
     }
 
     #[test]
-    fn remove_file_handles_path_with_spaces() {
-        let dir = std::env::temp_dir().join("motrix test remove spaces");
-        let _ = std::fs::create_dir_all(&dir);
-        let file = dir.join("my download.aria2");
-        std::fs::write(&file, "data").expect("write");
-
-        let result = remove_file(file.to_string_lossy().to_string());
-        assert!(result.is_ok());
-        assert!(!file.exists());
-
-        let _ = std::fs::remove_dir(&dir);
+    fn delete_path_returns_false_for_empty_path() {
+        let result = delete_path(String::new(), FileDeletionMode::Permanent);
+        assert!(!result.expect("empty path is a no-op"));
     }
 
+    #[cfg(unix)]
     #[test]
-    fn remove_file_does_not_delete_directories() {
-        let dir = std::env::temp_dir().join("motrix_test_remove_dir_guard");
-        let _ = std::fs::create_dir_all(&dir);
-        assert!(dir.exists(), "precondition: dir must exist");
+    fn delete_path_removes_symlink_without_following_target() {
+        let root = tempfile::tempdir().expect("create temp dir");
+        let target = root.path().join("target");
+        let link = root.path().join("link");
+        std::fs::create_dir_all(&target).expect("create target");
+        std::fs::write(target.join("file.bin"), "data").expect("write target file");
+        std::os::unix::fs::symlink(&target, &link).expect("create symlink");
 
-        // std::fs::remove_file on a directory fails — verify it returns Err
-        let result = remove_file(dir.to_string_lossy().to_string());
-        assert!(result.is_err(), "remove_file must not delete directories");
-        assert!(
-            dir.exists(),
-            "directory must still exist after failed removal"
+        let result = delete_path(
+            link.to_string_lossy().to_string(),
+            FileDeletionMode::Permanent,
         );
-
-        let _ = std::fs::remove_dir(&dir);
+        assert!(result.expect("delete symlink"));
+        assert!(!link.exists(), "symlink must be deleted");
+        assert!(
+            target.join("file.bin").exists(),
+            "symlink target must remain"
+        );
     }
 }

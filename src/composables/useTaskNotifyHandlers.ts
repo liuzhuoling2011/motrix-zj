@@ -7,8 +7,8 @@
  *
  * **Notification architecture:**
  * - In-app toast (Naive UI message) — always fires for immediate feedback.
- * - OS-level notification (tauri-plugin-notification) — gated by the
- *   user's `taskNotification` preference.
+ * - OS-level completion/error notification is sent by Rust's task monitor so
+ *   lightweight mode works after the WebView is destroyed.
  *
  * When `onOpenFile` / `onShowInFolder` callbacks are provided in deps,
  * the in-app toast renders inline action buttons so the user can open
@@ -16,21 +16,19 @@
  * from the notification — without navigating through the task list.
  */
 import type { VNodeChild } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 import type { Aria2Task } from '@shared/types'
 import { getTaskDisplayName } from '@shared/utils'
+import type { TaskSharingKind } from '@shared/utils/task'
 import { logger } from '@shared/logger'
 import { isMetadataTask } from '@/composables/useTaskLifecycle'
-import { notifyOs } from '@/composables/useOsNotification'
 import { renderCompletionToast } from '@/composables/useNotificationToast'
 
 /** Dependency interface for testability. */
 export interface NotifyDeps {
   messageSuccess: (content: string | (() => VNodeChild)) => void
-  messageError: (content: string, options?: Record<string, unknown>) => void
+  messageError: (content: string) => void
   t: (key: string, params?: Record<string, unknown>) => string
-  taskNotification: boolean
-  /** Fine-grained: OS notification on download complete / BT seeding. */
-  notifyOnComplete: boolean
   /** Optional: open the downloaded file with the default application. */
   onOpenFile?: (task: Aria2Task) => void
   /** Optional: reveal the downloaded file in the system file manager. */
@@ -39,7 +37,7 @@ export interface NotifyDeps {
 
 /**
  * Handle a completed HTTP/FTP download.
- * Always sends in-app toast; OS notification gated by `taskNotification` + `notifyOnComplete`.
+ * Always sends in-app toast. Native OS notification is sent by Rust monitor.
  *
  * When action callbacks are provided, the toast includes inline buttons
  * for "Open File" and "Show in Folder".
@@ -57,22 +55,20 @@ export function handleTaskComplete(task: Aria2Task, deps: NotifyDeps): void {
     onShowInFolder: deps.onShowInFolder ? () => deps.onShowInFolder!(task) : undefined,
   })
   deps.messageSuccess(toastContent)
-  if (deps.taskNotification && deps.notifyOnComplete) {
-    notifyOs('MotrixNext', body)
-  }
   logger.info('TaskNotify.complete', `gid=${task.gid} name="${taskName}"`)
 }
 
 /**
- * Handle a BT download entering seeding state (download phase complete).
- * Always sends in-app toast; OS notification gated by `taskNotification` + `notifyOnComplete`.
+ * Handle a P2P download entering shared-upload state.
+ * Always sends in-app toast. Native OS notification is sent by Rust monitor.
  *
  * When action callbacks are provided, the toast includes inline buttons
  * for "Open File" and "Show in Folder".
  */
-export function handleBtComplete(task: Aria2Task, deps: NotifyDeps): void {
+export function handleSharingComplete(task: Aria2Task, kind: TaskSharingKind, deps: NotifyDeps): void {
   const taskName = getTaskDisplayName(task)
-  const body = deps.t('task.bt-download-complete-message', { taskName })
+  const bodyKey = kind === 'bt' ? 'task.bt-download-complete-message' : 'task.ed2k-download-complete-message'
+  const body = deps.t(bodyKey, { taskName })
 
   const toastContent = renderCompletionToast({
     body,
@@ -81,22 +77,18 @@ export function handleBtComplete(task: Aria2Task, deps: NotifyDeps): void {
     onShowInFolder: deps.onShowInFolder ? () => deps.onShowInFolder!(task) : undefined,
   })
   deps.messageSuccess(toastContent)
-  if (deps.taskNotification && deps.notifyOnComplete) {
-    notifyOs('MotrixNext', body)
-  }
-  logger.info('TaskNotify.btComplete', `gid=${task.gid} name="${taskName}" → seeding`)
+  logger.info('TaskNotify.sharingComplete', `gid=${task.gid} kind=${kind} name="${taskName}"`)
 }
 
 /**
- * Handle a download error — send OS notification for the error text.
- * The in-app error toast is already handled by the caller in MainLayout.
- * OS notification gated by `taskNotification`.
+ * Handle a download error.
+ * Always sends in-app toast. Native OS notification is sent by Rust monitor.
  */
-export function handleTaskError(_task: Aria2Task, errorText: string, deps: NotifyDeps): void {
-  if (deps.taskNotification) {
-    notifyOs('MotrixNext', errorText)
-  }
-  logger.warn('TaskNotify.error', `gid=${_task.gid} error="${errorText}"`)
+export function handleTaskError(task: Aria2Task, reason: string, deps: NotifyDeps): void {
+  const taskName = getTaskDisplayName(task, { defaultName: 'Unknown' })
+  const body = deps.t('task.download-fail-message', { taskName, reason })
+  deps.messageError(body)
+  logger.warn('TaskNotify.error', `gid=${task.gid} error="${body}"`)
 }
 
 // ── Download-start notification ─────────────────────────────────────
@@ -105,18 +97,16 @@ export function handleTaskError(_task: Aria2Task, errorText: string, deps: Notif
 export interface StartNotifyDeps {
   messageInfo: (content: string) => void
   t: (key: string, params?: Record<string, unknown>) => string
-  taskNotification: boolean
-  /** Fine-grained: OS notification on download start. */
-  notifyOnStart: boolean
 }
 
 /**
  * Handle download submission success — send start notification.
  *
- * For single tasks:  "Started downloading movie.mp4"
- * For batch tasks:   "Started downloading movie.mp4 and 2 other task(s)"
+ * For single tasks:  "Downloading: movie.mp4"
+ * For batch tasks:   "Downloading: movie.mp4 and 2 other task(s)"
  *
- * Toast always fires; OS notification gated by `taskNotification` + `notifyOnStart`.
+ * Toast always fires; OS notification is delegated to Rust so lightweight mode
+ * uses the same backend-owned native path as completion/error notifications.
  */
 export function handleTaskStart(taskNames: string[], deps: StartNotifyDeps): void {
   if (taskNames.length === 0) return
@@ -131,8 +121,8 @@ export function handleTaskStart(taskNames: string[], deps: StartNotifyDeps): voi
         })
 
   deps.messageInfo(body)
-  if (deps.taskNotification && deps.notifyOnStart) {
-    notifyOs('MotrixNext', body)
-  }
+  Promise.resolve(invoke('send_task_start_notification', { taskNames })).catch((error) =>
+    logger.debug('TaskNotify.start', `native notification failed: ${error}`),
+  )
   logger.info('TaskNotify.start', `count=${taskNames.length} first="${firstName}"`)
 }

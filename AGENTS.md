@@ -29,12 +29,14 @@ src/
 ├── shared/
 │   ├── types.ts                # All TypeScript interfaces (AppConfig, TauriUpdate, etc.)
 │   ├── constants.ts            # DEFAULT_APP_CONFIG, proxy scopes, tracker URLs, timing constants
-│   ├── configKeys.ts           # Config key lists (userKeys, systemKeys, needRestartKeys)
+│   ├── configKeys.ts           # needRestartKeys + re-exports of aria2Options.json lists
+│   ├── aria2Options.json       # SINGLE SOURCE for engine option lists (TS + Rust both consume)
 │   ├── logger.ts               # Structured logging (console + webview bridge)
 │   ├── timing.ts               # Timing constants (polling intervals, debounce delays)
 │   ├── guards.ts               # Type guard utilities
-│   ├── locales/                # 26 locale directories (see Section D)
+│   ├── locales/                # 27 locale directories (see Section D)
 │   └── utils/
+│       ├── configHydration.ts  # Config defaults, migration, nested merge, and repair boundary
 │       ├── configMigration.ts  # Config schema migration engine (see Section C′)
 │       ├── config.ts           # Config key-value transform utilities
 │       ├── tracker.ts          # BT tracker fetching with proxy support
@@ -44,7 +46,7 @@ src/
 │       ├── format.ts           # Number/date/speed formatting (bytesToSize, localeDateTimeFormat)
 │       ├── task.ts             # Task status helpers (checkTaskIsBT, getTaskDisplayName)
 │       ├── peer.ts             # Peer ID parsing and client identification
-│       └── semver.ts           # Semantic version comparison for update channel
+│       └── proxy.ts            # Proxy policy, URL building/validation, engine option assembly
 ├── stores/                     # Pinia stores (app.ts, preference.ts, history.ts, task/)
 ├── views/                      # Page-level route views
 └── main.ts                     # App entry, auto-update check
@@ -65,7 +67,10 @@ src-tauri/
 │   │   ├── fs.rs               # File system ops, diagnostics, platform code
 │   │   ├── geoip.rs            # GeoIP database loading and peer IP lookup
 │   │   ├── history.rs          # History DB read/write commands
+│   │   ├── http_api.rs         # Local extension HTTP API auth and status commands
 │   │   ├── net.rs              # Network utility commands
+│   │   ├── notification.rs     # Native notification permission and test commands
+│   │   ├── power.rs            # System power action commands
 │   │   ├── protocol.rs         # Default protocol handler detection and registration
 │   │   ├── proxy.rs            # System proxy detection (PAC, WPAD, env)
 │   │   ├── runtime_config.rs   # RuntimeConfig refresh command
@@ -82,9 +87,17 @@ src-tauri/
 │   ├── services/
 │   │   ├── mod.rs              # Runtime services orchestration (on_engine_ready)
 │   │   ├── config.rs           # RuntimeConfig cache (refreshed per engine cycle)
+│   │   ├── deep_link.rs        # Deep-link and startup URL dispatch service
+│   │   ├── external_input.rs   # External extension/API input queue service
+│   │   ├── frontend_action.rs  # Frontend action event bridge
+│   │   ├── http_api.rs         # Local HTTP API server for browser extensions
+│   │   ├── monitor.rs          # Task lifecycle monitor, history DB persistence, event emission
+│   │   ├── notification.rs     # Native notification dispatch service
+│   │   ├── notification_i18n.rs # Localised notification strings
+│   │   ├── port_guard.rs       # Runtime port conflict detection and recovery
+│   │   ├── power.rs            # Sleep prevention and power guard service
 │   │   ├── stat.rs             # Global stat polling, Dock badge, Dock progress bar (custom NSProgressIndicator)
-│   │   ├── speed.rs            # Speed limit scheduler (time-of-day limits)
-│   │   └── monitor.rs          # Task lifecycle monitor, history DB persistence, event emission
+│   │   └── speed.rs            # Speed limit scheduler (time-of-day limits)
 │   ├── db_guard.rs             # Database health check, corruption detection, and auto-rebuild
 │   ├── gpu_guard.rs            # GPU compatibility detection and WebView renderer fallback
 │   ├── history.rs              # HistoryDbState: Rust-side SQLite history record persistence
@@ -94,7 +107,8 @@ src-tauri/
 │   └── upnp.rs                 # UPnP/IGD port mapping with renewal loop
 ├── migrations/
 │   ├── 001_download_history.sql  # Initial history table schema
-│   └── 002_add_added_at.sql      # Added added_at column + task_birth table
+│   ├── 002_add_added_at.sql      # Added added_at column + task_birth table
+│   └── 003_http_auth_credentials.sql # HTTP extension API auth credentials
 ├── nsis/
 │   ├── hooks.nsh              # Windows installer hooks (compat shim + icon refresh)
 │   ├── header.bmp             # Installer header image (150×57, 24-bit BMP)
@@ -141,23 +155,30 @@ This atomically updates both `Cargo.toml` and `package.json`.
 Follow this exact checklist:
 
 1. **`src/shared/types.ts`** — Add the field to the `AppConfig` interface with proper typing
-2. **`src/shared/configKeys.ts`** — Add the key name (kebab-case) to `userKeys` or `systemKeys` array. Without this, the value will NOT persist across restarts
-3. **UI binding** — For Basic settings: add to `buildForm()` initializer + `watchSyncEffect` save in `Basic.vue`. For Advanced settings: add to `buildAdvancedForm()` + `buildAdvancedSystemConfig()` in `useAdvancedPreference.ts`
-4. **All 26 locale files** — Add i18n label keys. **Must use batch Python script** (see Section D)
-5. **If modifying an existing field's format or default** — Add a migration in `configMigration.ts` (see Section C′)
+2. **`src/shared/aria2Options.json`** — ONLY if the key maps to an aria2 engine option: add it to `engineOptions` (and to `nonHotReloadable` if aria2 cannot change it at runtime). Both the frontend and the Rust backend read this file. App-only preference keys need no list entry — the whole config object is persisted as-is
+3. **`src/shared/constants.ts`** — Add the default value to `DEFAULT_APP_CONFIG`
+4. **`src/shared/utils/configHydration.ts`** — Check whether the key needs validation, repair, or selective nested merge. Top-level keys usually need no code here; nested object keys and enum-like values usually do.
+5. **UI binding** — Add the field to the relevant preference composable and component save flow
+6. **All 27 locale files** — Add i18n label keys. **Must use batch Python script** (see Section D)
+7. **Migration decision** — Add a `configMigration.ts` migration only when changing stored shape, semantics, or existing user values. Do not add a migration just to materialize a new default; hydration handles that.
 
 ---
 
-## C′. Config Schema Migration
+## C′. Config Hydration & Schema Migration
 
-`src/shared/utils/configMigration.ts` implements versioned schema migration (same pattern as `electron-store`). On each app launch, `loadPreference()` runs pending migrations before merging saved config into defaults.
+`src/shared/utils/configHydration.ts` is the single frontend entry point for turning persisted `config.json` preferences into a complete runtime `AppConfig`. It clones `DEFAULT_APP_CONFIG`, runs `configMigration.ts`, selectively hydrates known nested objects, repairs invalid enum/port values, preserves secret-generation semantics, and tells the store whether repaired data should be persisted.
+
+`src/shared/utils/configMigration.ts` implements versioned schema migration. It is called from `hydrateAppConfig()`, not directly from the preference store.
 
 ### How It Works
 
 - `configVersion` (integer) is stored in `config.json` alongside user preferences
+- `hydrateAppConfig(saved)` runs on `loadPreference()`, `reloadPreferenceFromDisk()`, `savePreference()`, `updateAndSave()`, and in-memory `updatePreference()`
 - `CONFIG_VERSION` constant defines the current schema version
 - `migrations[]` array holds ordered migration functions (index 0 = v0→v1, etc.)
-- Migrations run only when `stored version < CONFIG_VERSION`, then persist
+- Migrations run only when `stored version < CONFIG_VERSION`
+- Hydration handles missing defaults and safe repairs without bumping `CONFIG_VERSION`
+- The store persists only when migration or repair changed the loaded config
 
 ### Adding a New Migration
 
@@ -168,6 +189,9 @@ Follow this exact checklist:
 
 ### Rules
 
+- `hydrateAppConfig()` owns default materialization, selective nested merge, enum validation, port validation, and secret preservation
+- Arrays are user-owned by default. Do not deep-merge arrays such as `trackerSource`, `customTrackerUrls`, `historyDirectories`, `favoriteDirectories`, or `fileCategories`
+- `rpcSecret` and `extensionApiSecret` must preserve the existing meaning: `undefined`/`null` means generate later; empty string means intentionally cleared
 - Migrations **mutate** the config object in place
 - Migrations **must be idempotent** — safe to re-run on already-migrated data
 - Migrations **must not delete** user data without logging
@@ -184,7 +208,7 @@ Follow this exact checklist:
 
 - SQL migration files live in `src-tauri/migrations/` with `NNN_description.sql` naming
 - Each migration is registered as a `tauri_plugin_sql::Migration` struct in the `.add_migrations()` call in `lib.rs`
-- The plugin tracks executed versions in an internal `_sqlite_migrations` table
+- The plugin tracks executed versions in an internal `_sqlx_migrations` table
 - Old users receive new migrations transparently on upgrade — no manual action needed
 
 ### Adding a New Migration
@@ -199,9 +223,12 @@ Follow this exact checklist:
        kind: tauri_plugin_sql::MigrationKind::Up,
    },
    ```
-3. If the migration adds/renames columns used by the frontend, update `HistoryRecord` in `src/shared/types.ts`
-4. Update relevant SQL queries in `src/stores/history.ts`
-5. Run `cargo check` to verify the Rust compiles
+3. Update `REGISTERED_VERSIONS` in `src-tauri/src/db_guard.rs`
+4. Update `CURRENT_DB_SCHEMA_VERSION` in `src/shared/constants.ts`
+5. If the migration adds/renames columns used by the frontend, update `HistoryRecord` in `src/shared/types.ts`
+6. Update relevant SQL queries in `src/stores/history.ts`
+7. Add a regression test that fresh installs persist the current DB schema version and do not show a false DB upgrade toast on second launch
+8. Run `cargo check` to verify the Rust compiles
 
 ### Rules
 
@@ -209,15 +236,16 @@ Follow this exact checklist:
 - Use `ALTER TABLE ... ADD COLUMN` with defaults for backward compatibility
 - Use `COALESCE` in queries to handle NULL values from old rows gracefully
 - Test with both a fresh DB AND an existing DB to verify both paths work
+- Never leave `DEFAULT_APP_CONFIG.dbSchemaVersion` behind the latest registered migration; first saved config on a fresh install must be stamped with the current DB schema version
 
 ### Toast Differentiation
 
 Both migration systems show upgrade toasts on the UI, but with distinct messages:
 
-| System | i18n Key | Example (en-US) | Toast Type |
-| ------ | -------- | --------------- | ---------- |
+| System      | i18n Key                | Example (en-US)                       | Toast Type        |
+| ----------- | ----------------------- | ------------------------------------- | ----------------- |
 | Config (C′) | `app.migration-success` | "User settings schema upgraded to v2" | `success` (green) |
-| DB (C″) | `app.db-upgraded` | "Database schema upgraded to v2" | `info` (blue) |
+| DB (C″)     | `app.db-upgraded`       | "Database schema upgraded to v2"      | `info` (blue)     |
 
 ### Windows Installer Hooks (not a migration system)
 
@@ -225,11 +253,11 @@ Both migration systems show upgrade toasts on the UI, but with distinct messages
 
 The hooks file defines three injection points:
 
-| Hook | Timing | Purpose |
-| ---- | ------ | ------- |
-| `MUI_CUSTOMFUNCTION_GUIINIT` | Before any installer pages | Bridges old `MANUPRODUCTKEY` registry path (`Software\motrix\…`) to new (`Software\AnInsomniacy\…`) so `PageLeaveReinstall` can locate the old uninstaller |
-| `!macro NSIS_HOOK_PREINSTALL` | Inside `Section Install`, before file copy | Redirects `$INSTDIR`/`$OUTDIR` to old install location, deletes stale HKCU uninstall entry, cleans orphaned registry keys and Program Files residuals |
-| `!macro NSIS_HOOK_POSTINSTALL` | After file copy | Refreshes Windows icon cache via `ie4uinit.exe` |
+| Hook                           | Timing                                     | Purpose                                                                                                                                                    |
+| ------------------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MUI_CUSTOMFUNCTION_GUIINIT`   | Before any installer pages                 | Bridges old `MANUPRODUCTKEY` registry path (`Software\motrix\…`) to new (`Software\AnInsomniacy\…`) so `PageLeaveReinstall` can locate the old uninstaller |
+| `!macro NSIS_HOOK_PREINSTALL`  | Inside `Section Install`, before file copy | Redirects `$INSTDIR`/`$OUTDIR` to old install location, deletes stale HKCU uninstall entry, cleans orphaned registry keys and Program Files residuals      |
+| `!macro NSIS_HOOK_POSTINSTALL` | After file copy                            | Refreshes Windows icon cache via `ie4uinit.exe`                                                                                                            |
 
 > [!CAUTION]
 > **Do NOT change `bundle.publisher`, `bundle.identifier`, or `productName` after the first public release.** These values derive the NSIS `MANUFACTURER` variable and `MANUPRODUCTKEY` registry path (`Software\{MANUFACTURER}\{PRODUCTNAME}`). Changing them breaks the Windows upgrade path for all existing users and requires a new NSIS compatibility shim in `hooks.nsh`. The v3.6.2 transition required four separate fixups (issue #159) — avoid repeating this.
@@ -244,10 +272,10 @@ The hooks file defines three injection points:
 2. Strings containing `'` must be escaped as `\'` in JS source files.
 3. English (`en-US`) keys serve as the fallback — always verify this locale first.
 
-### 26 Locale Directories
+### 27 Locale Directories
 
 ```
-ar bg ca de el en-US es fa fr hu id it ja ko nb nl pl pt-BR ro ru th tr uk vi zh-CN zh-TW
+ar bg ca de el en-US es fa fr hi hu id it ja ko nb nl pl pt-BR ro ru th tr uk vi zh-CN zh-TW
 ```
 
 ### Script Template
@@ -262,7 +290,7 @@ LOCALES_DIR = "src/shared/locales"
 TRANSLATIONS = {
     "ar":    ("Arabic text",),
     "bg":    ("Bulgarian text",),
-    # ... all 26 locales with native translations ...
+    # ... all 27 locales with native translations ...
     "en-US": ("English text",),
     "zh-CN": ("Chinese Simplified text",),
     "zh-TW": ("Chinese Traditional text",),
@@ -346,11 +374,13 @@ All code changes must be finalized before starting. Execute these three steps in
    This formats code, commits all changes, creates an annotated tag `v{VERSION}`, and pushes to origin.
    The script outputs a color-coded channel indicator (yellow = pre-release, green = stable).
 
-3. **Generate Release Title and Notes:**
+3. **Publish the GitHub Release:**
 
-   Based on the commits included in this release, generate an English title and release notes following the Release Notes Conventions below. Output them in **two separate markdown code blocks** — one for the title, one for the body — so the user can copy-paste each directly into the GitHub Release page.
+   Generate an English release title and release notes from the commits included in this release, following the Release Notes Conventions below.
 
-4. **User publishes on GitHub** — CI automatically builds for all 6 platforms and uploads the updater JSON.
+   Use the exact version and channel specified by the user, and enforce the Tag Naming rules above when bumping and publishing. Do not infer or invent the next version. If the version or channel is missing or ambiguous, ask before bumping or publishing. Before creating the GitHub Release, show the user the exact version, whether it will be marked as a pre-release, the generated release title, and the generated release notes. If the GitHub CLI is available and authenticated, publish the release directly with `gh release create` after showing those details. Mark user-specified beta, alpha, or RC releases as pre-releases. This is preferred because the release workflow only starts after the GitHub Release is published.
+
+   If `gh` is unavailable, unauthenticated, or the user explicitly wants to publish manually, output the title and body in **two separate markdown code blocks** so the user can paste them into the GitHub Release page.
 
 ### Updater Principles
 
@@ -432,10 +462,10 @@ One-paragraph summary of the release scope and significance.
 
 Two parallel jobs:
 
-| Job        | Steps                                                                                             |
-| ---------- | ------------------------------------------------------------------------------------------------- |
-| `frontend` | `pnpm install` → `eslint` → `prettier --check` → `vue-tsc --noEmit` → `vitest run` → `vite build` |
-| `backend`  | `cargo fmt --check` → `cargo clippy` → `cargo check --all-targets` → `cargo test`                 |
+| Job        | Steps                                                                                                                        |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `frontend` | `pnpm install` → `pnpm lint` → `pnpm format:check` → `vue-tsc --noEmit` → `vitest run` → `vite build`                        |
+| `backend`  | `cargo fmt --check` → `cargo clippy --all-targets -- -D warnings` → `cargo check --all-targets` → `cargo test --all-targets` |
 
 ### `release.yml` (Release Published)
 
@@ -468,6 +498,12 @@ Two parallel jobs:
 - **No utility frameworks** — vanilla CSS with component-scoped styles
 - **Motion**: Material Design 3 asymmetric timing and emphasized easing curves
 
+### Color System
+
+Motrix Next uses a dynamic Material Design 3 color system generated by `@material/material-color-utilities`. `src/shared/utils/colorScheme.ts` is the single source of truth: a preset or custom seed produces the complete light and dark palettes. Primary and tertiary provide theme accents; info, success, warning, and error are harmonized semantic colors. Each role includes color, matching foreground, container, container foreground, hover, and pressed values. Neutral surfaces use the ordered `surface` and `surface-container-*` roles, while text and borders use `on-surface*` and `outline*`.
+
+`src/composables/useColorScheme.ts` is the only bridge to consumers. It maps the generated tokens to CSS variables, Naive UI overrides, and reactive Canvas consumers. Task status colors are aliases of the same roles: active uses primary, waiting uses info, paused uses outline, error uses error, and complete or sharing uses success. `src/styles/tokens.css` contains first-paint fallbacks only; runtime values replace them after startup. Components must consume semantic tokens instead of fixed colors. Fixed colors are limited to platform-defined controls, brand artwork, and color-picker swatches.
+
 ---
 
 ## H. Verification Commands
@@ -477,13 +513,15 @@ Run these before committing changes:
 ```bash
 # Frontend
 pnpm format                # Auto-format all source files with Prettier
+pnpm lint                  # ESLint check
 pnpm format:check          # Verify formatting (CI runs this)
 pnpm test                  # Vitest unit tests
+pnpm check:repo            # Locale parity + i18n literal-key usage (CI runs this)
 npx vue-tsc --noEmit       # TypeScript type checking
 
 # Backend
-cargo check                # Fast compilation check
-cargo test                 # Rust unit tests
+cargo check --all-targets  # Fast compilation check
+cargo test --all-targets   # Rust unit tests
 
 # Version (when bumping)
 ./scripts/bump-version.sh <version>
@@ -499,4 +537,4 @@ All fast checks must pass with zero errors before any PR or release.
 
 ## I. Testing Constraints
 
-> **DO NOT use browser tools (Playwright, browser subagent, etc.) to test this app.** Tauri renders in a native webview — `localhost:1420` in a browser lacks IPC, tray, and sidecar access. Use CLI checks (`vue-tsc`, `pnpm test`, `cargo test`) or ask the user to verify UI via `pnpm tauri dev`.
+> **DO NOT use browser tools (Playwright, browser subagent, etc.) to test this app.** Tauri renders in a native webview — `localhost:1420` in a browser lacks IPC, tray, and sidecar access. Use CLI checks (`vue-tsc`, `pnpm test`, `cargo test --all-targets`) or ask the user to verify UI via `pnpm tauri dev`.

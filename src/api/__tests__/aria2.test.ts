@@ -11,7 +11,6 @@
  * - addUri creates one invoke per URI with per-URI output filename override
  * - addUriAtomic creates exactly one invoke with all URIs as mirrors
  * - Batch operations use batch invoke commands
- * - force-save injection for BT/metalink but not HTTP
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -20,9 +19,24 @@ const { mockInvoke } = vi.hoisted(() => ({
   mockInvoke: vi.fn().mockResolvedValue({}),
 }))
 
+const loggerMock = vi.hoisted(() => ({
+  debug: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+}))
+
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: (...args: unknown[]) => mockInvoke(...args),
 }))
+
+vi.mock('@shared/logger', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@shared/logger')>()
+  return {
+    ...actual,
+    logger: loggerMock,
+  }
+})
 
 import {
   isEngineReady,
@@ -41,14 +55,10 @@ import {
   addUri,
   addUriAtomic,
   addTorrent,
-  addMetalink,
   removeTask,
   pauseTask,
   resumeTask,
   forcePauseTask,
-  pauseAllTask,
-  forcePauseAllTask,
-  resumeAllTask,
   saveSession,
   removeTaskRecord,
   purgeTaskRecord,
@@ -117,10 +127,11 @@ describe('aria2 API (invoke transport)', () => {
     })
 
     it('getOption invokes with gid and converts to camelCase', async () => {
-      mockInvoke.mockResolvedValueOnce({ 'max-download-limit': '0' })
+      mockInvoke.mockResolvedValueOnce({ 'max-download-limit': '0', 'select-file': '2-9' })
       const result = await getOption({ gid: 'abc' })
       expect(mockInvoke).toHaveBeenCalledWith('aria2_get_option', { gid: 'abc' })
       expect(result).toHaveProperty('maxDownloadLimit')
+      expect(result).toHaveProperty('selectFile', '2-9')
     })
 
     it('changeOption invokes with gid and formatted options', async () => {
@@ -155,6 +166,30 @@ describe('aria2 API (invoke transport)', () => {
       expect(result[0].path).toBe('/downloads/movie.mkv')
       expect(result[0].completedLength).toBe('0')
     })
+  })
+
+  it('logs addUri option diagnostics without leaking header values or query tokens', async () => {
+    mockInvoke.mockResolvedValueOnce('gid1')
+
+    await addUri({
+      uris: ['https://example.com/file.zip?token=secret'],
+      outs: [''],
+      options: {
+        dir: '/downloads',
+        split: '16',
+        'user-agent': 'BrowserUA/1.0',
+        referer: 'https://example.com/page?token=secret',
+        header: ['Accept: application/octet-stream', 'Cookie: session=secret'],
+      },
+    })
+
+    const logs = loggerMock.info.mock.calls.flat().join(' ')
+    expect(logs).toContain('headerNames=Accept,Cookie')
+    expect(logs).toContain('hasCookieHeader=true')
+    expect(logs).not.toContain('session=secret')
+    expect(logs).not.toContain('token=secret')
+    expect(logs).not.toContain('BrowserUA')
+    expect(logs).not.toContain('/downloads')
   })
 
   // ── Task Fetching ───────────────────────────────────────────────
@@ -269,6 +304,119 @@ describe('aria2 API (invoke transport)', () => {
       expect(firstCallArgs[1].options.out).toBe('file1.zip')
     })
 
+    it('addUri decodes RFC 2047 out hints before invoking the backend', async () => {
+      mockInvoke.mockResolvedValue('gid1')
+
+      await addUri({
+        uris: ['https://mail-attachment.googleusercontent.com/attachment/u/0/'],
+        outs: ['=?UTF-8?B?0JjQotCe0JPQmCDQm9CU0KMgMjAyNi54bHN4?='],
+        options: {},
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('aria2_add_uri', {
+        uris: ['https://mail-attachment.googleusercontent.com/attachment/u/0/'],
+        options: { out: 'ИТОГИ ЛДУ 2026.xlsx' },
+      })
+    })
+
+    it('addUri passes Thunder links to the backend for engine parsing', async () => {
+      mockInvoke.mockResolvedValue('gid1')
+      const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+
+      await addUri({
+        uris: [thunder],
+        outs: [],
+        options: {},
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('aria2_add_uri', {
+        uris: [thunder],
+        options: {},
+      })
+    })
+
+    it('addUri passes unpadded Thunder links to the backend', async () => {
+      mockInvoke.mockResolvedValue('gid1')
+      const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ').replace(/=+$/, '')
+
+      await addUri({
+        uris: [thunder],
+        outs: [],
+        options: {},
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('aria2_add_uri', {
+        uris: [thunder],
+        options: {},
+      })
+    })
+
+    it('addUri leaves malformed Thunder links for backend validation', async () => {
+      mockInvoke.mockResolvedValue('gid1')
+
+      await addUri({
+        uris: ['thunder://not-valid-base64'],
+        outs: [],
+        options: {},
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('aria2_add_uri', {
+        uris: ['thunder://not-valid-base64'],
+        options: {},
+      })
+    })
+
+    it('addUri classifies extensionless downloads by the resolved output filename', async () => {
+      mockInvoke.mockResolvedValue('gid1')
+
+      await addUri({
+        uris: ['https://mail-attachment.googleusercontent.com/attachment/u/0/'],
+        outs: ['ИТОГИ ЛДУ 2026.xlsx'],
+        options: { dir: '/downloads' },
+        fileCategory: {
+          enabled: true,
+          categories: [{ label: 'Documents', extensions: ['xlsx'], directory: '/downloads/Documents' }],
+        },
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('aria2_add_uri', {
+        uris: ['https://mail-attachment.googleusercontent.com/attachment/u/0/'],
+        options: { dir: '/downloads/Documents', out: 'ИТОГИ ЛДУ 2026.xlsx' },
+      })
+    })
+
+    it('addUri classifies downloads by extension and URL context', async () => {
+      mockInvoke.mockResolvedValue('gid1')
+
+      await addUri({
+        uris: ['https://cdn.example.net/export/file.zip'],
+        outs: ['file.zip'],
+        options: { dir: '/downloads' },
+        fileCategory: {
+          enabled: true,
+          categories: [
+            {
+              label: 'Logs',
+              extensions: ['zip'],
+              urlPatterns: ['*://reports.example.com/logs/*'],
+              urlPatternMode: 'wildcard',
+              directory: '/downloads/Logs',
+            },
+          ],
+          contexts: {
+            'https://cdn.example.net/export/file.zip': {
+              finalUrl: 'https://reports.example.com/logs/file.zip',
+            },
+          },
+        },
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('aria2_add_uri', {
+        uris: ['https://cdn.example.net/export/file.zip'],
+        options: { dir: '/downloads/Logs', out: 'file.zip' },
+      })
+    })
+
     it('addUriAtomic creates exactly one invoke with all URIs', async () => {
       mockInvoke.mockResolvedValueOnce('gid-atomic')
 
@@ -285,48 +433,61 @@ describe('aria2 API (invoke transport)', () => {
       })
     })
 
+    it('addUriAtomic passes Thunder mirrors to the backend for engine parsing', async () => {
+      mockInvoke.mockResolvedValueOnce('gid-atomic')
+      const thunder = 'thunder://' + btoa('AAhttps://mirror.example.com/f.zipZZ')
+
+      await addUriAtomic({
+        uris: [thunder, 'https://mirror2.example.com/f.zip'],
+        options: {},
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('aria2_add_uri', {
+        uris: [thunder, 'https://mirror2.example.com/f.zip'],
+        options: expect.any(Object),
+      })
+    })
+
+    it('addUriAtomic leaves malformed Thunder mirrors for backend validation', async () => {
+      mockInvoke.mockResolvedValueOnce('gid-atomic')
+
+      await addUriAtomic({
+        uris: ['thunder://not-valid-base64'],
+        options: {},
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('aria2_add_uri', {
+        uris: ['thunder://not-valid-base64'],
+        options: expect.any(Object),
+      })
+    })
+
     it('addTorrent passes base64 torrent data', async () => {
       mockInvoke.mockResolvedValueOnce('gid-torrent')
       const result = await addTorrent({ torrent: 'base64data', options: {} })
       expect(result).toBe('gid-torrent')
       expect(mockInvoke).toHaveBeenCalledWith('aria2_add_torrent', {
         torrent: 'base64data',
-        options: expect.objectContaining({ 'force-save': 'true' }),
+        options: { 'force-save': 'true', 'check-integrity': 'true' },
       })
     })
 
-    it('addMetalink passes base64 metalink data', async () => {
-      mockInvoke.mockResolvedValueOnce(['gid-ml1'])
-      const result = await addMetalink({ metalink: 'base64ml', options: {} })
-      expect(result).toEqual(['gid-ml1'])
-      expect(mockInvoke).toHaveBeenCalledWith('aria2_add_metalink', {
-        metalink: 'base64ml',
-        options: expect.objectContaining({ 'force-save': 'true' }),
-      })
-    })
-
-    it('addTorrent injects force-save=true into per-download options', async () => {
-      mockInvoke.mockResolvedValueOnce('gid-torrent')
-      await addTorrent({ torrent: 'base64data', options: {} })
-      const callArgs = mockInvoke.mock.calls[0][1] as Record<string, unknown>
-      expect((callArgs.options as Record<string, string>)['force-save']).toBe('true')
-    })
-
-    it('addTorrent preserves caller-supplied options alongside force-save', async () => {
+    it('addTorrent preserves caller-supplied options', async () => {
       mockInvoke.mockResolvedValueOnce('gid-torrent')
       await addTorrent({ torrent: 'data', options: { dir: '/custom', split: '4' } })
       const callArgs = mockInvoke.mock.calls[0][1] as Record<string, unknown>
       const options = callArgs.options as Record<string, string>
       expect(options['force-save']).toBe('true')
+      expect(options['check-integrity']).toBe('true')
       expect(options.dir).toBe('/custom')
       expect(options.split).toBe('4')
     })
 
-    it('addMetalink injects force-save=true', async () => {
-      mockInvoke.mockResolvedValueOnce(['gid-ml1'])
-      await addMetalink({ metalink: 'base64ml', options: {} })
+    it('addTorrent keeps explicit caller force-save value', async () => {
+      mockInvoke.mockResolvedValueOnce('gid-torrent')
+      await addTorrent({ torrent: 'data', options: { 'force-save': 'false' } })
       const callArgs = mockInvoke.mock.calls[0][1] as Record<string, unknown>
-      expect((callArgs.options as Record<string, string>)['force-save']).toBe('true')
+      expect((callArgs.options as Record<string, string>)['force-save']).toBe('false')
     })
 
     it('addUri does NOT inject force-save (HTTP downloads must not persist)', async () => {
@@ -370,21 +531,6 @@ describe('aria2 API (invoke transport)', () => {
     it('resumeTask invokes aria2_unpause', async () => {
       await resumeTask({ gid: 'abc' })
       expect(mockInvoke).toHaveBeenCalledWith('aria2_unpause', { gid: 'abc' })
-    })
-
-    it('pauseAllTask invokes aria2_pause_all', async () => {
-      await pauseAllTask()
-      expect(mockInvoke).toHaveBeenCalledWith('aria2_pause_all')
-    })
-
-    it('forcePauseAllTask invokes aria2_force_pause_all', async () => {
-      await forcePauseAllTask()
-      expect(mockInvoke).toHaveBeenCalledWith('aria2_force_pause_all')
-    })
-
-    it('resumeAllTask invokes aria2_unpause_all', async () => {
-      await resumeAllTask()
-      expect(mockInvoke).toHaveBeenCalledWith('aria2_unpause_all')
     })
 
     it('saveSession invokes aria2_save_session', async () => {

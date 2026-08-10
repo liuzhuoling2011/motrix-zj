@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import type { HistoryRecord } from '@shared/types'
+import type { Aria2Task, HistoryRecord } from '@shared/types'
 
 // ── Mock: in-memory SQLite substitute ────────────────────────────────
 let rows: HistoryRecord[] = []
@@ -67,18 +67,14 @@ function mockExecute(query: string, params: unknown[]): { rowsAffected: number }
   if (q.startsWith('DELETE')) {
     if (q.includes('TASK_BIRTH')) {
       const beforeBirths = birthRows.length
-      const gids = q.includes('SELECT GID FROM DOWNLOAD_HISTORY WHERE NAME LIKE')
-        ? rows.filter((r) => r.name.startsWith('[METADATA]')).map((r) => r.gid)
-        : (params as string[])
+      const gids = params as string[]
       const gidSet = new Set(gids)
       birthRows = birthRows.filter((r) => !gidSet.has(r.gid))
       return { rowsAffected: beforeBirths - birthRows.length }
     }
 
     const before = rows.length
-    if (q.includes('WHERE NAME LIKE')) {
-      rows = rows.filter((r) => !r.name.startsWith('[METADATA]'))
-    } else if (q.includes('GID IN')) {
+    if (q.includes('GID IN')) {
       const gids = params as string[]
       const gidSet = new Set(gids)
       rows = rows.filter((r) => !gidSet.has(r.gid))
@@ -115,6 +111,36 @@ function mockSelect(query: string, params: unknown[]): unknown[] {
     return [...birthRows]
   }
 
+  if (q.includes('COUNT(DISTINCT GID)')) {
+    const values = new Set(params.map(String))
+    const matchedGids = new Set<string>()
+    for (const row of rows) {
+      let meta: Record<string, unknown> = {}
+      try {
+        meta = row.meta ? (JSON.parse(row.meta) as Record<string, unknown>) : {}
+      } catch {
+        meta = {}
+      }
+      if (
+        values.has(row.gid) ||
+        (typeof meta.infoHash === 'string' && values.has(meta.infoHash)) ||
+        (typeof meta.ed2kHash === 'string' && values.has(meta.ed2kHash)) ||
+        (typeof meta.ed2kLink === 'string' && values.has(meta.ed2kLink))
+      ) {
+        matchedGids.add(row.gid)
+      }
+    }
+    return [{ count: matchedGids.size }]
+  }
+
+  if (q.includes('COUNT(*)')) {
+    if (q.includes('WHERE STATUS')) {
+      const status = params[0] as string
+      return [{ count: rows.filter((r) => r.status === status).length }]
+    }
+    return [{ count: rows.length }]
+  }
+
   let result: HistoryRecord[]
   if (q.includes('WHERE STATUS')) {
     const status = params[0] as string
@@ -134,8 +160,20 @@ function mockSelect(query: string, params: unknown[]): unknown[] {
     })
   }
 
-  // Parse LIMIT clause from the SQL query
+  if (q.includes('ORDER BY TOTAL_LENGTH')) {
+    result = [...result].sort((a, b) => {
+      const diff = (a.total_length ?? 0) - (b.total_length ?? 0)
+      return q.includes('DESC') ? -diff : diff
+    })
+  }
+
+  // Parse LIMIT / OFFSET clauses from the SQL query
   const limitMatch = q.match(/LIMIT\s+(\d+)/)
+  const offsetMatch = q.match(/OFFSET\s+(\d+)/)
+  if (offsetMatch) {
+    const offset = parseInt(offsetMatch[1], 10)
+    result = result.slice(offset)
+  }
   if (limitMatch) {
     const limit = parseInt(limitMatch[1], 10)
     result = result.slice(0, limit)
@@ -187,6 +225,22 @@ function makeRecord(overrides: Partial<HistoryRecord> = {}): HistoryRecord {
     status: 'complete',
     task_type: 'uri',
     completed_at: '2026-03-15T12:00:00Z',
+    ...overrides,
+  }
+}
+
+function makeTask(overrides: Partial<Aria2Task> = {}): Aria2Task {
+  return {
+    gid: 'task-gid',
+    status: 'active',
+    totalLength: '1',
+    completedLength: '1',
+    uploadLength: '0',
+    downloadSpeed: '0',
+    uploadSpeed: '0',
+    connections: '0',
+    dir: '/downloads',
+    files: [],
     ...overrides,
   }
 }
@@ -253,6 +307,36 @@ describe('HistoryStore', () => {
       const results = await store.getRecords()
       expect(results).toHaveLength(1)
       expect(results[0].gid).toBe('min1')
+    })
+  })
+
+  describe('countRecordsMatchingTaskIdentities', () => {
+    it('counts history records that match live task identities without double-counting', async () => {
+      rows = [
+        makeRecord({ gid: 'same-gid' }),
+        makeRecord({
+          gid: 'old-bt-gid',
+          task_type: 'bt',
+          meta: JSON.stringify({ infoHash: 'bt-hash' }),
+        }),
+        makeRecord({
+          gid: 'old-ed2k-gid',
+          task_type: 'ed2k',
+          meta: JSON.stringify({ ed2kHash: 'ed2k-hash', ed2kLink: 'ed2k://|file|demo|1|hash|/' }),
+        }),
+        makeRecord({ gid: 'unrelated' }),
+      ]
+
+      const liveTasks = [
+        makeTask({ gid: 'same-gid' }),
+        makeTask({ gid: 'new-bt-gid', bittorrent: { info: { name: 'bt' } }, infoHash: 'bt-hash' }),
+        makeTask({
+          gid: 'new-ed2k-gid',
+          ed2k: { hash: 'ed2k-hash', ed2kLink: 'ed2k://|file|demo|1|hash|/' },
+        }),
+      ]
+
+      await expect(store.countRecordsMatchingTaskIdentities(liveTasks)).resolves.toBe(3)
     })
   })
 
@@ -333,26 +417,44 @@ describe('HistoryStore', () => {
       limited.forEach((r) => expect(r.status).toBe('complete'))
     })
 
-    it('returns all records when limit is undefined', async () => {
+    it('returns one SQL-backed page with total count', async () => {
       for (let i = 0; i < 5; i++) {
-        await store.addRecord(makeRecord({ gid: `nolim-${i}` }))
+        await store.addRecord(
+          makeRecord({
+            gid: `page-${i}`,
+            completed_at: `2026-01-${String(i + 1).padStart(2, '0')}T00:00:00Z`,
+          }),
+        )
       }
-      const results = await store.getRecords()
-      expect(results).toHaveLength(5)
+
+      const page = await store.getRecordsPage({ page: 2, pageSize: 2 })
+
+      expect(page.total).toBe(5)
+      expect(page.records.map((r) => r.gid)).toEqual(['page-2', 'page-1'])
+      expect(executedQueries.some((q) => q.includes('LIMIT 2 OFFSET 2'))).toBe(true)
+      expect(executedQueries.some((q) => q.includes('COUNT(*)'))).toBe(true)
     })
 
-    it('clamps limit to safe integer range', async () => {
-      await store.addRecord(makeRecord({ gid: 'safe1' }))
+    it('sorts a SQL-backed page only by whitelisted fields', async () => {
+      await store.addRecord(makeRecord({ gid: 'small', total_length: 100, completed_at: '2026-02-01T00:00:00Z' }))
+      await store.addRecord(makeRecord({ gid: 'large', total_length: 900, completed_at: '2026-01-01T00:00:00Z' }))
 
-      // Negative limit should be treated as no results or clamped to 0
-      const negResult = await store.getRecords(undefined, -5)
-      // Implementation should sanitize: either return [] or clamp to 0
-      expect(negResult.length).toBeLessThanOrEqual(1)
-    })
+      const sorted = await store.getRecordsPage({
+        page: 1,
+        pageSize: 10,
+        sortField: 'total_length',
+        sortOrder: 'descend',
+      })
+      const fallback = await store.getRecordsPage({
+        page: 1,
+        pageSize: 10,
+        sortField: 'gid; DROP TABLE download_history',
+        sortOrder: 'ascend',
+      })
 
-    it('returns empty array when no records exist', async () => {
-      const results = await store.getRecords()
-      expect(results).toEqual([])
+      expect(sorted.records.map((r) => r.gid)).toEqual(['large', 'small'])
+      expect(fallback.records.map((r) => r.gid)).toEqual(['small', 'large'])
+      expect(executedQueries.join('\n')).not.toContain('DROP TABLE')
     })
   })
 
@@ -395,39 +497,6 @@ describe('HistoryStore', () => {
       await store.removeBirthRecords([])
 
       expect(await store.loadBirthRecords()).toEqual([{ gid: 'kept-gid', added_at: '2026-04-25T00:00:00Z' }])
-    })
-  })
-
-  // ── removeMetadataRecords ─────────────────────────────────────────
-
-  describe('removeMetadataRecords', () => {
-    it('removes legacy metadata history rows and their task birth records only', async () => {
-      await store.addRecord(makeRecord({ gid: 'metadata-gid', name: '[METADATA]KNOPPIX_V9.1CD', task_type: 'bt' }))
-      await store.addRecord(makeRecord({ gid: 'real-gid', name: 'KNOPPIX_V9.1CD.iso', task_type: 'bt' }))
-      await store.recordTaskBirth('metadata-gid', '2026-04-25T00:00:00Z')
-      await store.recordTaskBirth('real-gid', '2026-04-25T00:00:01Z')
-
-      await store.removeMetadataRecords()
-
-      expect(await store.getRecords()).toEqual([
-        expect.objectContaining({ gid: 'real-gid', name: 'KNOPPIX_V9.1CD.iso' }),
-      ])
-      expect(await store.loadBirthRecords()).toEqual([{ gid: 'real-gid', added_at: '2026-04-25T00:00:01Z' }])
-    })
-
-    it('runs during database initialization to sanitize existing dirty rows', async () => {
-      await store.addRecord(makeRecord({ gid: 'metadata-gid', name: '[METADATA]KNOPPIX_V9.1CD', task_type: 'bt' }))
-      await store.addRecord(makeRecord({ gid: 'real-gid', name: 'KNOPPIX_V9.1CD.iso', task_type: 'bt' }))
-      await store.recordTaskBirth('metadata-gid', '2026-04-25T00:00:00Z')
-      await store.recordTaskBirth('real-gid', '2026-04-25T00:00:01Z')
-
-      await store.closeConnection()
-      await store.init()
-
-      expect(await store.getRecords()).toEqual([
-        expect.objectContaining({ gid: 'real-gid', name: 'KNOPPIX_V9.1CD.iso' }),
-      ])
-      expect(await store.loadBirthRecords()).toEqual([{ gid: 'real-gid', added_at: '2026-04-25T00:00:01Z' }])
     })
   })
 

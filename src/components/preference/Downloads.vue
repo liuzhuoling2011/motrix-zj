@@ -6,28 +6,28 @@ import { usePreferenceStore } from '@/stores/preference'
 import { usePreferenceForm } from '@/composables/usePreferenceForm'
 import { useEngineRestart } from '@/composables/useEngineRestart'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
-import { downloadDir } from '@tauri-apps/api/path'
 import { extractSpeedUnit } from '@shared/utils'
 import { logger } from '@shared/logger'
+import { resolveUserVisibleDownloadDir } from '@shared/utils/userVisibleDirectory'
 import { toggleSpeedLimit } from '@/composables/useSpeedLimiter'
 import { changeGlobalOption, isEngineReady } from '@/api/aria2'
 import {
   ENGINE_RPC_PORT,
+  ENGINE_MAX_CONCURRENT_DOWNLOADS,
   ENGINE_MAX_CONNECTION_PER_SERVER,
   SAFE_LIMIT_SPLIT,
   SAFE_LIMIT_CONNECTION_PER_SERVER,
   SCHEDULE_DAY,
-  buildDefaultCategories,
-  MAX_FILE_CATEGORIES,
 } from '@shared/constants'
 import { useAppMessage } from '@/composables/useAppMessage'
 import {
   buildDownloadsForm,
   buildDownloadsSystemConfig,
+  getCompletedRecordRetentionSelectValue,
+  recordDownloadsDirectory,
+  resolveCompletedRecordRetentionDays,
   transformDownloadsForStore,
 } from '@/composables/useDownloadsPreference'
-import type { FileCategory } from '@shared/types'
-import { vAutoAnimate } from '@formkit/auto-animate'
 import {
   NForm,
   NFormItem,
@@ -35,16 +35,20 @@ import {
   NInputNumber,
   NSelect,
   NSwitch,
+  NCheckbox,
   NButton,
   NDivider,
   NInputGroup,
   NText,
   NCollapseTransition,
-  NDynamicTags,
   NIcon,
   useDialog,
 } from 'naive-ui'
 import PreferenceActionBar from './PreferenceActionBar.vue'
+import PreferenceCheckboxGrid from './PreferenceCheckboxGrid.vue'
+import PreferenceHintLabel from './PreferenceHintLabel.vue'
+import DirectoryPopover from '@/components/common/DirectoryPopover.vue'
+import FileCategoryManager from './FileCategoryManager.vue'
 import { FolderOpenOutline } from '@vicons/ionicons5'
 
 const { t } = useI18n()
@@ -64,6 +68,19 @@ const fileTimestampValue = computed(() => (form.value.remoteTime ? FILE_TS_SERVE
 function handleFileTimestampChange(val: string) {
   form.value.remoteTime = val === FILE_TS_SERVER
 }
+
+const fileDeletionModeOptions = computed(() => [
+  { label: t('preferences.file-deletion-mode-trash'), value: 'trash' },
+  { label: t('preferences.file-deletion-mode-permanent'), value: 'permanent' },
+])
+
+const skipConfirmationFileLabel = computed(() =>
+  t(
+    form.value.fileDeletionMode === 'permanent'
+      ? 'preferences.delete-files-when-skip-confirm-permanent'
+      : 'preferences.delete-files-when-skip-confirm-trash',
+  ),
+)
 
 // ── Safe-limit warning ──────────────────────────────────────────────
 const safeLimits = [
@@ -121,7 +138,7 @@ function buildForm() {
   return buildDownloadsForm(preferenceStore.config, defaultDownloadDir.value)
 }
 
-const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceForm({
+const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } = usePreferenceForm({
   buildForm,
   buildSystemConfig: buildDownloadsSystemConfig,
   transformForStore: transformDownloadsForStore,
@@ -135,6 +152,9 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
       if (!ok) return false
     }
     return true
+  },
+  afterSave: (f) => {
+    recordDownloadsDirectory(f, preferenceStore.recordHistoryDirectory)
   },
 })
 
@@ -165,6 +185,38 @@ const scheduleDayOptions = computed(() => [
   { label: t('preferences.schedule-days-weekdays'), value: SCHEDULE_DAY.WEEKDAYS },
   { label: t('preferences.schedule-days-weekends'), value: SCHEDULE_DAY.WEEKENDS },
 ])
+
+const notificationTypeOptions = computed(() => [
+  { label: t('preferences.notify-on-start'), value: 'start' },
+  { label: t('preferences.notify-on-complete'), value: 'complete' },
+])
+const completedRecordRetentionOptions = computed(() => [
+  { label: t('preferences.completed-record-retention-forever'), value: 0 },
+  { label: t('preferences.completed-record-retention-1-day'), value: 1 },
+  { label: t('preferences.completed-record-retention-1-week'), value: 7 },
+  { label: t('preferences.completed-record-retention-6-months'), value: 180 },
+  { label: t('preferences.completed-record-retention-1-year'), value: 365 },
+  { label: t('preferences.completed-record-retention-custom'), value: -1 },
+])
+const completedRecordRetentionMode = ref(0)
+const completedRecordRetentionSelectValue = computed<number>({
+  get: () => completedRecordRetentionMode.value,
+  set: (value) => {
+    completedRecordRetentionMode.value = value
+    form.value.completedRecordRetentionDays = resolveCompletedRecordRetentionDays(
+      value,
+      Number(form.value.completedRecordRetentionDays),
+    )
+  },
+})
+const selectedNotificationTypes = computed<string[]>({
+  get: () => [...(form.value.notifyOnStart ? ['start'] : []), ...(form.value.notifyOnComplete ? ['complete'] : [])],
+  set: (types) => {
+    const selected = new Set(types)
+    form.value.notifyOnStart = selected.has('start')
+    form.value.notifyOnComplete = selected.has('complete')
+  },
+})
 
 function parseSpeedLimit(value: unknown) {
   const str = String(value || '0')
@@ -197,44 +249,29 @@ function handleDownloadValueChange(val: number | null) {
 }
 
 // ── File categories ─────────────────────────────────────────────────
-let categoryUid = 0
-function ensureCategoryUid(cat: FileCategory): string {
-  const record = cat as unknown as Record<string, unknown>
-  if (!record._uid) {
-    Object.defineProperty(cat, '_uid', { value: `cat-${++categoryUid}`, enumerable: false })
+const showCategoryManager = ref(false)
+const categorySummary = computed(() => {
+  const categories = form.value.fileCategories
+  const urlRuleCount = categories.reduce((total, category) => total + (category.urlPatterns?.length ?? 0), 0)
+  return t('preferences.file-category-summary', { count: categories.length, url: urlRuleCount })
+})
+const categoryBaseDir = computed(() => form.value.dir || defaultDownloadDir.value)
+async function handleCategoryManagerSave(categories: typeof form.value.fileCategories) {
+  form.value.fileCategories = categories
+  const saved = await preferenceStore.updateAndSave({ fileCategories: categories })
+  if (!saved) {
+    message.error(t('preferences.save-fail-message'))
+    return
   }
-  return record._uid as string
-}
-function handleCategoryLabelChange(index: number, label: string) {
-  form.value.fileCategories[index].label = label
-}
-function handleCategoryDirInput(index: number, value: string) {
-  form.value.fileCategories[index].directory = value
-}
-function handleCategoryExtChange(index: number, extensions: string[]) {
-  form.value.fileCategories[index].extensions = extensions.map((e) => e.toLowerCase().replace(/^\./, ''))
-}
-function handleDeleteCategory(index: number) {
-  form.value.fileCategories.splice(index, 1)
-}
-function handleAddCategory() {
-  if (form.value.fileCategories.length >= MAX_FILE_CATEGORIES) return
-  const baseDir = form.value.dir || defaultDownloadDir.value
-  form.value.fileCategories.push({ label: '', extensions: [], directory: baseDir, builtIn: false })
-}
-function handleResetCategories() {
-  const baseDir = form.value.dir || defaultDownloadDir.value
-  form.value.fileCategories = buildDefaultCategories(baseDir)
+  patchSnapshot({ fileCategories: categories } as Partial<typeof form.value>)
 }
 async function handleSelectDir() {
   const selected = await openDialog({ directory: true, multiple: false })
   if (typeof selected === 'string') form.value.dir = selected
 }
-async function handleSelectCategoryDir(index: number) {
-  const selected = await openDialog({ directory: true, multiple: false })
-  if (typeof selected === 'string') form.value.fileCategories[index].directory = selected
+function handleRecentDirSelect(dir: string) {
+  form.value.dir = dir
 }
-
 // ── Speed limit toggle ──────────────────────────────────────────────
 async function handleSpeedLimitToggle() {
   if (!isEngineReady()) return
@@ -262,6 +299,9 @@ async function handleScheduleToggle(enabled: boolean) {
 
 function loadForm() {
   Object.assign(form.value, buildForm())
+  completedRecordRetentionMode.value = getCompletedRecordRetentionSelectValue(
+    Number(form.value.completedRecordRetentionDays),
+  )
   const ul = parseSpeedLimit(form.value.maxOverallUploadLimit)
   uploadSpeedValue.value = ul.num
   uploadUnit.value = ul.unit
@@ -274,7 +314,7 @@ const { restartEngine } = useEngineRestart()
 function handleManualRestart() {
   const port = (preferenceStore.config.rpcListenPort as number) || ENGINE_RPC_PORT
   const secret = (preferenceStore.config.rpcSecret as string) || ''
-  const d = dialog.warning({
+  const d = dialog.info({
     title: t('preferences.engine-restart-title'),
     content: t('preferences.engine-restart-manual-confirm'),
     positiveText: t('preferences.engine-restart-now'),
@@ -293,7 +333,9 @@ function handleManualRestart() {
 
 onMounted(async () => {
   try {
-    defaultDownloadDir.value = await downloadDir()
+    const resolvedDir = await resolveUserVisibleDownloadDir({ configuredDir: preferenceStore.config.dir })
+    defaultDownloadDir.value = resolvedDir.path
+    logger.info('Downloads.downloadDir', `resolved source=${resolvedDir.source} fallback=${resolvedDir.usedFallback}`)
   } catch (e) {
     logger.debug('Downloads.downloadDir', e)
   }
@@ -304,261 +346,245 @@ onMounted(async () => {
 
 <template>
   <div class="preference-form-wrapper">
-    <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
-      <!-- Concurrency & Segments -->
-      <NDivider title-placement="left">{{ t('preferences.concurrency-and-segments') }}</NDivider>
-      <NFormItem :label="t('preferences.max-concurrent-downloads')">
-        <NInputNumber v-model:value="form.maxConcurrentDownloads" :min="1" :max="10" style="width: 120px" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.split-count')">
-        <NInputNumber
-          v-model:value="form.split"
-          :min="1"
-          :max="ENGINE_MAX_CONNECTION_PER_SERVER"
-          style="width: 120px"
-        />
-      </NFormItem>
-      <NFormItem :label="t('preferences.max-connection-per-server')">
-        <NInputNumber
-          v-model:value="form.maxConnectionPerServer"
-          :min="1"
-          :max="ENGINE_MAX_CONNECTION_PER_SERVER"
-          style="width: 120px"
-        />
-      </NFormItem>
-      <!-- Retry & File Options -->
-      <NDivider title-placement="left">{{ t('preferences.retry-and-file-behavior') }}</NDivider>
-      <NFormItem :label="t('preferences.max-tries')">
-        <NInputNumber v-model:value="form.maxTries" :min="0" :max="60" style="width: 120px" />
-        <NText depth="3" style="font-size: 12px; margin-left: 8px">
-          {{ t('preferences.max-tries-hint') }}
-        </NText>
-      </NFormItem>
-      <NFormItem :label="t('preferences.retry-wait')">
-        <NInputNumber v-model:value="form.retryWait" :min="0" :max="600" style="width: 120px" />
-        <NText depth="3" style="font-size: 12px; margin-left: 8px">{{ t('preferences.unit-seconds') }}</NText>
-      </NFormItem>
-      <NFormItem :label="t('preferences.continue')">
-        <NSwitch v-model:value="form.continue" />
-      </NFormItem>
-
-      <!-- Download Path -->
-      <NDivider title-placement="left">{{ t('preferences.download-path') }}</NDivider>
-      <NFormItem :label="t('preferences.default-path')">
-        <NInputGroup>
-          <NInput v-model:value="form.dir" style="flex: 1" />
-          <NButton style="padding: 0 12px" @click="handleSelectDir">
-            <template #icon>
-              <NIcon :size="16"><FolderOpenOutline /></NIcon>
-            </template>
-          </NButton>
-        </NInputGroup>
-      </NFormItem>
-      <NFormItem :label="t('preferences.file-timestamp')">
-        <NSelect
-          :value="fileTimestampValue"
-          :options="fileTimestampOptions"
-          style="width: 260px"
-          @update:value="handleFileTimestampChange"
-        />
-      </NFormItem>
-      <NFormItem :label="t('preferences.file-category-save')">
-        <NSwitch v-model:value="form.fileCategoryEnabled" />
-      </NFormItem>
-      <NCollapseTransition :show="form.fileCategoryEnabled">
-        <NFormItem :show-label="false">
-          <div class="file-category-list">
-            <div v-auto-animate="{ duration: 250, easing: 'ease-out' }" class="file-category-cards">
-              <div v-for="(cat, idx) in form.fileCategories" :key="ensureCategoryUid(cat)" class="file-category-card">
-                <div class="file-category-header">
-                  <span v-if="cat.builtIn" class="file-category-label">{{ t(`preferences.${cat.label}`) }}</span>
-                  <NInput
-                    v-else
-                    :value="cat.label"
-                    size="small"
-                    :placeholder="t('preferences.file-category-custom-label')"
-                    style="width: 120px"
-                    @update:value="(v: string) => handleCategoryLabelChange(idx, v)"
-                  />
-                  <NButton
-                    class="ghost-btn--danger"
-                    size="tiny"
-                    ghost
-                    style="margin-left: auto"
-                    @click="handleDeleteCategory(idx)"
-                  >
-                    {{ t('edit.delete') }}
-                  </NButton>
-                </div>
-                <NDynamicTags
-                  :value="cat.extensions.map((e: string) => `.${e}`)"
-                  size="small"
-                  @update:value="(tags: string[]) => handleCategoryExtChange(idx, tags)"
-                />
-                <NInputGroup>
-                  <NInput
-                    :value="cat.directory"
-                    size="small"
-                    style="flex: 1"
-                    @update:value="(v: string) => handleCategoryDirInput(idx, v)"
-                  />
-                  <NButton size="small" style="padding: 0 8px" @click="handleSelectCategoryDir(idx)">
-                    <template #icon>
-                      <NIcon :size="14"><FolderOpenOutline /></NIcon>
-                    </template>
-                  </NButton>
-                </NInputGroup>
-              </div>
-            </div>
-            <div class="file-category-actions">
-              <NButton size="small" dashed @click="handleAddCategory">
-                {{ t('preferences.file-category-add') }}
-              </NButton>
-              <NButton size="small" quaternary @click="handleResetCategories">
-                ↺ {{ t('preferences.file-category-reset') }}
-              </NButton>
-            </div>
-            <NText depth="3" style="font-size: 12px; display: block; margin-top: 4px">
-              ⓘ {{ t('preferences.file-category-auto-archive-hint') }}
-            </NText>
-          </div>
+    <div class="preference-form-scroll">
+      <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
+        <!-- Concurrency & Segments -->
+        <NDivider title-placement="left">{{ t('preferences.concurrency-and-segments') }}</NDivider>
+        <NFormItem :label="t('preferences.max-concurrent-downloads')">
+          <NInputNumber
+            v-model:value="form.maxConcurrentDownloads"
+            :min="1"
+            :max="ENGINE_MAX_CONCURRENT_DOWNLOADS"
+            class="pref-number"
+          />
         </NFormItem>
-      </NCollapseTransition>
+        <NFormItem :label="t('preferences.split-count')">
+          <NInputNumber
+            v-model:value="form.split"
+            :min="1"
+            :max="ENGINE_MAX_CONNECTION_PER_SERVER"
+            class="pref-number"
+          />
+        </NFormItem>
+        <NFormItem :label="t('preferences.max-connection-per-server')">
+          <NInputNumber
+            v-model:value="form.maxConnectionPerServer"
+            :min="1"
+            :max="ENGINE_MAX_CONNECTION_PER_SERVER"
+            class="pref-number"
+          />
+        </NFormItem>
+        <!-- Retry & File Options -->
+        <NDivider title-placement="left">{{ t('preferences.retry-and-file-behavior') }}</NDivider>
+        <NFormItem :label="t('preferences.max-tries')">
+          <NInputNumber v-model:value="form.maxTries" :min="0" :max="60" class="pref-number" />
+          <NText depth="3" class="pref-inline-note">
+            {{ t('preferences.max-tries-hint') }}
+          </NText>
+        </NFormItem>
+        <NFormItem :label="t('preferences.retry-wait')">
+          <NInputNumber v-model:value="form.retryWait" :min="0" :max="600" class="pref-number" />
+          <NText depth="3" class="pref-inline-note">{{ t('preferences.unit-seconds') }}</NText>
+        </NFormItem>
+        <NFormItem :label="t('preferences.continue')">
+          <NSwitch v-model:value="form.continue" />
+        </NFormItem>
 
-      <!-- Speed Limit -->
-      <NDivider title-placement="left">{{ t('preferences.speed-limit') }}</NDivider>
-      <NFormItem :label="t('app.speedometer-enable-limit')">
-        <NSwitch :value="preferenceStore.config.speedLimitEnabled" @update:value="handleSpeedLimitToggle" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.speed-schedule-enabled')">
-        <NSwitch :value="preferenceStore.config.speedScheduleEnabled" @update:value="handleScheduleToggle" />
-      </NFormItem>
-      <NCollapseTransition :show="preferenceStore.config.speedScheduleEnabled" class="collapse-indent">
-        <Transition name="schedule-warn">
-          <NFormItem v-if="!preferenceStore.config.speedLimitEnabled" :show-label="false">
-            <NText depth="3" type="warning" style="font-size: 12px">
-              {{ t('preferences.schedule-needs-limit') }}
+        <!-- Download Path -->
+        <NDivider title-placement="left">{{ t('preferences.download-path') }}</NDivider>
+        <NFormItem :label="t('preferences.default-path')">
+          <NInputGroup>
+            <NInput v-model:value="form.dir" class="pref-control-full" />
+            <NButton class="pref-icon-button" @click="handleSelectDir">
+              <template #icon>
+                <NIcon :size="16"><FolderOpenOutline /></NIcon>
+              </template>
+            </NButton>
+            <DirectoryPopover @select="handleRecentDirSelect" />
+          </NInputGroup>
+        </NFormItem>
+        <NFormItem :label="t('preferences.file-timestamp')">
+          <NSelect
+            :value="fileTimestampValue"
+            :options="fileTimestampOptions"
+            class="pref-control-auto pref-control-file-timestamp"
+            @update:value="handleFileTimestampChange"
+          />
+        </NFormItem>
+        <NFormItem>
+          <template #label>
+            <PreferenceHintLabel
+              :label="t('preferences.file-category-save')"
+              :hint="t('preferences.file-category-auto-archive-hint')"
+            />
+          </template>
+          <NSwitch v-model:value="form.fileCategoryEnabled" />
+        </NFormItem>
+        <NCollapseTransition :show="form.fileCategoryEnabled">
+          <NFormItem :show-label="false">
+            <div class="file-category-summary-row">
+              <div class="file-category-summary-text">
+                <span>{{ categorySummary }}</span>
+                <NText depth="3">{{ t('preferences.file-category-manager-hint') }}</NText>
+              </div>
+              <NButton size="small" @click="showCategoryManager = true">
+                {{ t('preferences.file-category-manage') }}
+              </NButton>
+            </div>
+          </NFormItem>
+        </NCollapseTransition>
+
+        <!-- Speed Limit -->
+        <NDivider title-placement="left">{{ t('preferences.speed-limit') }}</NDivider>
+        <NFormItem :label="t('app.speedometer-enable-limit')">
+          <NSwitch :value="preferenceStore.config.speedLimitEnabled" @update:value="handleSpeedLimitToggle" />
+        </NFormItem>
+        <NFormItem>
+          <template #label>
+            <PreferenceHintLabel
+              :label="t('preferences.speed-schedule-enabled')"
+              :hint="t('preferences.schedule-hint')"
+            />
+          </template>
+          <NSwitch :value="preferenceStore.config.speedScheduleEnabled" @update:value="handleScheduleToggle" />
+        </NFormItem>
+        <NCollapseTransition :show="preferenceStore.config.speedScheduleEnabled" class="collapse-indent">
+          <Transition name="schedule-warn">
+            <NFormItem v-if="!preferenceStore.config.speedLimitEnabled" :show-label="false">
+              <NText depth="3" type="warning" class="pref-inline-note pref-inline-note--warning">
+                {{ t('preferences.schedule-needs-limit') }}
+              </NText>
+            </NFormItem>
+          </Transition>
+          <NFormItem :label="t('preferences.schedule-from')">
+            <NSelect v-model:value="form.speedScheduleFrom" :options="timeOptions" class="pref-control-auto" />
+          </NFormItem>
+          <NFormItem :label="t('preferences.schedule-to')">
+            <NSelect v-model:value="form.speedScheduleTo" :options="timeOptions" class="pref-control-auto" />
+          </NFormItem>
+          <NFormItem :label="t('preferences.schedule-days')">
+            <NSelect v-model:value="form.speedScheduleDays" :options="scheduleDayOptions" class="pref-control-auto" />
+          </NFormItem>
+        </NCollapseTransition>
+        <div>
+          <NFormItem :label="t('preferences.transfer-speed-upload')">
+            <NInputGroup>
+              <NInputNumber
+                :value="uploadSpeedValue"
+                :min="0"
+                :max="65535"
+                :step="1"
+                class="pref-port"
+                @update:value="handleUploadValueChange"
+              />
+              <NSelect
+                :value="uploadUnit"
+                :options="speedUnitOptions"
+                class="pref-control-auto pref-control-compact"
+                @update:value="handleUploadUnitChange"
+              />
+            </NInputGroup>
+          </NFormItem>
+          <NFormItem :label="t('preferences.transfer-speed-download')">
+            <NInputGroup>
+              <NInputNumber
+                :value="downloadSpeedValue"
+                :min="0"
+                :max="65535"
+                :step="1"
+                class="pref-port"
+                @update:value="handleDownloadValueChange"
+              />
+              <NSelect
+                :value="downloadUnit"
+                :options="speedUnitOptions"
+                class="pref-control-auto pref-control-compact"
+                @update:value="handleDownloadUnitChange"
+              />
+            </NInputGroup>
+          </NFormItem>
+        </div>
+
+        <!-- Notification & Confirm -->
+        <NDivider title-placement="left">{{ t('preferences.notification-and-confirm') }}</NDivider>
+        <NFormItem :label="t('preferences.new-task-show-downloading')">
+          <NSwitch v-model:value="form.newTaskShowDownloading" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.file-deletion-mode')">
+          <NSelect v-model:value="form.fileDeletionMode" :options="fileDeletionModeOptions" class="pref-control-auto" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.no-confirm-before-delete-task')">
+          <NSwitch v-model:value="form.noConfirmBeforeDeleteTask" />
+        </NFormItem>
+        <NCollapseTransition :show="form.noConfirmBeforeDeleteTask">
+          <NFormItem label=" ">
+            <NCheckbox v-model:checked="form.deleteFilesWhenSkipConfirm">
+              {{ skipConfirmationFileLabel }}
+            </NCheckbox>
+          </NFormItem>
+        </NCollapseTransition>
+        <NFormItem :label="t('preferences.task-completed-notify')">
+          <NSwitch v-model:value="form.taskNotification" />
+        </NFormItem>
+        <NCollapseTransition :show="form.taskNotification">
+          <NFormItem label=" ">
+            <PreferenceCheckboxGrid v-model:value="selectedNotificationTypes" :options="notificationTypeOptions" />
+          </NFormItem>
+        </NCollapseTransition>
+        <NFormItem :label="t('preferences.shutdown-when-complete')">
+          <NSwitch v-model:value="form.shutdownWhenComplete" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.keep-awake')">
+          <NSwitch v-model:value="form.keepAwake" />
+        </NFormItem>
+
+        <!-- Auto Cleanup -->
+        <NDivider title-placement="left">{{ t('preferences.auto-cleanup') }}</NDivider>
+        <NFormItem :label="t('preferences.delete-torrent-after-complete')">
+          <NSwitch v-model:value="form.deleteTorrentAfterComplete" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.auto-delete-stale-records')">
+          <NSwitch v-model:value="form.autoDeleteStaleRecords" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.clear-completed-on-exit')">
+          <NSwitch v-model:value="form.clearCompletedOnExit" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.completed-record-retention')">
+          <NSelect
+            v-model:value="completedRecordRetentionSelectValue"
+            :options="completedRecordRetentionOptions"
+            class="pref-control-auto"
+          />
+        </NFormItem>
+        <NCollapseTransition :show="completedRecordRetentionSelectValue === -1">
+          <NFormItem :label="t('preferences.completed-record-retention-custom-days')">
+            <NInputNumber v-model:value="form.completedRecordRetentionDays" :min="1" :max="3650" class="pref-number" />
+            <NText depth="3" class="pref-inline-note">
+              {{ t('preferences.completed-record-retention-days-unit') }}
             </NText>
           </NFormItem>
-        </Transition>
-        <NFormItem :label="t('preferences.schedule-from')">
-          <NSelect v-model:value="form.speedScheduleFrom" :options="timeOptions" style="width: 120px" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.schedule-to')">
-          <NSelect v-model:value="form.speedScheduleTo" :options="timeOptions" style="width: 120px" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.schedule-days')">
-          <NSelect v-model:value="form.speedScheduleDays" :options="scheduleDayOptions" style="width: 160px" />
-        </NFormItem>
-        <NText depth="3" style="font-size: 12px; display: block; margin-top: -8px; margin-bottom: 8px">
-          {{ t('preferences.schedule-hint') }}
-        </NText>
-      </NCollapseTransition>
-      <div>
-        <NFormItem :label="t('preferences.transfer-speed-upload')">
-          <NInputGroup>
-            <NInputNumber
-              :value="uploadSpeedValue"
-              :min="0"
-              :max="65535"
-              :step="1"
-              style="width: 140px"
-              @update:value="handleUploadValueChange"
-            />
-            <NSelect
-              :value="uploadUnit"
-              :options="speedUnitOptions"
-              style="width: 100px"
-              @update:value="handleUploadUnitChange"
-            />
-          </NInputGroup>
-        </NFormItem>
-        <NFormItem :label="t('preferences.transfer-speed-download')">
-          <NInputGroup>
-            <NInputNumber
-              :value="downloadSpeedValue"
-              :min="0"
-              :max="65535"
-              :step="1"
-              style="width: 140px"
-              @update:value="handleDownloadValueChange"
-            />
-            <NSelect
-              :value="downloadUnit"
-              :options="speedUnitOptions"
-              style="width: 100px"
-              @update:value="handleDownloadUnitChange"
-            />
-          </NInputGroup>
-        </NFormItem>
-      </div>
-
-      <!-- Notification & Confirm -->
-      <NDivider title-placement="left">{{ t('preferences.notification-and-confirm') }}</NDivider>
-      <NFormItem :label="t('preferences.new-task-show-downloading')">
-        <NSwitch v-model:value="form.newTaskShowDownloading" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.no-confirm-before-delete-task')">
-        <NSwitch v-model:value="form.noConfirmBeforeDeleteTask" />
-      </NFormItem>
-      <NCollapseTransition :show="form.noConfirmBeforeDeleteTask" class="collapse-indent">
-        <NFormItem :label="t('preferences.delete-files-when-skip-confirm')">
-          <NSwitch v-model:value="form.deleteFilesWhenSkipConfirm" />
-        </NFormItem>
-      </NCollapseTransition>
-      <NFormItem :label="t('preferences.task-completed-notify')">
-        <NSwitch v-model:value="form.taskNotification" />
-      </NFormItem>
-      <NCollapseTransition :show="form.taskNotification" class="collapse-indent">
-        <NFormItem :label="t('preferences.notify-on-start')">
-          <NSwitch v-model:value="form.notifyOnStart" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.notify-on-complete')">
-          <NSwitch v-model:value="form.notifyOnComplete" />
-        </NFormItem>
-      </NCollapseTransition>
-      <NFormItem :label="t('preferences.shutdown-when-complete')">
-        <NSwitch v-model:value="form.shutdownWhenComplete" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.keep-awake')">
-        <NSwitch v-model:value="form.keepAwake" />
-      </NFormItem>
-
-      <!-- Auto Cleanup -->
-      <NDivider title-placement="left">{{ t('preferences.auto-cleanup') }}</NDivider>
-      <NFormItem :label="t('preferences.delete-torrent-after-complete')">
-        <NSwitch v-model:value="form.deleteTorrentAfterComplete" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.auto-delete-stale-records')">
-        <NSwitch v-model:value="form.autoDeleteStaleRecords" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.clear-completed-on-exit')">
-        <NSwitch v-model:value="form.clearCompletedOnExit" />
-      </NFormItem>
-    </NForm>
+        </NCollapseTransition>
+      </NForm>
+    </div>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
+    <FileCategoryManager
+      v-model:show="showCategoryManager"
+      :categories="form.fileCategories"
+      :base-dir="categoryBaseDir"
+      @save="handleCategoryManagerSave"
+    />
   </div>
 </template>
 
 <style scoped>
-.preference-form-wrapper {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+.pref-control-compact {
+  min-width: 80px;
 }
-.form-preference {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 16px 30px 64px 36px;
+
+.pref-control-file-timestamp {
+  min-width: 200px;
 }
-.form-preference :deep(.n-form-item) {
-  padding-left: 50px;
-}
-.form-preference :deep(.collapse-indent) {
-  position: relative;
-  margin-left: 16px;
-}
+
 .schedule-warn-enter-active,
 .schedule-warn-leave-active {
   transition:
@@ -578,62 +604,22 @@ onMounted(async () => {
   max-height: 60px;
 }
 
-/* ── File Category List ──────────────────────────────────────────── */
-.file-category-list {
+.file-category-summary-row {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 4px 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
-}
-.file-category-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.file-category-card {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
   padding: 10px 12px;
+  border: 1px solid var(--m3-outline-variant);
   border-radius: 8px;
-  background: var(--n-color, var(--m3-surface-container-low));
-  border: 1px solid var(--n-border-color, var(--m3-outline-variant));
-  transition: border-color 0.2s ease;
+  background: var(--m3-surface-container-low);
 }
-.file-category-card:hover {
-  border-color: var(--color-primary);
-}
-.file-category-header {
+
+.file-category-summary-text {
   display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.file-category-label {
+  flex-direction: column;
+  gap: 2px;
   font-size: 13px;
-  font-weight: 500;
-}
-.file-category-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-top: 4px;
-}
-.ghost-btn--danger {
-  --btn-tint: var(--m3-error, #c97070);
-  color: var(--btn-tint) !important;
-  border-color: var(--btn-tint) !important;
-  transition:
-    color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.ghost-btn--danger:hover {
-  background-color: color-mix(in srgb, var(--btn-tint) 12%, transparent) !important;
-}
-.ghost-btn--danger :deep(.n-button__border),
-.ghost-btn--danger :deep(.n-button__state-border) {
-  border-color: var(--btn-tint) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 </style>

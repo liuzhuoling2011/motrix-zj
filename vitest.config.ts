@@ -1,4 +1,6 @@
 /** @fileoverview Vitest configuration leveraging Vite aliases for path resolution. */
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { defineConfig, mergeConfig } from 'vitest/config'
 import viteConfig from './vite.config'
 
@@ -6,7 +8,14 @@ export default mergeConfig(
   await viteConfig(),
   defineConfig({
     test: {
+      server: {
+        deps: {
+          inline: ['@material/material-color-utilities'],
+        },
+      },
       environment: 'happy-dom',
+      testTimeout: 10000,
+      execArgv: ['--localstorage-file=' + join(tmpdir(), `motrix-next-vitest-localstorage-${process.pid}`)],
       setupFiles: ['src/__tests__/setup.ts'],
       include: ['src/**/*.{test,spec}.ts'],
       coverage: {

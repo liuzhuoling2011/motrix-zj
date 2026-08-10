@@ -500,7 +500,6 @@ pub fn install_main_window_resize_hook(app: &AppHandle) {
     });
 }
 
-
 fn cookie_header_for_url(cookies: &[Cookie<'_>], url: &str) -> String {
     let Some(target_domain) = Url::parse(url)
         .ok()
@@ -663,10 +662,12 @@ mod tests {
 
     #[test]
     fn hidden_constants_are_off_screen_with_zero_size() {
-        assert!(HIDDEN_POS.x < 0.0);
-        assert!(HIDDEN_POS.y < 0.0);
-        assert_eq!(HIDDEN_SIZE.width, 0.0);
-        assert_eq!(HIDDEN_SIZE.height, 0.0);
+        let hidden_pos = std::hint::black_box(HIDDEN_POS);
+        let hidden_size = std::hint::black_box(HIDDEN_SIZE);
+        assert!(hidden_pos.x < 0.0);
+        assert!(hidden_pos.y < 0.0);
+        assert_eq!(hidden_size.width, 0.0);
+        assert_eq!(hidden_size.height, 0.0);
     }
 
     #[test]

@@ -1,11 +1,18 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   createBatchItem,
+  detectExternalInputKind,
+  detectKind,
+  extractMagnetDisplayName,
   mergeUriLines,
+  mergeRawUriLines,
   normalizeUriLines,
   resetBatchIdCounter,
   decodePathSegment,
   extractDecodedFilename,
+  sanitizeAria2OutHint,
+  resolveExternalFilenameHint,
+  parseAria2Input,
 } from '../batchHelpers'
 
 describe('normalizeUriLines', () => {
@@ -78,6 +85,81 @@ describe('normalizeUriLines', () => {
     const full = 'magnet:?xt=urn:btih:d8988e034cb5de79d319242e3365bf30a7741a6e'
     expect(normalizeUriLines(full)).toEqual([full])
   })
+
+  it('keeps Thunder links wrapped for engine parsing', () => {
+    const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+    expect(normalizeUriLines(thunder)).toEqual([thunder])
+  })
+
+  it('keeps mixed-case Thunder schemes wrapped for engine parsing', () => {
+    const thunder = 'Thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+    expect(normalizeUriLines(thunder)).toEqual([thunder])
+  })
+
+  it('deduplicates Thunder links by exact normalized line', () => {
+    const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+    expect(normalizeUriLines(`${thunder}\n${thunder}`)).toEqual([thunder])
+  })
+})
+
+describe('parseAria2Input', () => {
+  it('parses aria2 input-file entries with per-task options', () => {
+    expect(
+      parseAria2Input(`
+        https://example.com/index.html
+          out=index1.html
+        https://example.com/index.html
+          out=index2.html
+      `).entries,
+    ).toEqual([
+      { uris: ['https://example.com/index.html'], options: { out: 'index1.html' } },
+      { uris: ['https://example.com/index.html'], options: { out: 'index2.html' } },
+    ])
+  })
+
+  it('keeps tab-separated mirrors as one aria2 task', () => {
+    expect(
+      parseAria2Input('https://mirror-a.example/file.zip\thttps://mirror-b.example/file.zip\n  out=file.zip').entries,
+    ).toEqual([
+      {
+        uris: ['https://mirror-a.example/file.zip', 'https://mirror-b.example/file.zip'],
+        options: { out: 'file.zip' },
+      },
+    ])
+  })
+
+  it('keeps cumulative header options in input order', () => {
+    expect(
+      parseAria2Input(
+        [
+          'https://example.com/file.zip',
+          '  header=Accept-Language: en-US,en;q=0.9',
+          '  header=Cookie: a=b',
+          '  checksum=sha-256=abc',
+        ].join('\n'),
+      ).entries,
+    ).toEqual([
+      {
+        uris: ['https://example.com/file.zip'],
+        options: {
+          header: ['Accept-Language: en-US,en;q=0.9', 'Cookie: a=b'],
+          checksum: 'sha-256=abc',
+        },
+      },
+    ])
+  })
+
+  it('does not treat orphan option lines as URIs', () => {
+    expect(parseAria2Input('  out=orphan.html\nhttps://example.com/file.zip').entries).toEqual([
+      { uris: ['https://example.com/file.zip'], options: {} },
+    ])
+  })
+
+  it('ignores malformed indented option lines after a task', () => {
+    expect(parseAria2Input('https://example.com/file.zip\n  malformed-option-line').entries).toEqual([
+      { uris: ['https://example.com/file.zip'], options: {} },
+    ])
+  })
 })
 
 describe('mergeUriLines', () => {
@@ -119,6 +201,132 @@ describe('mergeUriLines', () => {
       [`magnet:?xt=urn:btih:${hash}`, 'magnet:?xt=urn:btih:TCIY4A2MWXPHTUYZEQUOMNS7GCDXOQTG'].join('\n'),
     )
   })
+
+  it('keeps Thunder links wrapped when merging incoming payloads', () => {
+    const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+    const merged = mergeUriLines('', [thunder])
+
+    expect(merged).toBe(thunder)
+  })
+})
+
+describe('mergeRawUriLines', () => {
+  it('keeps Thunder links raw while still trimming blanks and deduplicating exact lines', () => {
+    const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+
+    expect(mergeRawUriLines('', [` ${thunder} \n\n${thunder}`])).toBe(thunder)
+  })
+
+  it('normalizes bare info hashes for display parity with manual URI input', () => {
+    const hash = 'd8988e034cb5de79d319242e3365bf30a7741a6e'
+
+    expect(mergeRawUriLines('', [hash])).toBe(`magnet:?xt=urn:btih:${hash}`)
+  })
+})
+
+// ── detectKind ────────────────────────────────────────────────────────
+// Scheme-first → remote URI download → local path suffix → fallback.
+
+describe('detectKind', () => {
+  // ── 1. Scheme-first: magnet / thunder ──────────────────────────────
+
+  it('classifies plain magnet URIs as uri', () => {
+    expect(detectKind('magnet:?xt=urn:btih:abc123')).toBe('uri')
+  })
+
+  it('classifies magnet URIs with tracker.torrent.eu.org as uri (regression)', () => {
+    const magnet =
+      'magnet:?xt=urn:btih:a09e89b13c5347a2e3414aaa6556c950bf9a6277' +
+      '&dn=test&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce'
+    expect(detectKind(magnet)).toBe('uri')
+  })
+
+  it('classifies thunder:// links as uri', () => {
+    expect(detectKind('thunder://QUFodHRwOi8vZXhhbXBsZS5jb20vZmlsZS56aXBaWg==')).toBe('uri')
+  })
+
+  it('classifies ED2K file links as uri', () => {
+    expect(detectKind('ed2k://|file|Ubuntu%2026.04.iso|123456789|0123456789abcdef0123456789abcdef|/')).toBe('uri')
+  })
+
+  // ── 2. Remote URLs: pathname-only extension match ──────────────────
+
+  it('classifies remote .torrent URLs as uri for manual downloads', () => {
+    expect(detectKind('https://example.com/files/download.torrent')).toBe('uri')
+  })
+
+  it('classifies remote .torrent URLs with query params as uri for manual downloads', () => {
+    expect(detectKind('https://example.com/file.torrent?token=abc&v=2')).toBe('uri')
+  })
+
+  it('classifies remote URLs with .torrent in hostname but not pathname as uri', () => {
+    expect(detectKind('https://tracker.torrent.eu.org/announce')).toBe('uri')
+  })
+
+  it('classifies remote URLs with .torrent in query but not pathname as uri', () => {
+    expect(detectKind('https://example.com/download?file=a.torrent')).toBe('uri')
+  })
+
+  it('classifies plain HTTP URLs as uri', () => {
+    expect(detectKind('https://example.com/file.zip')).toBe('uri')
+  })
+
+  it('classifies FTP URLs with .torrent as uri', () => {
+    expect(detectKind('ftp://mirror.example.com/pub/file.torrent')).toBe('uri')
+  })
+
+  // ── 3. Local file paths ───────────────────────────────────────────
+
+  it('classifies local .torrent paths as torrent', () => {
+    expect(detectKind('/Users/me/Downloads/ubuntu.torrent')).toBe('torrent')
+  })
+
+  it('classifies external remote .torrent URLs as torrent', () => {
+    expect(detectExternalInputKind('https://example.com/files/download.torrent')).toBe('torrent')
+    expect(detectExternalInputKind('https://example.com/file.torrent?token=abc&v=2')).toBe('torrent')
+  })
+
+  // ── 4. Fallback ───────────────────────────────────────────────────
+
+  it('classifies unknown URIs as uri', () => {
+    expect(detectKind('ed2k://|file|example|123|abc|/')).toBe('uri')
+  })
+})
+
+// ── extractMagnetDisplayName ────────────────────────────────────────
+
+describe('extractMagnetDisplayName', () => {
+  it('extracts dn from a standard magnet URI', () => {
+    const uri = 'magnet:?xt=urn:btih:abc123&dn=Ubuntu+24.04+LTS'
+    expect(extractMagnetDisplayName(uri)).toBe('Ubuntu 24.04 LTS')
+  })
+
+  it('decodes percent-encoded UTF-8 dn values', () => {
+    const uri = 'magnet:?xt=urn:btih:abc&dn=caf%C3%A9'
+    expect(extractMagnetDisplayName(uri)).toBe('café')
+  })
+
+  it('returns empty string when dn is absent', () => {
+    expect(extractMagnetDisplayName('magnet:?xt=urn:btih:abc123')).toBe('')
+  })
+
+  it('returns empty string for non-magnet URIs', () => {
+    expect(extractMagnetDisplayName('https://example.com?dn=test')).toBe('')
+  })
+
+  it('returns empty string for bare magnet: without query', () => {
+    expect(extractMagnetDisplayName('magnet:')).toBe('')
+  })
+
+  it('handles dn with special characters', () => {
+    const uri = 'magnet:?xt=urn:btih:abc&dn=File%20%26%20Folder%20(2024)'
+    expect(extractMagnetDisplayName(uri)).toBe('File & Folder (2024)')
+  })
+
+  it('handles dn with tracker params after it', () => {
+    const uri = 'magnet:?xt=urn:btih:abc&dn=Test+Name&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451'
+    expect(extractMagnetDisplayName(uri)).toBe('Test Name')
+  })
 })
 
 describe('createBatchItem', () => {
@@ -147,7 +355,7 @@ describe('decodePathSegment', () => {
   })
 
   it('decodes UTF-8 percent sequences', () => {
-    expect(decodePathSegment('%E4%B8%AD%E6%96%87')).toBe('中文')
+    expect(decodePathSegment('r%C3%A9sum%C3%A9')).toBe('résumé')
   })
 
   it('returns original string for malformed percent sequence', () => {
@@ -176,7 +384,7 @@ describe('extractDecodedFilename', () => {
   })
 
   it('decodes UTF-8 percent sequences', () => {
-    expect(extractDecodedFilename('http://example.com/file%E4%B8%AD%E6%96%87.txt')).toBe('file中文.txt')
+    expect(extractDecodedFilename('http://example.com/file-r%C3%A9sum%C3%A9.txt')).toBe('file-résumé.txt')
   })
 
   it('returns unencoded filename unchanged', () => {
@@ -209,6 +417,18 @@ describe('extractDecodedFilename', () => {
 
   it('returns empty string for magnet URIs', () => {
     expect(extractDecodedFilename('magnet:?xt=urn:btih:abc123')).toBe('')
+  })
+
+  it('extracts the display filename from ED2K file links', () => {
+    expect(
+      extractDecodedFilename('ed2k://|file|Ubuntu%2026.04%20LTS.iso|123456789|0123456789abcdef0123456789abcdef|/'),
+    ).toBe('Ubuntu 26.04 LTS.iso')
+  })
+
+  it('sanitizes unsafe characters in ED2K filenames', () => {
+    expect(extractDecodedFilename('ed2k://|file|bad%2Fname%3F.iso|123|0123456789abcdef0123456789abcdef|/')).toBe(
+      'bad_name_.iso',
+    )
   })
 
   it('returns empty string for data URIs', () => {
@@ -253,5 +473,180 @@ describe('extractDecodedFilename', () => {
   it('sanitizes backslash in decoded filename', () => {
     // %5C = backslash
     expect(extractDecodedFilename('http://example.com/path%5Cfile.txt')).toBe('path_file.txt')
+  })
+})
+
+// ── sanitizeAria2OutHint ─────────────────────────────────────────────
+// Pure filesystem safety — no business logic. Any out value (user-typed
+// or extension-provided) is safe to pass through this function.
+
+describe('sanitizeAria2OutHint', () => {
+  it('returns clean filename unchanged', () => {
+    expect(sanitizeAria2OutHint('file.zip')).toBe('file.zip')
+  })
+
+  it('strips path prefixes (basename extraction)', () => {
+    expect(sanitizeAria2OutHint('/home/user/Downloads/file.zip')).toBe('file.zip')
+    expect(sanitizeAria2OutHint('C:\\Users\\Downloads\\file.zip')).toBe('file.zip')
+  })
+
+  it('strips query string pollution from extension filenames', () => {
+    expect(sanitizeAria2OutHint('photo.jpg?token=abc')).toBe('photo.jpg')
+  })
+
+  it('strips fragment pollution', () => {
+    expect(sanitizeAria2OutHint('file.pdf#page=3')).toBe('file.pdf')
+  })
+
+  it('replaces filesystem-unsafe characters with underscores', () => {
+    expect(sanitizeAria2OutHint('a:b*c.jpg')).toBe('a_b_c.jpg')
+    expect(sanitizeAria2OutHint('what?.jpg')).toBe('what_.jpg')
+    expect(sanitizeAria2OutHint('file<>name.txt')).toBe('file__name.txt')
+  })
+
+  it('does not drop HEAD-resolved names that start with replacement question marks', () => {
+    expect(sanitizeAria2OutHint('????? ??? 2026.xlsx')).toBe('_____ ___ 2026.xlsx')
+  })
+
+  it('decodes RFC 2047 encoded-word filenames before filesystem sanitization', () => {
+    expect(sanitizeAria2OutHint('=?UTF-8?B?0JjQotCe0JPQmCDQm9CU0KMgMjAyNi54bHN4?=')).toBe('ИТОГИ ЛДУ 2026.xlsx')
+  })
+
+  it('decodes percent-encoded RFC 2047 filenames before filesystem sanitization', () => {
+    expect(sanitizeAria2OutHint('=%3FUTF-8%3FB%3F0JjQotCe0JPQmCDQm9CU0KMgMjAyNi54bHN4%3F=')).toBe('ИТОГИ ЛДУ 2026.xlsx')
+  })
+
+  it('decodes legacy percent-encoded UTF-8 filenames before filesystem sanitization', () => {
+    expect(
+      sanitizeAria2OutHint(
+        'K430006866701%20%20%20%20%2020251022%20%20%20ASKO%20%20%20%20CW5937GCN%20%20%20%20%20CW51237GCN%E8%AF%B4%E6%98%8E%E4%B9%A6%28%E6%96%B0%E5%9B%BD%E6%A0%87%29.pdf',
+      ),
+    ).toBe('K430006866701     20251022   ASKO    CW5937GCN     CW51237GCN说明书(新国标).pdf')
+  })
+
+  it('keeps percent-decoded slashes inside a single safe filename', () => {
+    expect(sanitizeAria2OutHint('safe%2Fevil.pdf')).toBe('safe_evil.pdf')
+  })
+
+  it('removes control characters', () => {
+    expect(sanitizeAria2OutHint('\x01\x02file.jpg')).toBe('file.jpg')
+  })
+
+  it('trims trailing dots and spaces', () => {
+    expect(sanitizeAria2OutHint('file.jpg...')).toBe('file.jpg')
+    expect(sanitizeAria2OutHint('file.jpg   ')).toBe('file.jpg')
+  })
+
+  it('preserves extensionless filenames', () => {
+    expect(sanitizeAria2OutHint('README')).toBe('README')
+    expect(sanitizeAria2OutHint('Makefile')).toBe('Makefile')
+  })
+
+  it('preserves accented filenames', () => {
+    expect(sanitizeAria2OutHint('résumé.pdf')).toBe('résumé.pdf')
+  })
+
+  it('returns empty for empty input', () => {
+    expect(sanitizeAria2OutHint('')).toBe('')
+  })
+
+  it('returns empty for pure dots', () => {
+    expect(sanitizeAria2OutHint('...')).toBe('')
+  })
+
+  it('returns empty for query-only strings', () => {
+    expect(sanitizeAria2OutHint('?format=jpg')).toBe('')
+  })
+})
+
+// ── resolveExternalFilenameHint ──────────────────────────────────────
+// Smart external hint validation: decides whether to trust the extension
+// filename or let resolve_filename HEAD take over.
+
+describe('resolveExternalFilenameHint', () => {
+  // ── Accept: hint has extension ─────────────────────────────────────
+
+  it('accepts cloud drive filename with extension', () => {
+    expect(resolveExternalFilenameHint('https://cdn.cloud.com/abc123', 'résumé.pdf')).toBe('résumé.pdf')
+  })
+
+  it('accepts RFC 2047 encoded-word external filename hints after decoding', () => {
+    expect(
+      resolveExternalFilenameHint(
+        'https://mail-attachment.googleusercontent.com/attachment/u/0/',
+        '=?UTF-8?B?0JjQotCe0JPQmCDQm9CU0KMgMjAyNi54bHN4?=',
+      ),
+    ).toBe('ИТОГИ ЛДУ 2026.xlsx')
+  })
+
+  it('accepts hint with extension even when it matches URL basename', () => {
+    expect(resolveExternalFilenameHint('https://example.com/photo.jpg', 'photo.jpg')).toBe('photo.jpg')
+  })
+
+  it('accepts hint after stripping query params and the result has extension', () => {
+    expect(resolveExternalFilenameHint('https://cdn.example.com/photo.jpg?token=1', 'photo.jpg?token=1')).toBe(
+      'photo.jpg',
+    )
+  })
+
+  it('accepts hint with illegal chars after sanitization if it has extension', () => {
+    // `?` stripped first as query boundary, then `:` and `*` replaced
+    expect(resolveExternalFilenameHint('https://example.com/file', 'a:b*c.jpg')).toBe('a_b_c.jpg')
+  })
+
+  // ── Reject: extensionless and same as URL basename ────────────────
+
+  it('rejects Twitter CDN filename (extensionless, matches URL basename)', () => {
+    expect(
+      resolveExternalFilenameHint(
+        'https://pbs.twimg.com/media/G9v9wWdasAYNqt9?format=jpg&name=large',
+        'G9v9wWdasAYNqt9?format=jpg&name=large',
+      ),
+    ).toBe('')
+  })
+
+  it('rejects extensionless hint that matches URL basename exactly', () => {
+    expect(resolveExternalFilenameHint('https://cdn.example.com/abc123', 'abc123')).toBe('')
+  })
+
+  it('rejects generic browser fallback filename without extension', () => {
+    expect(
+      resolveExternalFilenameHint('https://mail-attachment.googleusercontent.com/attachment/u/0/', 'download'),
+    ).toBe('')
+  })
+
+  it('rejects numeric browser placeholder filename for extensionless attachment URL', () => {
+    expect(resolveExternalFilenameHint('https://mail-attachment.googleusercontent.com/attachment/u/0/', '0.xlsx')).toBe(
+      '',
+    )
+  })
+
+  // ── Accept: extensionless but different from URL basename ─────────
+
+  it('accepts extensionless hint when different from URL basename (cloud drive real name)', () => {
+    expect(resolveExternalFilenameHint('https://cdn.cloud.com/randomhash', 'README')).toBe('README')
+  })
+
+  it('accepts extensionless hint when different from URL basename', () => {
+    expect(resolveExternalFilenameHint('https://cdn.example.com/abc123', 'Makefile')).toBe('Makefile')
+  })
+
+  // ── Edge cases ────────────────────────────────────────────────────
+
+  it('returns empty for empty hint', () => {
+    expect(resolveExternalFilenameHint('https://example.com/file', '')).toBe('')
+  })
+
+  it('returns empty for hint that sanitizes to empty', () => {
+    expect(resolveExternalFilenameHint('https://example.com/file', '?format=jpg')).toBe('')
+  })
+
+  it('returns empty for pure-dot hint', () => {
+    expect(resolveExternalFilenameHint('https://example.com/file', '...')).toBe('')
+  })
+
+  it('handles non-HTTP URLs gracefully', () => {
+    // magnet URI → extractDecodedFilename returns '' → comparison impossible → accept hint
+    expect(resolveExternalFilenameHint('magnet:?xt=urn:btih:abc', 'download.torrent')).toBe('download.torrent')
   })
 })

@@ -2,14 +2,23 @@
  * @fileoverview Tests for useBtPreference pure functions.
  *
  * The BT tab manages BitTorrent-specific config: auto-download, encryption,
- * seeding, max peers, and tracker management. Key business logic:
- * - btAutoDownloadContent ↔ followTorrent/followMetalink/pauseMetadata mapping
+ * connection, discovery, seeding, max peers, and tracker management. Key business logic:
+ * - btAutoDownloadContent ↔ pauseMetadata mapping
  * - Tracker comma ↔ newline conversion
  * - force-save must NOT appear in global config (per-download only)
  */
 import { describe, it, expect } from 'vitest'
-import { buildBtForm, buildBtSystemConfig, transformBtForStore, type BtForm } from '../useBtPreference'
+import {
+  buildBtForm,
+  buildBtSystemConfig,
+  transformBtForStore,
+  validateBtEndpoint,
+  randomBtPort,
+  randomDhtPort,
+  type BtForm,
+} from '../useBtPreference'
 import type { AppConfig } from '@shared/types'
+import { createDefaultAppConfig } from '@shared/utils/configHydration'
 import { DEFAULT_APP_CONFIG, ENGINE_DEFAULT_BT_MAX_PEERS } from '@shared/constants'
 
 // ── buildBtForm ─────────────────────────────────────────────────────
@@ -24,38 +33,16 @@ describe('buildBtForm', () => {
     expect(form.btAutoDownloadContent).toBe(false)
   })
 
-  it('sets btAutoDownloadContent=true when follow=true and pause=false', () => {
+  it('sets btAutoDownloadContent=true when pauseMetadata=false', () => {
     const form = buildBtForm({
-      followTorrent: true,
-      followMetalink: true,
       pauseMetadata: false,
     } as unknown as AppConfig)
     expect(form.btAutoDownloadContent).toBe(true)
   })
 
-  it('sets btAutoDownloadContent=false when followTorrent=false', () => {
-    const form = buildBtForm({
-      followTorrent: false,
-      followMetalink: true,
-      pauseMetadata: false,
-    } as unknown as AppConfig)
-    expect(form.btAutoDownloadContent).toBe(false)
-  })
-
   it('sets btAutoDownloadContent=false when pauseMetadata=true', () => {
     const form = buildBtForm({
-      followTorrent: true,
-      followMetalink: true,
       pauseMetadata: true,
-    } as unknown as AppConfig)
-    expect(form.btAutoDownloadContent).toBe(false)
-  })
-
-  it('sets btAutoDownloadContent=false when followMetalink=false', () => {
-    const form = buildBtForm({
-      followTorrent: true,
-      followMetalink: false,
-      pauseMetadata: false,
     } as unknown as AppConfig)
     expect(form.btAutoDownloadContent).toBe(false)
   })
@@ -67,24 +54,30 @@ describe('buildBtForm', () => {
     expect(form.btForceEncryption).toBe(false)
   })
 
+  it('defaults BT discovery toggles to enabled', () => {
+    const form = buildBtForm(emptyConfig)
+    expect(form.btDhtIpv4Enabled).toBe(true)
+    expect(form.btDhtIpv6Enabled).toBe(true)
+    expect(form.btPeerExchangeEnabled).toBe(true)
+    expect(form.btLocalPeerDiscoveryEnabled).toBe(true)
+  })
+
+  it('reads BT discovery toggles from config', () => {
+    const form = buildBtForm({
+      btDhtIpv4Enabled: false,
+      btDhtIpv6Enabled: true,
+      btPeerExchangeEnabled: false,
+      btLocalPeerDiscoveryEnabled: false,
+    } as unknown as AppConfig)
+    expect(form.btDhtIpv4Enabled).toBe(false)
+    expect(form.btDhtIpv6Enabled).toBe(true)
+    expect(form.btPeerExchangeEnabled).toBe(false)
+    expect(form.btLocalPeerDiscoveryEnabled).toBe(false)
+  })
+
   it('reads btForceEncryption from config', () => {
     const form = buildBtForm({ btForceEncryption: true } as unknown as AppConfig)
     expect(form.btForceEncryption).toBe(true)
-  })
-
-  it('defaults keepSeeding to false', () => {
-    const form = buildBtForm(emptyConfig)
-    expect(form.keepSeeding).toBe(false)
-  })
-
-  it('defaults seedRatio to 2', () => {
-    const form = buildBtForm(emptyConfig)
-    expect(form.seedRatio).toBe(2)
-  })
-
-  it('defaults seedTime to 2880', () => {
-    const form = buildBtForm(emptyConfig)
-    expect(form.seedTime).toBe(2880)
   })
 
   it('defaults btMaxPeers to ENGINE_DEFAULT_BT_MAX_PEERS', () => {
@@ -96,17 +89,34 @@ describe('buildBtForm', () => {
     expect(DEFAULT_APP_CONFIG.btMaxPeers).toBe(ENGINE_DEFAULT_BT_MAX_PEERS)
   })
 
+  it('owns the BitTorrent connection and seeding defaults', () => {
+    const form = buildBtForm(emptyConfig)
+    expect(form.listenPort).toBe(DEFAULT_APP_CONFIG.listenPort)
+    expect(form.btExternalIp).toBe('')
+    expect(form.btExternalPort).toBe(0)
+    expect(form.dhtListenPort).toBe(DEFAULT_APP_CONFIG.dhtListenPort)
+    expect(form.sharingMode).toBe('stop-by-condition')
+    expect(form.shareRatio).toBe(DEFAULT_APP_CONFIG.shareRatio)
+    expect(form.shareTime).toBe(DEFAULT_APP_CONFIG.shareTime)
+  })
+
+  it('maps keepSharing=true to manual stop mode', () => {
+    const form = buildBtForm({ keepSharing: true } as AppConfig)
+    expect(form.sharingMode).toBe('manual-stop')
+  })
+
   // ── Tracker management ──────────────────────────────────────────
 
   it('defaults trackerSource from DEFAULT_APP_CONFIG', () => {
     const form = buildBtForm(emptyConfig)
-    expect(form.trackerSource).toEqual(expect.arrayContaining([]))
+    expect(form.trackerSource).toEqual(DEFAULT_APP_CONFIG.trackerSource)
+    expect(form.trackerSource).toHaveLength(2)
   })
 
   it('preserves custom tracker source URLs', () => {
     const customUrl = 'https://trackers.run/s/wp_up_hp_hs_v4_v6.txt'
     const config = {
-      ...DEFAULT_APP_CONFIG,
+      ...createDefaultAppConfig(),
       trackerSource: [customUrl],
     } as AppConfig
     const form = buildBtForm(config)
@@ -128,26 +138,40 @@ describe('buildBtForm', () => {
     expect(form.btTracker).toContain('udp://t2.org:6969')
   })
 
-  it('defaults autoSyncTracker from DEFAULT_APP_CONFIG', () => {
+  it('defaults automatic tracker sync from DEFAULT_APP_CONFIG', () => {
     const form = buildBtForm(emptyConfig)
-    expect(form.autoSyncTracker).toBe(DEFAULT_APP_CONFIG.autoSyncTracker)
+    expect(form.btTrackerAutoSync).toBe(DEFAULT_APP_CONFIG.btTrackerAutoSync)
+    expect(form.btTrackerSyncIntervalHours).toBe(DEFAULT_APP_CONFIG.btTrackerSyncIntervalHours)
   })
 
   // ── Completeness ────────────────────────────────────────────────
 
-  it('returns all 11 form fields', () => {
+  it('returns every BT form field', () => {
     const form = buildBtForm(emptyConfig)
     const expectedFields = [
       'btAutoDownloadContent',
       'btForceEncryption',
-      'keepSeeding',
-      'seedRatio',
-      'seedTime',
+      'btDhtIpv4Enabled',
+      'btDhtIpv6Enabled',
+      'btPeerExchangeEnabled',
+      'btLocalPeerDiscoveryEnabled',
       'btMaxPeers',
+      'listenPort',
+      'btExternalIp',
+      'btExternalPort',
+      'dhtListenPort',
+      'sharingMode',
+      'shareRatio',
+      'shareTime',
+      'btPeerBlocklistEnabled',
+      'btPeerBlocklistUrl',
+      'btPeerBlocklistAutoSync',
+      'btPeerBlocklistSyncIntervalHours',
       'trackerSource',
       'customTrackerUrls',
       'btTracker',
-      'autoSyncTracker',
+      'btTrackerAutoSync',
+      'btTrackerSyncIntervalHours',
       'lastSyncTrackerTime',
     ]
     for (const field of expectedFields) {
@@ -163,14 +187,27 @@ describe('buildBtSystemConfig', () => {
   const baseForm: BtForm = {
     btAutoDownloadContent: true,
     btForceEncryption: false,
-    keepSeeding: true,
-    seedRatio: 1,
-    seedTime: 60,
+    btDhtIpv4Enabled: true,
+    btDhtIpv6Enabled: true,
+    btPeerExchangeEnabled: true,
+    btLocalPeerDiscoveryEnabled: true,
     btMaxPeers: 128,
+    listenPort: 29120,
+    btExternalIp: '',
+    btExternalPort: 0,
+    dhtListenPort: 29130,
+    sharingMode: 'stop-by-condition',
+    shareRatio: 2,
+    shareTime: 2880,
+    btPeerBlocklistEnabled: true,
+    btPeerBlocklistUrl: 'https://bcr.pbh-btn.com/combine/all.txt',
+    btPeerBlocklistAutoSync: true,
+    btPeerBlocklistSyncIntervalHours: 24,
     trackerSource: [],
     customTrackerUrls: [],
     btTracker: 'udp://t1.org:6969\nudp://t2.org:6969',
-    autoSyncTracker: false,
+    btTrackerAutoSync: false,
+    btTrackerSyncIntervalHours: 12,
     lastSyncTrackerTime: 0,
   }
 
@@ -178,28 +215,64 @@ describe('buildBtSystemConfig', () => {
     const config = buildBtSystemConfig(baseForm)
     expect(config['bt-max-peers']).toBe('128')
     expect(config['bt-force-encryption']).toBe('false')
-    expect(config['seed-ratio']).toBe('1')
-    expect(config['seed-time']).toBe('60')
-    expect(config['keep-seeding']).toBe('true')
+    expect(config['listen-port']).toBe('29120')
+    expect(config['bt-external-ip']).toBe('')
+    expect(config['bt-external-port']).toBe('0')
+    expect(config['dht-listen-port']).toBe('29130')
   })
 
-  it('always includes bt-save-metadata=true and bt-load-saved-metadata=true', () => {
-    const config = buildBtSystemConfig(baseForm)
-    expect(config['bt-save-metadata']).toBe('true')
-    expect(config['bt-load-saved-metadata']).toBe('true')
+  it('maps BT discovery toggles to aria2 config', () => {
+    const config = buildBtSystemConfig({
+      ...baseForm,
+      btDhtIpv4Enabled: false,
+      btDhtIpv6Enabled: false,
+      btPeerExchangeEnabled: false,
+      btLocalPeerDiscoveryEnabled: false,
+    })
+    expect(config['enable-dht']).toBe('false')
+    expect(config['enable-dht6']).toBe('false')
+    expect(config['enable-peer-exchange']).toBe('false')
+    expect(config['bt-enable-lpd']).toBe('false')
   })
 
-  it('sets follow-torrent=true and pause-metadata=false when auto-content ON', () => {
+  it('maps DHT network checkboxes to aria2 IPv4 and IPv6 switches', () => {
+    const config = buildBtSystemConfig({
+      ...baseForm,
+      btDhtIpv4Enabled: true,
+      btDhtIpv6Enabled: false,
+    })
+    expect(config['enable-dht']).toBe('true')
+    expect(config['enable-dht6']).toBe('false')
+  })
+
+  it('maps condition-based seeding to aria2 config', () => {
+    const config = buildBtSystemConfig({ ...baseForm, shareRatio: 3, shareTime: 1440 })
+    expect(config['detach-share-only']).toBe('true')
+    expect(config['keep-sharing']).toBe('false')
+    expect(config['seed-ratio']).toBe('3')
+    expect(config['seed-time']).toBe('1440')
+  })
+
+  it('maps manual seeding to aria2 config', () => {
+    const config = buildBtSystemConfig({ ...baseForm, sharingMode: 'manual-stop' })
+    expect(config['keep-sharing']).toBe('true')
+    expect(config['seed-ratio']).toBe('0')
+    expect(config['seed-time']).toBe('')
+  })
+
+  it('mirrors force encryption into both aria2 encryption switches', () => {
+    const config = buildBtSystemConfig({ ...baseForm, btForceEncryption: true })
+    expect(config['bt-force-encryption']).toBe('true')
+    expect(config['bt-require-crypto']).toBe('true')
+  })
+
+  it('sets pause-metadata=false when auto-content ON', () => {
     const config = buildBtSystemConfig({ ...baseForm, btAutoDownloadContent: true })
-    expect(config['follow-torrent']).toBe('true')
-    expect(config['follow-metalink']).toBe('true')
     expect(config['pause-metadata']).toBe('false')
   })
 
-  it('sets follow-torrent=false and pause-metadata=true when auto-content OFF', () => {
+  it('sets pause-metadata=true when auto-content OFF', () => {
     const config = buildBtSystemConfig({ ...baseForm, btAutoDownloadContent: false })
-    expect(config['follow-torrent']).toBe('false')
-    expect(config['follow-metalink']).toBe('false')
     expect(config['pause-metadata']).toBe('true')
   })
 
@@ -218,11 +291,13 @@ describe('buildBtSystemConfig', () => {
     expect(config).not.toHaveProperty('force-save')
   })
 
-  it('does NOT include force-save regardless of keepSeeding value', () => {
-    const withSeeding = buildBtSystemConfig({ ...baseForm, keepSeeding: true })
-    const withoutSeeding = buildBtSystemConfig({ ...baseForm, keepSeeding: false })
-    expect(withSeeding).not.toHaveProperty('force-save')
-    expect(withoutSeeding).not.toHaveProperty('force-save')
+  it('keeps magnet metadata cache options managed by aria2.conf only', () => {
+    const config = buildBtSystemConfig(baseForm)
+    expect(config).not.toHaveProperty('bt-save-metadata')
+    expect(config).not.toHaveProperty('bt-load-saved-metadata')
+    expect(config).not.toHaveProperty('bt-seed-unverified')
+    expect(config).not.toHaveProperty('bt-hash-check-seed')
+    expect(config).not.toHaveProperty('bt-remove-unselected-file')
   })
 
   // ── Boundary: tracker/sync keys must NOT leak into aria2 config ─
@@ -242,29 +317,38 @@ describe('transformBtForStore', () => {
   const baseForm: BtForm = {
     btAutoDownloadContent: true,
     btForceEncryption: false,
-    keepSeeding: true,
-    seedRatio: 1,
-    seedTime: 60,
+    btDhtIpv4Enabled: true,
+    btDhtIpv6Enabled: true,
+    btPeerExchangeEnabled: true,
+    btLocalPeerDiscoveryEnabled: true,
     btMaxPeers: 128,
+    listenPort: 29120,
+    btExternalIp: '',
+    btExternalPort: 0,
+    dhtListenPort: 29130,
+    sharingMode: 'stop-by-condition',
+    shareRatio: 2,
+    shareTime: 2880,
+    btPeerBlocklistEnabled: true,
+    btPeerBlocklistUrl: 'https://bcr.pbh-btn.com/combine/all.txt',
+    btPeerBlocklistAutoSync: true,
+    btPeerBlocklistSyncIntervalHours: 24,
     trackerSource: [],
     customTrackerUrls: [],
     btTracker: 'udp://a\nudp://b',
-    autoSyncTracker: false,
+    btTrackerAutoSync: false,
+    btTrackerSyncIntervalHours: 12,
     lastSyncTrackerTime: 0,
   }
 
-  it('expands btAutoDownloadContent=true into follow+resume', () => {
+  it('expands btAutoDownloadContent=true into pauseMetadata=false', () => {
     const result = transformBtForStore({ ...baseForm, btAutoDownloadContent: true })
-    expect(result.followTorrent).toBe(true)
-    expect(result.followMetalink).toBe(true)
     expect(result.pauseMetadata).toBe(false)
     expect((result as Record<string, unknown>).btAutoDownloadContent).toBeUndefined()
   })
 
-  it('expands btAutoDownloadContent=false into stop+pause', () => {
+  it('expands btAutoDownloadContent=false into pauseMetadata=true', () => {
     const result = transformBtForStore({ ...baseForm, btAutoDownloadContent: false })
-    expect(result.followTorrent).toBe(false)
-    expect(result.followMetalink).toBe(false)
     expect(result.pauseMetadata).toBe(true)
     expect((result as Record<string, unknown>).btAutoDownloadContent).toBeUndefined()
   })
@@ -290,10 +374,56 @@ describe('transformBtForStore', () => {
     expect(result.customTrackerUrls).toEqual(customSources)
   })
 
-  it('preserves seeding config through transform', () => {
-    const result = transformBtForStore({ ...baseForm, keepSeeding: true, seedRatio: 2, seedTime: 120 })
-    expect(result.keepSeeding).toBe(true)
-    expect(result.seedRatio).toBe(2)
-    expect(result.seedTime).toBe(120)
+  it('preserves BT discovery toggles through transform', () => {
+    const result = transformBtForStore({
+      ...baseForm,
+      btDhtIpv4Enabled: false,
+      btDhtIpv6Enabled: true,
+      btPeerExchangeEnabled: false,
+      btLocalPeerDiscoveryEnabled: false,
+    })
+    expect(result.btDhtIpv4Enabled).toBe(false)
+    expect(result.btDhtIpv6Enabled).toBe(true)
+    expect(result.btPeerExchangeEnabled).toBe(false)
+    expect(result.btLocalPeerDiscoveryEnabled).toBe(false)
+  })
+
+  it('persists BitTorrent seeding config with app-level naming', () => {
+    const result = transformBtForStore({ ...baseForm, sharingMode: 'manual-stop', shareRatio: 4, shareTime: 720 })
+    expect(result.keepSharing).toBe(true)
+    expect(result.shareRatio).toBe(4)
+    expect(result.shareTime).toBe(720)
+    expect(result).not.toHaveProperty('sharingMode')
+  })
+})
+
+describe('validateBtEndpoint', () => {
+  const form = buildBtForm({} as AppConfig)
+
+  it('accepts the default endpoint', () => {
+    expect(validateBtEndpoint(form)).toBeNull()
+  })
+
+  it('rejects invalid listen ports', () => {
+    expect(validateBtEndpoint({ ...form, listenPort: 80 })).toBe('preferences.bt-port-unavailable')
+    expect(validateBtEndpoint({ ...form, dhtListenPort: 65536 })).toBe('preferences.dht-port-invalid')
+  })
+
+  it('rejects invalid external endpoint values', () => {
+    expect(validateBtEndpoint({ ...form, btExternalIp: 'tracker.example.com' })).toBe(
+      'preferences.bt-external-ip-invalid',
+    )
+    expect(validateBtEndpoint({ ...form, btExternalPort: 65536 })).toBe('preferences.bt-external-port-invalid')
+  })
+})
+
+describe('BitTorrent port randomizers', () => {
+  it('stay within the configured recovery range', () => {
+    for (let i = 0; i < 20; i++) {
+      expect(randomBtPort()).toBeGreaterThanOrEqual(29000)
+      expect(randomBtPort()).toBeLessThanOrEqual(29999)
+      expect(randomDhtPort()).toBeGreaterThanOrEqual(29000)
+      expect(randomDhtPort()).toBeLessThanOrEqual(29999)
+    }
   })
 })

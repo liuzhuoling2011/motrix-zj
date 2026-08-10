@@ -1,7 +1,8 @@
 <script setup lang="ts">
-/** @fileoverview Advanced preference tab: RPC, extension, clipboard, protocols, engine, log, history, diagnostics. */
-import { ref, nextTick, onMounted, h } from 'vue'
+/** @fileoverview Advanced preference tab: RPC, extension, clipboard, default programs, engine, log, history, diagnostics. */
+import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { usePlatform } from '@/composables/usePlatform'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
@@ -10,10 +11,10 @@ import { useEngineRestart } from '@/composables/useEngineRestart'
 import { useTaskStore } from '@/stores/task'
 import { useHistoryStore } from '@/stores/history'
 import { useAdvancedActions } from '@/composables/useAdvancedActions'
+import { useProtocolHandlers, type ProtocolKey } from '@/composables/useProtocolHandlers'
 import { relaunch } from '@tauri-apps/plugin-process'
-import { useIpc } from '@/composables/useIpc'
-import { appDataDir, appLogDir, join } from '@tauri-apps/api/path'
-import { LOG_LEVELS } from '@shared/constants'
+import { appDataDir, appLogDir, join, tempDir } from '@tauri-apps/api/path'
+import { APP_LOG_LEVELS, ARIA2_LOG_LEVELS } from '@shared/constants'
 import {
   generateSecret,
   buildAdvancedForm,
@@ -35,15 +36,26 @@ import {
   NDivider,
   NIcon,
   NModal,
+  NCard,
   NDataTable,
   NEmpty,
   NCollapseTransition,
   useDialog,
 } from 'naive-ui'
 import { useAppMessage } from '@/composables/useAppMessage'
-import { DiceOutline, DownloadOutline, FolderOpenOutline, TrashOutline, CopyOutline } from '@vicons/ionicons5'
+import {
+  CloudDownloadOutline,
+  CloudUploadOutline,
+  DiceOutline,
+  DownloadOutline,
+  FolderOpenOutline,
+  TrashOutline,
+  CopyOutline,
+} from '@vicons/ionicons5'
 import { logger } from '@shared/logger'
 import PreferenceActionBar from './PreferenceActionBar.vue'
+import PreferenceCheckboxGrid from './PreferenceCheckboxGrid.vue'
+import PreferenceHintLabel from './PreferenceHintLabel.vue'
 
 const { restartEngine } = useEngineRestart()
 
@@ -53,17 +65,51 @@ const taskStore = useTaskStore()
 const historyStore = useHistoryStore()
 const message = useAppMessage()
 const dialog = useDialog()
+const protocolHandlers = useProtocolHandlers()
+const protocolStatus = protocolHandlers.status
+const protocolPending = protocolHandlers.pending
 
-const { isLinux, isMac } = usePlatform()
+const { isLinux } = usePlatform()
 
 import { ENGINE_RPC_PORT } from '@shared/constants'
 import { diffConfig, checkIsNeedRestart } from '@shared/utils/config'
+import { writeAppClipboardText } from '@shared/utils'
 
-const logLevelOptions = LOG_LEVELS.map((l: string) => ({ label: l, value: l }))
+const appLogLevelOptions = APP_LOG_LEVELS.map((level) => ({ label: level, value: level }))
+const aria2LogLevelOptions = ARIA2_LOG_LEVELS.map((level) => ({ label: level, value: level }))
+
+type ClipboardType = 'http' | 'ftp' | 'magnet' | 'ed2k' | 'thunder' | 'btHash'
+const clipboardTypes: ClipboardType[] = ['http', 'ftp', 'magnet', 'ed2k', 'thunder', 'btHash']
+const clipboardTypeOptions = computed(() => [
+  { label: t('preferences.clipboard-http'), value: 'http' },
+  { label: t('preferences.clipboard-ftp'), value: 'ftp' },
+  { label: t('preferences.clipboard-magnet'), value: 'magnet' },
+  { label: t('preferences.clipboard-ed2k'), value: 'ed2k' },
+  { label: t('preferences.clipboard-thunder'), value: 'thunder' },
+  { label: t('preferences.clipboard-bt-hash'), value: 'btHash' },
+])
+const clipboardFieldByType: Record<ClipboardType, keyof typeof form.value> = {
+  http: 'clipboardHttp',
+  ftp: 'clipboardFtp',
+  magnet: 'clipboardMagnet',
+  ed2k: 'clipboardEd2k',
+  thunder: 'clipboardThunder',
+  btHash: 'clipboardBtHash',
+}
+const selectedClipboardTypes = computed<string[]>({
+  get: () => clipboardTypes.filter((type) => !!form.value[clipboardFieldByType[type]]),
+  set: (types) => {
+    const selected = new Set(types)
+    for (const type of clipboardTypes) {
+      form.value[clipboardFieldByType[type]] = selected.has(type)
+    }
+  },
+})
 
 const aria2ConfPath = ref('')
 const sessionPath = ref('')
 const logPath = ref('')
+const defaultTempPath = ref('')
 
 const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceForm({
   buildForm,
@@ -80,7 +126,7 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
     const prevSecret = preferenceStore.config.rpcSecret
     if (!f.rpcSecret && !!prevSecret) {
       const ok = await new Promise<boolean>((resolve) => {
-        dialog.warning({
+        dialog.info({
           title: t('preferences.rpc-secret-empty-title'),
           content: t('preferences.rpc-secret-empty-confirm'),
           positiveText: t('preferences.rpc-secret-empty-continue'),
@@ -100,7 +146,7 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
     const changed = diffConfig(preferenceStore.config, f)
     if (checkIsNeedRestart(changed)) {
       const ok = await new Promise<boolean>((resolve) => {
-        dialog.warning({
+        dialog.info({
           title: t('preferences.engine-restart-title'),
           content: t('preferences.engine-restart-confirm'),
           positiveText: t('preferences.engine-restart-now'),
@@ -133,43 +179,6 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
       if (!ok) return false
     }
 
-    // Protocol disable confirmation — single merged dialog.
-    const prev = preferenceStore.config.protocols
-    const disabledLinks: string[] = []
-    if (prev.magnet && !f.protocolMagnet) disabledLinks.push('magnet')
-    if (prev.thunder && !f.protocolThunder) disabledLinks.push('thunder')
-    const disabledExt = prev.motrixnext && !f.protocolMotrixnext
-
-    if (disabledLinks.length > 0 || disabledExt) {
-      const items: ReturnType<typeof h>[] = []
-      for (const p of disabledLinks) {
-        items.push(h('div', `• ${t('preferences.protocol-disable-link-warning', { protocols: `${p}://` })}`))
-      }
-      if (disabledExt) {
-        items.push(h('div', `• ${t('preferences.protocol-disable-ext-warning')}`))
-      }
-      const content =
-        items.length > 1
-          ? () =>
-              h('div', { style: 'display: flex; flex-direction: column; gap: 8px' }, [
-                h('div', t('preferences.protocol-disable-intro')),
-                ...items,
-              ])
-          : () => h('div', items)
-      const ok = await new Promise<boolean>((resolve) => {
-        dialog.warning({
-          title: t('preferences.protocol-disable-title'),
-          content,
-          positiveText: t('preferences.protocol-disable-confirm'),
-          negativeText: t('app.cancel'),
-          onPositiveClick: () => resolve(true),
-          onNegativeClick: () => resolve(false),
-          onClose: () => resolve(false),
-        })
-      })
-      if (!ok) return false
-    }
-
     return true
   },
   afterSave: async (f, prevConfig) => {
@@ -185,7 +194,7 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
       await restartEngine({ port, secret })
     }
 
-    // Log level changes need a full app relaunch (not engine restart),
+    // Motrix log level changes need a full app relaunch,
     // because tauri-plugin-log is configured at process startup.
     if (changed.logLevel !== undefined && changed.logLevel !== prevConfig.logLevel) {
       dialog.info({
@@ -195,15 +204,13 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
         negativeText: t('preferences.engine-restart-later'),
         maskClosable: false,
         onPositiveClick: async () => {
-          const { stopEngine } = useIpc()
-          await stopEngine()
+          await invoke('stop_engine_command')
           await relaunch()
         },
       })
     }
 
-    // Hardware rendering toggle needs a full app relaunch — the env var
-    // WEBKIT_DISABLE_DMABUF_RENDERER is read by WebKitGTK at process startup.
+    // WebKitGTK rendering variables are read at process startup.
     if (changed.hardwareRendering !== undefined && changed.hardwareRendering !== prevConfig.hardwareRendering) {
       dialog.info({
         title: t('preferences.restart-required'),
@@ -212,8 +219,7 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
         negativeText: t('preferences.engine-restart-later'),
         maskClosable: false,
         onPositiveClick: async () => {
-          const { stopEngine } = useIpc()
-          await stopEngine()
+          await invoke('stop_engine_command')
           await relaunch()
         },
       })
@@ -223,71 +229,30 @@ const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceF
     if (changed.extensionApiPort !== undefined) {
       const newPort = f.extensionApiPort
       try {
-        await invoke('restart_http_api', { port: newPort })
-        message.success(t('preferences.extension-api-port-applied', { port: newPort }))
+        const appliedPort = await invoke<number>('restart_http_api', { port: newPort })
+        if (appliedPort !== newPort) {
+          f.extensionApiPort = appliedPort
+          preferenceStore.updatePreference({ extensionApiPort: appliedPort })
+          resetSnapshot()
+        }
+        message.success(t('preferences.extension-api-port-applied', { port: appliedPort }))
       } catch (e) {
         logger.warn('Advanced.extensionApi', `restart_http_api port=${newPort} failed: ${e}`)
-        message.error(t('preferences.extension-api-port-failed', { port: newPort }))
-      }
-    }
-
-    // Protocol handler registration (reconcile-based).
-    {
-      const prevProtocols = prevConfig.protocols ?? { magnet: false, thunder: false, motrixnext: true }
-      for (const [protocol, formKey, prev] of [
-        ['magnet', 'protocolMagnet', prevProtocols.magnet],
-        ['thunder', 'protocolThunder', prevProtocols.thunder],
-        ['motrixnext', 'protocolMotrixnext', prevProtocols.motrixnext],
-      ] as const) {
-        const enabled = f[formKey] as boolean
-        try {
-          if (enabled) {
-            const isDefault = await invoke<boolean>('is_default_protocol_client', { protocol })
-            if (!isDefault) {
-              await invoke('set_default_protocol_client', { protocol })
-              message.success(t('preferences.protocol-registered', { protocol }))
-            }
-          } else if (prev) {
-            if (isMac.value) {
-              message.info(t('preferences.protocol-macos-unregister-hint', { protocol }))
-            } else {
-              await invoke('remove_as_default_protocol_client', { protocol })
-              message.success(t('preferences.protocol-unregistered', { protocol }))
-            }
-          }
-        } catch (e) {
-          const reason =
-            e instanceof Error
-              ? e.message
-              : typeof e === 'object' && e !== null
-                ? Object.values(e as Record<string, unknown>).join(': ')
-                : String(e)
-          logger.warn('Advanced.protocol', `Failed to ${enabled ? 'register' : 'unregister'} ${protocol}: ${reason}`)
-          message.error(t('preferences.protocol-failed', { protocol, reason }))
-          ;(f as Record<string, unknown>)[formKey] = prev
-          resetSnapshot()
-          const revertedProtocols = { ...preferenceStore.config.protocols, [protocol]: prev }
-          preferenceStore.updateAndSave({ protocols: revertedProtocols })
-        }
       }
     }
   },
 })
 
 function buildForm() {
-  const c = preferenceStore.config
-  const { form: formData, generatedSecret, generatedApiSecret } = buildAdvancedForm(c)
-  if (generatedSecret) {
-    preferenceStore.updateAndSave({ rpcSecret: generatedSecret })
-  }
-  if (generatedApiSecret) {
-    preferenceStore.updateAndSave({ extensionApiSecret: generatedApiSecret })
-  }
-  return formData
+  return buildAdvancedForm(preferenceStore.config).form
 }
 
 function loadForm() {
   Object.assign(form.value, buildForm())
+}
+
+async function handleProtocolToggle(protocol: ProtocolKey, enabled: boolean) {
+  await protocolHandlers.setProtocolEnabled(protocol, enabled)
 }
 
 async function loadPaths() {
@@ -309,6 +274,11 @@ async function loadPaths() {
   } catch (e) {
     logger.debug('Advanced.loadLogPath', e)
   }
+  try {
+    defaultTempPath.value = await tempDir()
+  } catch (e) {
+    logger.debug('Advanced.loadTempPath', e)
+  }
 }
 
 function onRpcPortDice() {
@@ -326,11 +296,20 @@ function onApiSecretDice() {
 async function copyToClipboard(text: string, label: string) {
   if (!text) return
   try {
-    await navigator.clipboard.writeText(text)
+    await writeAppClipboardText(text)
     message.success(t('preferences.copied-to-clipboard', { label }))
   } catch (e) {
     logger.debug('Advanced.clipboard', `writeText failed: ${e}`)
   }
+}
+
+async function handleSelectTempDir() {
+  const selected = await openDialog({ directory: true, multiple: false })
+  if (typeof selected === 'string') form.value.tempFilesDir = selected
+}
+
+function handleClearTempDir() {
+  form.value.tempFilesDir = ''
 }
 
 // ─── Advanced Actions (delegated to composable) ─────────────────────
@@ -340,7 +319,11 @@ const {
   dbRecords,
   dbRecordsLoading,
   dbBrowseColumns,
+  dbBrowsePagination,
+  handleDbSorterChange,
   exportingLogs,
+  exportingSettings,
+  importingSettings,
   handleManualRestart: handleManualRestartAction,
   handleSessionReset,
   handleRestoreDefaults,
@@ -349,6 +332,8 @@ const {
   handleDbBrowse,
   handleDbReset,
   handleExportLogs,
+  handleExportSettings,
+  handleImportSettings,
   handleClearLog,
   handleRevealPath,
   handleOpenConfigFolder,
@@ -372,304 +357,388 @@ onMounted(async () => {
   resetSnapshot()
   loadPaths()
 
-  // Read actual OS registration state for protocol toggles (all platforms).
-  // Uses custom Rust commands that support macOS NSWorkspace + Windows/Linux deep-link.
-  // This ensures the switches reflect reality even if another app has taken
-  // over the protocol association since Motrix last ran.
   try {
-    form.value.protocolMagnet = await invoke<boolean>('is_default_protocol_client', { protocol: 'magnet' })
-    form.value.protocolThunder = await invoke<boolean>('is_default_protocol_client', { protocol: 'thunder' })
-    form.value.protocolMotrixnext = await invoke<boolean>('is_default_protocol_client', { protocol: 'motrixnext' })
-    // Patch snapshot so OS-queried values don't falsely trigger dirty state.
-    resetSnapshot()
+    await protocolHandlers.refreshAll()
   } catch (e) {
     logger.debug('Advanced.protocolCheck', e)
+  }
+})
+
+watch(protocolHandlers.lastError, (error) => {
+  if (!error) return
+  logger.warn(
+    'Advanced.protocol',
+    `Failed to ${error.enabled ? 'register' : 'unregister'} ${error.protocol}: ${error.reason}`,
+  )
+  if (!error.enabled && error.reason.includes('manual_change_required')) {
+    message.warning(t('preferences.protocol-unregister-manual-required'))
+  } else {
+    message.error(t('preferences.protocol-failed', { protocol: error.protocol, reason: error.reason }))
   }
 })
 </script>
 
 <template>
   <div class="preference-form-wrapper">
-    <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
-      <NDivider title-placement="left">{{ t('preferences.extension-section') }}</NDivider>
-      <NFormItem :label="t('preferences.auto-submit-from-extension')">
-        <NSwitch v-model:value="form.autoSubmitFromExtension" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.extension-api-port')">
-        <NInputNumber v-model:value="form.extensionApiPort" :min="1024" :max="65535" style="width: 160px" />
-      </NFormItem>
-      <NFormItem
-        :label="t('preferences.extension-api-secret')"
-        :validation-status="form.extensionApiSecret ? undefined : 'warning'"
-      >
-        <NInputGroup>
-          <NInput
-            v-model:value="form.extensionApiSecret"
-            type="password"
-            show-password-on="click"
-            :placeholder="t('preferences.extension-api-secret')"
-            style="flex: 1"
-            :status="form.extensionApiSecret ? undefined : 'warning'"
+    <div class="preference-form-scroll">
+      <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
+        <NDivider title-placement="left">{{ t('preferences.extension-section') }}</NDivider>
+        <NFormItem :label="t('preferences.auto-submit-from-extension')">
+          <NSwitch v-model:value="form.autoSubmitFromExtension" />
+        </NFormItem>
+        <NCollapseTransition :show="form.autoSubmitFromExtension" class="collapse-indent">
+          <NFormItem :label="t('preferences.silent-auto-submit-from-extension')">
+            <NSwitch v-model:value="form.silentAutoSubmitFromExtension" />
+          </NFormItem>
+          <NFormItem>
+            <template #label>
+              <PreferenceHintLabel
+                :label="t('preferences.auto-select-all-bt-files-from-extension')"
+                :hint="t('preferences.auto-select-all-bt-files-from-extension-hint')"
+              />
+            </template>
+            <NSwitch v-model:value="form.autoSelectAllBtFilesFromExtension" />
+          </NFormItem>
+        </NCollapseTransition>
+        <NFormItem :label="t('preferences.extension-api-port')">
+          <NInputNumber v-model:value="form.extensionApiPort" :min="1024" :max="65535" class="pref-port" />
+        </NFormItem>
+        <NFormItem :validation-status="form.extensionApiSecret ? undefined : 'warning'">
+          <template #label>
+            <PreferenceHintLabel
+              :label="t('preferences.extension-api-secret')"
+              :hint="t('preferences.extension-api-secret-tip')"
+            />
+          </template>
+          <NInputGroup>
+            <NInput
+              v-model:value="form.extensionApiSecret"
+              type="password"
+              show-password-on="click"
+              :placeholder="t('preferences.extension-api-secret')"
+              class="pref-control-full"
+              :status="form.extensionApiSecret ? undefined : 'warning'"
+            />
+            <NButton
+              class="pref-icon-button"
+              @click="copyToClipboard(form.extensionApiSecret, t('preferences.extension-api-secret'))"
+            >
+              <template #icon>
+                <NIcon :size="14"><CopyOutline /></NIcon>
+              </template>
+            </NButton>
+            <NButton class="pref-icon-button" @click="onApiSecretDice">
+              <template #icon>
+                <NIcon :size="14"><DiceOutline /></NIcon>
+              </template>
+            </NButton>
+          </NInputGroup>
+        </NFormItem>
+
+        <NDivider title-placement="left">{{ t('preferences.rpc') }}</NDivider>
+        <NFormItem :label="t('preferences.rpc-listen-port')">
+          <NInputGroup>
+            <NInputNumber v-model:value="form.rpcListenPort" :min="1024" :max="65535" class="pref-port" />
+            <NButton
+              class="pref-icon-button"
+              @click="copyToClipboard(String(form.rpcListenPort), t('preferences.rpc-listen-port'))"
+            >
+              <template #icon>
+                <NIcon :size="14"><CopyOutline /></NIcon>
+              </template>
+            </NButton>
+            <NButton class="pref-icon-button" @click="onRpcPortDice">
+              <template #icon>
+                <NIcon :size="14"><DiceOutline /></NIcon>
+              </template>
+            </NButton>
+          </NInputGroup>
+        </NFormItem>
+        <NFormItem :label="t('preferences.rpc-secret')" :validation-status="form.rpcSecret ? undefined : 'warning'">
+          <NInputGroup>
+            <NInput
+              v-model:value="form.rpcSecret"
+              type="password"
+              show-password-on="click"
+              :placeholder="t('preferences.rpc-secret')"
+              class="pref-control-full"
+              :status="form.rpcSecret ? undefined : 'warning'"
+            />
+            <NButton class="pref-icon-button" @click="copyToClipboard(form.rpcSecret, t('preferences.rpc-secret'))">
+              <template #icon>
+                <NIcon :size="14"><CopyOutline /></NIcon>
+              </template>
+            </NButton>
+            <NButton class="pref-icon-button" @click="onRpcSecretDice">
+              <template #icon>
+                <NIcon :size="14"><DiceOutline /></NIcon>
+              </template>
+            </NButton>
+          </NInputGroup>
+        </NFormItem>
+
+        <NDivider title-placement="left">{{ t('preferences.engine-section') }}</NDivider>
+        <NFormItem :label="t('preferences.allow-remote-access')">
+          <NSwitch v-model:value="form.allowRemoteAccess" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.temp-files-dir')">
+          <NInputGroup>
+            <NInput
+              :value="form.tempFilesDir || defaultTempPath"
+              readonly
+              class="pref-control-full"
+              :placeholder="defaultTempPath"
+            />
+            <NButton
+              class="pref-icon-button"
+              @click="copyToClipboard(form.tempFilesDir || defaultTempPath, t('preferences.temp-files-dir'))"
+            >
+              <template #icon>
+                <NIcon :size="14"><CopyOutline /></NIcon>
+              </template>
+            </NButton>
+            <NButton class="pref-icon-button" @click="handleSelectTempDir">
+              <template #icon>
+                <NIcon :size="14"><FolderOpenOutline /></NIcon>
+              </template>
+            </NButton>
+            <NButton v-if="form.tempFilesDir" quaternary class="pref-icon-button" @click="handleClearTempDir">
+              {{ t('preferences.ua-reset') }}
+            </NButton>
+          </NInputGroup>
+        </NFormItem>
+        <NFormItem :label="t('preferences.aria2-conf-path')">
+          <NInputGroup>
+            <NInput :value="aria2ConfPath" readonly class="pref-control-full" />
+            <NButton class="pref-icon-button" @click="copyToClipboard(aria2ConfPath, t('preferences.aria2-conf-path'))">
+              <template #icon>
+                <NIcon :size="14"><CopyOutline /></NIcon>
+              </template>
+            </NButton>
+            <NButton class="pref-icon-button" @click="handleRevealPath(aria2ConfPath)">
+              <template #icon>
+                <NIcon :size="14"><FolderOpenOutline /></NIcon>
+              </template>
+            </NButton>
+          </NInputGroup>
+        </NFormItem>
+        <NFormItem :label="t('preferences.session-path')">
+          <NInputGroup>
+            <NInput :value="sessionPath" readonly class="pref-control-full" />
+            <NButton class="pref-icon-button" @click="copyToClipboard(sessionPath, t('preferences.session-path'))">
+              <template #icon>
+                <NIcon :size="14"><CopyOutline /></NIcon>
+              </template>
+            </NButton>
+            <NButton class="pref-icon-button" @click="handleRevealPath(sessionPath)">
+              <template #icon>
+                <NIcon :size="14"><FolderOpenOutline /></NIcon>
+              </template>
+            </NButton>
+          </NInputGroup>
+        </NFormItem>
+        <NFormItem label=" ">
+          <NButton type="error" ghost @click="handleSessionReset">
+            {{ t('preferences.clear-all-tasks') }}
+          </NButton>
+        </NFormItem>
+
+        <NDivider title-placement="left">{{ t('preferences.log-section') }}</NDivider>
+        <NFormItem :label="t('preferences.log-path')">
+          <NInputGroup>
+            <NInput :value="logPath" readonly class="pref-control-full" />
+            <NButton class="pref-icon-button" @click="copyToClipboard(logPath, t('preferences.log-path'))">
+              <template #icon>
+                <NIcon :size="14"><CopyOutline /></NIcon>
+              </template>
+            </NButton>
+            <NButton class="pref-icon-button" @click="handleRevealPath(logPath)">
+              <template #icon>
+                <NIcon :size="14"><FolderOpenOutline /></NIcon>
+              </template>
+            </NButton>
+          </NInputGroup>
+        </NFormItem>
+        <NFormItem :label="t('preferences.log-level')">
+          <div class="log-level-row">
+            <div class="log-level-control">
+              <span class="log-level-control__label">{{ t('preferences.motrix-next') }}</span>
+              <NSelect
+                v-model:value="form.logLevel"
+                :options="appLogLevelOptions"
+                class="pref-control-auto pref-control-log-level"
+              />
+            </div>
+            <div class="log-level-control">
+              <span class="log-level-control__label">{{ t('preferences.aria2-next') }}</span>
+              <NSelect
+                v-model:value="form.aria2LogLevel"
+                :options="aria2LogLevelOptions"
+                class="pref-control-auto pref-control-log-level"
+              />
+            </div>
+          </div>
+        </NFormItem>
+        <NFormItem label=" ">
+          <div class="log-action-row">
+            <NButton type="primary" ghost :loading="exportingLogs" @click="handleExportLogs">
+              <template #icon>
+                <NIcon><DownloadOutline /></NIcon>
+              </template>
+              {{ t('preferences.export-diagnostic-logs') }}
+            </NButton>
+            <NButton type="error" ghost @click="handleClearLog">
+              <template #icon>
+                <NIcon><TrashOutline /></NIcon>
+              </template>
+              {{ t('preferences.clear-log') }}
+            </NButton>
+          </div>
+        </NFormItem>
+
+        <NDivider title-placement="left">{{ t('preferences.maintenance-section') }}</NDivider>
+        <NFormItem v-if="isLinux">
+          <template #label>
+            <PreferenceHintLabel
+              :label="t('preferences.hardware-rendering')"
+              :hint="t('preferences.hardware-rendering-hint')"
+            />
+          </template>
+          <NSwitch v-model:value="form.hardwareRendering" />
+        </NFormItem>
+        <NFormItem :label="t('preferences.history-section')">
+          <NSpace>
+            <NButton class="db-integrity-check-btn" @click="handleDbIntegrityCheck">
+              {{ t('preferences.db-integrity-check') }}
+            </NButton>
+            <NButton class="db-browse-btn" @click="handleDbBrowse">
+              {{ t('preferences.db-browse') }}
+            </NButton>
+            <NButton type="error" ghost @click="handleDbReset">
+              {{ t('preferences.db-reset') }}
+            </NButton>
+          </NSpace>
+        </NFormItem>
+
+        <NFormItem :label="t('preferences.configuration-section')">
+          <NSpace>
+            <NButton class="open-config-folder-btn" @click="handleOpenConfigFolder">
+              <template #icon>
+                <NIcon :size="14"><FolderOpenOutline /></NIcon>
+              </template>
+              {{ t('preferences.open-config-folder') }}
+            </NButton>
+            <NButton type="error" ghost @click="handleRestoreDefaults">
+              {{ t('preferences.restore-defaults') }}
+            </NButton>
+            <NButton type="error" ghost @click="handleFactoryReset">
+              {{ t('preferences.factory-reset') }}
+            </NButton>
+          </NSpace>
+        </NFormItem>
+        <NFormItem :label="t('preferences.settings-backup')">
+          <div class="settings-backup-row">
+            <NSpace>
+              <NButton type="primary" ghost :loading="exportingSettings" @click="handleExportSettings">
+                <template #icon>
+                  <NIcon><CloudDownloadOutline /></NIcon>
+                </template>
+                {{ t('preferences.export-settings') }}
+              </NButton>
+              <NButton type="warning" ghost :loading="importingSettings" @click="handleImportSettings">
+                <template #icon>
+                  <NIcon><CloudUploadOutline /></NIcon>
+                </template>
+                {{ t('preferences.import-settings') }}
+              </NButton>
+            </NSpace>
+          </div>
+        </NFormItem>
+
+        <!-- Clipboard Detection (migrated from Basic) -->
+        <NDivider title-placement="left">{{ t('preferences.clipboard-detection') }}</NDivider>
+        <NFormItem>
+          <template #label>
+            <PreferenceHintLabel
+              :label="t('preferences.clipboard-auto-detect')"
+              :hint="t('preferences.clipboard-filter-hint')"
+            />
+          </template>
+          <NSwitch v-model:value="form.clipboardEnable" />
+        </NFormItem>
+        <NCollapseTransition :show="form.clipboardEnable">
+          <NFormItem label=" ">
+            <PreferenceCheckboxGrid v-model:value="selectedClipboardTypes" :options="clipboardTypeOptions" />
+          </NFormItem>
+        </NCollapseTransition>
+
+        <!-- Default Programs (migrated from Basic) -->
+        <NDivider title-placement="left">{{ t('preferences.default-programs') }}</NDivider>
+        <NFormItem :label="t('preferences.protocol-magnet')">
+          <NSwitch
+            :value="protocolStatus.magnet"
+            :loading="protocolPending === 'magnet'"
+            @update:value="(value) => handleProtocolToggle('magnet', value)"
           />
-          <NButton
-            style="padding: 0 10px"
-            @click="copyToClipboard(form.extensionApiSecret, t('preferences.extension-api-secret'))"
-          >
-            <template #icon>
-              <NIcon :size="14"><CopyOutline /></NIcon>
-            </template>
-          </NButton>
-          <NButton style="padding: 0 10px" @click="onApiSecretDice">
-            <template #icon>
-              <NIcon :size="14"><DiceOutline /></NIcon>
-            </template>
-          </NButton>
-        </NInputGroup>
-      </NFormItem>
-      <NFormItem :show-label="false">
-        <div class="info-text">{{ t('preferences.extension-api-secret-tip') }}</div>
-      </NFormItem>
-
-      <NDivider title-placement="left">{{ t('preferences.rpc') }}</NDivider>
-      <NFormItem :label="t('preferences.rpc-listen-port')">
-        <NInputGroup>
-          <NInputNumber v-model:value="form.rpcListenPort" :min="1024" :max="65535" style="width: 160px" />
-          <NButton
-            style="padding: 0 10px"
-            @click="copyToClipboard(String(form.rpcListenPort), t('preferences.rpc-listen-port'))"
-          >
-            <template #icon>
-              <NIcon :size="14"><CopyOutline /></NIcon>
-            </template>
-          </NButton>
-          <NButton style="padding: 0 10px" @click="onRpcPortDice">
-            <template #icon>
-              <NIcon :size="14"><DiceOutline /></NIcon>
-            </template>
-          </NButton>
-        </NInputGroup>
-      </NFormItem>
-      <NFormItem :label="t('preferences.rpc-secret')" :validation-status="form.rpcSecret ? undefined : 'warning'">
-        <NInputGroup>
-          <NInput
-            v-model:value="form.rpcSecret"
-            type="password"
-            show-password-on="click"
-            :placeholder="t('preferences.rpc-secret')"
-            style="flex: 1"
-            :status="form.rpcSecret ? undefined : 'warning'"
+        </NFormItem>
+        <NFormItem :label="t('preferences.protocol-ed2k')">
+          <NSwitch
+            :value="protocolStatus.ed2k"
+            :loading="protocolPending === 'ed2k'"
+            @update:value="(value) => handleProtocolToggle('ed2k', value)"
           />
-          <NButton style="padding: 0 10px" @click="copyToClipboard(form.rpcSecret, t('preferences.rpc-secret'))">
-            <template #icon>
-              <NIcon :size="14"><CopyOutline /></NIcon>
-            </template>
-          </NButton>
-          <NButton style="padding: 0 10px" @click="onRpcSecretDice">
-            <template #icon>
-              <NIcon :size="14"><DiceOutline /></NIcon>
-            </template>
-          </NButton>
-        </NInputGroup>
-      </NFormItem>
-
-      <NDivider title-placement="left">{{ t('preferences.engine-section') }}</NDivider>
-      <NFormItem :label="t('preferences.aria2-conf-path')">
-        <NInputGroup>
-          <NInput :value="aria2ConfPath" readonly style="flex: 1" />
-          <NButton style="padding: 0 10px" @click="copyToClipboard(aria2ConfPath, t('preferences.aria2-conf-path'))">
-            <template #icon>
-              <NIcon :size="14"><CopyOutline /></NIcon>
-            </template>
-          </NButton>
-          <NButton style="padding: 0 10px" @click="handleRevealPath(aria2ConfPath)">
-            <template #icon>
-              <NIcon :size="14"><FolderOpenOutline /></NIcon>
-            </template>
-          </NButton>
-        </NInputGroup>
-      </NFormItem>
-      <NFormItem :label="t('preferences.session-path')">
-        <NInputGroup>
-          <NInput :value="sessionPath" readonly style="flex: 1" />
-          <NButton style="padding: 0 10px" @click="copyToClipboard(sessionPath, t('preferences.session-path'))">
-            <template #icon>
-              <NIcon :size="14"><CopyOutline /></NIcon>
-            </template>
-          </NButton>
-          <NButton style="padding: 0 10px" @click="handleRevealPath(sessionPath)">
-            <template #icon>
-              <NIcon :size="14"><FolderOpenOutline /></NIcon>
-            </template>
-          </NButton>
-        </NInputGroup>
-      </NFormItem>
-      <NFormItem :show-label="false">
-        <NButton class="ghost-btn--warning" ghost @click="handleSessionReset">
-          {{ t('preferences.clear-all-tasks') }}
-        </NButton>
-      </NFormItem>
-
-      <NDivider title-placement="left">{{ t('preferences.log-section') }}</NDivider>
-      <NFormItem :label="t('preferences.log-path')">
-        <NInputGroup>
-          <NInput :value="logPath" readonly style="flex: 1" />
-          <NButton style="padding: 0 10px" @click="copyToClipboard(logPath, t('preferences.log-path'))">
-            <template #icon>
-              <NIcon :size="14"><CopyOutline /></NIcon>
-            </template>
-          </NButton>
-          <NButton style="padding: 0 10px" @click="handleRevealPath(logPath)">
-            <template #icon>
-              <NIcon :size="14"><FolderOpenOutline /></NIcon>
-            </template>
-          </NButton>
-        </NInputGroup>
-      </NFormItem>
-      <NFormItem :label="t('preferences.log-level')">
-        <div class="log-level-row">
-          <NSelect v-model:value="form.logLevel" :options="logLevelOptions" style="width: 110px" />
-          <NButton class="ghost-btn--primary" ghost :loading="exportingLogs" @click="handleExportLogs">
-            <template #icon>
-              <NIcon><DownloadOutline /></NIcon>
-            </template>
-            {{ t('preferences.export-diagnostic-logs') }}
-          </NButton>
-          <NButton class="ghost-btn--danger" ghost @click="handleClearLog">
-            <template #icon>
-              <NIcon><TrashOutline /></NIcon>
-            </template>
-            {{ t('preferences.clear-log') }}
-          </NButton>
-        </div>
-      </NFormItem>
-
-      <NDivider title-placement="left">{{ t('preferences.history-section') }}</NDivider>
-      <NFormItem :show-label="false">
-        <NSpace>
-          <NButton class="db-integrity-check-btn" @click="handleDbIntegrityCheck">
-            {{ t('preferences.db-integrity-check') }}
-          </NButton>
-          <NButton class="db-browse-btn" @click="handleDbBrowse">
-            {{ t('preferences.db-browse') }}
-          </NButton>
-          <NButton class="ghost-btn--danger" ghost @click="handleDbReset">
-            {{ t('preferences.db-reset') }}
-          </NButton>
-        </NSpace>
-      </NFormItem>
-
-      <NDivider title-placement="left">{{ t('preferences.diagnostics-section') }}</NDivider>
-      <NFormItem v-if="isLinux" :label="t('preferences.hardware-rendering')">
-        <NSwitch v-model:value="form.hardwareRendering" />
-      </NFormItem>
-      <NFormItem v-if="isLinux" :show-label="false">
-        <div class="info-text">{{ t('preferences.hardware-rendering-hint') }}</div>
-      </NFormItem>
-      <NFormItem :show-label="false">
-        <NSpace>
-          <NButton class="open-config-folder-btn" @click="handleOpenConfigFolder">
-            <template #icon>
-              <NIcon :size="14"><FolderOpenOutline /></NIcon>
-            </template>
-            {{ t('preferences.open-config-folder') }}
-          </NButton>
-          <NButton class="ghost-btn--warning" ghost @click="handleRestoreDefaults">
-            {{ t('preferences.restore-defaults') }}
-          </NButton>
-          <NButton class="ghost-btn--danger" ghost @click="handleFactoryReset">
-            {{ t('preferences.factory-reset') }}
-          </NButton>
-        </NSpace>
-      </NFormItem>
-
-      <!-- Clipboard Detection (migrated from Basic) -->
-      <NDivider title-placement="left">{{ t('preferences.clipboard-detection') }}</NDivider>
-      <NFormItem :label="t('preferences.clipboard-auto-detect')">
-        <NSwitch v-model:value="form.clipboardEnable" />
-      </NFormItem>
-      <NCollapseTransition :show="form.clipboardEnable" class="collapse-indent">
-        <NFormItem :label="t('preferences.clipboard-http')">
-          <NSwitch v-model:value="form.clipboardHttp" />
         </NFormItem>
-        <NFormItem :label="t('preferences.clipboard-ftp')">
-          <NSwitch v-model:value="form.clipboardFtp" />
+        <NFormItem :label="t('preferences.protocol-thunder')">
+          <NSwitch
+            :value="protocolStatus.thunder"
+            :loading="protocolPending === 'thunder'"
+            @update:value="(value) => handleProtocolToggle('thunder', value)"
+          />
         </NFormItem>
-        <NFormItem :label="t('preferences.clipboard-magnet')">
-          <NSwitch v-model:value="form.clipboardMagnet" />
+        <NFormItem :label="t('preferences.protocol-motrixnext')">
+          <NSwitch
+            :value="protocolStatus.motrixnext"
+            :loading="protocolPending === 'motrixnext'"
+            @update:value="(value) => handleProtocolToggle('motrixnext', value)"
+          />
         </NFormItem>
-        <NFormItem :label="t('preferences.clipboard-thunder')">
-          <NSwitch v-model:value="form.clipboardThunder" />
-        </NFormItem>
-        <NFormItem :label="t('preferences.clipboard-bt-hash')">
-          <NSwitch v-model:value="form.clipboardBtHash" />
-        </NFormItem>
-      </NCollapseTransition>
-
-      <!-- Default Programs (migrated from Basic) -->
-      <NDivider title-placement="left">{{ t('preferences.default-programs') }}</NDivider>
-      <NFormItem :label="t('preferences.protocol-magnet')">
-        <NSwitch v-model:value="form.protocolMagnet" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.protocol-thunder')">
-        <NSwitch v-model:value="form.protocolThunder" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.protocol-motrixnext')">
-        <NSwitch v-model:value="form.protocolMotrixnext" />
-      </NFormItem>
-    </NForm>
+      </NForm>
+    </div>
 
     <!-- Database records viewer modal -->
-    <NModal
-      v-model:show="showDbBrowse"
-      preset="card"
-      :title="t('preferences.db-browse-title')"
-      style="width: 800px; max-width: 90vw"
-      :mask-closable="true"
-    >
-      <NDataTable
-        :columns="dbBrowseColumns"
-        :data="dbRecords"
-        :loading="dbRecordsLoading"
-        :max-height="400"
-        :scroll-x="700"
-        size="small"
-        striped
+    <NModal v-model:show="showDbBrowse" :mask-closable="true" transform-origin="center">
+      <NCard
+        :title="t('preferences.db-browse-title')"
+        closable
+        class="db-record-modal"
+        :bordered="false"
+        @close="showDbBrowse = false"
       >
-        <template #empty>
-          <NEmpty :description="t('preferences.db-record-count', { count: 0 })" />
-        </template>
-      </NDataTable>
-      <div v-if="dbRecords.length > 0" style="margin-top: 12px; text-align: right; opacity: 0.6; font-size: 13px">
-        {{ t('preferences.db-record-count', { count: dbRecords.length }) }}
-      </div>
+        <NDataTable
+          :columns="dbBrowseColumns"
+          :data="dbRecords"
+          :loading="dbRecordsLoading"
+          remote
+          :pagination="dbBrowsePagination"
+          :max-height="420"
+          :scroll-x="700"
+          size="small"
+          striped
+          @update:sorter="handleDbSorterChange"
+        >
+          <template #empty>
+            <NEmpty :description="t('preferences.db-record-count', { count: 0 })" />
+          </template>
+        </NDataTable>
+      </NCard>
     </NModal>
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
   </div>
 </template>
 
 <style scoped>
-.preference-form-wrapper {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-.form-preference {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 16px 30px 64px 36px;
-}
-.form-preference :deep(.n-form-item) {
-  padding-left: 50px;
-}
-.info-text {
-  color: var(--m3-on-surface-variant);
-  font-size: 12px;
-  max-width: 520px;
-  word-wrap: break-word;
-}
 .info-link {
-  color: var(--color-primary);
+  color: var(--m3-primary);
   text-decoration: none;
   font-size: 12px;
 }
@@ -677,7 +746,7 @@ onMounted(async () => {
   text-decoration: underline;
 }
 .action-link {
-  color: var(--color-primary);
+  color: var(--m3-primary);
   cursor: pointer;
   margin-left: 8px;
   font-size: 12px;
@@ -685,69 +754,48 @@ onMounted(async () => {
 .action-link:hover {
   text-decoration: underline;
 }
-.form-actions {
-  padding: 16px 24px 16px 40px;
-}
-
-/* ── Ghost button variants — shared tinted styles with M3 easing ──── */
-.ghost-btn--danger {
-  --btn-tint: var(--m3-error, #c97070);
-  color: var(--btn-tint) !important;
-  border-color: var(--btn-tint) !important;
-  transition:
-    color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.ghost-btn--danger:hover {
-  background-color: color-mix(in srgb, var(--btn-tint) 12%, transparent) !important;
-}
-.ghost-btn--danger :deep(.n-button__border),
-.ghost-btn--danger :deep(.n-button__state-border) {
-  border-color: var(--btn-tint) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-
-.ghost-btn--warning {
-  --btn-tint: var(--m3-tertiary, #c9a055);
-  color: var(--btn-tint) !important;
-  border-color: var(--btn-tint) !important;
-  transition:
-    color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.ghost-btn--warning:hover {
-  background-color: color-mix(in srgb, var(--btn-tint) 12%, transparent) !important;
-}
-.ghost-btn--warning :deep(.n-button__border),
-.ghost-btn--warning :deep(.n-button__state-border) {
-  border-color: var(--btn-tint) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-
-.ghost-btn--primary {
-  --btn-tint: var(--color-primary, #5b93d5);
-  color: var(--btn-tint) !important;
-  border-color: var(--btn-tint) !important;
-  transition:
-    color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.ghost-btn--primary:hover {
-  background-color: color-mix(in srgb, var(--btn-tint) 12%, transparent) !important;
-}
-.ghost-btn--primary :deep(.n-button__border),
-.ghost-btn--primary :deep(.n-button__state-border) {
-  border-color: var(--btn-tint) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-
-/* ── Log-level row — select + export button inline ───────────────── */
 .log-level-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+.db-record-modal {
+  width: min(760px, calc(100vw - 96px));
+  max-height: min(620px, calc(100vh - 96px));
+  display: flex;
+  flex-direction: column;
+}
+.db-record-modal :deep(.n-card__content) {
+  min-height: 0;
+  overflow: hidden;
+}
+.log-level-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.pref-control-log-level {
+  min-width: 100px;
+}
+.log-level-control__label {
+  color: var(--m3-on-surface);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.log-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.settings-backup-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
   gap: 12px;
   width: 100%;
 }
@@ -786,7 +834,7 @@ onMounted(async () => {
   padding: 8px 12px;
   margin-top: 6px;
   border-radius: var(--border-radius);
-  background: var(--m3-error-container-bg);
+  background: var(--m3-error-container);
   opacity: 0;
   transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
@@ -795,31 +843,8 @@ onMounted(async () => {
 }
 .ua-warn-text {
   font-size: var(--font-size-sm);
-  color: var(--m3-error);
+  color: var(--m3-on-error-container);
   flex: 1;
-}
-
-/* ── UA Reset — muted-rose ghost that highlights on hover ─────────── */
-.ua-reset-btn {
-  --btn-muted: #c97070;
-  color: var(--btn-muted) !important;
-  transition:
-    color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.ua-reset-btn:hover {
-  background-color: color-mix(in srgb, var(--btn-muted) 12%, transparent) !important;
-}
-.ua-reset-btn :deep(.n-button__border) {
-  border-color: var(--btn-muted) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.ua-reset-btn:hover :deep(.n-button__border) {
-  border-color: var(--btn-muted) !important;
-}
-.ua-reset-btn :deep(.n-button__state-border) {
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* ── Proxy collapse — CSS Grid 0fr→1fr for glitch-free height:auto ── */
@@ -833,10 +858,5 @@ onMounted(async () => {
 }
 .proxy-collapse__inner {
   overflow: hidden;
-}
-
-/* ── Collapse indent: subordinate toggle hierarchy ────────────────── */
-.form-preference :deep(.collapse-indent) {
-  margin-left: 16px;
 }
 </style>

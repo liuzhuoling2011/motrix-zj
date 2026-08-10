@@ -41,7 +41,7 @@ pub fn serialise(domain: &str, cookies: &[Cookie]) -> String {
         };
         let expires = c
             .expires_datetime()
-            .map(|dt| dt.unix_timestamp())
+            .map(tauri::webview::cookie::time::OffsetDateTime::unix_timestamp)
             .unwrap_or(0);
         out.push_str(&format!(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\n",

@@ -4,7 +4,7 @@
  * Tests REAL pure functions without mocking them:
  * - buildEngineOptions: form → aria2 options conversion
  * - classifySubmitError: error categorization
- * - submitBatchItems: batch routing to torrent/metalink stores
+ * - submitBatchItems: batch routing to torrent store
  * - submitManualUris: multi-URI handling with rename
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -16,7 +16,9 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({
+    t: (key: string, params?: Record<string, unknown>) => (params?.taskName ? `${key}:${params.taskName}` : key),
+  }),
 }))
 
 const mockRouterPush = vi.fn().mockResolvedValue(undefined)
@@ -47,14 +49,15 @@ const mockTaskStoreForHook = {
   addUri: vi.fn().mockResolvedValue(['gid1']),
   addMagnetUri: vi.fn().mockResolvedValue('magnet-gid'),
   addTorrent: vi.fn(),
-  addMetalink: vi.fn(),
   registerTorrentSource: vi.fn(),
 }
 
 const mockPreferenceStore = {
   config: {
     newTaskShowDownloading: true,
-    proxy: { enable: false, server: '', scope: [], bypass: '' },
+    proxy: { mode: 'direct', server: '', scope: [], bypass: '' },
+    fileCategoryEnabled: false,
+    fileCategories: [],
   },
 }
 
@@ -87,11 +90,9 @@ import {
   submitBatchItems,
   submitManualUris,
   useAddTaskSubmit,
-  isGlobalProxyConfigured,
-  isGlobalDownloadProxyActive,
   type AddTaskForm,
 } from '../useAddTaskSubmit'
-import type { BatchItem, Aria2EngineOptions, ProxyConfig } from '@shared/types'
+import type { BatchItem, Aria2EngineOptions } from '@shared/types'
 
 // ── buildEngineOptions ──────────────────────────────────────────────
 
@@ -105,8 +106,13 @@ describe('buildEngineOptions', () => {
     authorization: '',
     referer: '',
     cookie: '',
-    proxyMode: 'none',
+    cookiesFromBrowser: '',
+    httpAuthUsername: '',
+    httpAuthPassword: '',
+    saveHttpAuth: true,
+    proxyMode: 'direct',
     customProxy: '',
+    requestHeaders: [],
   }
 
   it('always includes dir and split', () => {
@@ -141,6 +147,44 @@ describe('buildEngineOptions', () => {
     expect(opts['user-agent']).toBe('MyUA/1.0')
   })
 
+  it('keeps plugin user-agent unless a matching saved rule overrides it', () => {
+    const form = {
+      ...baseForm,
+      defaultUserAgent: 'DefaultUA/1.0',
+      userAgentProfiles: [
+        { id: 'quark', name: 'Quark Drive', value: 'QuarkUA/1.0', createdAt: 1, updatedAt: 1 },
+        { id: 'baidu', name: 'Baidu Netdisk', value: 'BaiduUA/1.0', createdAt: 2, updatedAt: 2 },
+      ],
+      userAgentRules: [
+        {
+          id: 'quark-rule',
+          enabled: true,
+          hostPattern: '*.quark.cn',
+          profileId: 'quark',
+          overridePlugin: false,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+        {
+          id: 'baidu-rule',
+          enabled: true,
+          hostPattern: 'pan.baidu.com',
+          profileId: 'baidu',
+          overridePlugin: true,
+          createdAt: 2,
+          updatedAt: 2,
+        },
+      ],
+    }
+
+    expect(
+      buildEngineOptions(form, { url: 'https://cdn.quark.cn/file.zip', userAgent: 'BrowserUA/1.0' })['user-agent'],
+    ).toBe('BrowserUA/1.0')
+    expect(
+      buildEngineOptions(form, { url: 'https://pan.baidu.com/file.zip', userAgent: 'BrowserUA/1.0' })['user-agent'],
+    ).toBe('BaiduUA/1.0')
+  })
+
   it('includes referer when set', () => {
     const opts = buildEngineOptions({ ...baseForm, referer: 'https://r.com' })
     expect(opts.referer).toBe('https://r.com')
@@ -155,82 +199,171 @@ describe('buildEngineOptions', () => {
     expect(opts.header).toEqual(['Cookie: session=abc', 'Authorization: Bearer token'])
   })
 
+  it('merges sanitized browser request headers before explicit cookie and authorization', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      cookie: 'session=abc',
+      authorization: 'Bearer token',
+      requestHeaders: [
+        { name: 'Accept', value: 'application/octet-stream' },
+        { name: 'Accept-Language', value: 'en-US,en;q=0.9' },
+      ],
+    })
+
+    expect(opts.header).toEqual([
+      'Accept: application/octet-stream',
+      'Accept-Language: en-US,en;q=0.9',
+      'Cookie: session=abc',
+      'Authorization: Bearer token',
+    ])
+  })
+
+  it('drops unsafe, forbidden, duplicate, and overlong browser request headers', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      requestHeaders: [
+        { name: 'Accept', value: 'application/octet-stream' },
+        { name: 'Accept', value: 'text/html' },
+        { name: 'Host', value: 'example.com' },
+        { name: 'X-Evil', value: 'bad' },
+        { name: 'Origin', value: 'https://example.com\r\nInjected: bad' },
+        { name: 'DNT', value: '1' },
+        { name: 'Accept-Language', value: 'x'.repeat(8193) },
+      ],
+    })
+
+    expect(opts.header).toEqual(['Accept: application/octet-stream', 'DNT: 1'])
+  })
+
+  it('drops explicit header fields that contain CRLF instead of joining injected segments', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      userAgent: 'MyUA\r\nInjected: bad',
+      referer: 'https://r.com\n',
+      cookie: 'session=abc\r\nX-Evil: 1',
+      authorization: 'Bearer token\nAnother: bad',
+    })
+
+    expect(opts['user-agent']).toBeUndefined()
+    expect(opts.referer).toBeUndefined()
+    expect(opts.header).toBeUndefined()
+  })
+
+  it('builds HTTP Basic Auth options from form fields', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      httpAuthUsername: ' demo ',
+      httpAuthPassword: ' secret ',
+    })
+    expect(opts['http-user']).toBe('demo')
+    expect(opts['http-passwd']).toBe('secret')
+  })
+
+  it('trims clean explicit HTTP header values before building aria2 options', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      userAgent: ' MyUA ',
+      referer: ' https://r.com ',
+      cookie: ' session=abc ',
+      authorization: ' Bearer token ',
+    })
+
+    expect(opts['user-agent']).toBe('MyUA')
+    expect(opts.referer).toBe('https://r.com')
+    expect(opts.header).toEqual(['Cookie: session=abc', 'Authorization: Bearer token'])
+  })
+
   it('omits header when no cookie or auth', () => {
     const opts = buildEngineOptions(baseForm)
     expect(opts.header).toBeUndefined()
   })
 
-  // ── Proxy tri-state tests ──
+  // ── Proxy mode tests ──
 
-  it('sets all-proxy when proxyMode is global and globalProxyServer is provided', () => {
+  it('forces direct mode when proxyMode is direct', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      proxyMode: 'global',
-      globalProxyServer: 'http://127.0.0.1:7890',
+      proxyMode: 'direct',
     })
-    expect(opts['all-proxy']).toBe('http://127.0.0.1:7890')
-  })
-
-  it('sets all-proxy to empty string when proxyMode is none (clears global)', () => {
-    const opts = buildEngineOptions({
-      ...baseForm,
-      proxyMode: 'none',
-      globalProxyServer: 'http://127.0.0.1:7890',
-    })
+    expect(opts['proxy-mode']).toBeUndefined()
     expect(opts['all-proxy']).toBe('')
   })
 
-  it('sets all-proxy to empty string when proxyMode is global but server is empty', () => {
+  it('sets manual proxy options when proxyMode is manual with valid address', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      proxyMode: 'global',
-      globalProxyServer: '',
-    })
-    expect(opts['all-proxy']).toBe('')
-  })
-
-  it('sets all-proxy to empty string when proxyMode is global but server is undefined', () => {
-    const opts = buildEngineOptions({
-      ...baseForm,
-      proxyMode: 'global',
-    })
-    expect(opts['all-proxy']).toBe('')
-  })
-
-  it('sets all-proxy when proxyMode is custom with valid address', () => {
-    const opts = buildEngineOptions({
-      ...baseForm,
-      proxyMode: 'custom',
+      proxyMode: 'manual',
       customProxy: 'http://10.0.0.1:8080',
     })
+    expect(opts['proxy-mode']).toBeUndefined()
     expect(opts['all-proxy']).toBe('http://10.0.0.1:8080')
   })
 
-  it('sets all-proxy to empty string when proxyMode is custom but customProxy is empty', () => {
+  it('sets structured proxy authentication options for manual task proxy', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      proxyMode: 'custom',
+      proxyMode: 'manual',
+      customProxy: 'http://10.0.0.1:8080',
+      customProxyUsername: 'proxy-user',
+      customProxyPassword: 'proxy-pass',
+    })
+    expect(opts['all-proxy']).toBe('http://10.0.0.1:8080')
+    expect(opts['all-proxy-user']).toBe('proxy-user')
+    expect(opts['all-proxy-passwd']).toBe('proxy-pass')
+    expect(opts['http-user']).toBeUndefined()
+    expect(opts['http-passwd']).toBeUndefined()
+  })
+
+  it('falls back to direct when proxyMode is manual but customProxy is empty', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      proxyMode: 'manual',
       customProxy: '',
     })
+    expect(opts['proxy-mode']).toBeUndefined()
     expect(opts['all-proxy']).toBe('')
   })
 
-  it('clears all-proxy when proxyMode is none even with customProxy set', () => {
+  it('inherits the app download proxy when manual task proxy has no custom address', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      proxyMode: 'none',
+      proxyMode: 'manual',
+      customProxy: '',
+      appProxy: {
+        mode: 'manual',
+        server: 'http://127.0.0.1:7890',
+        username: 'global-user',
+        password: 'global-pass',
+        bypass: 'localhost;127.*',
+        scope: ['download'],
+      },
+    })
+    expect(opts['proxy-mode']).toBeUndefined()
+    expect(opts['all-proxy']).toBe('http://127.0.0.1:7890')
+    expect(opts['all-proxy-user']).toBe('global-user')
+    expect(opts['all-proxy-passwd']).toBe('global-pass')
+    expect(opts['no-proxy']).toBe('localhost;127.*')
+  })
+
+  it('does not send all-proxy when proxyMode is direct even with customProxy set', () => {
+    const opts = buildEngineOptions({
+      ...baseForm,
+      proxyMode: 'direct',
       customProxy: 'http://10.0.0.1:8080',
     })
+    expect(opts['proxy-mode']).toBeUndefined()
     expect(opts['all-proxy']).toBe('')
   })
 
-  it('handles proxy server with authentication credentials', () => {
+  it('does not treat userinfo in proxy server as the credential source', () => {
     const opts = buildEngineOptions({
       ...baseForm,
-      proxyMode: 'global',
-      globalProxyServer: 'http://user:pass@proxy.example.com:8080',
+      proxyMode: 'manual',
+      customProxy: 'http://user:pass@proxy.example.com:8080',
     })
     expect(opts['all-proxy']).toBe('http://user:pass@proxy.example.com:8080')
+    expect(opts['all-proxy-user']).toBeUndefined()
+    expect(opts['all-proxy-passwd']).toBeUndefined()
   })
 })
 
@@ -265,6 +398,10 @@ describe('classifySubmitError', () => {
   it('handles non-Error values', () => {
     expect(classifySubmitError('some string error')).toBe('generic')
   })
+
+  it('classifies duplicate Tauri AppError objects', () => {
+    expect(classifySubmitError({ Aria2: 'aria2 RPC error [1]: GID already exists' })).toBe('duplicate')
+  })
 })
 
 // ── submitBatchItems ────────────────────────────────────────────────
@@ -272,7 +409,6 @@ describe('classifySubmitError', () => {
 describe('submitBatchItems', () => {
   const mockTaskStore = {
     addTorrent: vi.fn().mockResolvedValue('gid1'),
-    addMetalink: vi.fn().mockResolvedValue(['gid2']),
     registerTorrentSource: vi.fn(),
   } as unknown as ReturnType<typeof import('@/stores/task').useTaskStore>
 
@@ -296,20 +432,6 @@ describe('submitBatchItems', () => {
     expect(items[0].status).toBe('submitted')
   })
 
-  it('submits metalink items via addMetalink', async () => {
-    const items: BatchItem[] = [
-      { id: 2, kind: 'metalink', source: 'b.meta4', payload: 'mlData', status: 'pending' } as unknown as BatchItem,
-    ]
-
-    await submitBatchItems(items, baseOptions, mockTaskStore)
-
-    expect(mockTaskStore.addMetalink).toHaveBeenCalledWith({
-      metalink: 'mlData',
-      options: expect.objectContaining({ dir: '/dl' }),
-    })
-    expect(items[0].status).toBe('submitted')
-  })
-
   it('skips URI items (handled separately)', async () => {
     const items: BatchItem[] = [
       {
@@ -324,10 +446,9 @@ describe('submitBatchItems', () => {
     await submitBatchItems(items, baseOptions, mockTaskStore)
 
     expect(mockTaskStore.addTorrent).not.toHaveBeenCalled()
-    expect(mockTaskStore.addMetalink).not.toHaveBeenCalled()
   })
 
-  it('removes out option for torrent/metalink items', async () => {
+  it('removes out option for torrent items', async () => {
     const items: BatchItem[] = [
       { id: 4, kind: 'torrent', source: 'c.torrent', payload: 'b64', status: 'pending' } as unknown as BatchItem,
     ]
@@ -372,6 +493,21 @@ describe('submitBatchItems', () => {
     expect(items[0].error).toBe('engine down')
   })
 
+  it('stores readable failure text for structured Tauri errors', async () => {
+    ;(mockTaskStore.addTorrent as ReturnType<typeof vi.fn>).mockRejectedValueOnce({
+      Aria2: 'aria2 RPC error [1]: Unsupported URI scheme',
+    })
+
+    const items: BatchItem[] = [
+      { id: 8, kind: 'torrent', source: 'e.torrent', payload: 'b64', status: 'pending' } as unknown as BatchItem,
+    ]
+
+    const failures = await submitBatchItems(items, baseOptions, mockTaskStore)
+
+    expect(failures).toBe(1)
+    expect(items[0].error).toBe('Aria2 Next error [1]: Unsupported URI scheme')
+  })
+
   it('skips already submitted items', async () => {
     const items: BatchItem[] = [
       { id: 7, kind: 'torrent', source: 'f.torrent', payload: 'b64', status: 'submitted' } as unknown as BatchItem,
@@ -387,7 +523,10 @@ describe('submitBatchItems', () => {
 describe('submitManualUris', () => {
   const mockTaskStore = {
     addUri: vi.fn().mockResolvedValue(['gid1']),
+    addUriAtomic: vi.fn().mockResolvedValue('atomic-gid'),
     addMagnetUri: vi.fn().mockResolvedValue('magnet-gid'),
+    addTorrent: vi.fn().mockResolvedValue('torrent-gid'),
+    registerTorrentSource: vi.fn(),
   } as unknown as ReturnType<typeof import('@/stores/task').useTaskStore>
 
   const baseForm: AddTaskForm = {
@@ -399,8 +538,13 @@ describe('submitManualUris', () => {
     authorization: '',
     referer: '',
     cookie: '',
-    proxyMode: 'none',
+    cookiesFromBrowser: '',
+    httpAuthUsername: '',
+    httpAuthPassword: '',
+    saveHttpAuth: true,
+    proxyMode: 'direct',
     customProxy: '',
+    requestHeaders: [],
   }
 
   beforeEach(() => {
@@ -420,6 +564,80 @@ describe('submitManualUris', () => {
     // Each URI produces an empty string (= let aria2 decide), not a flat []
     expect(call.outs).toEqual([''])
     expect(call.options).toEqual({ dir: '/dl' })
+  })
+
+  it('submits manual remote torrent URLs as ordinary URI downloads', async () => {
+    const { invoke } = await import('@tauri-apps/api/core')
+
+    await submitManualUris(
+      { ...baseForm, uris: 'https://example.com/linux.torrent?token=abc' },
+      { dir: '/dl' },
+      mockTaskStore,
+    )
+
+    expect(invoke).not.toHaveBeenCalledWith('fetch_remote_bytes', expect.anything())
+    expect(mockTaskStore.addTorrent).not.toHaveBeenCalled()
+    expect(mockTaskStore.addUri).toHaveBeenCalledWith({
+      uris: ['https://example.com/linux.torrent?token=abc'],
+      outs: [''],
+      options: { dir: '/dl' },
+    })
+  })
+
+  it('passes Thunder links to the engine for manual URI tasks', async () => {
+    const thunder = 'thunder://' + btoa('AAhttps://example.com/file.zipZZ')
+
+    await submitManualUris({ ...baseForm, uris: thunder }, { dir: '/dl' }, mockTaskStore)
+
+    const call = (mockTaskStore.addUri as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(call.uris).toEqual([thunder])
+    expect(call.outs).toEqual([''])
+  })
+
+  it('submits aria2 input-file out options as separate task options', async () => {
+    await submitManualUris(
+      {
+        ...baseForm,
+        uris: [
+          'https://example.com/index.html',
+          '  out=index1.html',
+          'https://example.com/index.html',
+          '  out=index2.html',
+        ].join('\n'),
+      },
+      { dir: '/dl' },
+      mockTaskStore,
+    )
+
+    expect(mockTaskStore.addUri).toHaveBeenCalledTimes(2)
+    expect(mockTaskStore.addUri).toHaveBeenNthCalledWith(1, {
+      uris: ['https://example.com/index.html'],
+      outs: ['index1.html'],
+      options: { dir: '/dl', out: 'index1.html' },
+      fileCategory: undefined,
+    })
+    expect(mockTaskStore.addUri).toHaveBeenNthCalledWith(2, {
+      uris: ['https://example.com/index.html'],
+      outs: ['index2.html'],
+      options: { dir: '/dl', out: 'index2.html' },
+      fileCategory: undefined,
+    })
+  })
+
+  it('submits tab-separated aria2 input-file mirrors as one atomic URI task', async () => {
+    await submitManualUris(
+      {
+        ...baseForm,
+        uris: 'https://a.example/file.zip\thttps://b.example/file.zip\n  out=file.zip\n  header=Accept-Language: en-US',
+      },
+      { dir: '/dl' },
+      mockTaskStore,
+    )
+
+    expect(mockTaskStore.addUriAtomic).toHaveBeenCalledWith({
+      uris: ['https://a.example/file.zip', 'https://b.example/file.zip'],
+      options: { dir: '/dl', out: 'file.zip', header: ['Accept-Language: en-US'] },
+    })
   })
 
   it('generates numbered outs for multi-URI with out specified', async () => {
@@ -460,6 +678,55 @@ describe('submitManualUris', () => {
     })
     const call = (mockTaskStore.addUri as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(call.outs).toEqual(['215.zip'])
+  })
+
+  it('passes referer and cookie to resolve_filename for authenticated extensionless URLs', async () => {
+    const { invoke } = await import('@tauri-apps/api/core')
+    ;(invoke as ReturnType<typeof vi.fn>).mockResolvedValueOnce('Итоги_2026.docx')
+
+    const result = await submitManualUris(
+      {
+        ...baseForm,
+        uris: 'https://mail-attachment.googleusercontent.com/attachment/u/0/',
+        referer: 'https://mail.google.com/mail/u/0/#inbox',
+        cookie: 'COMPASS=gmail=abc',
+      },
+      { dir: '/dl', referer: 'https://mail.google.com/mail/u/0/#inbox', header: ['Cookie: COMPASS=gmail=abc'] },
+      mockTaskStore,
+    )
+
+    expect(invoke).toHaveBeenCalledWith('resolve_filename', {
+      url: 'https://mail-attachment.googleusercontent.com/attachment/u/0/',
+      proxy: null,
+      referer: 'https://mail.google.com/mail/u/0/#inbox',
+      cookie: 'COMPASS=gmail=abc',
+    })
+    const call = (mockTaskStore.addUri as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(call.outs).toEqual(['Итоги_2026.docx'])
+    expect(result.submittedTaskNames).toEqual(['Итоги_2026.docx'])
+  })
+
+  it('sanitizes referer and cookie before passing them to resolve_filename', async () => {
+    const { invoke } = await import('@tauri-apps/api/core')
+    ;(invoke as ReturnType<typeof vi.fn>).mockResolvedValueOnce('safe.zip')
+
+    await submitManualUris(
+      {
+        ...baseForm,
+        uris: 'https://example.com/download',
+        referer: 'https://example.com/\r\nInjected: bad',
+        cookie: 'session=abc\nX-Evil: 1',
+      },
+      { dir: '/dl' },
+      mockTaskStore,
+    )
+
+    expect(invoke).toHaveBeenCalledWith('resolve_filename', {
+      url: 'https://example.com/download',
+      proxy: null,
+      referer: 'https://example.com/Injected: bad',
+      cookie: 'session=abcX-Evil: 1',
+    })
   })
 
   it('does not include magnet URIs in regular addUri call (they use separate addMagnetUri path)', async () => {
@@ -503,6 +770,7 @@ describe('submitManualUris', () => {
     )
 
     expect(result).toEqual({
+      submittedTaskNames: [],
       magnetGids: ['magnet-gid-1'],
       magnetFailures: [{ uri: 'magnet:?xt=urn:btih:bad', error: 'invalid magnet' }],
     })
@@ -519,14 +787,21 @@ describe('useAddTaskSubmit', () => {
     authorization: '',
     referer: '',
     cookie: '',
-    proxyMode: 'none',
+    cookiesFromBrowser: '',
+    httpAuthUsername: '',
+    httpAuthPassword: '',
+    saveHttpAuth: true,
+    proxyMode: 'direct',
     customProxy: '',
+    requestHeaders: [],
   }
 
   beforeEach(() => {
     vi.clearAllMocks()
     mockAppStore.pendingBatch = []
     mockPreferenceStore.config.newTaskShowDownloading = true
+    mockPreferenceStore.config.fileCategoryEnabled = false
+    mockPreferenceStore.config.fileCategories = []
   })
 
   it('keeps AddTask open when a magnet submission fails', async () => {
@@ -544,90 +819,41 @@ describe('useAddTaskSubmit', () => {
     expect(mockMessage.warning).toHaveBeenCalledWith('1 task.failed', { closable: true })
     expect(mockRouterPush).not.toHaveBeenCalled()
   })
-})
 
-// ── isGlobalProxyConfigured ─────────────────────────────────────────
+  it('shows readable toast text for structured Tauri add-uri errors', async () => {
+    mockTaskStoreForHook.addUri.mockRejectedValueOnce({
+      Aria2: 'aria2 RPC error [1]: Unsupported URI scheme',
+    })
+    const onClose = vi.fn()
 
-describe('isGlobalProxyConfigured', () => {
-  it('returns true when proxy is enabled and server is non-empty', () => {
-    const proxy: ProxyConfig = { enable: true, server: 'http://127.0.0.1:7890' }
-    expect(isGlobalProxyConfigured(proxy)).toBe(true)
+    const { handleSubmit } = useAddTaskSubmit({
+      form: ref({ ...baseForm, uris: '23222233' }),
+      onClose,
+    })
+
+    await handleSubmit()
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(mockMessage.error).toHaveBeenCalledWith('task.error-aria2-next [1]: Unsupported URI scheme', {
+      closable: true,
+    })
   })
 
-  it('returns false when proxy is disabled', () => {
-    const proxy: ProxyConfig = { enable: false, server: 'http://127.0.0.1:7890' }
-    expect(isGlobalProxyConfigured(proxy)).toBe(false)
-  })
+  it('uses the resolved output filename in the start toast for extensionless URLs', async () => {
+    const { invoke } = await import('@tauri-apps/api/core')
+    ;(invoke as ReturnType<typeof vi.fn>).mockResolvedValueOnce('ИТОГИ ЛДУ 2026.xlsx')
+    const onClose = vi.fn()
 
-  it('returns false when server is empty', () => {
-    const proxy: ProxyConfig = { enable: true, server: '' }
-    expect(isGlobalProxyConfigured(proxy)).toBe(false)
-  })
+    const { handleSubmit } = useAddTaskSubmit({
+      form: ref({
+        ...baseForm,
+        uris: 'http://127.0.0.1:18080/attachment/u/0/?ui=2&disp=safe',
+      }),
+      onClose,
+    })
 
-  it('returns false when server is whitespace-only', () => {
-    const proxy: ProxyConfig = { enable: true, server: '   ' }
-    expect(isGlobalProxyConfigured(proxy)).toBe(false)
-  })
+    await handleSubmit()
 
-  it('returns false when both disabled and empty server', () => {
-    const proxy: ProxyConfig = { enable: false, server: '' }
-    expect(isGlobalProxyConfigured(proxy)).toBe(false)
-  })
-})
-
-// ── isGlobalDownloadProxyActive ─────────────────────────────────────
-
-describe('isGlobalDownloadProxyActive', () => {
-  it('returns true when proxy enabled, server set, and scope includes download', () => {
-    const proxy: ProxyConfig = {
-      enable: true,
-      server: 'http://proxy:8080',
-      scope: ['download', 'update-app'],
-    }
-    expect(isGlobalDownloadProxyActive(proxy)).toBe(true)
-  })
-
-  it('returns false when scope does not include download', () => {
-    const proxy: ProxyConfig = {
-      enable: true,
-      server: 'http://proxy:8080',
-      scope: ['update-app', 'update-trackers'],
-    }
-    expect(isGlobalDownloadProxyActive(proxy)).toBe(false)
-  })
-
-  it('returns false when proxy is disabled', () => {
-    const proxy: ProxyConfig = {
-      enable: false,
-      server: 'http://proxy:8080',
-      scope: ['download'],
-    }
-    expect(isGlobalDownloadProxyActive(proxy)).toBe(false)
-  })
-
-  it('returns false when server is empty', () => {
-    const proxy: ProxyConfig = {
-      enable: true,
-      server: '',
-      scope: ['download'],
-    }
-    expect(isGlobalDownloadProxyActive(proxy)).toBe(false)
-  })
-
-  it('returns false when scope is undefined', () => {
-    const proxy: ProxyConfig = {
-      enable: true,
-      server: 'http://proxy:8080',
-    }
-    expect(isGlobalDownloadProxyActive(proxy)).toBe(false)
-  })
-
-  it('returns false when scope is empty array', () => {
-    const proxy: ProxyConfig = {
-      enable: true,
-      server: 'http://proxy:8080',
-      scope: [],
-    }
-    expect(isGlobalDownloadProxyActive(proxy)).toBe(false)
+    expect(mockMessage.info).toHaveBeenCalledWith('task.download-start-message:ИТОГИ ЛДУ 2026.xlsx')
   })
 })

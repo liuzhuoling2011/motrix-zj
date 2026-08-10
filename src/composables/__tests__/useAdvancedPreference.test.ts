@@ -12,125 +12,20 @@ import {
   transformAdvancedForStore,
   validateAdvancedForm,
   isValidAria2ProxyUrl,
-  isValidTrackerSourceUrl,
   randomRpcPort,
-  randomBtPort,
-  randomDhtPort,
   type AdvancedForm,
 } from '../useAdvancedPreference'
-import { ENGINE_RPC_PORT, PROXY_SCOPES, PROXY_SCOPE_OPTIONS, DEFAULT_APP_CONFIG } from '@shared/constants'
+import {
+  ENGINE_RPC_PORT,
+  PROXY_SCOPES,
+  PROXY_SCOPE_OPTIONS,
+  DEFAULT_APP_CONFIG,
+  PORT_RECOVERY_RANGE_START,
+  PORT_RECOVERY_RANGE_END,
+} from '@shared/constants'
 import { diffConfig } from '@shared/utils/config'
+import { createDefaultAppConfig } from '@shared/utils/configHydration'
 import type { AppConfig } from '@shared/types'
-
-// ── isValidTrackerSourceUrl ─────────────────────────────────────────
-
-describe('isValidTrackerSourceUrl', () => {
-  // ── Valid URLs ────────────────────────────────────────────────────
-
-  it('accepts HTTPS URL', () => {
-    expect(isValidTrackerSourceUrl('https://trackers.run/s/wp_up_hp_hs_v4_v6.txt')).toBe(true)
-  })
-
-  it('accepts HTTP URL', () => {
-    expect(isValidTrackerSourceUrl('http://example.com/trackers.txt')).toBe(true)
-  })
-
-  it('accepts HTTPS URL with path, query, and fragment', () => {
-    expect(isValidTrackerSourceUrl('https://cdn.jsdelivr.net/gh/ngosang/trackerslist/trackers_best.txt?v=2#top')).toBe(
-      true,
-    )
-  })
-
-  it('accepts URL with port number', () => {
-    expect(isValidTrackerSourceUrl('https://trackers.example.com:8443/list.txt')).toBe(true)
-  })
-
-  it('accepts URL with authentication', () => {
-    expect(isValidTrackerSourceUrl('https://user:pass@trackers.example.com/list.txt')).toBe(true)
-  })
-
-  // ── Trimming ─────────────────────────────────────────────────────
-
-  it('accepts URL with leading/trailing whitespace (trimmed)', () => {
-    expect(isValidTrackerSourceUrl('  https://trackers.run/list.txt  ')).toBe(true)
-  })
-
-  // ── Invalid protocols ────────────────────────────────────────────
-
-  it('rejects FTP URL', () => {
-    expect(isValidTrackerSourceUrl('ftp://files.example.com/trackers.txt')).toBe(false)
-  })
-
-  it('rejects UDP URL', () => {
-    expect(isValidTrackerSourceUrl('udp://tracker.example.com:6969/announce')).toBe(false)
-  })
-
-  it('rejects WSS URL', () => {
-    expect(isValidTrackerSourceUrl('wss://tracker.example.com/announce')).toBe(false)
-  })
-
-  it('rejects magnet link', () => {
-    expect(isValidTrackerSourceUrl('magnet:?xt=urn:btih:abc')).toBe(false)
-  })
-
-  it('rejects file URL', () => {
-    expect(isValidTrackerSourceUrl('file:///etc/trackers.txt')).toBe(false)
-  })
-
-  // ── Malformed input ──────────────────────────────────────────────
-
-  it('rejects plain text', () => {
-    expect(isValidTrackerSourceUrl('not-a-url')).toBe(false)
-  })
-
-  it('rejects empty string', () => {
-    expect(isValidTrackerSourceUrl('')).toBe(false)
-  })
-
-  it('rejects whitespace-only string', () => {
-    expect(isValidTrackerSourceUrl('   ')).toBe(false)
-  })
-
-  it('rejects URL without scheme', () => {
-    expect(isValidTrackerSourceUrl('trackers.run/list.txt')).toBe(false)
-  })
-
-  it('rejects string with only scheme', () => {
-    expect(isValidTrackerSourceUrl('https://')).toBe(false)
-  })
-})
-
-// ── buildAdvancedForm — custom tracker source URLs ──────────────────
-
-describe('buildAdvancedForm — custom tracker source URLs', () => {
-  it('preserves custom tracker source URLs alongside preset ones', () => {
-    const customUrl = 'https://trackers.run/s/wp_up_hp_hs_v4_v6.txt'
-    const presetUrl = 'https://cdn.jsdelivr.net/gh/ngosang/trackerslist/trackers_best.txt'
-    const config = {
-      ...DEFAULT_APP_CONFIG,
-      trackerSource: [presetUrl, customUrl],
-    } as AppConfig
-    const { form } = buildAdvancedForm(config)
-    expect(form.trackerSource).toHaveLength(2)
-    expect(form.trackerSource).toContain(presetUrl)
-    expect(form.trackerSource).toContain(customUrl)
-  })
-
-  it('preserves only custom URLs when no presets selected', () => {
-    const config = {
-      ...DEFAULT_APP_CONFIG,
-      trackerSource: ['https://my-tracker.example.com/list.txt'],
-    } as AppConfig
-    const { form } = buildAdvancedForm(config)
-    expect(form.trackerSource).toEqual(['https://my-tracker.example.com/list.txt'])
-  })
-
-  it('preserves empty trackerSource array', () => {
-    const config = { ...DEFAULT_APP_CONFIG, trackerSource: [] as string[] } as AppConfig
-    const { form } = buildAdvancedForm(config)
-    expect(form.trackerSource).toEqual([])
-  })
-})
 
 // ── generateSecret ──────────────────────────────────────────────────
 
@@ -160,55 +55,52 @@ describe('buildAdvancedForm', () => {
 
   it('returns defaults for empty config', () => {
     const { form } = buildAdvancedForm(emptyConfig)
-    expect(form.proxy.enable).toBe(false)
+    expect(form.proxy.mode).toBe('direct')
     expect(form.proxy.server).toBe('')
     // Default scope must include ALL scopes so proxy works on first enable
     // (legacy Motrix behavior — scope defaults to PROXY_SCOPE_OPTIONS)
     expect(form.proxy.scope).toEqual(expect.arrayContaining([PROXY_SCOPES.DOWNLOAD]))
     expect(form.proxy.scope).toHaveLength(PROXY_SCOPE_OPTIONS.length)
     expect(form.rpcListenPort).toBe(ENGINE_RPC_PORT)
-    expect(form.listenPort).toBe(21301)
-    expect(form.dhtListenPort).toBe(26701)
-    expect(form.logLevel).toBe('debug')
+    expect(form.allowRemoteAccess).toBe(false)
+    expect(form.logLevel).toBe('warn')
+    expect(form.aria2LogLevel).toBe('warn')
     expect(form.enableUpnp).toBe(true)
   })
 
-  it('generates a secret and flags it when none exists', () => {
-    const { form, generatedSecret } = buildAdvancedForm(emptyConfig)
-    expect(form.rpcSecret).toHaveLength(16)
-    expect(generatedSecret).toBe(form.rpcSecret)
+  it('uses the runtime secrets already created by config hydration', () => {
+    const config = createDefaultAppConfig()
+    const { form } = buildAdvancedForm(config)
+    expect(form.rpcSecret).toBe(config.rpcSecret)
+    expect(form.extensionApiSecret).toBe(config.extensionApiSecret)
   })
 
   it('uses existing secret and does not flag it', () => {
     const config = { rpcSecret: 'myExistingSecret' } as AppConfig
-    const { form, generatedSecret } = buildAdvancedForm(config)
+    const { form } = buildAdvancedForm(config)
     expect(form.rpcSecret).toBe('myExistingSecret')
-    expect(generatedSecret).toBeNull()
   })
 
   it('preserves explicitly empty secret without regenerating', () => {
     const config = { rpcSecret: '' } as AppConfig
-    const { form, generatedSecret } = buildAdvancedForm(config)
+    const { form } = buildAdvancedForm(config)
     expect(form.rpcSecret).toBe('')
-    expect(generatedSecret).toBeNull()
   })
 
   it('preserves proxy configuration', () => {
     const config = {
-      proxy: { enable: true, server: 'socks5://127.0.0.1:1080', bypass: '*.local', scope: ['download'] },
+      proxy: {
+        mode: 'manual',
+        server: 'socks5://127.0.0.1:1080',
+        bypass: '*.local',
+        scope: ['download'],
+      },
     } as AppConfig
     const { form } = buildAdvancedForm(config)
-    expect(form.proxy.enable).toBe(true)
+    expect(form.proxy.mode).toBe('manual')
     expect(form.proxy.server).toBe('socks5://127.0.0.1:1080')
     expect(form.proxy.bypass).toBe('*.local')
     expect(form.proxy.scope).toEqual(['download'])
-  })
-
-  it('converts comma-separated trackers to newline format', () => {
-    const config = { btTracker: 'udp://t1.org:6969,udp://t2.org:6969' } as AppConfig
-    const { form } = buildAdvancedForm(config)
-    expect(form.btTracker).toContain('\n')
-    expect(form.btTracker).toContain('udp://t1.org:6969')
   })
 
   it('handles enableUpnp=false explicitly', () => {
@@ -216,45 +108,35 @@ describe('buildAdvancedForm', () => {
     const { form } = buildAdvancedForm(config)
     expect(form.enableUpnp).toBe(false)
   })
-
-  it('coerces string port values to numbers', () => {
-    const config = { listenPort: '12345' as unknown, dhtListenPort: '54321' as unknown } as AppConfig
-    const { form } = buildAdvancedForm(config)
-    expect(form.listenPort).toBe(12345)
-    expect(form.dhtListenPort).toBe(54321)
-  })
 })
 
 // ── buildAdvancedSystemConfig ───────────────────────────────────────
 
 describe('buildAdvancedSystemConfig', () => {
   const baseForm: AdvancedForm = {
-    proxy: { enable: false, server: '', bypass: '', scope: [] },
-    trackerSource: [],
-    customTrackerUrls: [],
-    btTracker: 'udp://t1.org:6969\nudp://t2.org:6969',
-    autoSyncTracker: false,
-    lastSyncTrackerTime: 0,
-    rpcListenPort: 16800,
+    proxy: { mode: 'direct', server: '', bypass: '', scope: [] },
+    rpcListenPort: 29100,
     rpcSecret: 'testSecret',
     enableUpnp: true,
-    listenPort: 21301,
-    dhtListenPort: 26701,
     userAgent: '',
     logLevel: 'warn',
+    aria2LogLevel: 'info',
+    tempFilesDir: '',
     hardwareRendering: false,
-    extensionApiPort: 16801,
+    extensionApiPort: 29110,
     extensionApiSecret: 'test-api-secret',
+    allowRemoteAccess: false,
     autoSubmitFromExtension: false,
+    autoSelectAllBtFilesFromExtension: false,
+    silentAutoSubmitFromExtension: true,
+    autoChangeConflictingPorts: true,
     clipboardEnable: true,
     clipboardHttp: true,
     clipboardFtp: false,
     clipboardMagnet: true,
+    clipboardEd2k: true,
     clipboardThunder: false,
     clipboardBtHash: true,
-    protocolMagnet: false,
-    protocolThunder: false,
-    protocolMotrixnext: true,
     connectTimeout: 60,
     timeout: 60,
     fileAllocation: 'prealloc',
@@ -262,51 +144,55 @@ describe('buildAdvancedSystemConfig', () => {
 
   it('maps all required aria2 config keys', () => {
     const config = buildAdvancedSystemConfig(baseForm)
-    expect(config['rpc-listen-port']).toBe('16800')
+    expect(config['rpc-listen-port']).toBe('29100')
+    expect(config['allow-remote-access']).toBe('false')
     expect(config['rpc-secret']).toBe('testSecret')
-    expect(config['enable-dht']).toBe('true')
-    expect(config['enable-peer-exchange']).toBe('true')
-    expect(config['listen-port']).toBe('21301')
-    expect(config['dht-listen-port']).toBe('26701')
-    expect(config['log-level']).toBe('warn')
+    expect(config).not.toHaveProperty('enable-dht')
+    expect(config).not.toHaveProperty('enable-peer-exchange')
+    expect(config).not.toHaveProperty('listen-port')
+    expect(config).not.toHaveProperty('dht-listen-port')
+    expect(config).not.toHaveProperty('log-level')
   })
 
-  it('converts newline trackers to comma-separated', () => {
-    const config = buildAdvancedSystemConfig(baseForm)
-    expect(config['bt-tracker']).toBe('udp://t1.org:6969,udp://t2.org:6969')
+  it('enables remote access only when requested', () => {
+    const config = buildAdvancedSystemConfig({ ...baseForm, allowRemoteAccess: true })
+    expect(config['allow-remote-access']).toBe('true')
   })
 
-  it('sets proxy when enabled for downloads', () => {
+  it('sets manual proxy options when enabled for downloads', () => {
     const proxyForm: AdvancedForm = {
       ...baseForm,
       proxy: {
-        enable: true,
+        mode: 'manual',
         server: 'http://proxy:8080',
         bypass: '*.local',
         scope: [PROXY_SCOPES.DOWNLOAD],
       },
     }
     const config = buildAdvancedSystemConfig(proxyForm)
+    expect(config['proxy-mode']).toBeUndefined()
     expect(config['all-proxy']).toBe('http://proxy:8080')
     expect(config['no-proxy']).toBe('*.local')
   })
 
-  it('clears proxy when not enabled for downloads', () => {
+  it('clears proxy options when download scope is excluded', () => {
     const noProxyForm: AdvancedForm = {
       ...baseForm,
-      proxy: { enable: true, server: 'http://proxy:8080', bypass: '*.local', scope: ['app'] },
+      proxy: { mode: 'manual', server: 'http://proxy:8080', bypass: '*.local', scope: ['app'] },
     }
     const config = buildAdvancedSystemConfig(noProxyForm)
+    expect(config['proxy-mode']).toBeUndefined()
     expect(config['all-proxy']).toBe('')
     expect(config['no-proxy']).toBe('')
   })
 
-  it('clears proxy when proxy is disabled', () => {
+  it('clears proxy options when proxy is direct', () => {
     const disabledForm: AdvancedForm = {
       ...baseForm,
-      proxy: { enable: false, server: 'http://proxy:8080', bypass: '', scope: [PROXY_SCOPES.DOWNLOAD] },
+      proxy: { mode: 'direct', server: 'http://proxy:8080', bypass: '', scope: [PROXY_SCOPES.DOWNLOAD] },
     }
     const config = buildAdvancedSystemConfig(disabledForm)
+    expect(config['proxy-mode']).toBeUndefined()
     expect(config['all-proxy']).toBe('')
   })
 })
@@ -314,88 +200,58 @@ describe('buildAdvancedSystemConfig', () => {
 // ── transformAdvancedForStore ────────────────────────────────────────
 
 describe('transformAdvancedForStore', () => {
-  it('converts trackers back to comma format', () => {
+  it('persists ED2K clipboard toggle', () => {
     const form: AdvancedForm = {
-      proxy: { enable: false, server: '', bypass: '', scope: [] },
-      trackerSource: [],
-      customTrackerUrls: [],
-      btTracker: 'udp://a\nudp://b',
-      autoSyncTracker: false,
-      lastSyncTrackerTime: 0,
-      rpcListenPort: 16800,
+      proxy: { mode: 'direct', server: '', bypass: '', scope: [] },
+      rpcListenPort: 29100,
       rpcSecret: 'x',
       enableUpnp: true,
-      listenPort: 21301,
-      dhtListenPort: 26701,
       userAgent: '',
       logLevel: 'warn',
+      aria2LogLevel: 'info',
+      tempFilesDir: '',
       hardwareRendering: false,
-      extensionApiPort: 16801,
+      extensionApiPort: 29110,
       extensionApiSecret: 'test-api-secret',
+      allowRemoteAccess: false,
       autoSubmitFromExtension: false,
+      autoSelectAllBtFilesFromExtension: false,
+      silentAutoSubmitFromExtension: true,
+      autoChangeConflictingPorts: true,
       clipboardEnable: true,
       clipboardHttp: true,
       clipboardFtp: false,
       clipboardMagnet: true,
+      clipboardEd2k: false,
       clipboardThunder: false,
       clipboardBtHash: true,
-      protocolMagnet: false,
-      protocolThunder: false,
-      protocolMotrixnext: true,
       connectTimeout: 60,
       timeout: 60,
       fileAllocation: 'prealloc',
     }
+
     const result = transformAdvancedForStore(form)
-    expect(result.btTracker).toBe('udp://a,udp://b')
+
+    expect(result.clipboard).toMatchObject({ ed2k: false })
   })
 
-  it('preserves port numbers as numbers (not strings)', () => {
-    const form: AdvancedForm = {
-      proxy: { enable: false, server: '', bypass: '', scope: [] },
-      trackerSource: [],
-      customTrackerUrls: [],
-      btTracker: '',
-      autoSyncTracker: false,
-      lastSyncTrackerTime: 0,
-      rpcListenPort: 16800,
-      rpcSecret: 'x',
-      enableUpnp: true,
-      listenPort: 21301,
-      dhtListenPort: 26701,
-      userAgent: '',
-      logLevel: 'warn',
-      hardwareRendering: false,
-      extensionApiPort: 16801,
-      extensionApiSecret: 'test-api-secret',
-      autoSubmitFromExtension: false,
-      clipboardEnable: true,
-      clipboardHttp: true,
-      clipboardFtp: false,
-      clipboardMagnet: true,
-      clipboardThunder: false,
-      clipboardBtHash: true,
-      protocolMagnet: false,
-      protocolThunder: false,
-      protocolMotrixnext: true,
-      connectTimeout: 60,
-      timeout: 60,
-      fileAllocation: 'prealloc',
-    }
+  it('preserves automatic conflicting port switching preference', () => {
+    const form = buildAdvancedForm({ ...createDefaultAppConfig(), autoChangeConflictingPorts: false } as AppConfig).form
     const result = transformAdvancedForStore(form)
-    expect(result.listenPort).toBe(21301)
-    expect(typeof result.listenPort).toBe('number')
-    expect(result.dhtListenPort).toBe(26701)
-    expect(typeof result.dhtListenPort).toBe('number')
+    expect(result.autoChangeConflictingPorts).toBe(false)
+  })
+
+  it('preserves remote access preference', () => {
+    const form = buildAdvancedForm({ ...createDefaultAppConfig(), allowRemoteAccess: true } as AppConfig).form
+    const result = transformAdvancedForStore(form)
+    expect(result.allowRemoteAccess).toBe(true)
   })
 
   it('round-trip: buildAdvancedForm → transformAdvancedForStore produces no phantom diff', () => {
     // This is the exact scenario that caused the bug: config → form → store → diffConfig
     // should report ZERO changes when the user didn't touch anything.
     const config = {
-      listenPort: 21301,
-      dhtListenPort: 26701,
-      rpcListenPort: 16800,
+      rpcListenPort: 29100,
       rpcSecret: 'existingSecret',
       enableUpnp: false,
     } as AppConfig
@@ -403,8 +259,6 @@ describe('transformAdvancedForStore', () => {
     const stored = transformAdvancedForStore(form)
     const diff = diffConfig(config as Record<string, unknown>, stored)
     // None of the restart-relevant keys should appear in the diff
-    expect(diff).not.toHaveProperty('listenPort')
-    expect(diff).not.toHaveProperty('dhtListenPort')
     expect(diff).not.toHaveProperty('rpcListenPort')
     expect(diff).not.toHaveProperty('rpcSecret')
   })
@@ -486,32 +340,29 @@ describe('isValidAria2ProxyUrl', () => {
 
 describe('validateAdvancedForm', () => {
   const validForm: AdvancedForm = {
-    proxy: { enable: false, server: '', bypass: '', scope: [] },
-    trackerSource: [],
-    customTrackerUrls: [],
-    btTracker: '',
-    autoSyncTracker: false,
-    lastSyncTrackerTime: 0,
-    rpcListenPort: 16800,
+    proxy: { mode: 'direct', server: '', bypass: '', scope: [] },
+    rpcListenPort: 29100,
     rpcSecret: 'validSecret',
     enableUpnp: true,
-    listenPort: 21301,
-    dhtListenPort: 26701,
     userAgent: '',
     logLevel: 'warn',
+    aria2LogLevel: 'info',
+    tempFilesDir: '',
     hardwareRendering: false,
-    extensionApiPort: 16801,
+    extensionApiPort: 29110,
     extensionApiSecret: 'test-api-secret',
+    allowRemoteAccess: false,
     autoSubmitFromExtension: false,
+    autoSelectAllBtFilesFromExtension: false,
+    silentAutoSubmitFromExtension: true,
+    autoChangeConflictingPorts: true,
     clipboardEnable: true,
     clipboardHttp: true,
     clipboardFtp: false,
     clipboardMagnet: true,
+    clipboardEd2k: true,
     clipboardThunder: false,
     clipboardBtHash: true,
-    protocolMagnet: false,
-    protocolThunder: false,
-    protocolMotrixnext: true,
     connectTimeout: 60,
     timeout: 60,
     fileAllocation: 'prealloc',
@@ -525,56 +376,61 @@ describe('validateAdvancedForm', () => {
     expect(validateAdvancedForm({ ...validForm, rpcSecret: '' })).toBeNull()
   })
 
-  it('returns null for valid proxy URL when proxy enabled', () => {
+  it('allows remote access with empty secrets', () => {
+    expect(validateAdvancedForm({ ...validForm, allowRemoteAccess: true, rpcSecret: '' })).toBeNull()
+    expect(validateAdvancedForm({ ...validForm, allowRemoteAccess: true, extensionApiSecret: '' })).toBeNull()
+  })
+
+  it('returns null for valid proxy URL in manual mode', () => {
     expect(
       validateAdvancedForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: 'http://proxy.example.com:8080' },
+        proxy: { ...validForm.proxy, mode: 'manual', server: 'http://proxy.example.com:8080' },
       }),
     ).toBeNull()
   })
 
-  it('returns invalid-proxy-url for malformed URL when proxy enabled', () => {
+  it('returns invalid-proxy-url for malformed URL in manual mode', () => {
     expect(
       validateAdvancedForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: 'http://:invalid:url:' },
+        proxy: { ...validForm.proxy, mode: 'manual', server: 'http://:invalid:url:' },
       }),
     ).toBe('preferences.invalid-proxy-url')
   })
 
-  it('returns proxy-unsupported-protocol for socks5 when proxy enabled', () => {
+  it('returns proxy-unsupported-protocol for socks5 in manual mode', () => {
     expect(
       validateAdvancedForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: 'socks5://127.0.0.1:1080' },
+        proxy: { ...validForm.proxy, mode: 'manual', server: 'socks5://127.0.0.1:1080' },
       }),
     ).toBe('preferences.proxy-unsupported-protocol')
   })
 
-  it('returns proxy-unsupported-protocol for socks4 when proxy enabled', () => {
+  it('returns proxy-unsupported-protocol for socks4 in manual mode', () => {
     expect(
       validateAdvancedForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: 'socks4://127.0.0.1:1080' },
+        proxy: { ...validForm.proxy, mode: 'manual', server: 'socks4://127.0.0.1:1080' },
       }),
     ).toBe('preferences.proxy-unsupported-protocol')
   })
 
-  it('returns null for invalid proxy URL when proxy disabled', () => {
+  it('returns null for invalid proxy URL in direct mode', () => {
     expect(
       validateAdvancedForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: false, server: 'socks5://127.0.0.1:1080' },
+        proxy: { ...validForm.proxy, mode: 'direct', server: 'socks5://127.0.0.1:1080' },
       }),
     ).toBeNull()
   })
 
-  it('returns null for empty proxy server when proxy enabled', () => {
+  it('returns null for empty proxy server in manual mode', () => {
     expect(
       validateAdvancedForm({
         ...validForm,
-        proxy: { ...validForm.proxy, enable: true, server: '' },
+        proxy: { ...validForm.proxy, mode: 'manual', server: '' },
       }),
     ).toBeNull()
   })
@@ -583,27 +439,11 @@ describe('validateAdvancedForm', () => {
 // ── Port Randomizers ────────────────────────────────────────────────
 
 describe('port randomizers', () => {
-  it('randomRpcPort stays within [ENGINE_RPC_PORT, 20000)', () => {
+  it('randomRpcPort stays within the port recovery range', () => {
     for (let i = 0; i < 20; i++) {
       const port = randomRpcPort()
-      expect(port).toBeGreaterThanOrEqual(ENGINE_RPC_PORT)
-      expect(port).toBeLessThan(20000)
-    }
-  })
-
-  it('randomBtPort stays within [20000, 24999)', () => {
-    for (let i = 0; i < 20; i++) {
-      const port = randomBtPort()
-      expect(port).toBeGreaterThanOrEqual(20000)
-      expect(port).toBeLessThan(24999)
-    }
-  })
-
-  it('randomDhtPort stays within [25000, 29999)', () => {
-    for (let i = 0; i < 20; i++) {
-      const port = randomDhtPort()
-      expect(port).toBeGreaterThanOrEqual(25000)
-      expect(port).toBeLessThan(29999)
+      expect(port).toBeGreaterThanOrEqual(PORT_RECOVERY_RANGE_START)
+      expect(port).toBeLessThanOrEqual(PORT_RECOVERY_RANGE_END)
     }
   })
 })
@@ -620,142 +460,146 @@ describe('proxy configuration invariants', () => {
 
   it('buildAdvancedForm preserves user-selected subset of scopes', () => {
     const config = {
-      proxy: { enable: true, server: 'http://127.0.0.1:7890', bypass: '', scope: [PROXY_SCOPES.DOWNLOAD] },
+      proxy: {
+        mode: 'manual',
+        server: 'http://127.0.0.1:7890',
+        bypass: '',
+        scope: [PROXY_SCOPES.DOWNLOAD],
+      },
     } as AppConfig
     const { form } = buildAdvancedForm(config)
     expect(form.proxy.scope).toEqual([PROXY_SCOPES.DOWNLOAD])
   })
 
-  it('enabling proxy with default scope produces non-empty all-proxy', () => {
+  it('manual proxy with default scope produces non-empty all-proxy', () => {
     // End-to-end: the exact user flow from issue #81.
     // 1. Fresh install → buildAdvancedForm({}) → form with default scope
-    // 2. User toggles enable=true and enters server
-    // 3. buildAdvancedSystemConfig → all-proxy MUST be the server value
+    // 2. User selects manual mode and enters server
+    // 3. buildAdvancedSystemConfig → standard aria2 all-proxy
     const { form } = buildAdvancedForm({} as AppConfig)
-    form.proxy.enable = true
+    form.proxy.mode = 'manual'
     form.proxy.server = 'http://127.0.0.1:7890'
     const systemConfig = buildAdvancedSystemConfig(form)
+    expect(systemConfig['proxy-mode']).toBeUndefined()
     expect(systemConfig['all-proxy']).toBe('http://127.0.0.1:7890')
-    expect(systemConfig['no-proxy']).toBe('')
+    expect(systemConfig['no-proxy']).toBeUndefined()
   })
 
-  it('disabling proxy produces empty-string all-proxy (for clearing)', () => {
+  it('direct proxy mode emits direct without all-proxy', () => {
     const form: AdvancedForm = {
-      proxy: { enable: false, server: 'http://127.0.0.1:7890', bypass: '', scope: [...PROXY_SCOPE_OPTIONS] },
-      trackerSource: [],
-      customTrackerUrls: [],
-      btTracker: '',
-      autoSyncTracker: false,
-      lastSyncTrackerTime: 0,
-      rpcListenPort: 16800,
+      proxy: {
+        mode: 'direct',
+        server: 'http://127.0.0.1:7890',
+        bypass: '',
+        scope: [...PROXY_SCOPE_OPTIONS],
+      },
+      rpcListenPort: 29100,
       rpcSecret: 'x',
       enableUpnp: true,
-      listenPort: 21301,
-      dhtListenPort: 26701,
       userAgent: '',
       logLevel: 'debug',
+      aria2LogLevel: 'info',
+      tempFilesDir: '',
       hardwareRendering: false,
-      extensionApiPort: 16801,
+      extensionApiPort: 29110,
       extensionApiSecret: 'test-api-secret',
+      allowRemoteAccess: false,
       autoSubmitFromExtension: false,
+      autoSelectAllBtFilesFromExtension: false,
+      silentAutoSubmitFromExtension: true,
+      autoChangeConflictingPorts: true,
       clipboardEnable: true,
       clipboardHttp: true,
       clipboardFtp: false,
       clipboardMagnet: true,
+      clipboardEd2k: true,
       clipboardThunder: false,
       clipboardBtHash: true,
-      protocolMagnet: false,
-      protocolThunder: false,
-      protocolMotrixnext: true,
       connectTimeout: 60,
       timeout: 60,
       fileAllocation: 'prealloc',
     }
     const systemConfig = buildAdvancedSystemConfig(form)
-    // Empty string is intentional — aria2 accepts '' to clear the proxy
+    expect(systemConfig['proxy-mode']).toBeUndefined()
     expect(systemConfig['all-proxy']).toBe('')
     expect(systemConfig['no-proxy']).toBe('')
   })
 
-  it('proxy with download scope excluded produces empty all-proxy', () => {
+  it('proxy with download scope excluded emits direct mode', () => {
     const form: AdvancedForm = {
       proxy: {
-        enable: true,
+        mode: 'manual',
         server: 'http://127.0.0.1:7890',
         bypass: '',
         scope: [PROXY_SCOPES.UPDATE_APP, PROXY_SCOPES.UPDATE_TRACKERS],
       },
-      trackerSource: [],
-      customTrackerUrls: [],
-      btTracker: '',
-      autoSyncTracker: false,
-      lastSyncTrackerTime: 0,
-      rpcListenPort: 16800,
+      rpcListenPort: 29100,
       rpcSecret: 'x',
       enableUpnp: true,
-      listenPort: 21301,
-      dhtListenPort: 26701,
       userAgent: '',
       logLevel: 'debug',
+      aria2LogLevel: 'info',
+      tempFilesDir: '',
       hardwareRendering: false,
-      extensionApiPort: 16801,
+      extensionApiPort: 29110,
       extensionApiSecret: 'test-api-secret',
+      allowRemoteAccess: false,
       autoSubmitFromExtension: false,
+      autoSelectAllBtFilesFromExtension: false,
+      silentAutoSubmitFromExtension: true,
+      autoChangeConflictingPorts: true,
       clipboardEnable: true,
       clipboardHttp: true,
       clipboardFtp: false,
       clipboardMagnet: true,
+      clipboardEd2k: true,
       clipboardThunder: false,
       clipboardBtHash: true,
-      protocolMagnet: false,
-      protocolThunder: false,
-      protocolMotrixnext: true,
       connectTimeout: 60,
       timeout: 60,
       fileAllocation: 'prealloc',
     }
     const systemConfig = buildAdvancedSystemConfig(form)
+    expect(systemConfig['proxy-mode']).toBeUndefined()
     expect(systemConfig['all-proxy']).toBe('')
   })
 
   it('proxy bypass value is forwarded to no-proxy when download scope active', () => {
     const form: AdvancedForm = {
       proxy: {
-        enable: true,
+        mode: 'manual',
         server: 'http://proxy:8080',
         bypass: '192.168.0.0/16,*.local',
         scope: [PROXY_SCOPES.DOWNLOAD],
       },
-      trackerSource: [],
-      customTrackerUrls: [],
-      btTracker: '',
-      autoSyncTracker: false,
-      lastSyncTrackerTime: 0,
-      rpcListenPort: 16800,
+      rpcListenPort: 29100,
       rpcSecret: 'x',
       enableUpnp: true,
-      listenPort: 21301,
-      dhtListenPort: 26701,
       userAgent: '',
       logLevel: 'debug',
+      aria2LogLevel: 'info',
+      tempFilesDir: '',
       hardwareRendering: false,
-      extensionApiPort: 16801,
+      extensionApiPort: 29110,
       extensionApiSecret: 'test-api-secret',
+      allowRemoteAccess: false,
       autoSubmitFromExtension: false,
+      autoSelectAllBtFilesFromExtension: false,
+      silentAutoSubmitFromExtension: true,
+      autoChangeConflictingPorts: true,
       clipboardEnable: true,
       clipboardHttp: true,
       clipboardFtp: false,
       clipboardMagnet: true,
+      clipboardEd2k: true,
       clipboardThunder: false,
       clipboardBtHash: true,
-      protocolMagnet: false,
-      protocolThunder: false,
-      protocolMotrixnext: true,
       connectTimeout: 60,
       timeout: 60,
       fileAllocation: 'prealloc',
     }
     const systemConfig = buildAdvancedSystemConfig(form)
+    expect(systemConfig['proxy-mode']).toBeUndefined()
     expect(systemConfig['all-proxy']).toBe('http://proxy:8080')
     expect(systemConfig['no-proxy']).toBe('192.168.0.0/16,*.local')
   })
@@ -764,9 +608,9 @@ describe('proxy configuration invariants', () => {
 // ── hardwareRendering — Linux GPU toggle ────────────────────────────
 
 describe('buildAdvancedForm — hardwareRendering', () => {
-  it('defaults hardwareRendering to true (GPU acceleration ON)', () => {
+  it('defaults hardwareRendering to false (software rendering)', () => {
     const { form } = buildAdvancedForm({} as AppConfig)
-    expect(form.hardwareRendering).toBe(true)
+    expect(form.hardwareRendering).toBe(false)
   })
 
   it('preserves hardwareRendering=true from config', () => {
@@ -785,32 +629,29 @@ describe('buildAdvancedForm — hardwareRendering', () => {
 describe('transformAdvancedForStore — hardwareRendering', () => {
   it('preserves hardwareRendering in store output', () => {
     const form: AdvancedForm = {
-      proxy: { enable: false, server: '', bypass: '', scope: [] },
-      trackerSource: [],
-      customTrackerUrls: [],
-      btTracker: '',
-      autoSyncTracker: false,
-      lastSyncTrackerTime: 0,
-      rpcListenPort: 16800,
+      proxy: { mode: 'direct', server: '', bypass: '', scope: [] },
+      rpcListenPort: 29100,
       rpcSecret: 'x',
       enableUpnp: true,
-      listenPort: 21301,
-      dhtListenPort: 26701,
       userAgent: '',
       logLevel: 'warn',
+      aria2LogLevel: 'info',
+      tempFilesDir: '',
       hardwareRendering: true,
-      extensionApiPort: 16801,
+      extensionApiPort: 29110,
       extensionApiSecret: 'test-api-secret',
+      allowRemoteAccess: false,
       autoSubmitFromExtension: false,
+      autoSelectAllBtFilesFromExtension: false,
+      silentAutoSubmitFromExtension: true,
+      autoChangeConflictingPorts: true,
       clipboardEnable: true,
       clipboardHttp: true,
       clipboardFtp: false,
       clipboardMagnet: true,
+      clipboardEd2k: true,
       clipboardThunder: false,
       clipboardBtHash: true,
-      protocolMagnet: false,
-      protocolThunder: false,
-      protocolMotrixnext: true,
       connectTimeout: 60,
       timeout: 60,
       fileAllocation: 'prealloc',
@@ -821,7 +662,7 @@ describe('transformAdvancedForStore — hardwareRendering', () => {
 })
 
 describe('DEFAULT_APP_CONFIG — hardwareRendering', () => {
-  it('defaults to true (GPU acceleration ON)', () => {
-    expect(DEFAULT_APP_CONFIG.hardwareRendering).toBe(true)
+  it('defaults to false (software rendering)', () => {
+    expect(DEFAULT_APP_CONFIG.hardwareRendering).toBe(false)
   })
 })

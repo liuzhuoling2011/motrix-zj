@@ -1,12 +1,13 @@
 //! Aria2 JSON-RPC HTTP client.
 //!
-//! Provides a managed `Aria2Client` that communicates with the local aria2c
+//! Provides a managed `Aria2Client` that communicates with the local Aria2 Next
 //! sidecar over HTTP JSON-RPC.  Designed for internal Rust-side use by
 //! monitors, tray actions, and the exit handler — NOT yet exposed to the
 //! frontend (that happens in Task 8).
 
 use crate::aria2::types::*;
 use crate::error::AppError;
+use serde::de::DeserializeOwned;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -25,14 +26,24 @@ pub struct Aria2Client {
 /// Tauri managed state wrapper.
 pub struct Aria2State(pub Arc<Aria2Client>);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ResumeEligibleResult {
+    pub resumed: usize,
+    pub blocked: usize,
+}
+
 impl Aria2Client {
     /// Creates a new client with default credentials.
     ///
     /// The `reqwest::Client` is reused across all requests for connection
     /// pooling.  Credentials can be updated later via `update_credentials`.
     pub fn new(port: u16, secret: String) -> Self {
+        let http = reqwest::Client::builder()
+            .no_proxy()
+            .build()
+            .expect("local aria2 RPC client");
         Self {
-            http: reqwest::Client::new(),
+            http,
             port: RwLock::new(port),
             secret: RwLock::new(secret),
             request_id: AtomicU64::new(1),
@@ -44,6 +55,13 @@ impl Aria2Client {
         *self.port.write().await = port;
         *self.secret.write().await = secret;
         log::info!("aria2 client credentials updated: port={}", port);
+    }
+
+    /// Returns the current local RPC port and secret for companion transports.
+    pub async fn credentials(&self) -> (u16, String) {
+        let port = *self.port.read().await;
+        let secret = self.secret.read().await.clone();
+        (port, secret)
     }
 
     /// Builds the JSON-RPC params array with token prepended if secret is set.
@@ -60,7 +78,7 @@ impl Aria2Client {
 
     /// Generic JSON-RPC call.  Handles request construction, token injection,
     /// HTTP transport, and response parsing.
-    async fn call<T: serde::de::DeserializeOwned>(
+    async fn call<T: DeserializeOwned>(
         &self,
         method: &str,
         extra_params: Vec<serde_json::Value>,
@@ -85,10 +103,11 @@ impl Aria2Client {
             .await
             .map_err(|e| AppError::Aria2(format!("HTTP request to aria2 failed: {e}")))?;
 
-        let body: JsonRpcResponse<T> = resp
-            .json::<JsonRpcResponse<T>>()
+        let bytes = resp
+            .bytes()
             .await
-            .map_err(|e| AppError::Aria2(format!("Failed to parse aria2 response: {e}")))?;
+            .map_err(|e| AppError::Aria2(format!("Failed to read aria2 response: {e}")))?;
+        let body: JsonRpcResponse<T> = parse_jsonrpc_response(&bytes, "aria2")?;
 
         if let Some(err) = body.error {
             return Err(AppError::Aria2(format!(
@@ -140,9 +159,57 @@ impl Aria2Client {
         self.call("forcePauseAll", vec![]).await
     }
 
-    /// Resumes all paused tasks.
-    pub async fn unpause_all(&self) -> Result<String, AppError> {
-        self.call("unpauseAll", vec![]).await
+    /// Resumes paused tasks that do not require unresolved magnet file selection.
+    pub async fn resume_eligible(&self) -> Result<ResumeEligibleResult, AppError> {
+        const PAGE_SIZE: i64 = 1000;
+        let mut waiting_tasks = Vec::new();
+        let mut offset = 0;
+        loop {
+            let page = self.tell_waiting(offset, PAGE_SIZE).await?;
+            let page_len = page.len();
+            waiting_tasks.extend(page);
+            if page_len < PAGE_SIZE as usize {
+                break;
+            }
+            offset += PAGE_SIZE;
+        }
+        let paused_tasks = waiting_tasks
+            .into_iter()
+            .filter(|task| task.status == "paused")
+            .collect::<Vec<_>>();
+        let mut result = ResumeEligibleResult {
+            resumed: 0,
+            blocked: 0,
+        };
+
+        for task in paused_tasks {
+            let is_resolved_magnet = task.following.is_some()
+                && task.bittorrent.is_some()
+                && task.files.iter().any(|file| file.length != "0");
+            if is_resolved_magnet {
+                let has_selection = self
+                    .get_option(&task.gid)
+                    .await
+                    .ok()
+                    .and_then(|options| {
+                        options
+                            .get("select-file")
+                            .and_then(serde_json::Value::as_str)
+                            .map(str::trim)
+                            .map(str::to_owned)
+                    })
+                    .is_some_and(|selection| !selection.is_empty());
+                if !has_selection {
+                    result.blocked += 1;
+                    continue;
+                }
+            }
+
+            self.unpause(&task.gid).await?;
+            result.resumed += 1;
+        }
+
+        Ok(result)
     }
 
     /// Changes global aria2 options at runtime.
@@ -152,6 +219,10 @@ impl Aria2Client {
     ) -> Result<String, AppError> {
         self.call("changeGlobalOption", vec![serde_json::Value::Object(opts)])
             .await
+    }
+
+    pub async fn get_bt_endpoint(&self) -> Result<Aria2BtEndpoint, AppError> {
+        self.call("getBtEndpoint", vec![]).await
     }
 
     /// Adds a URI-based download.
@@ -175,15 +246,6 @@ impl Aria2Client {
             vec![base64.into(), serde_json::json!([]), opts],
         )
         .await
-    }
-
-    /// Adds a metalink download from base64-encoded .metalink content.
-    pub async fn add_metalink(
-        &self,
-        base64: &str,
-        opts: serde_json::Value,
-    ) -> Result<Vec<String>, AppError> {
-        self.call("addMetalink", vec![base64.into(), opts]).await
     }
 
     /// Returns file descriptors for a task.
@@ -213,6 +275,35 @@ impl Aria2Client {
     /// Returns peer information for a BitTorrent task.
     pub async fn get_peers(&self, gid: &str) -> Result<serde_json::Value, AppError> {
         self.call("getPeers", vec![gid.into()]).await
+    }
+
+    /// Starts an ED2K search and returns the search GID.
+    pub async fn ed2k_search(
+        &self,
+        keyword: &str,
+        opts: serde_json::Value,
+    ) -> Result<String, AppError> {
+        self.call("ed2kSearch", vec![keyword.into(), opts]).await
+    }
+
+    /// Returns ED2K search results for a search GID.
+    pub async fn get_ed2k_search_results(&self, gid: &str) -> Result<serde_json::Value, AppError> {
+        self.call("getEd2kSearchResults", vec![gid.into()]).await
+    }
+
+    /// Removes an internal ED2K search request group after results are read.
+    pub async fn cleanup_ed2k_search(&self, gid: &str) -> Result<(), AppError> {
+        match self.force_remove(gid).await {
+            Ok(_) => return Ok(()),
+            Err(e) => log::debug!("ed2k: force_remove search gid={gid} skipped: {e}"),
+        }
+        match self.remove_download_result(gid).await {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                log::debug!("ed2k: remove_download_result search gid={gid} skipped: {e}");
+                Ok(())
+            }
+        }
     }
 
     /// Gracefully pauses a task (waits for piece boundary).
@@ -293,10 +384,12 @@ impl Aria2Client {
             .await
             .map_err(|e| AppError::Aria2(format!("HTTP request to aria2 failed: {e}")))?;
 
-        let body: JsonRpcResponse<Vec<serde_json::Value>> = resp
-            .json()
+        let bytes = resp
+            .bytes()
             .await
-            .map_err(|e| AppError::Aria2(format!("Failed to parse multicall response: {e}")))?;
+            .map_err(|e| AppError::Aria2(format!("Failed to read multicall response: {e}")))?;
+        let body: JsonRpcResponse<Vec<serde_json::Value>> =
+            parse_jsonrpc_response(&bytes, "multicall")?;
 
         if let Some(err) = body.error {
             return Err(AppError::Aria2(format!(
@@ -308,11 +401,15 @@ impl Aria2Client {
         body.result
             .ok_or_else(|| AppError::Aria2("aria2 multicall returned null result".into()))
     }
+}
 
-    /// Graceful pause-all.
-    pub async fn pause_all(&self) -> Result<String, AppError> {
-        self.call("pauseAll", vec![]).await
-    }
+fn parse_jsonrpc_response<T: DeserializeOwned>(
+    bytes: &[u8],
+    context: &str,
+) -> Result<JsonRpcResponse<T>, AppError> {
+    let body = String::from_utf8_lossy(bytes);
+    serde_json::from_str::<JsonRpcResponse<T>>(&body)
+        .map_err(|e| AppError::Aria2(format!("Failed to parse {context} response: {e}")))
 }
 
 #[cfg(test)]
@@ -323,7 +420,7 @@ mod tests {
 
     #[tokio::test]
     async fn build_params_prepends_token_when_secret_is_set() {
-        let client = Aria2Client::new(16800, "mysecret".to_string());
+        let client = Aria2Client::new(29100, "mysecret".to_string());
         let params = client.build_params(vec![serde_json::json!("arg1")]).await;
 
         assert_eq!(params.len(), 2);
@@ -333,7 +430,7 @@ mod tests {
 
     #[tokio::test]
     async fn build_params_omits_token_when_secret_is_empty() {
-        let client = Aria2Client::new(16800, String::new());
+        let client = Aria2Client::new(29100, String::new());
         let params = client.build_params(vec![serde_json::json!("arg1")]).await;
 
         assert_eq!(params.len(), 1);
@@ -342,7 +439,7 @@ mod tests {
 
     #[tokio::test]
     async fn build_params_empty_extra_with_secret() {
-        let client = Aria2Client::new(16800, "sec".to_string());
+        let client = Aria2Client::new(29100, "sec".to_string());
         let params = client.build_params(vec![]).await;
 
         assert_eq!(params.len(), 1);
@@ -351,25 +448,39 @@ mod tests {
 
     #[tokio::test]
     async fn build_params_empty_extra_without_secret() {
-        let client = Aria2Client::new(16800, String::new());
+        let client = Aria2Client::new(29100, String::new());
         let params = client.build_params(vec![]).await;
 
         assert!(params.is_empty());
+    }
+
+    #[test]
+    fn parse_jsonrpc_response_tolerates_invalid_utf8_in_string_values() {
+        let bytes =
+            b"{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"result\":{\"results\":[{\"name\":\"bad-\xFF-name\"}]}}";
+        let response: JsonRpcResponse<serde_json::Value> =
+            parse_jsonrpc_response(bytes, "aria2").expect("invalid UTF-8 should be replaced");
+        let result = response.result.expect("result must exist");
+        let name = result["results"][0]["name"]
+            .as_str()
+            .expect("name must stay readable");
+
+        assert_eq!(name, "bad-\u{FFFD}-name");
     }
 
     // ── Credential update ───────────────────────────────────────────
 
     #[tokio::test]
     async fn update_credentials_changes_port_and_secret() {
-        let client = Aria2Client::new(16800, "old".to_string());
-        assert_eq!(*client.port.read().await, 16800);
+        let client = Aria2Client::new(29100, "old".to_string());
+        assert_eq!(*client.port.read().await, 29100);
         assert_eq!(*client.secret.read().await, "old");
 
         client
-            .update_credentials(21301, "new_secret".to_string())
+            .update_credentials(29120, "new_secret".to_string())
             .await;
 
-        assert_eq!(*client.port.read().await, 21301);
+        assert_eq!(*client.port.read().await, 29120);
         assert_eq!(*client.secret.read().await, "new_secret");
     }
 
@@ -377,7 +488,7 @@ mod tests {
 
     #[test]
     fn request_id_increments_monotonically() {
-        let client = Aria2Client::new(16800, String::new());
+        let client = Aria2Client::new(29100, String::new());
         let id1 = client.request_id.fetch_add(1, Ordering::Relaxed);
         let id2 = client.request_id.fetch_add(1, Ordering::Relaxed);
         let id3 = client.request_id.fetch_add(1, Ordering::Relaxed);
@@ -391,7 +502,7 @@ mod tests {
 
     #[test]
     fn aria2_state_wraps_client_in_arc() {
-        let client = Aria2Client::new(16800, "test".to_string());
+        let client = Aria2Client::new(29100, "test".to_string());
         let state = Aria2State(Arc::new(client));
         // Arc clone produces a second strong reference
         let _clone = state.0.clone();
@@ -424,7 +535,7 @@ mod tests {
     #[tokio::test]
     async fn token_format_matches_aria2_protocol() {
         // aria2 expects exactly "token:{secret}" as the first param
-        let client = Aria2Client::new(16800, "s3cret!@#$".to_string());
+        let client = Aria2Client::new(29100, "s3cret!@#$".to_string());
         let params = client.build_params(vec![]).await;
 
         let token = params[0].as_str().expect("token must be a string");
@@ -439,7 +550,7 @@ mod tests {
 
     #[tokio::test]
     async fn build_params_preserves_multiple_extra_params_order() {
-        let client = Aria2Client::new(16800, "sec".to_string());
+        let client = Aria2Client::new(29100, "sec".to_string());
         let params = client
             .build_params(vec![
                 serde_json::json!("first"),

@@ -9,6 +9,8 @@
   "showcase.light": "Chế độ sáng",
   "showcase.dark": "Chế độ tối",
   "story.title": "Tại sao chọn Motrix Next?",
+  "story.engine.label": "Engine",
+  "story.engine": "Motrix Next sử dụng {aria2Next} làm engine tải xuống, một fork aria2 được duy trì, giữ nguyên các giao diện gốc trong khi sửa các vấn đề tồn đọng lâu dài, chuyển sang CMake, thêm hỗ trợ ED2K gốc và cập nhật các dependency hiện đại.",
   "story.p1": "Motrix của agalwood là một trong những trình quản lý tải xuống mã nguồn mở tốt nhất — giao diện sạch, chạy bằng aria2, đa nền tảng. Đã truyền cảm hứng cho hàng ngàn người dùng và nhà phát triển.",
   "story.p2": "Dự án gốc hầu như không hoạt động từ năm 2023. Stack Electron + Vue 2 + Vuex + Element UI tích lũy nợ kỹ thuật, khiến việc bảo trì, mở rộng và đóng gói ngày càng khó khăn.",
   "rewrite.title": "Viết lại hoàn toàn từ đầu.",
@@ -56,7 +58,7 @@
   "motion.tokens.desc": "Tất cả thời lượng và đường cong đều là thuộc tính CSS tùy chỉnh, đảm bảo nhịp điệu thống nhất trên 12+ thành phần.",
   "features.title": "Tính năng",
   "features.protocol.title": "Đa giao thức",
-  "features.protocol.desc": "HTTP, FTP, BitTorrent, liên kết Magnet.",
+  "features.protocol.desc": "HTTP, FTP, ED2K, BitTorrent, liên kết Magnet.",
   "features.bt.title": "BitTorrent",
   "features.bt.desc": "Tải tệp chọn lọc, DHT, trao đổi peer, mã hóa.",
   "features.tracker.title": "Quản lý tracker",
@@ -74,7 +76,7 @@
   "features.task.title": "Quản lý tác vụ",
   "features.task.desc": "Tạm dừng, tiếp tục, xóa với dọn dẹp tệp, thao tác hàng loạt.",
   "features.handler.title": "Xử lý giao thức",
-  "features.handler.desc": "Đăng ký làm trình xử lý mặc định cho liên kết Magnet và Thunder.",
+  "features.handler.desc": "Đăng ký làm trình xử lý mặc định cho liên kết magnet, ED2K và thunder.",
   "features.notify.title": "Thông báo",
   "features.notify.desc": "Thông báo hệ thống khi hoàn thành tác vụ.",
   "features.light.title": "Nhẹ",
@@ -104,6 +106,5 @@
   "theme.dark": "Tối",
   "hero.stars": "Stars",
   "hero.downloads": "Lượt tải",
-  "hero.version": "Mới nhất",
-  "starHistory.title": "Star lịch sử"
+  "hero.version": "Mới nhất"
 }

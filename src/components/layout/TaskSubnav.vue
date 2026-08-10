@@ -1,20 +1,108 @@
 <script setup lang="ts">
 /** @fileoverview Task status sub-navigation tabs (active, waiting, stopped). */
+import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
-import { NIcon } from 'naive-ui'
 import { PlayOutline, CheckmarkDoneOutline, ListOutline } from '@vicons/ionicons5'
-import { type Component } from 'vue'
+import SubnavPane, { type SubnavPaneItem } from '@/components/layout/SubnavPane.vue'
+import { fetchTaskList, isEngineReady } from '@/api/aria2'
+import { useAppStore } from '@/stores/app'
+import { useHistoryStore } from '@/stores/history'
+import { usePreferenceStore } from '@/stores/preference'
+import { logger } from '@shared/logger'
+import { checkTaskIsEd2kSearch } from '@shared/utils'
 
 const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
+const appStore = useAppStore()
+const historyStore = useHistoryStore()
+const preferenceStore = usePreferenceStore()
+const liveTaskCount = ref(0)
+const historyOverlapCount = ref(0)
+let countRequestId = 0
+let mounted = false
 
 const items: { key: string; icon: Component; route: string }[] = [
   { key: 'all', icon: ListOutline, route: '/task/all' },
   { key: 'active', icon: PlayOutline, route: '/task/active' },
   { key: 'stopped', icon: CheckmarkDoneOutline, route: '/task/stopped' },
 ]
+
+const subnavItems = computed<SubnavPaneItem[]>(() =>
+  items.map((item) => {
+    const label = t('task.' + item.key) || item.key
+    const count = preferenceStore.config.sidebarTaskCounts ? taskCount(item.key) : undefined
+    return {
+      ...item,
+      label,
+      count,
+      ariaLabel: count === undefined ? label : `${label} ${count}`,
+      active: isActive(item.key),
+    }
+  }),
+)
+
+const activeTaskCount = computed(() => liveTaskCount.value)
+const finishedTaskCount = computed(() => historyStore.recordTotal)
+const uniqueTaskCount = computed(() => {
+  const overlap = Math.min(historyOverlapCount.value, activeTaskCount.value, finishedTaskCount.value)
+  return activeTaskCount.value + finishedTaskCount.value - overlap
+})
+
+onMounted(async () => {
+  mounted = true
+  await historyStore.refreshRecordTotal()
+  await refreshTaskCounts()
+})
+
+onBeforeUnmount(() => {
+  mounted = false
+  countRequestId += 1
+})
+
+function taskCount(key: string): number {
+  if (key === 'active') return activeTaskCount.value
+  if (key === 'stopped') return finishedTaskCount.value
+  return uniqueTaskCount.value
+}
+
+async function refreshTaskCounts(): Promise<void> {
+  const requestId = ++countRequestId
+  liveTaskCount.value = appStore.stat.numActive + appStore.stat.numWaiting
+  if (!preferenceStore.config.sidebarTaskCounts) {
+    historyOverlapCount.value = 0
+    return
+  }
+  if (!isEngineReady()) {
+    historyOverlapCount.value = 0
+    return
+  }
+
+  try {
+    const liveTasks = (await fetchTaskList({ type: 'active' })).filter((task) => !checkTaskIsEd2kSearch(task))
+    const overlap = await historyStore.countRecordsMatchingTaskIdentities(liveTasks)
+    if (!mounted || requestId !== countRequestId) return
+    liveTaskCount.value = liveTasks.length
+    historyOverlapCount.value = overlap
+  } catch (e) {
+    if (!mounted || requestId !== countRequestId) return
+    historyOverlapCount.value = 0
+    logger.debug('TaskSubnav.refreshCounts', e instanceof Error ? e.message : String(e))
+  }
+}
+
+watch(
+  () => [
+    preferenceStore.config.sidebarTaskCounts,
+    appStore.stat.numActive,
+    appStore.stat.numWaiting,
+    historyStore.recordTotal,
+  ],
+  () => {
+    if (mounted) void refreshTaskCounts()
+  },
+)
 
 function nav(path: string) {
   router.push({ path }).catch(() => {
@@ -28,94 +116,5 @@ function isActive(key: string) {
 </script>
 
 <template>
-  <aside class="subnav" data-tauri-drag-region>
-    <nav class="subnav-inner" data-tauri-drag-region>
-      <h3>{{ t('subnav.task-list') || 'Tasks' }}</h3>
-      <ul>
-        <li v-for="item in items" :key="item.key">
-          <button
-            type="button"
-            class="subnav-button"
-            :class="{ active: isActive(item.key) }"
-            :aria-current="isActive(item.key) ? 'page' : undefined"
-            @click="nav(item.route)"
-          >
-            <NIcon :size="16" class="subnav-icon">
-              <component :is="item.icon" />
-            </NIcon>
-            <span>{{ t('task.' + item.key) || item.key }}</span>
-          </button>
-        </li>
-      </ul>
-    </nav>
-  </aside>
+  <SubnavPane :title="t('subnav.task-list') || 'Tasks'" :items="subnavItems" @navigate="nav" />
 </template>
-
-<style scoped>
-.subnav {
-  width: var(--subnav-width);
-  height: 100%;
-  background-color: var(--subnav-bg);
-  color: var(--subnav-text);
-  flex-shrink: 0;
-  overflow-y: auto;
-}
-.subnav-inner {
-  margin-top: var(--header-top-offset);
-  padding: 0 16px;
-  user-select: none;
-}
-.subnav-inner h3 {
-  font-size: 16px;
-  color: var(--subnav-title);
-  font-weight: normal;
-  line-height: 24px;
-  margin: 0 0 20px;
-}
-.subnav-inner ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  cursor: default;
-}
-.subnav-inner li {
-  margin-bottom: 8px;
-}
-.subnav-button {
-  width: 100%;
-  margin-bottom: 8px;
-  padding: 8px 10px;
-  font-size: 14px;
-  line-height: 20px;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
-  display: flex;
-  align-items: center;
-  text-align: left;
-  color: inherit;
-  background: transparent;
-  border: none;
-}
-.subnav-button:hover,
-.subnav-button.active,
-.subnav-button:focus-visible {
-  background-color: var(--subnav-active-bg);
-  outline: none;
-}
-.subnav-button:hover span,
-.subnav-button:hover .subnav-icon,
-.subnav-button.active span,
-.subnav-button.active .subnav-icon,
-.subnav-button:focus-visible span,
-.subnav-button:focus-visible .subnav-icon {
-  color: var(--subnav-active-text);
-}
-.subnav-button span,
-.subnav-button .subnav-icon {
-  transition: color 0.2s ease;
-}
-.subnav-icon {
-  margin-right: 12px;
-}
-</style>

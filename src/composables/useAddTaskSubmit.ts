@@ -3,7 +3,7 @@
  *
  * Extracted from AddTask.vue to make the complex branching testable:
  * - Options building (headers, proxy, user-agent, etc.)
- * - Batch submission routing (torrent vs metalink)
+ * - Batch submission routing for torrent files
  * - Manual URI submission with multi-URI rename
  * - Error classification (engine-not-ready, duplicate, generic)
  */
@@ -17,12 +17,38 @@ import { usePreferenceStore } from '@/stores/preference'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
 import { isEngineReady } from '@/api/aria2'
-import { normalizeUriLines, extractDecodedFilename, hasExtension } from '@shared/utils/batchHelpers'
+import {
+  normalizeUriLines,
+  parseAria2Input,
+  extractDecodedFilename,
+  extractMagnetDisplayName,
+  hasExtension,
+  sanitizeAria2OutHint,
+} from '@shared/utils/batchHelpers'
 import { buildOuts } from '@shared/utils/rename'
 import { invoke } from '@tauri-apps/api/core'
-import { logger } from '@shared/logger'
-import type { Aria2EngineOptions, BatchItem, FileCategory, ProxyConfig } from '@shared/types'
+import { formatLogFields, logger } from '@shared/logger'
+import type {
+  Aria2EngineOptions,
+  BatchItem,
+  BrowserRequestHeader,
+  ExternalDownloadContext,
+  FileCategory,
+  ProxyConfig,
+} from '@shared/types'
 import { isMagnetUri } from '@/composables/useMagnetFlow'
+import {
+  sanitizeBrowserRequestHeaders,
+  sanitizeBrowserRequestHeadersWithDiagnostics,
+  sanitizeHttpHeaderOptions,
+  sanitizeSingleHeaderValue,
+} from '@shared/utils/headerSanitize'
+import { summarizeHeaderForwarding } from '@shared/utils/externalInputDiagnostics'
+import { getErrorMessage } from '@shared/utils/errorMessage'
+import { buildTaskProxyOptions, getDownloadProxy, type TaskProxyMode } from '@shared/utils/proxy'
+import { resolveUserAgentFromContext } from '@shared/utils/userAgentPolicy'
+
+export { getDownloadProxy } from '@shared/utils/proxy'
 
 export interface AddTaskForm {
   uris: string
@@ -31,14 +57,26 @@ export interface AddTaskForm {
   split: number
   userAgent: string
   authorization: string
+  httpAuthUsername: string
+  httpAuthPassword: string
+  saveHttpAuth: boolean
   referer: string
   cookie: string
-  /** Proxy mode: none (no proxy), global (use global), custom (user-entered). */
-  proxyMode: 'none' | 'global' | 'custom'
-  /** User-entered proxy address when proxyMode is 'custom'. */
+  /** Browser profile used by yt-dlp to read live cookies; empty means disabled. */
+  cookiesFromBrowser: string
+  /** Proxy mode for this task. */
+  proxyMode: TaskProxyMode
+  /** User-entered proxy address when proxyMode is 'manual'. */
   customProxy: string
-  /** Injected from the preference store — not user-editable in the form. */
-  globalProxyServer?: string
+  customProxyUsername?: string
+  customProxyPassword?: string
+  /** Injected from the preference store; used for manual proxy bypass inheritance. */
+  appProxy?: ProxyConfig
+  defaultUserAgent?: string
+  userAgentProfiles?: import('@shared/types').UserAgentProfile[]
+  userAgentRules?: import('@shared/types').UserAgentRule[]
+  requestHeaders: BrowserRequestHeader[]
+  uriRequestContexts?: Record<string, ExternalDownloadContext>
 }
 
 export interface UseAddTaskSubmitOptions {
@@ -52,15 +90,37 @@ export interface MagnetSubmitFailure {
 }
 
 export interface ManualUriSubmitResult {
+  submittedTaskNames: string[]
   magnetGids: string[]
   magnetFailures: MagnetSubmitFailure[]
+}
+
+interface ManualRegularEntry {
+  uris: string[]
+  options: Aria2EngineOptions
+  hasInputOptions: boolean
 }
 
 /**
  * Builds aria2 engine options from the add-task form.
  * Pure function — no side effects, fully testable.
  */
-export function buildEngineOptions(form: AddTaskForm): Aria2EngineOptions {
+export function buildEngineOptions(form: AddTaskForm, context?: ExternalDownloadContext): Aria2EngineOptions {
+  const resolvedUserAgent = resolveUserAgentFromContext({
+    formUserAgent: form.userAgent,
+    context,
+    url: context?.url ?? form.uris,
+    finalUrl: context?.finalUrl,
+    defaultUserAgent: form.defaultUserAgent,
+    profiles: form.userAgentProfiles ?? [],
+    rules: form.userAgentRules ?? [],
+  }).userAgent
+  const headers = {
+    userAgent: sanitizeSingleHeaderValue(resolvedUserAgent),
+    referer: sanitizeSingleHeaderValue(context?.referer ?? form.referer),
+    cookie: sanitizeSingleHeaderValue(context?.cookie ?? form.cookie),
+    authorization: sanitizeSingleHeaderValue(form.authorization),
+  }
   const options: Aria2EngineOptions = {
     dir: form.dir,
     split: String(form.split),
@@ -70,57 +130,64 @@ export function buildEngineOptions(form: AddTaskForm): Aria2EngineOptions {
     // controlled independently. See: aria2 download_helper.cc:394-401.
   }
   if (form.out) options.out = form.out
-  if (form.userAgent) options['user-agent'] = form.userAgent
-  if (form.referer) options.referer = form.referer
+  if (headers.userAgent) options['user-agent'] = headers.userAgent
+  if (headers.referer) options.referer = headers.referer
 
-  const headers: string[] = []
-  if (form.cookie) headers.push(`Cookie: ${form.cookie}`)
-  if (form.authorization) headers.push(`Authorization: ${form.authorization}`)
-  if (headers.length > 0) options.header = headers
+  const browserHeaders = sanitizeBrowserRequestHeaders(context?.requestHeaders ?? form.requestHeaders)
+  const headerLines: string[] = browserHeaders.map((header) => `${header.name}: ${header.value}`)
+  if (headers.cookie) headerLines.push(`Cookie: ${headers.cookie}`)
+  if (headers.authorization) headerLines.push(`Authorization: ${headers.authorization}`)
+  if (headerLines.length > 0) options.header = headerLines
 
-  // Always set all-proxy — empty string clears any inherited global proxy.
-  // Without this, mode 'none' would silently inherit the engine-level proxy.
-  options['all-proxy'] = resolveAddTaskProxy(form)
+  const httpAuthUsername = sanitizeHttpHeaderOptions({ authorization: form.httpAuthUsername }).authorization ?? ''
+  const httpAuthPassword = sanitizeHttpHeaderOptions({ authorization: form.httpAuthPassword }).authorization ?? ''
+  if (httpAuthUsername) {
+    options['http-user'] = httpAuthUsername
+    options['http-passwd'] = httpAuthPassword
+  }
+
+  Object.assign(
+    options,
+    buildTaskProxyOptions(
+      form.proxyMode,
+      form.customProxy,
+      form.appProxy,
+      form.customProxyUsername,
+      form.customProxyPassword,
+    ),
+  )
   return options
 }
 
-/**
- * Resolves the effective proxy URL from the tri-state add-task form.
- * Mirrors the resolveProxy() pattern in useTaskDetailOptions.
- */
-function resolveAddTaskProxy(form: AddTaskForm): string {
-  if (form.proxyMode === 'global') return form.globalProxyServer ?? ''
-  if (form.proxyMode === 'custom') return form.customProxy
-  return ''
+function summarizeSubmitHeaderForwarding(form: AddTaskForm, context?: ExternalDownloadContext) {
+  return summarizeHeaderForwarding(
+    sanitizeBrowserRequestHeadersWithDiagnostics(context?.requestHeaders ?? form.requestHeaders).diagnostics,
+  )
 }
 
-/**
- * Returns true if the global proxy is configured (enabled with a non-empty server).
- * Used by the AddTask UI to determine whether the proxy checkbox should be available.
- * Pure function — no side effects.
- */
-export function isGlobalProxyConfigured(proxy: ProxyConfig): boolean {
-  return proxy.enable && !!proxy.server.trim()
+function mergeAria2InputOptions(base: Aria2EngineOptions, taskOptions: Aria2EngineOptions): Aria2EngineOptions {
+  const merged: Aria2EngineOptions = { ...base }
+  for (const [key, value] of Object.entries(taskOptions)) {
+    if (value === undefined) continue
+    if (key === 'header') {
+      const currentHeaders = merged.header
+      const nextHeaders = Array.isArray(value) ? value : [value]
+      const baseHeaders = Array.isArray(currentHeaders)
+        ? currentHeaders
+        : typeof currentHeaders === 'string'
+          ? [currentHeaders]
+          : []
+      merged.header = [...baseHeaders, ...nextHeaders]
+    } else {
+      merged[key] = value
+    }
+  }
+  return merged
 }
 
-/**
- * Returns true if the global proxy is active AND its scope includes downloads.
- * When true, aria2 already routes all downloads through the proxy at the engine
- * level, so the per-task checkbox defaults to checked.
- * Pure function — no side effects.
- */
-export function isGlobalDownloadProxyActive(proxy: ProxyConfig): boolean {
-  return isGlobalProxyConfigured(proxy) && Array.isArray(proxy.scope) && proxy.scope.includes('download')
-}
-
-/**
- * Returns the proxy server URL when the download proxy is active,
- * or `undefined` otherwise.  Used to pass the proxy to Rust commands
- * (`resolve_filename`, `fetch_remote_bytes`) that make external HTTP
- * requests on behalf of the download flow.
- */
-export function getDownloadProxy(proxy: ProxyConfig): string | undefined {
-  return isGlobalDownloadProxyActive(proxy) ? proxy.server : undefined
+function getScalarOption(options: Aria2EngineOptions, key: string): string {
+  const value = options[key]
+  return typeof value === 'string' ? value : ''
 }
 
 /**
@@ -128,14 +195,14 @@ export function getDownloadProxy(proxy: ProxyConfig): string | undefined {
  * Pure function — fully testable.
  */
 export function classifySubmitError(err: unknown): 'engine-not-ready' | 'duplicate' | 'generic' {
-  const msg = err instanceof Error ? err.message : String(err)
+  const msg = getErrorMessage(err)
   if (msg.includes('not initialized') || !isEngineReady()) return 'engine-not-ready'
   if (/duplicate|already/i.test(msg)) return 'duplicate'
   return 'generic'
 }
 
 /**
- * Submits file-based batch items (torrent/metalink) to the engine.
+ * Submits file-based torrent batch items to the engine.
  * Mutates item.status in place; returns count of failures.
  */
 export async function submitBatchItems(
@@ -165,15 +232,12 @@ export async function submitBatchItems(
           taskStore.registerTorrentSource(item.torrentMeta.infoHash, item.source)
         }
         await taskStore.addTorrent({ torrent: item.payload, options: opts })
-      } else if (item.kind === 'metalink') {
-        const opts: Aria2EngineOptions = { ...options }
-        delete opts.out
-        await taskStore.addMetalink({ metalink: item.payload, options: opts })
       }
       item.status = 'submitted'
+      logger.info('submitBatchItems', `${item.kind} submitted: ${item.displayName}`)
     } catch (e) {
       item.status = 'failed'
-      item.error = e instanceof Error ? e.message : String(e)
+      item.error = getErrorMessage(e)
       logger.error('submitBatchItems', e)
       failures++
     }
@@ -195,16 +259,39 @@ export async function submitManualUris(
   fileCategory?: { enabled: boolean; categories: FileCategory[] },
   downloadProxy?: string,
 ): Promise<ManualUriSubmitResult> {
-  if (!form.uris.trim()) return { magnetGids: [], magnetFailures: [] }
-  const allUris = normalizeUriLines(form.uris)
+  if (!form.uris.trim()) return { submittedTaskNames: [], magnetGids: [], magnetFailures: [] }
+  const parsedInput = parseAria2Input(form.uris)
+  const allUris = parsedInput.entries.flatMap((entry) => entry.uris)
+  logger.info(
+    'submitManualUris',
+    formatLogFields({
+      regular: allUris.filter((u) => !isMagnetUri(u)).length,
+      magnet: allUris.filter(isMagnetUri).length,
+      hasUserAgent: Boolean(form.userAgent),
+      hasReferer: Boolean(form.referer),
+      hasCookie: Boolean(form.cookie),
+      ...summarizeSubmitHeaderForwarding(form),
+    }),
+  )
 
-  // Partition into magnet and regular URIs
   const magnetUris = allUris.filter(isMagnetUri)
-  const regularUris = allUris.filter((uri) => !isMagnetUri(uri))
+  const regularEntries: ManualRegularEntry[] = parsedInput.entries
+    .map((entry) => ({
+      uris: entry.uris.filter((uri) => !isMagnetUri(uri)),
+      options: mergeAria2InputOptions(options, entry.options),
+      hasInputOptions: Object.keys(entry.options).length > 0,
+    }))
+    .filter((entry) => entry.uris.length > 0)
+  const regularUris = regularEntries.flatMap((entry) => entry.uris)
+  const fileCategoryWithContexts = fileCategory
+    ? { ...fileCategory, contexts: form.uriRequestContexts ?? {} }
+    : undefined
+  const submittedTaskNames: string[] = []
 
   // Submit regular URIs using the existing path
   if (regularUris.length > 0) {
-    if (regularUris.length > 1 && form.out) {
+    const canUseGlobalRename = regularEntries.every((entry) => entry.uris.length === 1 && !entry.hasInputOptions)
+    if (canUseGlobalRename && regularUris.length > 1 && form.out) {
       const regularOptions = { ...options }
       delete regularOptions.out
       let outs = buildOuts(regularUris, form.out)
@@ -214,30 +301,82 @@ export async function submitManualUris(
         const ext = dotIdx > 0 ? form.out.substring(dotIdx) : ''
         outs = regularUris.map((_, i) => `${base}_${i + 1}${ext}`)
       }
-      await taskStore.addUri({ uris: regularUris, outs, options: regularOptions, fileCategory })
+      await taskStore.addUri({
+        uris: regularUris,
+        outs,
+        options: regularOptions,
+        fileCategory: fileCategoryWithContexts,
+      })
+      submittedTaskNames.push(...regularUris.map((uri, index) => resolveSubmittedTaskName(uri, outs[index])))
     } else {
-      // aria2's native filename resolution only uses Content-Disposition
-      // and URL path.  CDNs like Twitter/X serve media from extensionless
-      // paths (e.g. /media/HCo_0zsbkAEov7s?format=jpg).  For each URL
-      // whose path lacks an extension, invoke the Rust-side HEAD request
-      // to infer the correct name via Content-Type MIME mapping.
-      const outs = await Promise.all(
-        regularUris.map(async (uri) => {
-          const pathFilename = extractDecodedFilename(uri)
-          if (!pathFilename || hasExtension(pathFilename)) return ''
-          try {
-            return (await invoke<string | null>('resolve_filename', { url: uri, proxy: downloadProxy ?? null })) ?? ''
-          } catch {
-            return '' // HEAD failure → graceful degradation
-          }
-        }),
-      )
-      await taskStore.addUri({ uris: regularUris, outs, options, fileCategory })
+      const contextEntries = form.uriRequestContexts ?? {}
+      for (const entry of regularEntries) {
+        if (entry.uris.length > 1) {
+          await taskStore.addUriAtomic({
+            uris: entry.uris,
+            options: entry.options,
+          })
+          const out = getScalarOption(entry.options, 'out')
+          submittedTaskNames.push(...entry.uris.map((uri) => resolveSubmittedTaskName(uri, out)))
+          continue
+        }
+
+        const outs = await Promise.all(
+          entry.uris.map(async (uri) => {
+            const out = getScalarOption(entry.options, 'out')
+            if (out) return out
+            const pathFilename = extractDecodedFilename(uri)
+            if (!pathFilename || hasExtension(pathFilename)) return ''
+            try {
+              const uriContext = form.uriRequestContexts?.[uri]
+              const sanitizedHeaders = sanitizeHttpHeaderOptions({
+                referer: uriContext?.referer ?? form.referer,
+                cookie: uriContext?.cookie ?? form.cookie,
+              })
+              const args: {
+                url: string
+                proxy: string | null
+                referer?: string
+                cookie?: string
+              } = {
+                url: uri,
+                proxy: downloadProxy ?? null,
+              }
+              if (sanitizedHeaders.referer) args.referer = sanitizedHeaders.referer
+              if (sanitizedHeaders.cookie) args.cookie = sanitizedHeaders.cookie
+              return (await invoke<string | null>('resolve_filename', args)) ?? ''
+            } catch {
+              return ''
+            }
+          }),
+        )
+
+        const hasPerUriContext = entry.uris.some((uri) => contextEntries[uri])
+        if (hasPerUriContext) {
+          const uri = entry.uris[0]
+          await taskStore.addUri({
+            uris: [uri],
+            outs: [outs[0] ?? ''],
+            options: mergeAria2InputOptions(buildEngineOptions(form, contextEntries[uri]), entry.options),
+            fileCategory: fileCategoryWithContexts,
+          })
+        } else {
+          await taskStore.addUri({
+            uris: entry.uris,
+            outs,
+            options: entry.options,
+            fileCategory: fileCategoryWithContexts,
+          })
+        }
+        const out = getScalarOption(entry.options, 'out')
+        submittedTaskNames.push(...entry.uris.map((uri, index) => resolveSubmittedTaskName(uri, out || outs[index])))
+      }
     }
   }
 
   // Submit magnet URIs (normal mode — global pause-metadata controls pausing)
   const result: ManualUriSubmitResult = {
+    submittedTaskNames,
     magnetGids: [],
     magnetFailures: [],
   }
@@ -249,12 +388,24 @@ export async function submitManualUris(
       logger.error('submitManualUris.magnet', e)
       result.magnetFailures.push({
         uri,
-        error: e instanceof Error ? e.message : String(e),
+        error: getErrorMessage(e),
       })
     }
   }
 
   return result
+}
+
+function resolveSubmittedTaskName(uri: string, outHint?: string): string {
+  const out = outHint ? sanitizeAria2OutHint(outHint) : ''
+  return out || extractDecodedFilename(uri) || uri
+}
+
+function buildSubmitErrorLabels(t: (key: string) => string): Parameters<typeof getErrorMessage>[1] {
+  return {
+    fallback: t('task.error-unknown'),
+    labels: { Aria2: t('task.error-aria2-next') },
+  }
 }
 
 export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
@@ -273,7 +424,7 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
     try {
       const options = buildEngineOptions(form.value)
       const batch = appStore.pendingBatch
-      let manualResult: ManualUriSubmitResult = { magnetGids: [], magnetFailures: [] }
+      let manualResult: ManualUriSubmitResult = { submittedTaskNames: [], magnetGids: [], magnetFailures: [] }
 
       if (batch.length > 0) {
         await submitBatchItems(batch, options, taskStore)
@@ -293,6 +444,10 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
       }
 
       const failedCount = batch.filter((i) => i.status === 'failed').length + manualResult.magnetFailures.length
+      logger.info(
+        'AddTask.submit',
+        `batch=${batch.length} manual=${normalizeUriLines(form.value.uris).length} failed=${failedCount}`,
+      )
       if (failedCount > 0) {
         message.warning(`${failedCount} ${t('task.failed') || 'failed'}`, { closable: true })
       } else {
@@ -305,20 +460,16 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
             taskNames.push(item.displayName)
           }
         }
+        taskNames.push(...manualResult.submittedTaskNames)
         const allUris = normalizeUriLines(form.value.uris)
-        for (const uri of allUris) {
-          if (!isMagnetUri(uri)) {
-            taskNames.push(extractDecodedFilename(uri) || uri)
-          }
-        }
+        const magnetUris = allUris.filter(isMagnetUri)
         for (let i = 0; i < manualResult.magnetGids.length; i++) {
-          taskNames.push('Magnet Download')
+          const dn = magnetUris[i] ? extractMagnetDisplayName(magnetUris[i]) : ''
+          taskNames.push(dn || t('task.magnet-task'))
         }
         handleTaskStart(taskNames, {
           messageInfo: message.info,
           t,
-          taskNotification: preferenceStore.config.taskNotification !== false,
-          notifyOnStart: preferenceStore.config.notifyOnStart === true,
         })
 
         if (preferenceStore.config.newTaskShowDownloading !== false) {
@@ -327,7 +478,7 @@ export function useAddTaskSubmit({ form, onClose }: UseAddTaskSubmitOptions) {
       }
     } catch (e: unknown) {
       const category = classifySubmitError(e)
-      const errMsg = e instanceof Error ? e.message : String(e)
+      const errMsg = getErrorMessage(e, buildSubmitErrorLabels(t))
       logger.error('AddTask.submit', e)
       if (category === 'engine-not-ready') {
         message.error(t('app.engine-not-ready'), { closable: true })

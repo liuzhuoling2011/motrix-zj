@@ -5,11 +5,11 @@ import { useI18n } from 'vue-i18n'
 import {
   NFormItem,
   NInput,
+  NInputGroup,
   NCheckbox,
   NCollapseTransition,
   NButton,
-  NRadioGroup,
-  NRadio,
+  NSwitch,
   NIcon,
   NSelect,
 } from 'naive-ui'
@@ -17,6 +17,9 @@ import { hasUnsafeHeaderChars, sanitizeHeaderValue } from '@shared/utils/headerS
 import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { SearchOutline } from '@vicons/ionicons5'
+import type { TaskProxyMode } from '@shared/utils/proxy'
+import UserAgentPopover from '@/components/common/UserAgentPopover.vue'
+import type { UserAgentProfile, UserAgentRule } from '@shared/types'
 
 const { t } = useI18n()
 
@@ -24,30 +27,43 @@ const props = defineProps<{
   show: boolean
   userAgent: string
   authorization: string
+  httpAuthUsername: string
+  httpAuthPassword: string
+  saveHttpAuth: boolean
   referer: string
   cookie: string
   /** yt-dlp-only: name of a local browser to read live cookies from.
    *  Empty string means unset; otherwise one of chrome/firefox/safari/edge/… */
   cookiesFromBrowser: string
-  /** Proxy mode: 'none' | 'global' | 'custom'. */
-  proxyMode: 'none' | 'global' | 'custom'
-  /** Custom proxy address when proxyMode is 'custom'. */
+  /** Proxy mode for this task. */
+  proxyMode: TaskProxyMode
+  /** Custom proxy address when proxyMode is 'manual'. */
   customProxy: string
-  /** Whether a usable global proxy is configured in Settings → Advanced. */
-  globalProxyAvailable: boolean
-  /** The global proxy server address (displayed as read-only hint). */
-  globalProxyServer: string
+  customProxyUsername?: string
+  customProxyPassword?: string
+  sourceUrl?: string
+  finalUrl?: string
+  userAgentSource?: string
+  userAgentProfiles: UserAgentProfile[]
+  userAgentRules: UserAgentRule[]
+  recentUserAgentProfileIds: string[]
 }>()
 
 const emit = defineEmits<{
   'update:show': [value: boolean]
   'update:userAgent': [value: string]
   'update:authorization': [value: string]
+  'update:httpAuthUsername': [value: string]
+  'update:httpAuthPassword': [value: string]
+  'update:saveHttpAuth': [value: boolean]
   'update:referer': [value: string]
   'update:cookie': [value: string]
   'update:cookiesFromBrowser': [value: string]
-  'update:proxyMode': [value: 'none' | 'global' | 'custom']
+  'update:proxyMode': [value: TaskProxyMode]
   'update:customProxy': [value: string]
+  'update:customProxyUsername': [value: string]
+  'update:customProxyPassword': [value: string]
+  selectUserAgentProfile: [profile: UserAgentProfile]
 }>()
 
 const browserCookieOptions = [
@@ -96,12 +112,28 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
     <div>
       <NFormItem :label="t('task.task-user-agent') + ':'">
         <div class="ua-field-wrapper">
-          <NInput
-            :value="userAgent"
-            type="textarea"
-            :autosize="{ minRows: 1, maxRows: 3 }"
-            @update:value="$emit('update:userAgent', $event)"
-          />
+          <NInputGroup class="ua-input-row">
+            <NInput
+              :value="userAgent"
+              type="textarea"
+              :autosize="{ minRows: 1, maxRows: 3 }"
+              @update:value="$emit('update:userAgent', $event)"
+            />
+            <UserAgentPopover
+              :url="sourceUrl"
+              :final-url="finalUrl"
+              :referer="referer"
+              :profiles="userAgentProfiles"
+              :rules="userAgentRules"
+              :recent-profile-ids="recentUserAgentProfileIds"
+              @select="$emit('selectUserAgentProfile', $event)"
+            />
+          </NInputGroup>
+          <div class="ua-source-collapse" :class="{ 'ua-source-collapse--open': userAgentSource }">
+            <div class="ua-source-collapse__inner">
+              <div class="ua-source">{{ userAgentSource }}</div>
+            </div>
+          </div>
           <!-- UA sanitization hint — slides in via CSS Grid 0fr→1fr -->
           <div class="ua-warn-collapse" :class="{ 'ua-warn-collapse--open': uaHasIssue }">
             <div class="ua-warn-collapse__inner">
@@ -122,6 +154,25 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
           :autosize="{ minRows: 1, maxRows: 3 }"
           @update:value="$emit('update:authorization', $event)"
         />
+      </NFormItem>
+      <NFormItem :label="t('task.task-http-auth') + ':'">
+        <div class="http-auth-fields">
+          <NInput
+            :value="httpAuthUsername"
+            :placeholder="t('task.task-http-auth-username-placeholder')"
+            @update:value="$emit('update:httpAuthUsername', $event)"
+          />
+          <NInput
+            :value="httpAuthPassword"
+            type="password"
+            show-password-on="click"
+            :placeholder="t('task.task-http-auth-password-placeholder')"
+            @update:value="$emit('update:httpAuthPassword', $event)"
+          />
+          <NCheckbox :checked="saveHttpAuth" @update:checked="$emit('update:saveHttpAuth', $event)">
+            {{ t('task.task-http-auth-save') }}
+          </NCheckbox>
+        </div>
       </NFormItem>
       <NFormItem :label="t('task.task-referer') + ':'">
         <NInput
@@ -153,30 +204,32 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
           </div>
         </div>
       </NFormItem>
-      <NFormItem :label="t('task.task-proxy-label') + ':'">
-        <div class="proxy-radio-group">
-          <NRadioGroup
-            :value="proxyMode"
-            name="add-task-proxy-mode"
-            @update:value="$emit('update:proxyMode', $event as 'none' | 'global' | 'custom')"
-          >
-            <NRadio value="none">{{ t('task.proxy-mode-none') }}</NRadio>
-            <NRadio v-if="globalProxyAvailable" value="global">
-              {{ t('task.proxy-mode-global') }}
-            </NRadio>
-            <NRadio value="custom">{{ t('task.proxy-mode-custom') }}</NRadio>
-          </NRadioGroup>
-          <div class="proxy-hint-collapse" :class="{ 'proxy-hint-collapse--open': proxyMode === 'global' }">
-            <div class="proxy-hint-collapse__inner">
-              <div class="proxy-server-hint">{{ t('task.proxy-global-server') }} {{ globalProxyServer }}</div>
-            </div>
-          </div>
-          <NCollapseTransition :show="proxyMode === 'custom'">
+      <NFormItem :label="t('task.use-proxy') + ':'">
+        <NSwitch
+          :value="proxyMode === 'manual'"
+          @update:value="$emit('update:proxyMode', $event ? 'manual' : 'direct')"
+        />
+      </NFormItem>
+      <NFormItem label=" " :show-feedback="false" class="proxy-options-item">
+        <NCollapseTransition :show="proxyMode === 'manual'">
+          <div class="proxy-radio-group">
             <div class="custom-proxy-input">
               <NInput
                 :value="customProxy"
                 placeholder="http://host:port"
                 @update:value="$emit('update:customProxy', $event)"
+              />
+              <NInput
+                :value="customProxyUsername"
+                :placeholder="t('preferences.proxy-username')"
+                @update:value="$emit('update:customProxyUsername', $event)"
+              />
+              <NInput
+                :value="customProxyPassword"
+                type="password"
+                show-password-on="click"
+                :placeholder="t('preferences.proxy-password')"
+                @update:value="$emit('update:customProxyPassword', $event)"
               />
               <NButton :loading="detectingProxy" size="small" @click="detectProxy">
                 <template #icon>
@@ -185,8 +238,8 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
                 {{ t('preferences.detect-system-proxy') }}
               </NButton>
             </div>
-          </NCollapseTransition>
-        </div>
+          </div>
+        </NCollapseTransition>
       </NFormItem>
     </div>
   </NCollapseTransition>
@@ -198,6 +251,39 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
   display: flex;
   flex-direction: column;
   width: 100%;
+}
+.ua-input-row {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+.ua-input-row :deep(.n-input) {
+  flex: 1;
+}
+.ua-source {
+  margin-top: 5px;
+  color: var(--m3-on-surface-variant);
+  font-size: var(--font-size-sm);
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity 0.25s cubic-bezier(0.2, 0, 0, 1),
+    transform 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+.ua-source-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+.ua-source-collapse--open {
+  grid-template-rows: 1fr;
+}
+.ua-source-collapse__inner {
+  overflow: hidden;
+}
+.ua-source-collapse--open .ua-source {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* ── UA warning — CSS Grid 0fr→1fr slide-in ──────────────────────── */
@@ -219,7 +305,7 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
   padding: 8px 12px;
   margin-top: 6px;
   border-radius: var(--border-radius);
-  background: var(--m3-error-container-bg);
+  background: var(--m3-error-container);
   opacity: 0;
   transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
@@ -228,7 +314,7 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
 }
 .ua-warn-text {
   font-size: var(--font-size-sm);
-  color: var(--m3-error);
+  color: var(--m3-on-error-container);
   flex: 1;
 }
 
@@ -238,29 +324,10 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
   flex-direction: column;
   width: 100%;
 }
-.proxy-hint-collapse {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.25s ease;
-}
-.proxy-hint-collapse--open {
-  grid-template-rows: 1fr;
-}
-.proxy-hint-collapse__inner {
-  overflow: hidden;
-}
-.proxy-server-hint {
-  font-size: var(--font-size-sm);
-  color: var(--n-text-color-3, #999);
-  opacity: 0.8;
-  user-select: all;
-  padding: 4px 0 2px;
-}
 .custom-proxy-input {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-top: 6px;
 }
 .custom-proxy-input .n-button {
   align-self: flex-start;
@@ -275,5 +342,11 @@ const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect(
   font-size: 12px;
   opacity: 0.65;
   line-height: 1.5;
+}
+.http-auth-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
 }
 </style>

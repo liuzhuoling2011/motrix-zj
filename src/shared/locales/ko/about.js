@@ -9,7 +9,7 @@ export default {
   'click-to-copy': '클릭하여 복사',
   'version-copied': '{label} 버전 복사됨',
   'app-version': 'Motrix Next 버전',
-  'aria2-version': 'aria2 버전',
+  'aria2-version': 'Aria2 Next 버전',
   'loading': '로딩 중…',
   'unavailable': '사용 불가',
 }

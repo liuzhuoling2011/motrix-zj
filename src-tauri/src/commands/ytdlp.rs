@@ -216,6 +216,8 @@ pub async fn ytdlp_download_via_aria2(
 /// to keep the IPC surface consistent; the download directory is extracted
 /// from `options.dir`.
 #[tauri::command]
+// Tauri command parameters intentionally mirror the stable frontend IPC API.
+#[allow(clippy::too_many_arguments)]
 pub async fn ytdlp_download_direct(
     app: tauri::AppHandle,
     state: State<'_, YtdlpState>,
@@ -302,8 +304,11 @@ pub async fn ytdlp_download_direct(
     };
     let total_length = meta
         .get("filesize")
-        .and_then(|v| v.as_i64())
-        .or_else(|| meta.get("filesizeApprox").and_then(|v| v.as_i64()));
+        .and_then(serde_json::Value::as_i64)
+        .or_else(|| {
+            meta.get("filesizeApprox")
+                .and_then(serde_json::Value::as_i64)
+        });
     let record = HistoryRecord {
         id: None,
         gid: task_id.clone(),

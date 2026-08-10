@@ -452,21 +452,21 @@ pub async fn parse_url(
             .iter()
             .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
             .filter_map(|v| {
-                let id = v.get("id").and_then(|x| x.as_str())?.to_string();
+                let id = v.get("id").and_then(serde_json::Value::as_str)?.to_string();
                 let url_val = v
                     .get("webpage_url")
                     .or_else(|| v.get("url"))
-                    .and_then(|x| x.as_str())?
+                    .and_then(serde_json::Value::as_str)?
                     .to_string();
                 let title = v
                     .get("title")
-                    .and_then(|x| x.as_str())
+                    .and_then(serde_json::Value::as_str)
                     .unwrap_or("")
                     .to_string();
-                let duration = v.get("duration").and_then(|x| x.as_f64());
+                let duration = v.get("duration").and_then(serde_json::Value::as_f64);
                 let thumbnail = v
                     .get("thumbnail")
-                    .and_then(|x| x.as_str())
+                    .and_then(serde_json::Value::as_str)
                     .map(String::from);
                 Some(PlaylistItem {
                     id,
@@ -657,7 +657,7 @@ mod cookies_fallback_tests {
 
     #[test]
     fn bilibili_parse_retries_more_than_three_transient_failures() {
-        assert!(BILIBILI_PARSE_MAX_ATTEMPTS > 3);
+        let max_attempts = std::hint::black_box(BILIBILI_PARSE_MAX_ATTEMPTS);
+        assert!(max_attempts > 3);
     }
 }
-

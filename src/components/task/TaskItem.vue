@@ -3,18 +3,6 @@
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { TASK_STATUS } from '@shared/constants'
-import {
-  checkTaskIsSeeder,
-  getTaskDisplayName,
-  calcProgress,
-  bytesToSize,
-  timeRemaining,
-  timeFormat,
-  checkTaskIsBT,
-} from '@shared/utils'
-import { invoke } from '@tauri-apps/api/core'
-import { logger } from '@shared/logger'
-import { resolveTaskFilePath, recheckTrigger } from '@/composables/useArchivedPaths'
 import { NProgress, NIcon, NTag } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
 import {
@@ -26,7 +14,12 @@ import {
   CloudUploadOutline,
   CheckmarkCircleOutline,
   TrashOutline,
+  RadioOutline,
+  TimeOutline,
 } from '@vicons/ionicons5'
+import { useTaskCardModel } from '@/composables/useTaskCardModel'
+import { useTaskFileMissing } from '@/composables/useTaskFileMissing'
+import TaskDragHandle from './TaskDragHandle.vue'
 import TaskItemActions from './TaskItemActions.vue'
 import type { Aria2Task } from '@shared/types'
 
@@ -40,14 +33,28 @@ const emit = defineEmits<{
   'show-info': [task: Aria2Task]
   folder: [task: Aria2Task]
   'open-file': [task: Aria2Task]
-  'stop-seeding': [task: Aria2Task]
+  'stop-sharing': [task: Aria2Task]
 }>()
 
 const { t } = useI18n()
+const taskRef = computed(() => props.task)
 
-const taskFullName = computed(() =>
-  getTaskDisplayName(props.task, { defaultName: t('task.get-task-name') || 'Unknown' }),
-)
+const {
+  taskFullName,
+  isSharing,
+  statusBadge,
+  taskStatus,
+  isActive,
+  percent,
+  completedSize,
+  totalSize,
+  hasSizeInfo,
+  downloadSpeed,
+  uploadSpeed,
+  remaining,
+  remainingText,
+  transferSummary,
+} = useTaskCardModel(taskRef)
 
 interface VideoMetaPayload {
   video_title?: string
@@ -58,173 +65,103 @@ interface VideoMetaPayload {
   download_mode?: string
 }
 
+function isVideoMetaPayload(value: unknown): value is VideoMetaPayload {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('video_title' in value) || typeof value.video_title !== 'string' || !value.video_title) return false
+
+  return (
+    (!('extractor' in value) || typeof value.extractor === 'string') &&
+    (!('resolution' in value) || typeof value.resolution === 'string') &&
+    (!('thumbnail' in value) || typeof value.thumbnail === 'string') &&
+    (!('duration' in value) || typeof value.duration === 'number') &&
+    (!('download_mode' in value) || typeof value.download_mode === 'string')
+  )
+}
+
 const videoMeta = computed<VideoMetaPayload | null>(() => {
   // Video metadata is stored in history.db's `meta` field as JSON.
   // Tasks merged from history in stopped/all tab carry this field.
   // Regular aria2 tasks (no history) have no meta field.
-  const rawMeta = (props.task as unknown as { meta?: string }).meta
+  const rawMeta = props.task.meta
   if (!rawMeta || typeof rawMeta !== 'string') return null
   try {
-    const parsed = JSON.parse(rawMeta) as VideoMetaPayload
-    if (parsed && typeof parsed === 'object' && parsed.video_title) {
-      return parsed
-    }
+    const parsed: unknown = JSON.parse(rawMeta)
+    if (isVideoMetaPayload(parsed)) return parsed
   } catch {
     /* non-video task meta */
   }
   return null
 })
 
-const isSeeder = computed(() => checkTaskIsSeeder(props.task))
-const isBT = computed(() => checkTaskIsBT(props.task))
-const taskStatus = computed(() => (isSeeder.value ? TASK_STATUS.SEEDING : props.task.status))
-const isActive = computed(() => props.task.status === TASK_STATUS.ACTIVE)
-
-const percent = computed(() => calcProgress(props.task.totalLength, props.task.completedLength))
-const completedSize = computed(() => bytesToSize(props.task.completedLength, 2))
-const totalSize = computed(() => bytesToSize(props.task.totalLength, 2))
-const hasSizeInfo = computed(() => Number(props.task.completedLength) > 0 || Number(props.task.totalLength) > 0)
-const downloadSpeed = computed(() => bytesToSize(props.task.downloadSpeed))
-const uploadSpeed = computed(() => bytesToSize(props.task.uploadSpeed))
-
-const remaining = computed(() => {
-  if (!isActive.value) return 0
-  return timeRemaining(
-    Number(props.task.totalLength),
-    Number(props.task.completedLength),
-    Number(props.task.downloadSpeed),
-  )
-})
-
-const remainingText = computed(() => {
-  if (remaining.value <= 0) return ''
-  return timeFormat(remaining.value, {
-    prefix: t('task.remaining-prefix') || '',
-    i18n: {
-      gt1d: t('app.gt1d') || '>1d',
-      hour: t('app.hour') || 'h',
-      minute: t('app.minute') || 'm',
-      second: t('app.second') || 's',
-    },
-  })
-})
-
-/** Reads a CSS variable from :root, returning the fallback if unavailable. */
-function cssVar(name: string, fallback: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
+const statusColorMap: Record<string, string> = {
+  active: 'var(--m3-status-active)',
+  waiting: 'var(--m3-status-waiting)',
+  paused: 'var(--m3-status-paused)',
+  error: 'var(--m3-status-error)',
+  complete: 'var(--m3-status-success)',
+  removed: 'var(--m3-status-paused)',
+  sharing: 'var(--m3-status-success)',
 }
 
-const statusColorMap = computed<Record<string, string>>(() => ({
-  active: cssVar('--m3-status-active', ''),
-  waiting: cssVar('--m3-status-waiting', ''),
-  paused: cssVar('--m3-status-paused', '#909399'),
-  error: cssVar('--m3-status-error', '#F56C6C'),
-  complete: cssVar('--m3-status-success', '#67C23A'),
-  removed: cssVar('--m3-status-paused', '#909399'),
-  seeding: cssVar('--m3-status-success', '#67C23A'),
-}))
+const progressColor = computed(() => statusColorMap[taskStatus.value] || 'var(--m3-status-active)')
+const hasStatusLine = computed(() => Boolean(statusBadge.value || fileMissing.value || videoMeta.value))
 
-const progressColor = computed(() => statusColorMap.value[taskStatus.value] || cssVar('--m3-status-active', ''))
+const statusBadgeStyle = computed(() => {
+  switch (statusBadge.value?.tone) {
+    case 'success':
+      return { color: 'var(--m3-status-success)' }
+    case 'error':
+      return { color: 'var(--m3-status-error)' }
+    case 'waiting':
+      return { color: 'var(--m3-status-waiting)' }
+    case 'muted':
+      return { color: 'var(--m3-status-paused)' }
+    default:
+      return { color: 'var(--m3-status-paused)' }
+  }
+})
 
-const finishedTag = computed(() => {
-  const s = props.task.status
-  if (s === TASK_STATUS.COMPLETE)
-    return {
-      label: t('task.task-complete') || 'Completed',
-      color: cssVar('--m3-status-success', '#67C23A'),
-      icon: CheckmarkCircleOutline,
-    }
-  if (s === TASK_STATUS.ERROR)
-    return {
-      label: t('task.task-error') || 'Error',
-      color: cssVar('--m3-status-error', '#F56C6C'),
-      icon: AlertCircleOutline,
-    }
-  if (s === TASK_STATUS.REMOVED)
-    return {
-      label: t('task.task-removed') || 'Removed',
-      color: cssVar('--m3-status-paused', '#909399'),
-      icon: TrashOutline,
-    }
-  return null
+const statusBadgeIcon = computed(() => {
+  switch (statusBadge.value?.key) {
+    case TASK_STATUS.COMPLETE:
+      return CheckmarkCircleOutline
+    case TASK_STATUS.ERROR:
+      return AlertCircleOutline
+    case TASK_STATUS.REMOVED:
+      return TrashOutline
+    case TASK_STATUS.WAITING:
+      return TimeOutline
+    case 'bt-metadata-fetching':
+      return RadioOutline
+    default:
+      return CloudUploadOutline
+  }
 })
 
 function onDblClick() {
-  if (isSeeder.value) return
+  if (isSharing.value) return
   const s = props.task.status
   if (s === TASK_STATUS.COMPLETE) {
     emit('open-file', props.task)
     return
   }
-  if (s === TASK_STATUS.ACTIVE) emit('pause', props.task)
-  else if (s === TASK_STATUS.WAITING || s === TASK_STATUS.PAUSED) emit('resume', props.task)
+  if (s === TASK_STATUS.ACTIVE || s === TASK_STATUS.WAITING) emit('pause', props.task)
+  else if (s === TASK_STATUS.PAUSED) emit('resume', props.task)
 }
 
-// File missing detection for completed/stopped tasks
-const fileMissing = ref(false)
-const FILE_CHECK_THROTTLE_MS = 120
-let fileCheckTimer: ReturnType<typeof setTimeout> | null = null
+const { fileMissing } = useTaskFileMissing(taskRef)
 
-const fileCheckTargetPath = computed(() => {
-  const status = props.task.status
-  if (status === TASK_STATUS.ACTIVE || status === TASK_STATUS.WAITING || status === TASK_STATUS.PAUSED) {
-    return null
-  }
-  return resolveTaskFilePath(props.task)
-})
-
-async function checkFileExists(targetPath: string | null) {
-  if (!targetPath) {
-    fileMissing.value = false
-    return
-  }
-
-  try {
-    fileMissing.value = !(await invoke<boolean>('check_path_exists', { path: targetPath }))
-  } catch (e) {
-    logger.debug('TaskItem.fileCheck', e)
-    fileMissing.value = false
-  }
-}
-
-function scheduleFileExistsCheck(targetPath: string | null) {
-  if (fileCheckTimer) {
-    clearTimeout(fileCheckTimer)
-    fileCheckTimer = null
-  }
-
-  if (!targetPath) {
-    fileMissing.value = false
-    return
-  }
-
-  fileCheckTimer = setTimeout(() => {
-    fileCheckTimer = null
-    void checkFileExists(targetPath)
-  }, FILE_CHECK_THROTTLE_MS)
-}
-
-// Dual-source trigger: re-check when path changes (archive) OR on explicit
-// recheck request (action handler file-not-found, periodic background timer).
-watch([fileCheckTargetPath, recheckTrigger], ([path]) => scheduleFileExistsCheck(path), { immediate: true })
-onBeforeUnmount(() => {
-  if (fileCheckTimer) {
-    clearTimeout(fileCheckTimer)
-    fileCheckTimer = null
-  }
-})
-
-// ── M3 seeding state entrance animation ───────────────────────────
+// ── M3 sharing state entrance animation ───────────────────────────
 // CSS transitions fail here because the store's polling cycle replaces
 // task objects entirely — even though Vue reuses the DOM element (same
 // gid key), NProgress internally rebuilds its fill node, losing the
 // transition starting point. @keyframes animations do not depend on
 // property value continuity — they always play from→to.
-const seedingEnter = ref(false)
+const sharingEnter = ref(false)
 
-watch(isSeeder, (now, was) => {
+watch(isSharing, (now, was) => {
   if (now && !was) {
-    seedingEnter.value = true
+    sharingEnter.value = true
   }
 })
 
@@ -265,109 +202,111 @@ onBeforeUnmount(() => {
     ref="cardRef"
     class="task-item"
     :class="{
-      'file-missing': fileMissing,
-      'is-seeding': isSeeder,
-      'seeding-enter': seedingEnter,
+      'is-sharing': isSharing,
+      'sharing-enter': sharingEnter,
     }"
     @dblclick="onDblClick"
     @pointerdown="onCardPress"
     @pointerup="onCardRelease"
     @pointerleave="onCardRelease"
-    @animationend="seedingEnter = false"
+    @animationend="sharingEnter = false"
   >
-    <MTooltip placement="bottom-start">
-      <template #trigger>
-        <div class="task-name">
-          <!-- Crossfade: old name fades out, then new name fades in.
-               :key ensures transition only fires when the text actually changes.
-               Polling-safe: computed returns the same string each cycle → no key change. -->
-          <Transition name="name-crossfade" mode="out-in">
-            <span :key="taskFullName">{{ taskFullName }}</span>
-          </Transition>
-          <div class="tags-wrapper" :class="{ 'has-tags': isSeeder || finishedTag || fileMissing || videoMeta }">
-            <div class="tags-inner">
-              <div v-if="isSeeder || finishedTag || fileMissing || videoMeta" class="task-tags">
-                <span v-if="isSeeder" class="seeding-tag">
-                  <NIcon :size="13"><CloudUploadOutline /></NIcon>
-                  {{ t('task.seeding') || 'Seeding' }}
-                </span>
-                <span v-else-if="finishedTag" class="status-tag" :style="{ color: finishedTag.color }">
-                  <NIcon :size="13"><component :is="finishedTag.icon" /></NIcon>
-                  {{ finishedTag.label }}
-                </span>
-                <span v-if="fileMissing" class="file-missing-tag">
-                  <NIcon :size="13"><AlertCircleOutline /></NIcon>
-                  {{ t('task.file-missing') || 'File missing' }}
-                </span>
-                <template v-if="videoMeta">
-                  <NTag v-if="videoMeta.extractor" size="tiny" :bordered="false" type="info" class="video-tag">
-                    {{ videoMeta.extractor }}
-                  </NTag>
-                  <NTag v-if="videoMeta.resolution" size="tiny" :bordered="false" class="video-tag">
-                    {{ videoMeta.resolution }}
-                  </NTag>
-                </template>
-              </div>
+    <TaskDragHandle class="task-drag-rail" />
+    <div class="task-body">
+      <div class="task-header">
+        <MTooltip placement="bottom-start">
+          <template #trigger>
+            <div class="task-name">
+              <!-- Crossfade: old name fades out, then new name fades in.
+                   :key ensures transition only fires when the text actually changes.
+                   Polling-safe: computed returns the same string each cycle → no key change. -->
+              <Transition name="name-crossfade" mode="out-in">
+                <span :key="taskFullName" class="technical-text-wrap">{{ taskFullName }}</span>
+              </Transition>
             </div>
+          </template>
+          {{ taskFullName }}
+        </MTooltip>
+        <TaskItemActions
+          :task="task"
+          :status="taskStatus"
+          :file-missing="fileMissing"
+          @pause="emit('pause', task)"
+          @resume="emit('resume', task)"
+          @delete="emit('delete', task)"
+          @delete-record="emit('delete-record', task)"
+          @copy-link="emit('copy-link', task)"
+          @show-info="emit('show-info', task)"
+          @folder="emit('folder', task)"
+          @open-file="emit('open-file', task)"
+          @stop-sharing="emit('stop-sharing', task)"
+        />
+      </div>
+      <div class="task-status-slot" :class="{ 'task-status-slot--visible': hasStatusLine }">
+        <div class="task-status-slot__inner">
+          <div class="task-tags" :class="{ 'task-tags--visible': hasStatusLine }">
+            <span v-show="statusBadge" class="status-tag" :style="statusBadgeStyle">
+              <NIcon :size="13"><component :is="statusBadgeIcon" /></NIcon>
+              {{ statusBadge?.label }}
+            </span>
+            <span v-show="fileMissing" class="file-missing-tag">
+              <NIcon :size="13"><AlertCircleOutline /></NIcon>
+              {{ t('task.file-missing') || 'File missing' }}
+            </span>
+            <template v-if="videoMeta">
+              <NTag v-if="videoMeta.extractor" size="tiny" :bordered="false" type="info" class="video-tag">
+                {{ videoMeta.extractor }}
+              </NTag>
+              <NTag v-if="videoMeta.resolution" size="tiny" :bordered="false" class="video-tag">
+                {{ videoMeta.resolution }}
+              </NTag>
+            </template>
           </div>
         </div>
-      </template>
-      {{ taskFullName }}
-    </MTooltip>
-    <TaskItemActions
-      :task="task"
-      :status="taskStatus"
-      :file-missing="fileMissing"
-      @pause="emit('pause', task)"
-      @resume="emit('resume', task)"
-      @delete="emit('delete', task)"
-      @delete-record="emit('delete-record', task)"
-      @copy-link="emit('copy-link', task)"
-      @show-info="emit('show-info', task)"
-      @folder="emit('folder', task)"
-      @open-file="emit('open-file', task)"
-      @stop-seeding="emit('stop-seeding', task)"
-    />
-    <div class="task-progress">
-      <NProgress
-        type="line"
-        :percentage="percent"
-        :color="progressColor"
-        :rail-color="undefined"
-        :height="6"
-        :border-radius="3"
-        :show-indicator="false"
-        :processing="isActive"
-      />
-      <div class="task-progress-info">
-        <div class="progress-left" :class="{ 'info-hidden': !hasSizeInfo }">
-          <span>
-            {{ completedSize }}
-            <span v-if="Number(task.totalLength) > 0"> / {{ totalSize }}</span>
-          </span>
+      </div>
+      <div class="task-progress">
+        <NProgress
+          type="line"
+          :percentage="percent"
+          :color="progressColor"
+          :rail-color="undefined"
+          :height="6"
+          :border-radius="3"
+          :show-indicator="false"
+          :processing="isActive"
+        />
+        <div class="task-progress-info">
+          <div class="progress-left" :class="{ 'info-hidden': !hasSizeInfo }">
+            <span>
+              {{ completedSize }}
+              <span v-if="Number(task.totalLength) > 0"> / {{ totalSize }}</span>
+            </span>
+          </div>
+          <div class="progress-right" :class="{ 'info-hidden': !isActive }">
+            <span class="speed-text" :class="{ 'info-hidden': remaining <= 0 }">
+              <span>{{ remainingText }}</span>
+            </span>
+            <span v-if="transferSummary.showUploadMetrics" class="speed-text">
+              <NIcon :size="10"><ArrowUpOutline /></NIcon>
+              <span>{{ uploadSpeed }}/s</span>
+            </span>
+            <span class="speed-text">
+              <NIcon :size="10"><ArrowDownOutline /></NIcon>
+              <span>{{ downloadSpeed }}/s</span>
+            </span>
+            <span v-if="transferSummary.showSeeders" class="speed-text">
+              <NIcon :size="10"><MagnetOutline /></NIcon>
+              <span>{{ task.numSeeders }}</span>
+            </span>
+            <span class="speed-text">
+              <NIcon :size="10"><GitNetworkOutline /></NIcon>
+              <span>{{ task.connections }}</span>
+            </span>
+          </div>
+          <div class="error-message technical-text-wrap" :class="{ 'info-hidden': !task.errorMessage }">
+            {{ task.errorMessage }}
+          </div>
         </div>
-        <div class="progress-right" :class="{ 'info-hidden': !isActive }">
-          <span class="speed-text" :class="{ 'info-hidden': remaining <= 0 }">
-            <span>{{ remainingText }}</span>
-          </span>
-          <span v-if="isBT" class="speed-text">
-            <NIcon :size="10"><ArrowUpOutline /></NIcon>
-            <span>{{ uploadSpeed }}/s</span>
-          </span>
-          <span class="speed-text">
-            <NIcon :size="10"><ArrowDownOutline /></NIcon>
-            <span>{{ downloadSpeed }}/s</span>
-          </span>
-          <span v-if="isBT" class="speed-text">
-            <NIcon :size="10"><MagnetOutline /></NIcon>
-            <span>{{ task.numSeeders }}</span>
-          </span>
-          <span class="speed-text">
-            <NIcon :size="10"><GitNetworkOutline /></NIcon>
-            <span>{{ task.connections }}</span>
-          </span>
-        </div>
-        <div class="error-message" :class="{ 'info-hidden': !task.errorMessage }">{{ task.errorMessage }}</div>
       </div>
     </div>
   </div>
@@ -376,13 +315,15 @@ onBeforeUnmount(() => {
 <style scoped>
 .task-item {
   position: relative;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
   min-height: 78px;
-  padding: 16px 12px;
   background-color: var(--task-item-bg);
   border: 1px solid var(--m3-outline-variant);
-  /* Reserve 3px left border at base color so seeding only animates color */
+  /* Reserve 3px left border at base color so sharing only animates color */
   border-left: 3px solid var(--m3-outline-variant);
   border-radius: 6px;
+  overflow: hidden;
   transition: border-color 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 /* Gradient overlay — always present, hidden by default */
@@ -396,16 +337,16 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 /* ── Seeding state (static) ────────────────────────────────────────── */
-.task-item.is-seeding {
+.task-item.is-sharing {
   border-left-color: var(--m3-success);
 }
-.task-item.is-seeding::before {
+.task-item.is-sharing::before {
   opacity: 1;
 }
 /* ── Seeding entrance animation (triggered by Vue watch) ───────────── */
 /* @keyframes always plays from→to regardless of prior DOM state,       */
 /* unlike CSS transitions which break when the element is re-rendered.  */
-@keyframes seeding-border-enter {
+@keyframes sharing-border-enter {
   from {
     border-left-color: var(--m3-outline-variant);
   }
@@ -413,7 +354,7 @@ onBeforeUnmount(() => {
     border-left-color: var(--m3-success);
   }
 }
-@keyframes seeding-overlay-enter {
+@keyframes sharing-overlay-enter {
   from {
     opacity: 0;
   }
@@ -421,21 +362,35 @@ onBeforeUnmount(() => {
     opacity: 1;
   }
 }
-.task-item.seeding-enter {
-  animation: seeding-border-enter 1s cubic-bezier(0.05, 0.7, 0.1, 1) forwards;
+.task-item.sharing-enter {
+  animation: sharing-border-enter 1s cubic-bezier(0.05, 0.7, 0.1, 1) forwards;
 }
-.task-item.seeding-enter::before {
-  animation: seeding-overlay-enter 1.2s cubic-bezier(0.05, 0.7, 0.1, 1) forwards;
+.task-item.sharing-enter::before {
+  animation: sharing-overlay-enter 1.2s cubic-bezier(0.05, 0.7, 0.1, 1) forwards;
 }
 .task-item:hover {
   border-color: var(--task-item-hover-border);
+}
+.task-item:hover .task-drag-rail {
+  opacity: 0.64;
+}
+.task-drag-rail {
+  grid-row: 1;
+  align-self: stretch;
+  min-height: 0;
+}
+.task-body {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  min-width: 0;
+  padding: 16px 12px;
 }
 /* ── Card press-hold state ──────────────────────────────────────────── */
 /* Asymmetric timing: fast press-in (0.15s), springy release (0.35s).   */
 /* The release uses M3 emphasized-decelerate for organic overshoot.     */
 .task-item.pressed {
   transform: scale(0.98);
-  border-color: var(--color-primary);
+  border-color: var(--m3-primary);
   transition:
     transform 0.15s cubic-bezier(0.2, 0, 0, 1),
     border-color 0.15s;
@@ -446,22 +401,31 @@ onBeforeUnmount(() => {
     transform 0.35s cubic-bezier(0.05, 0.7, 0.1, 1),
     border-color 0.3s;
 }
+.task-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 20px;
+  align-items: start;
+}
+.task-header :deep(.n-tooltip-trigger) {
+  min-width: 0;
+  max-width: 100%;
+}
 .task-name {
   color: var(--m3-on-surface-variant);
-  margin-bottom: 1.5rem;
-  margin-right: 250px;
   overflow: hidden;
   min-height: 26px;
+  min-width: 0;
+  max-width: 100%;
 }
 .task-name > span {
   font-size: 14px;
   line-height: 26px;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  word-break: break-all;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 /* ── Filename resolution crossfade (Vue <Transition mode="out-in">) ── */
 /* Old text fades out → new text fades in. No flash because Vue applies  */
@@ -503,12 +467,12 @@ onBeforeUnmount(() => {
     transform: translateY(0);
   }
 }
-.task-item.file-missing {
-  border-color: var(--m3-error-container-bg);
-}
-/* M3 progress-bar color transition (amber → green on status change) */
+/* M3 progress-bar transition between semantic status colors. */
 .task-progress :deep(.n-progress-graph-line-fill) {
   transition: background-color 0.5s cubic-bezier(0.2, 0, 0, 1);
+}
+.task-progress {
+  margin-top: 10px;
 }
 .task-progress-info {
   display: flex;
@@ -522,6 +486,8 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
 }
 .progress-left {
+  display: inline-flex;
+  align-items: center;
   white-space: nowrap;
   transition: opacity 0.4s cubic-bezier(0.2, 0, 0, 1);
 }
@@ -541,7 +507,6 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
-
 /* ── Pure CSS show/hide (polling-safe) ────────────────────────────── */
 /* Bypasses Vue <Transition> to avoid leave-animation loss when       */
 /* reactive polling updates child content in the same render tick.    */
@@ -549,37 +514,37 @@ onBeforeUnmount(() => {
   opacity: 0;
   pointer-events: none;
 }
+.task-status-slot {
+  height: 0;
+  overflow: hidden;
+  transition:
+    height 0.42s cubic-bezier(0.05, 0.7, 0.1, 1),
+    opacity 0.28s cubic-bezier(0.2, 0, 0, 1);
+  opacity: 0;
+}
+.task-status-slot--visible {
+  height: 18px;
+  opacity: 1;
+}
+.task-status-slot__inner {
+  min-height: 18px;
+}
 .task-tags {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 18px;
+  opacity: 0;
+  transform: translateY(-3px);
+  transition:
+    opacity 0.3s cubic-bezier(0.2, 0, 0, 1),
+    transform 0.3s cubic-bezier(0.05, 0.7, 0.1, 1);
+  pointer-events: none;
 }
-/* ── Tag height transition (CSS Grid 0fr→1fr) ────────────────────── */
-/* Wrapper is always in the DOM. grid-template-rows transitions from    */
-/* 0fr (collapsed, zero height) to 1fr (natural height). The inner      */
-/* element uses overflow:hidden + min-height:0 to clip during collapse.  */
-/* Works for all tags: seeding, completed, removed, file-missing.       */
-.tags-wrapper {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.4s cubic-bezier(0.05, 0.7, 0.1, 1);
-}
-.tags-wrapper.has-tags {
-  grid-template-rows: 1fr;
-}
-.tags-inner {
-  overflow: hidden;
-  min-height: 0;
-}
-.seeding-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 13px;
-  color: var(--m3-success);
-  opacity: 0.9;
-  vertical-align: middle;
-  animation: m3-tag-enter 0.35s cubic-bezier(0.05, 0.7, 0.1, 1);
+.task-tags--visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 .status-tag {
   display: inline-flex;
@@ -588,7 +553,6 @@ onBeforeUnmount(() => {
   font-size: 13px;
   opacity: 0.9;
   vertical-align: middle;
-  animation: m3-tag-enter 0.35s cubic-bezier(0.05, 0.7, 0.1, 1);
 }
 .video-tag {
   margin-left: 4px;
@@ -600,7 +564,6 @@ onBeforeUnmount(() => {
   color: var(--m3-error);
   margin-top: 4px;
   opacity: 0.85;
-  word-break: break-all;
   line-height: 1.4;
 }
 </style>

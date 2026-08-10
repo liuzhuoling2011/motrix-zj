@@ -21,7 +21,10 @@ import {
 import { type Component } from 'vue'
 import type { Aria2Task } from '@shared/types'
 
-const props = defineProps<{ task: Aria2Task; status: string; fileMissing?: boolean }>()
+const props = withDefaults(
+  defineProps<{ task: Aria2Task; status: string; fileMissing?: boolean; density?: 'full' | 'compact' }>(),
+  { density: 'full' },
+)
 const stoppingGids = inject<Ref<string[]>>('stoppingGids')
 const isStopping = computed(() => stoppingGids?.value.includes(props.task.gid) ?? false)
 const emit = defineEmits<{
@@ -33,7 +36,7 @@ const emit = defineEmits<{
   'show-info': []
   folder: []
   'open-file': []
-  'stop-seeding': []
+  'stop-sharing': []
 }>()
 
 const { t } = useI18n()
@@ -57,7 +60,7 @@ const actionsMap = computed<Record<string, ActionDef[]>>(() => ({
     { key: 'delete', icon: CloseOutline, label: t('task.delete-task'), event: 'delete' },
   ],
   [TASK_STATUS.WAITING]: [
-    { key: 'toggle', icon: PlayOutline, label: t('task.resume-task'), event: 'resume' },
+    { key: 'toggle', icon: PauseOutline, label: t('task.pause-task'), event: 'pause' },
     { key: 'delete', icon: CloseOutline, label: t('task.delete-task'), event: 'delete' },
   ],
   [TASK_STATUS.ERROR]: [
@@ -78,16 +81,14 @@ const actionsMap = computed<Record<string, ActionDef[]>>(() => ({
     { key: 'restart', icon: RefreshOutline, label: t('task.restart-task'), event: 'resume' },
     { key: 'trash', icon: TrashOutline, label: t('task.remove-record'), event: 'delete-record' },
   ],
-  [TASK_STATUS.SEEDING]: [
+  [TASK_STATUS.SHARING]: [
     {
       key: 'stop',
       icon: StopOutline,
-      label: t('task.stop-seeding') || 'Stop Seeding',
-      event: 'stop-seeding',
-      tooltip:
-        t('task.stop-seeding-tip') ||
-        'Download complete. You are sharing this file with others via BT. Click to stop seeding.',
-      cls: 'stop-seeding',
+      label: t('task.stop-sharing') || 'Stop Sharing',
+      event: 'stop-sharing',
+      tooltip: t('task.stop-sharing-tip') || 'Download complete. Click to stop sharing.',
+      cls: 'stop-sharing',
     },
     { key: 'delete', icon: CloseOutline, label: t('task.delete-task'), event: 'delete' },
   ],
@@ -137,8 +138,8 @@ function onAction(event: string) {
     case 'open-file':
       emit('open-file')
       break
-    case 'stop-seeding':
-      emit('stop-seeding')
+    case 'stop-sharing':
+      emit('stop-sharing')
       break
   }
 }
@@ -172,7 +173,13 @@ function onRelease(ev: PointerEvent) {
 </script>
 
 <template>
-  <TransitionGroup tag="ul" name="action-item" class="task-item-actions" @dblclick.stop>
+  <TransitionGroup
+    tag="ul"
+    name="action-item"
+    class="task-item-actions"
+    :class="{ 'task-item-actions--compact': props.density === 'compact' }"
+    @dblclick.stop
+  >
     <li
       v-for="action in actions"
       :key="action.key"
@@ -180,7 +187,7 @@ function onRelease(ev: PointerEvent) {
       :class="[
         action.cls,
         {
-          'is-stopping': action.event === 'stop-seeding' && isStopping,
+          'is-stopping': action.event === 'stop-sharing' && isStopping,
         },
       ]"
       @pointerdown="onPress"
@@ -190,20 +197,20 @@ function onRelease(ev: PointerEvent) {
     >
       <MTooltip :style="action.tooltip ? 'max-width: 220px' : ''">
         <template #trigger>
-          <span v-if="action.event === 'stop-seeding'" class="stop-icon-wrapper">
+          <span v-if="action.event === 'stop-sharing'" class="stop-icon-wrapper">
             <span class="stop-icon-static" :class="{ 'fade-out': isStopping }">
-              <NIcon :size="20"><StopOutline /></NIcon>
+              <NIcon class="task-action-icon"><StopOutline /></NIcon>
             </span>
             <span class="stop-icon-spin" :class="{ 'fade-in': isStopping }">
-              <NIcon :size="20"><SyncOutline /></NIcon>
+              <NIcon class="task-action-icon"><SyncOutline /></NIcon>
             </span>
           </span>
           <Transition v-else name="icon-swap" mode="out-in">
-            <NIcon :key="action.event" :size="20"><component :is="action.icon" /></NIcon>
+            <NIcon :key="action.event" class="task-action-icon"><component :is="action.icon" /></NIcon>
           </Transition>
         </template>
-        <template v-if="action.event === 'stop-seeding' && isStopping">
-          {{ t('task.stopping-seeding') || 'Stopping…' }}
+        <template v-if="action.event === 'stop-sharing' && isStopping">
+          {{ t('task.stopping-sharing') || 'Stopping…' }}
         </template>
         <template v-else>
           {{ action.tooltip || action.label }}
@@ -215,11 +222,14 @@ function onRelease(ev: PointerEvent) {
 
 <style scoped>
 .task-item-actions {
-  position: absolute;
-  top: 14px;
-  right: 12px;
-  height: 32px;
-  padding: 0 12px;
+  --task-action-height: 32px;
+  --task-action-padding-x: 12px;
+  --task-action-item-padding: 6px;
+  --task-action-item-margin: 3px;
+  --task-action-icon-size: 20px;
+  --task-action-item-max-width: 38px;
+  height: var(--task-action-height);
+  padding: 0 var(--task-action-padding-x);
   margin: 0;
   overflow: hidden;
   user-select: none;
@@ -240,12 +250,12 @@ function onRelease(ev: PointerEvent) {
 }
 .task-item-action {
   display: inline-block;
-  padding: 6px;
-  margin: 0 3px;
-  max-width: 38px;
+  padding: var(--task-action-item-padding);
+  margin: 0 var(--task-action-item-margin);
+  max-width: var(--task-action-item-max-width);
   font-size: 0;
   cursor: pointer;
-  line-height: 20px;
+  line-height: var(--task-action-icon-size);
   direction: ltr;
   border-radius: 50%;
   transition:
@@ -258,17 +268,26 @@ function onRelease(ev: PointerEvent) {
     opacity 0.2s ease-out;
   transform-origin: center;
 }
+.task-item-actions--compact {
+  --task-action-height: 24px;
+  --task-action-padding-x: 10px;
+  --task-action-item-padding: 3px;
+  --task-action-item-margin: 3px;
+  --task-action-icon-size: 16px;
+  --task-action-item-max-width: 28px;
+  border-radius: 13px;
+}
 .task-item-action:hover {
-  color: var(--color-primary);
+  color: var(--m3-primary);
 }
 .task-item-action.pressed {
   transform: scale(0.85);
   transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
-.task-item-action.stop-seeding {
+.task-item-action.stop-sharing {
   color: var(--m3-success);
 }
-.task-item-action.stop-seeding:hover {
+.task-item-action.stop-sharing:hover {
   color: var(--m3-success);
 }
 .task-item-action.is-stopping {
@@ -282,8 +301,11 @@ function onRelease(ev: PointerEvent) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: var(--task-action-icon-size);
+  height: var(--task-action-icon-size);
+}
+.task-action-icon {
+  font-size: var(--task-action-icon-size);
 }
 .stop-icon-static,
 .stop-icon-spin {

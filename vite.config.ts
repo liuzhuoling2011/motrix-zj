@@ -19,6 +19,7 @@ export default defineConfig(async () => ({
     alias: {
       '@': resolve(__dirname, 'src'),
       '@shared': resolve(__dirname, 'src/shared'),
+      path: 'path-browserify',
     },
   },
   clearScreen: false,

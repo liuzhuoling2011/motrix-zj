@@ -21,7 +21,7 @@ import {
   type SpeedLimiterDeps,
 } from '../useSpeedLimiter'
 import type { AppConfig } from '@shared/types'
-import { DEFAULT_APP_CONFIG } from '@shared/constants'
+import { createDefaultAppConfig } from '@shared/utils/configHydration'
 
 // ═══════════════════════════════════════════════════════════════════════
 // parseSpeedLimitValue — Parse aria2 speed limit strings to {num, unit}
@@ -147,7 +147,7 @@ describe('formatLimitBadge', () => {
 describe('hasConfiguredLimit', () => {
   it('returns false when both limits are "0"', () => {
     const config = {
-      ...DEFAULT_APP_CONFIG,
+      ...createDefaultAppConfig(),
       maxOverallDownloadLimit: '0',
       maxOverallUploadLimit: '0',
     } as AppConfig
@@ -156,7 +156,7 @@ describe('hasConfiguredLimit', () => {
 
   it('returns false when both limits are empty strings', () => {
     const config = {
-      ...DEFAULT_APP_CONFIG,
+      ...createDefaultAppConfig(),
       maxOverallDownloadLimit: '',
       maxOverallUploadLimit: '',
     } as AppConfig
@@ -165,7 +165,7 @@ describe('hasConfiguredLimit', () => {
 
   it('returns true when download limit is set', () => {
     const config = {
-      ...DEFAULT_APP_CONFIG,
+      ...createDefaultAppConfig(),
       maxOverallDownloadLimit: '10M',
       maxOverallUploadLimit: '0',
     } as AppConfig
@@ -174,7 +174,7 @@ describe('hasConfiguredLimit', () => {
 
   it('returns true when upload limit is set', () => {
     const config = {
-      ...DEFAULT_APP_CONFIG,
+      ...createDefaultAppConfig(),
       maxOverallDownloadLimit: '0',
       maxOverallUploadLimit: '512K',
     } as AppConfig
@@ -183,7 +183,7 @@ describe('hasConfiguredLimit', () => {
 
   it('returns true when both limits are set', () => {
     const config = {
-      ...DEFAULT_APP_CONFIG,
+      ...createDefaultAppConfig(),
       maxOverallDownloadLimit: '10M',
       maxOverallUploadLimit: '512K',
     } as AppConfig
@@ -198,7 +198,7 @@ describe('hasConfiguredLimit', () => {
 describe('resolveToggleAction', () => {
   it('returns "disable" when limit is currently enabled', () => {
     const config = {
-      ...DEFAULT_APP_CONFIG,
+      ...createDefaultAppConfig(),
       speedLimitEnabled: true,
       maxOverallDownloadLimit: '10M',
       maxOverallUploadLimit: '512K',
@@ -208,7 +208,7 @@ describe('resolveToggleAction', () => {
 
   it('returns "enable" when limit is disabled and config has values', () => {
     const config = {
-      ...DEFAULT_APP_CONFIG,
+      ...createDefaultAppConfig(),
       speedLimitEnabled: false,
       maxOverallDownloadLimit: '10M',
       maxOverallUploadLimit: '0',
@@ -218,7 +218,7 @@ describe('resolveToggleAction', () => {
 
   it('returns "needs-config" when limit is disabled and no values configured', () => {
     const config = {
-      ...DEFAULT_APP_CONFIG,
+      ...createDefaultAppConfig(),
       speedLimitEnabled: false,
       maxOverallDownloadLimit: '0',
       maxOverallUploadLimit: '0',
@@ -228,7 +228,7 @@ describe('resolveToggleAction', () => {
 
   it('returns "needs-config" when limit is disabled and values are empty strings', () => {
     const config = {
-      ...DEFAULT_APP_CONFIG,
+      ...createDefaultAppConfig(),
       speedLimitEnabled: false,
       maxOverallDownloadLimit: '',
       maxOverallUploadLimit: '',
@@ -259,7 +259,7 @@ describe('toggleSpeedLimit', () => {
   it('disables limit by sending 0/0 to aria2 and updating store', async () => {
     const toggleSpeedLimit = await loadToggle()
     const config = {
-      ...DEFAULT_APP_CONFIG,
+      ...createDefaultAppConfig(),
       speedLimitEnabled: true,
       maxOverallDownloadLimit: '10M',
       maxOverallUploadLimit: '512K',
@@ -282,7 +282,7 @@ describe('toggleSpeedLimit', () => {
   it('enables limit by sending configured values to aria2', async () => {
     const toggleSpeedLimit = await loadToggle()
     const config = {
-      ...DEFAULT_APP_CONFIG,
+      ...createDefaultAppConfig(),
       speedLimitEnabled: false,
       maxOverallDownloadLimit: '10M',
       maxOverallUploadLimit: '512K',
@@ -304,7 +304,7 @@ describe('toggleSpeedLimit', () => {
   it('returns "needs-config" without calling RPC when no limits configured', async () => {
     const toggleSpeedLimit = await loadToggle()
     const config = {
-      ...DEFAULT_APP_CONFIG,
+      ...createDefaultAppConfig(),
       speedLimitEnabled: false,
       maxOverallDownloadLimit: '0',
       maxOverallUploadLimit: '0',

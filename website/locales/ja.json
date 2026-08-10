@@ -9,6 +9,8 @@
   "showcase.light": "ライトモード",
   "showcase.dark": "ダークモード",
   "story.title": "なぜ Motrix Next？",
+  "story.engine.label": "エンジン",
+  "story.engine": "Motrix Next はダウンロードエンジンとして {aria2Next} を使用します。これは保守中の aria2 fork で、元のインターフェースを保ちながら、長年の問題を修正し、CMake へ移行し、ネイティブ ED2K サポートを追加し、現代的な依存関係へ更新しています。",
   "story.p1": "agalwood が開発した Motrix は最高のオープンソースダウンロードマネージャーの一つでした — クリーンなUI、aria2搭載、クロスプラットフォーム。何千ものユーザーと開発者にインスピレーションを与えました。",
   "story.p2": "オリジナルプロジェクトは2023年以降ほぼ活動していません。Electron + Vue 2 + Vuex + Element UI のスタックは技術的負債を蓄積し、保守、拡張、パッケージングがますます困難になりました。",
   "rewrite.title": "ゼロからの完全な書き直し。",
@@ -56,7 +58,7 @@
   "motion.tokens.desc": "すべての持続時間と曲線はCSSカスタムプロパティで、12以上のコンポーネントで統一されたリズムを確保。",
   "features.title": "機能",
   "features.protocol.title": "マルチプロトコル",
-  "features.protocol.desc": "HTTP、FTP、BitTorrent、マグネットリンク。",
+  "features.protocol.desc": "HTTP、FTP、ED2K、BitTorrent、Magnet リンク。",
   "features.bt.title": "BitTorrent",
   "features.bt.desc": "選択的ファイルダウンロード、DHT、ピア交換、暗号化。",
   "features.tracker.title": "トラッカー管理",
@@ -74,7 +76,7 @@
   "features.task.title": "タスク管理",
   "features.task.desc": "一時停止、再開、ファイル削除、バッチ操作。",
   "features.handler.title": "プロトコルハンドラ",
-  "features.handler.desc": "マグネットリンクとサンダーリンクのデフォルトハンドラとして登録。",
+  "features.handler.desc": "magnet、ED2K、thunder リンクの既定ハンドラーとして登録。",
   "features.notify.title": "通知",
   "features.notify.desc": "タスク完了時にシステム通知。",
   "features.light.title": "軽量",
@@ -104,6 +106,5 @@
   "theme.dark": "ダーク",
   "hero.stars": "Stars",
   "hero.downloads": "ダウンロード",
-  "hero.version": "最新",
-  "starHistory.title": "Star 推移"
+  "hero.version": "最新"
 }

@@ -21,6 +21,7 @@ import { useEngineRestart } from '@/composables/useEngineRestart'
 import { usePreferenceStore } from '@/stores/preference'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { logger } from '@shared/logger'
+import { ENGINE_RPC_PORT } from '@shared/constants'
 
 const MAX_RETRIES = 3
 
@@ -42,7 +43,7 @@ type Phase = 'recovering' | 'recovered' | 'failed'
 const phase = ref<Phase>('recovering')
 const attempt = ref(0)
 const statusKey = ref<'engine-recovering' | 'engine-verifying-stability'>('engine-recovering')
-const rpcPort = computed(() => Number(preferenceStore.config.rpcListenPort) || 16800)
+const rpcPort = computed(() => Number(preferenceStore.config.rpcListenPort) || ENGINE_RPC_PORT)
 
 // ── Button label state machines ───────────────────────────────────────
 const dismissLabel = computed(() => (phase.value === 'recovering' ? 'app.cancel' : 'app.close'))
@@ -82,7 +83,7 @@ async function attemptRecovery() {
     const delay = 1000 * 2 ** i
     await new Promise((r) => setTimeout(r, delay))
 
-    const port = Number(preferenceStore.config.rpcListenPort) || 16800
+    const port = Number(preferenceStore.config.rpcListenPort) || ENGINE_RPC_PORT
     const secret = preferenceStore.config.rpcSecret || ''
 
     statusKey.value = 'engine-recovering'
@@ -238,7 +239,7 @@ watch(
 <style scoped>
 .engine-dialog {
   width: 420px;
-  background: var(--n-color, var(--m3-surface-container-high));
+  background: var(--m3-surface-container-high);
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 12px 40px var(--m3-shadow);
@@ -253,12 +254,12 @@ watch(
 .engine-dialog-title {
   font-size: 15px;
   font-weight: 600;
-  color: var(--n-text-color, var(--m3-on-surface));
+  color: var(--m3-on-surface);
 }
 .engine-dialog-close {
   background: none;
   border: none;
-  color: var(--n-text-color, var(--m3-outline));
+  color: var(--m3-outline);
   font-size: 20px;
   cursor: pointer;
   padding: 0 4px;
@@ -324,7 +325,7 @@ watch(
 .engine-attempt-counter {
   font-size: 14px;
   font-weight: 500;
-  color: var(--n-text-color-3, var(--m3-on-surface-variant));
+  color: var(--m3-on-surface-variant);
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -333,7 +334,7 @@ watch(
   display: inline-block;
   font-weight: 700;
   font-size: 16px;
-  color: var(--n-text-color-2, var(--m3-on-surface));
+  color: var(--m3-on-surface);
   min-width: 1em;
   text-align: center;
 }

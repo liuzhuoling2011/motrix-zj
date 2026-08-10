@@ -1,13 +1,15 @@
 name: 🐛 Bug Report
 description: Report a bug in Motrix Next
-title: "[BUG]: "
-labels: ["bug"]
+title: '[BUG]: '
+labels: ['bug']
 body:
   - type: markdown
     attributes:
       value: |
         Thanks for taking the time to report this issue!
         Please check [existing issues](https://github.com/AnInsomniacy/motrix-next/issues) before creating a new one.
+        Please reproduce the issue on the latest release or latest beta before filing. Reports from older versions may be closed without further investigation.
+        Use GitHub Discussions for questions. Use the extension repository for browser-extension-only issues, and Aria2 Next for engine-only issues.
 
   - type: textarea
     id: description
@@ -21,8 +23,31 @@ body:
     id: version
     attributes:
       label: Motrix Next Version
-      description: "The version shown in About panel (e.g. 3.4.1)"
-      placeholder: "3.4.1"
+      description: 'The full version shown in the About panel. Reports must be reproduced on the latest release or latest beta.'
+      placeholder: '3.4.1'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: source
+    attributes:
+      label: Issue Source
+      description: |
+        Select Motrix Next app only for desktop-app bugs.
+
+        Browser extension issues must be filed in:<br>
+        https://github.com/AnInsomniacy/motrix-next-extension
+
+        Aria2 Next engine issues must be filed in:<br>
+        https://github.com/AnInsomniacy/aria2-next
+
+        Misfiled issues may be closed here.
+      options:
+        - Motrix Next App
+        - Browser Extension
+        - RPC / Third-Party Parser
+        - Aria2 Next Engine
+        - Not Sure
     validations:
       required: true
 
@@ -46,8 +71,8 @@ body:
     id: os-version
     attributes:
       label: OS Version
-      description: "e.g. macOS 15.3, Windows 11 24H2, Ubuntu 24.04"
-      placeholder: "macOS 15.3"
+      description: 'e.g. macOS 15.3, Windows 11 24H2, Ubuntu 24.04'
+      placeholder: 'macOS 15.3'
     validations:
       required: true
 
@@ -68,8 +93,10 @@ body:
     attributes:
       label: Diagnostic Logs
       description: |
-        Please export logs via **Advanced Settings → Export Diagnostic Logs** (keep the log level at the default `debug`).
-        You can upload the exported `.zip` file directly here — no need to extract it. Just drag-and-drop and you're all set!
+        Keep both **Motrix Next Log Level** and **Aria2 Next Log Level** at the default `warn` level unless a maintainer requests otherwise. Reproduce the issue, then export the logs via **Advanced Settings → Export Diagnostic Logs**.
+        Upload the exported `.zip` directly. Do not extract it.
+        If you must redact sensitive data, keep the same ZIP file structure and filenames when repacking.
+        Do not paste only a few log lines unless a maintainer asks for that.
     validations:
       required: true
 
@@ -87,9 +114,9 @@ body:
     attributes:
       label: Validations
       options:
-        - label: I have searched the [existing issues](https://github.com/AnInsomniacy/motrix-next/issues) and this bug has not been reported before.
+        - label: I have searched existing issues and tested with the latest beta release when possible.
           required: true
-        - label: I have read the [Code of Conduct](https://github.com/AnInsomniacy/motrix-next/blob/main/docs/CODE_OF_CONDUCT.md).
+        - label: I have uploaded the exported diagnostic `.zip` directly, or kept the same ZIP structure after redaction.
           required: true
-        - label: This is a reproducible bug, not a question. For questions, please use [GitHub Discussions](https://github.com/AnInsomniacy/motrix-next/discussions).
+        - label: This is a reproducible Motrix Next desktop-app bug. Questions belong in [GitHub Discussions](https://github.com/AnInsomniacy/motrix-next/discussions), browser-extension-only issues belong in [motrix-next-extension](https://github.com/AnInsomniacy/motrix-next-extension), and engine-only issues belong in [aria2-next](https://github.com/AnInsomniacy/aria2-next).
           required: true

@@ -7,8 +7,8 @@
 //! Port of the frontend `fetchGlobalStat` in `stores/app.ts`.
 
 use super::config::RuntimeConfigState;
+use super::power::PowerGuard;
 use crate::aria2::client::Aria2Client;
-use keepawake::KeepAwake;
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::Emitter;
@@ -56,6 +56,32 @@ fn compact_size(bytes: u64) -> String {
     } else {
         format!("{b}B")
     }
+}
+
+fn tray_title_for_speed(tray_speedometer: bool, download_speed: u64, upload_speed: u64) -> String {
+    if !tray_speedometer || (download_speed == 0 && upload_speed == 0) {
+        return String::new();
+    }
+
+    if download_speed > 0 {
+        format!("↓{}", compact_size(download_speed))
+    } else {
+        format!("↑{}", compact_size(upload_speed))
+    }
+}
+
+fn tray_title_needs_update(last_title: &Option<String>, next_title: &str) -> bool {
+    last_title.as_deref() != Some(next_title)
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
+fn parse_length(value: Option<&str>) -> u64 {
+    value.and_then(|v| v.parse::<u64>().ok()).unwrap_or(0)
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
+fn completed_length(task: &crate::aria2::types::Aria2Task) -> u64 {
+    parse_length(Some(&task.completed_length))
 }
 
 /// Sets the macOS Dock badge label using `NSApp().dockTile().setBadgeLabel()`.
@@ -307,12 +333,16 @@ unsafe fn draw_rounded_rect(rect: objc2_foundation::NSRect) {
 /// Handle for controlling the background stat service.
 pub struct StatServiceHandle {
     stop_tx: watch::Sender<bool>,
+    join_handle: tokio::task::JoinHandle<()>,
 }
 
 impl StatServiceHandle {
     /// Signal the service to stop.
-    pub fn stop(&self) {
+    pub async fn stop(self) {
         let _ = self.stop_tx.send(true);
+        if let Err(e) = self.join_handle.await {
+            log::warn!("stat_service: join failed during stop: {e}");
+        }
     }
 }
 
@@ -320,11 +350,14 @@ impl StatServiceHandle {
 pub fn spawn_stat_service(app: tauri::AppHandle, aria2: Arc<Aria2Client>) -> StatServiceHandle {
     let (stop_tx, stop_rx) = watch::channel(false);
 
-    tokio::spawn(async move {
+    let join_handle = tokio::spawn(async move {
         stat_loop(app, aria2, stop_rx).await;
     });
 
-    StatServiceHandle { stop_tx }
+    StatServiceHandle {
+        stop_tx,
+        join_handle,
+    }
 }
 
 /// Adaptive interval state.
@@ -364,11 +397,13 @@ async fn stat_loop(
     let mut interval_state = IntervalState::new();
 
     // Keep-awake RAII guard: held while downloads are active, dropped when idle.
-    // The guard prevents system sleep/display dimming via OS-native APIs:
-    //   macOS:   IOPMAssertionCreateWithName (PreventUserIdleDisplaySleep)
-    //   Windows: SetThreadExecutionState(ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED)
-    //   Linux:   org.freedesktop.ScreenSaver.Inhibit + systemd Inhibit (D-Bus)
-    let mut awake_guard: Option<KeepAwake> = None;
+    // The guard prevents system idle sleep via OS-native APIs while allowing
+    // the display to turn off according to the user's power settings:
+    //   macOS:   IOPMAssertionCreateWithName (PreventUserIdleSystemSleep)
+    //   Windows: PowerCreateRequest + PowerSetRequest(SystemRequired)
+    //   Linux:   systemd Inhibit("idle") (D-Bus)
+    let mut awake_guard: Option<PowerGuard> = None;
+    let mut last_tray_title: Option<String> = None;
 
     loop {
         tokio::select! {
@@ -442,17 +477,13 @@ async fn stat_loop(
             // is destroyed.
             if cfg.keep_awake && num_active > 0 {
                 if awake_guard.is_none() {
-                    match keepawake::Builder::default()
-                        .display(true)
-                        .idle(true)
-                        .reason("Active downloads in progress")
-                        .app_name("Motrix Next")
-                        .app_reverse_domain("com.motrix.next")
-                        .create()
-                    {
+                    match PowerGuard::acquire_download() {
                         Ok(guard) => {
+                            let backend = guard.backend_name();
                             awake_guard = Some(guard);
-                            log::info!("keep_awake: assertion acquired (active downloads)");
+                            log::info!(
+                                "keep_awake: assertion acquired backend={backend} active={num_active}"
+                            );
                         }
                         Err(e) => {
                             log::warn!("keep_awake: failed to acquire assertion: {e}");
@@ -461,27 +492,24 @@ async fn stat_loop(
                 }
             } else if awake_guard.is_some() {
                 awake_guard = None; // RAII drop → OS releases the power assertion
-                log::info!("keep_awake: assertion released");
+                log::info!("keep_awake: assertion released active={num_active}");
             }
 
             // ── Tray title (macOS menu bar / Linux appindicator label) ──
             if let Some(tray) = app.tray_by_id("motrix-next") {
-                if cfg.tray_speedometer && (download_speed > 0 || upload_speed > 0) {
-                    let title = if download_speed > 0 {
-                        format!("↓{}", compact_size(download_speed))
-                    } else {
-                        format!("↑{}", compact_size(upload_speed))
-                    };
-                    let _ = tray.set_title(Some(&title));
-                } else {
-                    let _ = tray.set_title(Some(""));
-                }
-                // Workaround: re-set icon after set_title to prevent macOS
-                // icon disappearing (Tauri/tao bug).
-                #[cfg(target_os = "macos")]
-                {
-                    let icon = crate::tray::tray_icon_image();
-                    let _ = tray.set_icon(Some(icon));
+                let next_title =
+                    tray_title_for_speed(cfg.tray_speedometer, download_speed, upload_speed);
+                if tray_title_needs_update(&last_tray_title, &next_title) {
+                    let _ = tray.set_title(Some(&next_title));
+                    last_tray_title = Some(next_title);
+
+                    // Re-apply the macOS template icon only after title changes.
+                    // This avoids unnecessary NSStatusItem width recalculation on
+                    // every stat tick while preserving the existing tao workaround.
+                    #[cfg(target_os = "macos")]
+                    {
+                        let _ = crate::tray::refresh_tray_icon(&tray);
+                    }
                 }
             }
 
@@ -520,10 +548,7 @@ async fn stat_loop(
                                 .iter()
                                 .filter_map(|t| t.total_length.parse::<u64>().ok())
                                 .sum();
-                            let completed: u64 = tasks
-                                .iter()
-                                .filter_map(|t| t.completed_length.parse::<u64>().ok())
-                                .sum();
+                            let completed: u64 = tasks.iter().map(completed_length).sum();
                             let pct = if total > 0 {
                                 Some((completed as f64 / total as f64 * 100.0) as u64)
                             } else {
@@ -554,10 +579,7 @@ async fn stat_loop(
                                 .iter()
                                 .filter_map(|t| t.total_length.parse::<u64>().ok())
                                 .sum();
-                            let completed: u64 = tasks
-                                .iter()
-                                .filter_map(|t| t.completed_length.parse::<u64>().ok())
-                                .sum();
+                            let completed: u64 = tasks.iter().map(completed_length).sum();
                             let progress = if total > 0 {
                                 completed as f64 / total as f64
                             } else {
@@ -595,6 +617,7 @@ impl StatServiceState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::aria2::types::{Aria2File, Aria2Task};
 
     // ── compact_size ────────────────────────────────────────────────
 
@@ -623,6 +646,20 @@ mod tests {
     fn compact_size_gigabytes() {
         assert_eq!(compact_size(1_073_741_824), "1.0G");
         assert_eq!(compact_size(2_684_354_560), "2.5G");
+    }
+
+    #[test]
+    fn tray_title_is_empty_when_speedometer_is_disabled() {
+        assert_eq!(tray_title_for_speed(false, 1_048_576, 0), "");
+    }
+
+    #[test]
+    fn tray_title_updates_only_when_value_changes() {
+        let mut last_title: Option<String> = None;
+        assert!(tray_title_needs_update(&last_title, ""));
+        last_title = Some(String::new());
+        assert!(!tray_title_needs_update(&last_title, ""));
+        assert!(tray_title_needs_update(&last_title, "↓1.0M"));
     }
 
     // ── IntervalState ───────────────────────────────────────────────
@@ -691,6 +728,25 @@ mod tests {
 
     // ── Constant alignment with timing.ts ────────────────────────────
 
+    fn make_task(gid: &str, status: &str) -> Aria2Task {
+        Aria2Task {
+            gid: gid.to_string(),
+            status: status.to_string(),
+            total_length: "1024".to_string(),
+            completed_length: "1024".to_string(),
+            dir: "/tmp".to_string(),
+            files: vec![Aria2File {
+                index: "1".to_string(),
+                path: "/tmp/test.zip".to_string(),
+                length: "1024".to_string(),
+                completed_length: "1024".to_string(),
+                selected: "true".to_string(),
+                uris: vec![],
+            }],
+            ..Aria2Task::default()
+        }
+    }
+
     #[test]
     fn constants_match_frontend_timing_ts() {
         // These constants MUST match src/shared/timing.ts exactly.
@@ -723,21 +779,23 @@ mod tests {
         assert!(json.get("download_speed").is_none());
     }
 
-    // ── keepawake integration ───────────────────────────────────────
+    #[test]
+    fn completed_length_uses_aria2_completed_length() {
+        let mut task = make_task("ed2k", "active");
+        task.total_length = "1000".to_string();
+        task.completed_length = "200".to_string();
+
+        assert_eq!(completed_length(&task), 200);
+    }
+
+    // ── power guard integration ─────────────────────────────────────
 
     /// Validates that the keepawake Builder API compiles and returns
     /// the expected types.  Does NOT create an actual OS assertion
     /// (safe for headless CI environments).
     #[test]
-    fn keepawake_builder_compiles() {
-        let _: fn() -> Result<KeepAwake, keepawake::Error> = || {
-            keepawake::Builder::default()
-                .display(true)
-                .idle(true)
-                .reason("test")
-                .app_name("test")
-                .app_reverse_domain("com.test")
-                .create()
-        };
+    fn power_guard_builder_compiles() {
+        let _: fn() -> Result<crate::services::power::PowerGuard, crate::error::AppError> =
+            crate::services::power::PowerGuard::acquire_download;
     }
 }

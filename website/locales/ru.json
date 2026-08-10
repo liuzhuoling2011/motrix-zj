@@ -9,6 +9,8 @@
   "showcase.light": "Светлая тема",
   "showcase.dark": "Тёмная тема",
   "story.title": "Почему Motrix Next?",
+  "story.engine.label": "Движок",
+  "story.engine": "Motrix Next использует {aria2Next} как движок загрузки, поддерживаемый fork aria2, который сохраняет оригинальные интерфейсы, исправляет давние проблемы, переходит на CMake, добавляет нативную поддержку ED2K и обновляет современные зависимости.",
   "story.p1": "Motrix от agalwood был одним из лучших менеджеров загрузок с открытым исходным кодом — чистый интерфейс, на базе aria2, кроссплатформенный. Он вдохновил тысячи пользователей и разработчиков.",
   "story.p2": "Оригинальный проект практически неактивен с 2023 года. Стек Electron + Vue 2 + Vuex + Element UI накопил технический долг, затрудняя обслуживание, расширение и сборку.",
   "rewrite.title": "Полностью переписан с нуля.",
@@ -56,7 +58,7 @@
   "motion.tokens.desc": "Все длительности и кривые — CSS-переменные, обеспечивающие единый ритм для 12+ компонентов.",
   "features.title": "Возможности",
   "features.protocol.title": "Мульти-протокол",
-  "features.protocol.desc": "HTTP, FTP, BitTorrent, Magnet-ссылки.",
+  "features.protocol.desc": "HTTP, FTP, ED2K, BitTorrent и Magnet-ссылки.",
   "features.bt.title": "BitTorrent",
   "features.bt.desc": "Выборочная загрузка файлов, DHT, обмен пирами, шифрование.",
   "features.tracker.title": "Управление трекерами",
@@ -74,7 +76,7 @@
   "features.task.title": "Управление задачами",
   "features.task.desc": "Пауза, возобновление, удаление с очисткой файлов, пакетные операции.",
   "features.handler.title": "Обработчик протоколов",
-  "features.handler.desc": "Регистрация как обработчик по умолчанию для Magnet- и Thunder-ссылок.",
+  "features.handler.desc": "Зарегистрировать как обработчик по умолчанию для ссылок magnet, ED2K и thunder.",
   "features.notify.title": "Уведомления",
   "features.notify.desc": "Системные уведомления при завершении задач.",
   "features.light.title": "Лёгкий",
@@ -104,6 +106,5 @@
   "theme.dark": "Тёмная",
   "hero.stars": "Stars",
   "hero.downloads": "Загрузки",
-  "hero.version": "Последняя",
-  "starHistory.title": "Star история"
+  "hero.version": "Последняя"
 }

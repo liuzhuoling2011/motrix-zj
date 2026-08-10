@@ -21,6 +21,7 @@ import {
 } from '@vicons/ionicons5'
 import { usePreferenceStore } from '@/stores/preference'
 import { logger } from '@shared/logger'
+import type { ResolvedUpdateChannel, UpdateChannel } from '@shared/types'
 import {
   isActionDisabled,
   getActionLabel,
@@ -28,7 +29,6 @@ import {
   getActionTarget,
   resolvePhaseAfterDownload,
   shouldAllowUpdateDialogClose,
-  isUpdateRollback,
   calcProgressPercent,
   bytesToMB,
   getUpdateProxy as resolveProxy,
@@ -40,6 +40,10 @@ interface UpdateMetadata {
   version: string
   body: string | null
   date: string | null
+  channel: ResolvedUpdateChannel
+  requestedChannel: UpdateChannel
+  /** Computed by Rust via the semver crate — true for cross-channel downgrades. */
+  isRollback: boolean
 }
 
 interface UpdateProgressStarted {
@@ -65,7 +69,7 @@ const phase = ref<'checking' | 'up-to-date' | 'available' | 'downloading' | 'rea
 const version = ref('')
 const currentVersion = ref('')
 const releaseNotes = ref('')
-const renderedNotes = computed(() => {
+const sanitizedReleaseNotesHtml = computed(() => {
   if (!releaseNotes.value) return ''
   const raw = marked.parse(releaseNotes.value, { async: false }) as string
   // Allow SVG elements used by marked-alert icons
@@ -78,14 +82,23 @@ const errorMsg = ref('')
 const downloadTotal = ref(0)
 const downloadReceived = ref(0)
 const downloadCancelled = ref(false)
-const activeChannel = ref('stable')
+const activeChannel = ref<ResolvedUpdateChannel>('stable')
+const requestedChannel = ref<UpdateChannel>('stable')
 let progressUnlisten: UnlistenFn | null = null
 const dialogClosable = computed(() => shouldAllowUpdateDialogClose(phase.value))
+const displayChannel = computed<UpdateChannel>(() =>
+  requestedChannel.value === 'latest' ? 'latest' : activeChannel.value,
+)
+const channelTagType = computed(() => {
+  if (displayChannel.value === 'beta') return 'warning'
+  if (displayChannel.value === 'latest') return 'info'
+  return 'success'
+})
 
 const progressPercent = computed(() => calcProgressPercent(downloadReceived.value, downloadTotal.value))
 
-// ── Version direction detection ──────────────────────────────────────
-const isRollback = computed(() => isUpdateRollback(currentVersion.value, version.value))
+// ── Version direction detection (authoritative comparison done in Rust) ──
+const isRollback = ref(false)
 
 // ── Action button state machine ──────────────────────────────────────
 const actionDisabled = computed(() => isActionDisabled(phase.value))
@@ -106,10 +119,12 @@ const downloadedMB = computed(() => bytesToMB(downloadReceived.value))
 const totalMB = computed(() => bytesToMB(downloadTotal.value))
 
 async function open(channel?: string) {
-  const ch = channel || preferenceStore.config.updateChannel || 'stable'
-  activeChannel.value = ch
+  const ch = (channel || preferenceStore.config.updateChannel || 'stable') as UpdateChannel
+  requestedChannel.value = ch
+  activeChannel.value = ch === 'beta' ? 'beta' : 'stable'
   show.value = true
   phase.value = 'checking'
+  logger.info('Updater', `checking channel=${ch}`)
   version.value = ''
   releaseNotes.value = ''
   errorMsg.value = ''
@@ -127,8 +142,16 @@ async function open(channel?: string) {
     if (update) {
       version.value = update.version
       releaseNotes.value = update.body || ''
+      activeChannel.value = update.channel
+      requestedChannel.value = update.requestedChannel
+      isRollback.value = update.isRollback
       phase.value = 'available'
+      logger.info(
+        'Updater',
+        `update available: v${currentVersion.value} → v${update.version} channel=${update.channel} requested=${update.requestedChannel}`,
+      )
     } else {
+      logger.info('Updater', `up-to-date v${currentVersion.value}`)
       phase.value = 'up-to-date'
     }
     preferenceStore.updateAndSave({ lastCheckUpdateTime: Date.now() })
@@ -145,6 +168,7 @@ async function startDownload() {
   downloadTotal.value = 0
   downloadCancelled.value = false
   const ch = activeChannel.value
+  logger.info('Updater', `downloading v${version.value} channel=${ch}`)
 
   // Listen for progress events from Rust
   progressUnlisten = await listen<UpdateProgressEvent>('update-progress', (event) => {
@@ -163,6 +187,7 @@ async function startDownload() {
     const result = await invoke<DownloadUpdateResult>('download_update', { channel: ch, proxy: getUpdateProxy() })
     if (!downloadCancelled.value) {
       phase.value = resolvePhaseAfterDownload(result.status)
+      logger.info('Updater', `download complete: status=${result.status}`)
     }
   } catch (e) {
     if (!downloadCancelled.value) {
@@ -179,6 +204,7 @@ async function startDownload() {
 function cancelDownload() {
   downloadCancelled.value = true
   phase.value = 'available'
+  logger.info('Updater', 'download cancelled by user')
   invoke('cancel_update').catch(() => {
     /* best-effort: Rust side may have already finished */
   })
@@ -187,6 +213,7 @@ function cancelDownload() {
 async function handleInstallAndRelaunch() {
   phase.value = 'installing'
   const ch = activeChannel.value
+  logger.info('Updater', `applying update v${version.value} channel=${ch}`)
   try {
     await invoke('apply_update', { channel: ch, proxy: getUpdateProxy() })
     relaunch()
@@ -231,8 +258,8 @@ defineExpose({ open })
       <div class="update-dialog-header">
         <div class="update-dialog-title-group">
           <span class="update-dialog-title">{{ t('preferences.auto-update') }}</span>
-          <NTag :type="activeChannel === 'beta' ? 'warning' : 'success'" size="small" round :bordered="false">
-            {{ t(`preferences.update-channel-${activeChannel}`) }}
+          <NTag :type="channelTagType" size="small" round :bordered="false">
+            {{ t(`preferences.update-channel-${displayChannel}`) }}
           </NTag>
         </div>
         <button class="update-dialog-close" :disabled="!dialogClosable" @click="close">×</button>
@@ -270,7 +297,8 @@ defineExpose({ open })
               </div>
             </div>
             <div v-if="releaseNotes" class="update-notes">
-              <div class="update-notes-text" v-html="renderedNotes" />
+              <!-- eslint-disable-next-line vue/no-v-html -- sanitizedReleaseNotesHtml is DOMPurify output -->
+              <div class="update-notes-text" v-html="sanitizedReleaseNotesHtml" />
             </div>
           </div>
 
@@ -289,7 +317,7 @@ defineExpose({ open })
                 indicator-placement="inside"
                 processing
               />
-              <NText depth="3" class="update-hint" style="margin-top: 6px">
+              <NText depth="3" class="update-hint update-progress-meta">
                 {{ downloadedMB }} / {{ totalMB }} MB · {{ progressPercent }}%
               </NText>
             </div>
@@ -320,7 +348,7 @@ defineExpose({ open })
       </div>
       <!-- Fixed action footer — always rendered with 2 buttons -->
       <div class="update-dialog-footer">
-        <NButton style="min-width: 120px" :disabled="!dialogClosable" @click="close">
+        <NButton class="update-dialog-close-action" :disabled="!dialogClosable" @click="close">
           {{ t('app.close') }}
         </NButton>
         <NButton
@@ -328,7 +356,6 @@ defineExpose({ open })
           :class="{ 'action-btn--active': !actionDisabled }"
           :type="actionType"
           :disabled="actionDisabled"
-          style="min-width: 180px"
           @click="handleActionClick"
         >
           {{ t(actionLabel) }}
@@ -341,7 +368,7 @@ defineExpose({ open })
 <style scoped>
 .update-dialog {
   width: 460px;
-  background: var(--n-color, var(--m3-surface-container-high));
+  background: var(--m3-surface-container-high);
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 12px 40px var(--m3-shadow);
@@ -356,12 +383,12 @@ defineExpose({ open })
 .update-dialog-title {
   font-size: 15px;
   font-weight: 600;
-  color: var(--n-text-color, var(--m3-on-surface));
+  color: var(--m3-on-surface);
 }
 .update-dialog-close {
   background: none;
   border: none;
-  color: var(--n-text-color, var(--m3-outline));
+  color: var(--m3-outline);
   font-size: 20px;
   cursor: pointer;
   padding: 0 4px;
@@ -389,7 +416,14 @@ defineExpose({ open })
   padding: 16px 30px 22px;
   border-top: 1px solid var(--m3-outline-variant);
 }
+.update-progress-meta {
+  margin-top: 6px;
+}
+.update-dialog-close-action {
+  min-width: 120px;
+}
 .action-btn {
+  min-width: 180px;
   transition: all 0.4s ease;
   opacity: 0.5;
 }
@@ -436,12 +470,12 @@ defineExpose({ open })
   color: var(--m3-success);
 }
 .update-icon-new {
-  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
-  color: var(--color-primary);
+  background: color-mix(in srgb, var(--m3-primary) 12%, transparent);
+  color: var(--m3-primary);
 }
 .update-icon-warn {
-  background: color-mix(in srgb, var(--m3-error) 10%, transparent);
-  color: var(--m3-tertiary);
+  background: var(--m3-warning-container);
+  color: var(--m3-on-warning-container);
 }
 .update-icon-error {
   background: color-mix(in srgb, var(--m3-error) 12%, transparent);
@@ -475,13 +509,13 @@ defineExpose({ open })
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
 .version-old {
-  background: color-mix(in srgb, var(--n-text-color, #666) 12%, transparent);
-  color: var(--n-text-color, var(--m3-outline));
+  background: color-mix(in srgb, var(--n-text-color) 12%, transparent);
+  color: var(--m3-outline);
   opacity: 0.7;
 }
 .version-new {
-  background: var(--m3-primary-container-bg);
-  color: var(--color-primary);
+  background: var(--m3-primary-container);
+  color: var(--m3-on-primary-container);
 }
 .version-arrow {
   font-size: 12px;
@@ -506,7 +540,7 @@ defineExpose({ open })
   font-size: 12.5px;
   line-height: 1.6;
   opacity: 0.65;
-  color: var(--n-text-color, var(--m3-on-surface-variant));
+  color: var(--m3-on-surface-variant);
 }
 .update-notes-text :deep(h2) {
   font-size: 13px;
@@ -555,7 +589,7 @@ defineExpose({ open })
 .update-notes-text :deep(blockquote) {
   margin: 6px 0;
   padding: 6px 12px;
-  border-left: 3px solid color-mix(in srgb, var(--color-primary) 50%, transparent);
+  border-left: 3px solid color-mix(in srgb, var(--m3-primary) 50%, transparent);
   background: color-mix(in srgb, var(--m3-on-surface) 4%, transparent);
   border-radius: 0 4px 4px 0;
 }
@@ -588,32 +622,32 @@ defineExpose({ open })
   margin: 2px 0;
 }
 .update-notes-text :deep(.markdown-alert-note) {
-  border-left-color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
-  color: var(--color-primary);
+  border-left-color: var(--m3-primary);
+  background: var(--m3-primary-container);
+  color: var(--m3-on-primary-container);
 }
 .update-notes-text :deep(.markdown-alert-tip) {
   border-left-color: var(--m3-success);
-  background: color-mix(in srgb, var(--m3-success) 6%, transparent);
-  color: var(--m3-success);
+  background: var(--m3-success-container);
+  color: var(--m3-on-success-container);
 }
 .update-notes-text :deep(.markdown-alert-important) {
   border-left-color: var(--m3-tertiary);
-  background: color-mix(in srgb, var(--m3-tertiary) 6%, transparent);
-  color: var(--m3-tertiary);
+  background: var(--m3-tertiary-container);
+  color: var(--m3-on-tertiary-container);
 }
 .update-notes-text :deep(.markdown-alert-warning) {
-  border-left-color: var(--m3-warning, #d4a04a);
-  background: color-mix(in srgb, var(--m3-warning, #d4a04a) 6%, transparent);
-  color: var(--m3-warning, #d4a04a);
+  border-left-color: var(--m3-warning);
+  background: var(--m3-warning-container);
+  color: var(--m3-on-warning-container);
 }
 .update-notes-text :deep(.markdown-alert-caution) {
   border-left-color: var(--m3-error);
-  background: color-mix(in srgb, var(--m3-error) 6%, transparent);
-  color: var(--m3-error);
+  background: var(--m3-error-container);
+  color: var(--m3-on-error-container);
 }
 .update-notes-text :deep(.markdown-alert p:not(.markdown-alert-title)) {
-  color: var(--n-text-color, var(--m3-on-surface-variant));
+  color: var(--m3-on-surface-variant);
 }
 
 /* ── Horizontal rule ───────────────────────────────────────────────── */
@@ -646,7 +680,7 @@ defineExpose({ open })
 
 /* ── Links ─────────────────────────────────────────────────────────── */
 .update-notes-text :deep(a) {
-  color: var(--color-primary);
+  color: var(--m3-primary);
   text-decoration: none;
 }
 .update-notes-text :deep(a:hover) {
@@ -656,12 +690,13 @@ defineExpose({ open })
 /* ── Emphasis ──────────────────────────────────────────────────────── */
 .update-notes-text :deep(strong) {
   font-weight: 600;
-  color: var(--n-text-color, var(--m3-on-surface));
+  color: var(--m3-on-surface);
 }
 
 .update-error-detail {
   width: 100%;
-  background: var(--m3-error-container-bg);
+  background: var(--m3-error-container);
+  color: var(--m3-on-error-container);
   border-radius: 8px;
   padding: 10px 14px;
   max-height: 72px;

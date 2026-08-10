@@ -485,13 +485,21 @@ fn is_suspicious_decoded_filename(name: &str) -> bool {
     name.contains('\u{FFFD}')
 }
 
+/// Extracts a filename from either Unix or Windows paths regardless of the
+/// platform running Motrix. yt-dlp can report Windows paths in persisted logs
+/// that are later read on another operating system.
+fn portable_basename(path: &str) -> Option<&str> {
+    let trimmed = path.trim_end_matches(['/', '\\']);
+    let name = trimmed.rsplit(['/', '\\']).next()?;
+    (!name.is_empty() && !name.ends_with(':')).then_some(name)
+}
+
 fn completion_history_name(
     destination: Option<&str>,
     fallback_name: Option<&str>,
 ) -> Option<String> {
     let basename = destination
-        .and_then(|path| std::path::Path::new(path).file_name())
-        .and_then(|name| name.to_str())
+        .and_then(portable_basename)
         .filter(|name| !name.trim().is_empty())
         .filter(|name| !is_suspicious_decoded_filename(name));
 
@@ -618,6 +626,13 @@ mod tests {
     }
 
     #[test]
+    fn completion_history_name_accepts_unix_destination_paths() {
+        let name = completion_history_name(Some("/Users/test/video.mp4"), Some("fallback.mp4"));
+
+        assert_eq!(name.as_deref(), Some("video.mp4"));
+    }
+
+    #[test]
     fn skip_download_prefix_line() {
         let line = "[download] Downloading video 1 of 5";
         assert!(
@@ -695,7 +710,10 @@ mod tests {
     #[test]
     fn decode_subprocess_line_passes_through_ascii_unchanged() {
         let bytes = b"[download] Destination: C:\\Downloads\\video.mp4";
-        assert_eq!(decode_subprocess_line(bytes), String::from_utf8_lossy(bytes));
+        assert_eq!(
+            decode_subprocess_line(bytes),
+            String::from_utf8_lossy(bytes)
+        );
     }
 
     #[test]
@@ -709,7 +727,8 @@ mod tests {
     fn decode_subprocess_line_recovers_gbk_chinese_filename() {
         // Bytes that yt-dlp.exe emits for "[download] Destination: 探秘.mp4"
         // when CPython falls back to the system code page on Windows-zh.
-        let (gbk_bytes, _, had_errors) = encoding_rs::GBK.encode("[download] Destination: 探秘.mp4");
+        let (gbk_bytes, _, had_errors) =
+            encoding_rs::GBK.encode("[download] Destination: 探秘.mp4");
         assert!(!had_errors, "GBK should encode the test fixture");
         let recovered = decode_subprocess_line(&gbk_bytes);
         assert_eq!(recovered, "[download] Destination: 探秘.mp4");

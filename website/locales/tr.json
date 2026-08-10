@@ -9,6 +9,8 @@
   "showcase.light": "Açık mod",
   "showcase.dark": "Koyu mod",
   "story.title": "Neden Motrix Next?",
+  "story.engine.label": "Motor",
+  "story.engine": "Motrix Next, indirme motoru olarak {aria2Next} kullanır; özgün arayüzleri korurken uzun süredir var olan sorunları düzelten, CMake'e geçen, yerel ED2K desteği ekleyen ve modern bağımlılıkları güncelleyen, bakımı sürdürülen bir aria2 forkudur.",
   "story.p1": "agalwood'un Motrix'i mevcut en iyi açık kaynaklı indirme yöneticilerinden biriydi — temiz arayüz, aria2 destekli, çoklu platform. Binlerce kullanıcı ve geliştiriciyi ilham etti.",
   "story.p2": "Orijinal proje 2023'ten beri büyük ölçüde aktif değil. Electron + Vue 2 + Vuex + Element UI yığını teknik borç biriktirerek bakım, genişletme ve paketlemeyi giderek zorlaştırdı.",
   "rewrite.title": "Sıfırdan tam bir yeniden yazım.",
@@ -56,7 +58,7 @@
   "motion.tokens.desc": "Tüm süreler ve eğriler CSS özel özellikleridir, 12+ bileşende birleşik ritim sağlar.",
   "features.title": "Özellikler",
   "features.protocol.title": "Çoklu protokol",
-  "features.protocol.desc": "HTTP, FTP, BitTorrent, Magnet bağlantıları.",
+  "features.protocol.desc": "HTTP, FTP, ED2K, BitTorrent ve Magnet bağlantıları.",
   "features.bt.title": "BitTorrent",
   "features.bt.desc": "Seçici dosya indirme, DHT, eş değişimi, şifreleme.",
   "features.tracker.title": "İzleyici yönetimi",
@@ -74,7 +76,7 @@
   "features.task.title": "Görev yönetimi",
   "features.task.desc": "Duraklatma, devam ettirme, dosya temizliği ile silme, toplu işlemler.",
   "features.handler.title": "Protokol işleyici",
-  "features.handler.desc": "Magnet ve Thunder bağlantıları için varsayılan işleyici olarak kayıt.",
+  "features.handler.desc": "magnet, ED2K ve thunder bağlantıları için varsayılan işleyici olarak kaydet.",
   "features.notify.title": "Bildirimler",
   "features.notify.desc": "Görev tamamlandığında sistem bildirimleri.",
   "features.light.title": "Hafif",
@@ -104,6 +106,5 @@
   "theme.dark": "Koyu",
   "hero.stars": "Stars",
   "hero.downloads": "İndirmeler",
-  "hero.version": "Son",
-  "starHistory.title": "Star geçmişi"
+  "hero.version": "Son"
 }

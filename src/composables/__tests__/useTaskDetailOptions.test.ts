@@ -3,7 +3,7 @@
  *
  * Covers:
  * - Loading per-task options via getTaskOption
- * - ProxyMode tri-state (none / global / custom) with auto-detection
+ * - ProxyMode detection and aria2-compatible proxy option output
  * - Multi-field dirty tracking
  * - Bulk apply via changeTaskOption with correct aria2 option keys
  * - Toast differentiation (active vs paused)
@@ -45,7 +45,7 @@ function makeTask(overrides: Partial<Aria2Task> = {}): Aria2Task {
 
 function makeProxy(overrides: Partial<ProxyConfig> = {}): ProxyConfig {
   return {
-    enable: true,
+    mode: 'manual',
     server: 'http://127.0.0.1:7890',
     scope: ['download', 'update-app'],
     ...overrides,
@@ -65,7 +65,7 @@ interface MockDeps {
 function createMocks(overrides: Partial<MockDeps> = {}): MockDeps {
   return {
     task: ref<Aria2Task | null>(makeTask()),
-    getTaskOption: vi.fn().mockResolvedValue({ userAgent: '', referer: '', allProxy: '' }),
+    getTaskOption: vi.fn().mockResolvedValue({ userAgent: '', referer: '', proxyMode: 'direct' }),
     changeTaskOption: vi.fn().mockResolvedValue(undefined),
     proxyConfig: makeProxy(),
     successFn: vi.fn(),
@@ -176,7 +176,7 @@ describe('useTaskDetailOptions', () => {
       const { form } = setup(mocks)
       await nextTick()
       expect(form.userAgent).toBe('')
-      expect(form.proxyMode).toBe('none')
+      expect(form.proxyMode).toBe('direct')
     })
 
     it('parses header array with Cookie and Authorization', async () => {
@@ -193,63 +193,29 @@ describe('useTaskDetailOptions', () => {
   })
 
   describe('proxyMode detection', () => {
-    it('sets proxyMode to none when allProxy is empty', async () => {
+    it('sets proxyMode to direct when no allProxy is present', async () => {
       const mocks = createMocks({
-        getTaskOption: vi.fn().mockResolvedValue({ allProxy: '' }),
+        getTaskOption: vi.fn().mockResolvedValue({}),
       })
       const { form } = setup(mocks)
       await nextTick()
-      expect(form.proxyMode).toBe('none')
+      expect(form.proxyMode).toBe('direct')
     })
 
-    it('sets proxyMode to global when allProxy matches global server', async () => {
+    it('sets proxyMode to manual when allProxy is present', async () => {
       const mocks = createMocks({
-        getTaskOption: vi.fn().mockResolvedValue({ allProxy: 'http://127.0.0.1:7890' }),
+        getTaskOption: vi.fn().mockResolvedValue({
+          allProxy: 'http://127.0.0.1:7890',
+          allProxyUser: 'proxy-user',
+          allProxyPasswd: 'proxy-pass',
+        }),
       })
       const { form } = setup(mocks)
       await nextTick()
-      expect(form.proxyMode).toBe('global')
-    })
-
-    it('sets proxyMode to custom when allProxy differs from global server', async () => {
-      const mocks = createMocks({
-        getTaskOption: vi.fn().mockResolvedValue({ allProxy: 'socks5://192.168.1.1:1080' }),
-      })
-      const { form } = setup(mocks)
-      await nextTick()
-      expect(form.proxyMode).toBe('custom')
-      expect(form.customProxy).toBe('socks5://192.168.1.1:1080')
-    })
-
-    it('sets proxyMode to custom when global proxy is not configured', async () => {
-      const mocks = createMocks({
-        proxyConfig: makeProxy({ enable: false }),
-        getTaskOption: vi.fn().mockResolvedValue({ allProxy: 'http://10.0.0.1:8080' }),
-      })
-      const { form } = setup(mocks)
-      await nextTick()
-      expect(form.proxyMode).toBe('custom')
-      expect(form.customProxy).toBe('http://10.0.0.1:8080')
-    })
-  })
-
-  describe('proxy computed', () => {
-    it('globalProxyAvailable is true when configured', () => {
-      expect(setup(createMocks()).globalProxyAvailable.value).toBe(true)
-    })
-
-    it('globalProxyAvailable is false when disabled', () => {
-      const m = createMocks({ proxyConfig: makeProxy({ enable: false }) })
-      expect(setup(m).globalProxyAvailable.value).toBe(false)
-    })
-
-    it('globalProxyAvailable is false when server empty', () => {
-      const m = createMocks({ proxyConfig: makeProxy({ server: '' }) })
-      expect(setup(m).globalProxyAvailable.value).toBe(false)
-    })
-
-    it('proxyAddress reflects global config', () => {
-      expect(setup(createMocks()).proxyAddress.value).toBe('http://127.0.0.1:7890')
+      expect(form.proxyMode).toBe('manual')
+      expect(form.customProxy).toBe('http://127.0.0.1:7890')
+      expect(form.customProxyUsername).toBe('proxy-user')
+      expect(form.customProxyPassword).toBe('proxy-pass')
     })
   })
 
@@ -265,6 +231,10 @@ describe('useTaskDetailOptions', () => {
       ['referer', 'https://new.com'],
       ['cookie', 'new=1'],
       ['authorization', 'Bearer new'],
+      ['httpAuthUsername', 'demo'],
+      ['httpAuthPassword', 'secret'],
+      ['customProxyUsername', 'proxy-user'],
+      ['customProxyPassword', 'proxy-pass'],
     ] as const)('dirty becomes true when %s changes', async (field, value) => {
       const { form, dirty } = setup(createMocks())
       await nextTick()
@@ -275,17 +245,17 @@ describe('useTaskDetailOptions', () => {
     it('dirty becomes true when proxyMode changes', async () => {
       const { form, dirty } = setup(createMocks())
       await nextTick()
-      form.proxyMode = 'custom'
+      form.proxyMode = 'manual'
       expect(dirty.value).toBe(true)
     })
 
     it('dirty becomes true when customProxy changes', async () => {
       const mocks = createMocks({
-        getTaskOption: vi.fn().mockResolvedValue({ allProxy: 'socks5://old:1080' }),
+        getTaskOption: vi.fn().mockResolvedValue({ proxyMode: 'manual', allProxy: 'http://old:1080' }),
       })
       const { form, dirty } = setup(mocks)
       await nextTick()
-      form.customProxy = 'socks5://new:1080'
+      form.customProxy = 'http://new:1080'
       expect(dirty.value).toBe(true)
     })
 
@@ -327,36 +297,31 @@ describe('useTaskDetailOptions', () => {
       })
     })
 
-    it('sends global proxy when proxyMode is global', async () => {
+    it('sends manual proxy when proxyMode is manual', async () => {
       const mocks = createMocks()
       const { form, applyOptions } = setup(mocks)
       await nextTick()
-      form.proxyMode = 'global'
-      await applyOptions()
-      expect(mocks.changeTaskOption).toHaveBeenCalledWith({
-        gid: 'abc123',
-        options: expect.objectContaining({ 'all-proxy': 'http://127.0.0.1:7890' }),
-      })
-    })
-
-    it('sends custom proxy when proxyMode is custom', async () => {
-      const mocks = createMocks()
-      const { form, applyOptions } = setup(mocks)
-      await nextTick()
-      form.proxyMode = 'custom'
+      form.proxyMode = 'manual'
       form.customProxy = 'http://10.0.0.1:8080'
+      form.customProxyUsername = 'proxy-user'
+      form.customProxyPassword = 'proxy-pass'
       await applyOptions()
       expect(mocks.changeTaskOption).toHaveBeenCalledWith({
         gid: 'abc123',
-        options: expect.objectContaining({ 'all-proxy': 'http://10.0.0.1:8080' }),
+        options: expect.objectContaining({
+          'all-proxy': 'http://10.0.0.1:8080',
+          'all-proxy-user': 'proxy-user',
+          'all-proxy-passwd': 'proxy-pass',
+        }),
       })
+      expect(mocks.changeTaskOption.mock.calls[0][0].options['proxy-mode']).toBeUndefined()
     })
 
     it('blocks socks5 custom proxy with error toast', async () => {
       const mocks = createMocks()
       const { form, applyOptions } = setup(mocks)
       await nextTick()
-      form.proxyMode = 'custom'
+      form.proxyMode = 'manual'
       form.customProxy = 'socks5://10.0.0.1:1080'
       await applyOptions()
       expect(mocks.changeTaskOption).not.toHaveBeenCalled()
@@ -367,24 +332,29 @@ describe('useTaskDetailOptions', () => {
       const mocks = createMocks()
       const { form, applyOptions, dirty } = setup(mocks)
       await nextTick()
-      form.proxyMode = 'custom'
+      form.proxyMode = 'manual'
       form.customProxy = 'socks5://10.0.0.1:1080'
       await applyOptions()
       expect(dirty.value).toBe(true)
     })
 
-    it('sends empty all-proxy when proxyMode is none', async () => {
+    it('sends direct proxy mode when proxyMode is direct', async () => {
       const mocks = createMocks({
-        getTaskOption: vi.fn().mockResolvedValue({ allProxy: 'http://127.0.0.1:7890' }),
+        getTaskOption: vi.fn().mockResolvedValue({ proxyMode: 'manual', allProxy: 'http://127.0.0.1:7890' }),
       })
       const { form, applyOptions } = setup(mocks)
       await nextTick()
-      form.proxyMode = 'none'
+      form.proxyMode = 'direct'
       await applyOptions()
       expect(mocks.changeTaskOption).toHaveBeenCalledWith({
         gid: 'abc123',
-        options: expect.objectContaining({ 'all-proxy': '' }),
+        options: expect.objectContaining({
+          'all-proxy': '',
+          'all-proxy-user': '',
+          'all-proxy-passwd': '',
+        }),
       })
+      expect(mocks.changeTaskOption.mock.calls[0][0].options['proxy-mode']).toBeUndefined()
     })
 
     it('sends header array when cookie/auth change', async () => {
@@ -398,6 +368,22 @@ describe('useTaskDetailOptions', () => {
         gid: 'abc123',
         options: expect.objectContaining({
           header: ['Cookie: session=abc', 'Authorization: Bearer xyz'],
+        }),
+      })
+    })
+
+    it('sends aria2 HTTP auth options when Basic Auth changes', async () => {
+      const mocks = createMocks()
+      const { form, applyOptions } = setup(mocks)
+      await nextTick()
+      form.httpAuthUsername = ' demo '
+      form.httpAuthPassword = ' secret '
+      await applyOptions()
+      expect(mocks.changeTaskOption).toHaveBeenCalledWith({
+        gid: 'abc123',
+        options: expect.objectContaining({
+          'http-user': 'demo',
+          'http-passwd': 'secret',
         }),
       })
     })

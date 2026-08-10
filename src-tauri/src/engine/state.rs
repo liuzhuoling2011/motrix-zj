@@ -21,56 +21,13 @@ pub(crate) fn path_to_safe_string(path: &std::path::Path) -> String {
 }
 
 /// Strips ANSI escape sequences (color codes) from a string.
-/// aria2c emits colored output (e.g., `\x1b[1;31mERROR\x1b[0m`) which
-/// produces garbage in log files. This removes all CSI sequences.
+/// Aria2 Next emits colored output (e.g., `\x1b[1;31mERROR\x1b[0m`) which
+/// produces garbage in log files.
 pub(crate) fn strip_ansi(input: &str) -> String {
-    let mut out = String::with_capacity(input.len());
-    let mut in_escape = false;
-    for ch in input.chars() {
-        if in_escape {
-            // CSI sequences end with a letter (A-Z, a-z)
-            if ch.is_ascii_alphabetic() {
-                in_escape = false;
-            }
-        } else if ch == '\x1b' {
-            in_escape = true;
-        } else {
-            out.push(ch);
-        }
-    }
-    out
+    strip_ansi_escapes::strip_str(input)
 }
 
-/// Logs aria2c stdout with semantic log levels based on aria2's own tags.
-///
-/// aria2 prefixes output with `[NOTICE]`, `[ERROR]`, or `[WARN]`.
-/// This function maps them to the correct `log` level so the global
-/// log-level filter works correctly — no `level_for` override needed.
-///
-/// | aria2 tag   | log level |
-/// |-------------|-----------|
-/// | `[NOTICE]`  | `info!`   |
-/// | `[ERROR]`   | `error!`  |
-/// | `[WARN]`    | `warn!`   |
-/// | (other)     | `debug!`  |
-pub(crate) fn log_engine_stdout(raw: &str) {
-    let clean = strip_ansi(raw);
-    let trimmed = clean.trim();
-    if trimmed.is_empty() {
-        return;
-    }
-    if trimmed.contains("[ERROR]") {
-        log::error!("engine: {}", trimmed);
-    } else if trimmed.contains("[WARN]") {
-        log::warn!("engine: {}", trimmed);
-    } else if trimmed.contains("[NOTICE]") {
-        log::info!("engine: {}", trimmed);
-    } else {
-        log::debug!("engine: {}", trimmed);
-    }
-}
-
-/// Holds the aria2c child process handle, protected by a Mutex for thread-safe access.
+/// Holds the Aria2 Next child process handle, protected by a Mutex for thread-safe access.
 ///
 /// `intentional_stop` distinguishes deliberate kills (restart, update, relaunch)
 /// from genuine crashes.  Set to `true` before `child.kill()`, checked by the
@@ -130,19 +87,19 @@ mod tests {
     }
 
     #[test]
-    fn strip_ansi_handles_notice_tag() {
+    fn strip_ansi_handles_colored_level_tag() {
         let input =
-            "03/15 00:56:16 [\x1b[1;32mNOTICE\x1b[0m] IPv4 RPC: listening on TCP port 16800";
+            "2026-05-29 00:56:16.123 [\x1b[32minfo\x1b[0m] [RpcBeastServer.cc:241] IPv4 RPC: listening on TCP port 29100";
         let clean = strip_ansi(input);
-        assert!(clean.contains("[NOTICE]"));
+        assert!(clean.contains("[info]"));
         assert!(!clean.contains("\x1b"));
     }
 
     #[test]
     fn strip_ansi_handles_error_tag() {
-        let input = "03/15 00:23:41 [\x1b[1;31mERROR\x1b[0m] Unrecognized URI";
+        let input = "2026-05-29 00:23:41.123 [\x1b[31merror\x1b[0m] [Uri.cc:10] Unrecognized URI";
         let clean = strip_ansi(input);
-        assert!(clean.contains("[ERROR]"));
+        assert!(clean.contains("[error]"));
         assert!(!clean.contains("\x1b"));
     }
 
@@ -153,9 +110,20 @@ mod tests {
 
     #[test]
     fn strip_ansi_multiple_sequences_in_one_line() {
-        let input = "\x1b[32m[NOTICE]\x1b[0m downloading \x1b[1mfile.zip\x1b[0m (100%)";
+        let input = "2026-05-29 01:00:00.000 [\x1b[32minfo\x1b[0m] [main.cc:1] downloading \x1b[1mfile.zip\x1b[0m";
         let clean = strip_ansi(input);
-        assert_eq!(clean, "[NOTICE] downloading file.zip (100%)");
+        assert_eq!(
+            clean,
+            "2026-05-29 01:00:00.000 [info] [main.cc:1] downloading file.zip"
+        );
+        assert!(!clean.contains('\x1b'));
+    }
+
+    #[test]
+    fn strip_ansi_removes_osc_sequences() {
+        let input = "title\x1b]0;aria2-next\x07 [info]";
+        let clean = strip_ansi(input);
+        assert_eq!(clean, "title [info]");
         assert!(!clean.contains('\x1b'));
     }
 

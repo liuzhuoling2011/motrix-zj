@@ -4,12 +4,13 @@ import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NModal } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
-import { open } from '@tauri-apps/plugin-shell'
+import { openUrl as openExternalUrl } from '@tauri-apps/plugin-opener'
 import { getVersion } from '@tauri-apps/api/app'
 import { getVersion as getAria2Version } from '@/api/aria2'
 import { preloadSidecarVersions, useSidecarVersions } from '@shared/utils/sidecarVersion'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { logger } from '@shared/logger'
+import { writeAppClipboardText } from '@shared/utils'
 
 const props = defineProps<{ show: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -59,7 +60,7 @@ onMounted(async () => {
   appVersion.value = await getVersion()
 })
 
-/* Trigger entrance animation and re-fetch aria2 version each time the panel opens. */
+/* Trigger entrance animation and re-fetch Aria2 Next version each time the panel opens. */
 watch(
   () => props.show,
   async (visible) => {
@@ -69,7 +70,7 @@ watch(
         animate.value = true
       })
 
-      /* Reset state and fetch fresh aria2 version */
+      /* Reset state and fetch fresh Aria2 Next version */
       aria2Loading.value = true
       aria2Error.value = false
       aria2Version.value = ''
@@ -77,7 +78,7 @@ watch(
         const info = await getAria2Version()
         aria2Version.value = info.version
       } catch (e) {
-        logger.warn('AboutPanel', `aria2 version fetch failed: ${e}`)
+        logger.warn('AboutPanel', `Aria2 Next version fetch failed: ${e}`)
         aria2Error.value = true
       } finally {
         aria2Loading.value = false
@@ -89,7 +90,7 @@ watch(
 
 async function copyToClipboard(text: string, label: string) {
   try {
-    await navigator.clipboard.writeText(text)
+    await writeAppClipboardText(text)
     message.success(t('about.version-copied', { label }))
   } catch (e) {
     logger.debug('AboutPanel.clipboard', `writeText failed: ${e}`)
@@ -97,7 +98,7 @@ async function copyToClipboard(text: string, label: string) {
 }
 
 function openUrl(url: string) {
-  open(url)
+  openExternalUrl(url)
 }
 </script>
 
@@ -162,7 +163,7 @@ function openUrl(url: string) {
           <!-- Success -->
           <MTooltip v-else key="loaded">
             <template #trigger>
-              <button class="version-badge" @click="copyToClipboard(`aria2 v${aria2Version}`, 'aria2')">
+              <button class="version-badge" @click="copyToClipboard(`Aria2 Next v${aria2Version}`, 'Aria2 Next')">
                 <span class="version-label">{{ t('about.aria2-version') }}</span>
                 <span class="version-value">v{{ aria2Version }}</span>
                 <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -280,7 +281,7 @@ function openUrl(url: string) {
   color: var(--m3-on-surface);
 }
 .about-title .accent {
-  color: var(--color-primary);
+  color: var(--m3-primary);
 }
 
 /* ── Version Badges (stacked, prominent) ──────────────────────────── */
@@ -304,12 +305,12 @@ function openUrl(url: string) {
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Menlo, Monaco, 'Courier New', monospace;
 }
 .version-badge:hover {
-  border-color: var(--color-primary);
+  border-color: var(--m3-primary);
   background: var(--about-card-hover-bg);
 }
 .version-badge:hover .copy-icon {
   opacity: 1;
-  color: var(--color-primary);
+  color: var(--m3-primary);
 }
 .version-badge:active {
   transform: scale(0.98);
@@ -353,7 +354,7 @@ function openUrl(url: string) {
   color: var(--m3-outline);
 }
 .about-link {
-  color: var(--color-primary);
+  color: var(--m3-primary);
   cursor: pointer;
   text-decoration: none;
 }

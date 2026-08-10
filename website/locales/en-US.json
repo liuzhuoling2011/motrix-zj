@@ -9,6 +9,8 @@
   "showcase.light": "Light Mode",
   "showcase.dark": "Dark Mode",
   "story.title": "Why Motrix Next?",
+  "story.engine.label": "Engine",
+  "story.engine": "Motrix Next uses {aria2Next} as its download engine, a maintained aria2 fork that preserves the original interfaces while fixing long-standing issues, moving to CMake, adding native ED2K support, and updating modern dependencies.",
   "story.p1": "Motrix by agalwood was one of the best open-source download managers available — clean UI, aria2-powered, cross-platform. It inspired thousands of users and developers alike.",
   "story.p2": "The original project has been largely inactive since 2023. The Electron + Vue 2 + Vuex + Element UI stack accumulated technical debt, making it increasingly difficult to maintain, extend, or package for modern platforms.",
   "rewrite.title": "A ground-up rewrite.",
@@ -56,7 +58,7 @@
   "motion.tokens.desc": "All durations and curves are CSS custom properties, ensuring a unified rhythm across 12+ components.",
   "features.title": "Features",
   "features.protocol.title": "Multi-protocol",
-  "features.protocol.desc": "HTTP, FTP, BitTorrent, Magnet links.",
+  "features.protocol.desc": "HTTP, FTP, ED2K, BitTorrent, Magnet links.",
   "features.bt.title": "BitTorrent",
   "features.bt.desc": "Selective file download, DHT, peer exchange, encryption.",
   "features.tracker.title": "Tracker management",
@@ -74,7 +76,7 @@
   "features.task.title": "Task management",
   "features.task.desc": "Pause, resume, delete with file cleanup, batch operations.",
   "features.handler.title": "Protocol handler",
-  "features.handler.desc": "Register as default handler for magnet and thunder links.",
+  "features.handler.desc": "Register as default handler for magnet, ED2K, and thunder links.",
   "features.notify.title": "Notifications",
   "features.notify.desc": "System notifications on task completion.",
   "features.light.title": "Lightweight",
@@ -104,6 +106,5 @@
   "theme.dark": "Dark",
   "hero.stars": "Stars",
   "hero.downloads": "Downloads",
-  "hero.version": "Latest",
-  "starHistory.title": "Star History"
+  "hero.version": "Latest"
 }

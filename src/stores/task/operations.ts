@@ -2,17 +2,17 @@
  * @fileoverview Extracted task CRUD operations from the Pinia task store.
  *
  * Contains: removeTask, pauseTask, resumeTask, pauseAllTask, resumeAllTask,
- * toggleTask, stopSeeding, stopAllSeeding, removeTaskRecord, purgeTaskRecord,
+ * toggleTask, stopSharing, stopAllSharing, removeTaskRecord, purgeTaskRecord,
  * batchRemoveTask.
  *
  * Uses dependency injection — accepts API + store refs instead of importing
  * them directly, enabling testability and keeping the task store thin.
  */
 import { TASK_STATUS } from '@shared/constants'
-import { checkTaskIsBT, checkTaskIsSeeder } from '@shared/utils'
+import { checkTaskIsBT, checkTaskIsSharing, getTaskSharingKind } from '@shared/utils'
 import { logger } from '@shared/logger'
-import { buildBtCompletionRecord } from '@/composables/useTaskLifecycle'
-import { cleanupAria2ControlFile, deleteTaskFiles } from '@/composables/useFileDelete'
+import { buildSharingCompletionRecord } from '@/composables/useTaskLifecycle'
+import { cleanupAria2ControlFiles, deleteTaskFiles } from '@/composables/useFileDelete'
 import { cleanupAria2MetadataFiles } from '@/composables/useDownloadCleanup'
 import { useHistoryStore } from '@/stores/history'
 import * as ytdlpApi from '@/api/ytdlp'
@@ -52,6 +52,33 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
+  async function requiresMagnetFileSelection(task: Aria2Task): Promise<boolean> {
+    if (task.status !== TASK_STATUS.PAUSED) return false
+    if (!task.following || !task.bittorrent) return false
+    if (!task.files.some((file) => Number(file.length) > 0)) return false
+
+    try {
+      const options = await api.getOption({ gid: task.gid })
+      return !options.selectFile?.trim()
+    } catch (e) {
+      logger.warn('TaskOps.resumeTask', `getOption gid=${task.gid} failed; keeping file selection pause: ${e}`)
+      return true
+    }
+  }
+
+  async function resumeTasks(tasks: Aria2Task[]): Promise<{ resumed: number; blocked: number }> {
+    const checks = await Promise.all(
+      tasks.map(async (task) => ({ task, blocked: await requiresMagnetFileSelection(task) })),
+    )
+    const resumableGids = checks.filter(({ blocked }) => !blocked).map(({ task }) => task.gid)
+    const blocked = checks.length - resumableGids.length
+
+    if (resumableGids.length > 0) {
+      await api.batchResumeTask({ gids: resumableGids })
+    }
+    return { resumed: resumableGids.length, blocked }
+  }
+
   async function removeTaskRecordWithRetry(gid: string, scope: string): Promise<boolean> {
     for (let attempt = 1; attempt <= REMOVE_RESULT_RETRY_ATTEMPTS; attempt += 1) {
       try {
@@ -66,6 +93,34 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       }
     }
     return false
+  }
+
+  async function removeHistoryRecordForDeletedTask(task: Aria2Task): Promise<void> {
+    const historyStore = useHistoryStore()
+    if (task.infoHash) {
+      try {
+        await historyStore.removeByInfoHash(task.infoHash)
+      } catch (e) {
+        logger.debug('TaskOps.removeTask', `removeByInfoHash infoHash=${task.infoHash} skipped: ${e}`)
+      }
+    }
+    try {
+      await historyStore.removeRecord(task.gid)
+    } catch (e) {
+      logger.debug('TaskOps.removeTask', `removeHistory gid=${task.gid} skipped: ${e}`)
+    }
+  }
+
+  async function removeHistoryRecordsByGid(gids: string[], scope: string): Promise<void> {
+    if (gids.length === 0) return
+    const historyStore = useHistoryStore()
+    for (const gid of gids) {
+      try {
+        await historyStore.removeRecord(gid)
+      } catch (e) {
+        logger.debug(scope, `removeHistory gid=${gid} skipped: ${e}`)
+      }
+    }
   }
 
   async function removeTask(task: Aria2Task) {
@@ -110,8 +165,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
 
     try {
       await api.removeTask({ gid: task.gid })
-      // Purge from aria2's stopped-result list so force-save=true (BT/magnet)
-      // won't persist the entry in the session file on exit.
+      // Purge from aria2's stopped-result list so it is not saved again.
       try {
         await api.removeTaskRecord({ gid: task.gid })
       } catch (e) {
@@ -119,6 +173,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       }
       logger.info('TaskOps.removeTask', `gid=${task.gid}`)
     } finally {
+      await removeHistoryRecordForDeletedTask(task)
       await fetchList()
       await api.saveSession()
     }
@@ -135,13 +190,13 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
 
   async function cleanupMagnetSelectionFiles(task: Aria2Task): Promise<void> {
     try {
-      await cleanupAria2ControlFile(task)
+      await cleanupAria2ControlFiles(task)
     } catch (e) {
       logger.debug('TaskOps.cancelMagnetSelection', `cleanupControlFile gid=${task.gid} skipped: ${e}`)
     }
 
     try {
-      await deleteTaskFiles(task)
+      await deleteTaskFiles(task, 'trash')
     } catch (e) {
       logger.debug('TaskOps.cancelMagnetSelection', `deleteTaskFiles gid=${task.gid} skipped: ${e}`)
     }
@@ -221,13 +276,35 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
     }
   }
 
-  async function resumeTask(task: Aria2Task) {
+  async function resumeTask(task: Aria2Task): Promise<boolean> {
     if (isYtdlpGid(task.gid)) {
       throw new Error('yt-dlp 任务暂不支持恢复，请重新添加下载')
+    }
+    if (await requiresMagnetFileSelection(task)) {
+      logger.info('TaskOps.resumeTask', `gid=${task.gid} blocked=file-selection-required`)
+      return false
     }
     try {
       await api.resumeTask({ gid: task.gid })
       logger.info('TaskOps.resumeTask', `gid=${task.gid}`)
+      return true
+    } finally {
+      await fetchList()
+      await api.saveSession()
+    }
+  }
+
+  async function applyMagnetFileSelection(task: Aria2Task, selectFile: string): Promise<void> {
+    if (task.status !== TASK_STATUS.PAUSED && task.status !== TASK_STATUS.WAITING) {
+      throw new Error(`Cannot apply magnet file selection while task is ${task.status}`)
+    }
+
+    try {
+      await api.changeOption({ gid: task.gid, options: { 'select-file': selectFile } })
+      if (task.status === TASK_STATUS.PAUSED) {
+        await api.resumeTask({ gid: task.gid })
+      }
+      logger.info('TaskOps.applyMagnetFileSelection', `gid=${task.gid} status=${task.status}`)
     } finally {
       await fetchList()
       await api.saveSession()
@@ -236,15 +313,15 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
 
   async function pauseAllTask() {
     try {
-      const nonSeeders = taskList.value.filter(
-        (t) => (t.status === TASK_STATUS.ACTIVE || t.status === TASK_STATUS.WAITING) && !checkTaskIsSeeder(t),
+      const pausableTasks = taskList.value.filter(
+        (t) => (t.status === TASK_STATUS.ACTIVE || t.status === TASK_STATUS.WAITING) && !checkTaskIsSharing(t),
       )
-      if (nonSeeders.length > 0) {
-        await Promise.allSettled(nonSeeders.map((t) => api.forcePauseTask({ gid: t.gid })))
+      if (pausableTasks.length > 0) {
+        await Promise.allSettled(pausableTasks.map((t) => api.forcePauseTask({ gid: t.gid })))
       }
       logger.info(
         'TaskOps.pauseAllTask',
-        `paused=${nonSeeders.length} gids=[${nonSeeders.map((t) => t.gid).join(',')}]`,
+        `paused=${pausableTasks.length} gids=[${pausableTasks.map((t) => t.gid).join(',')}]`,
       )
     } finally {
       await fetchList()
@@ -252,10 +329,12 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
     }
   }
 
-  async function resumeAllTask() {
+  async function resumeAllTask(): Promise<{ resumed: number; blocked: number }> {
     try {
-      await api.resumeAllTask()
-      logger.info('TaskOps.resumeAllTask', 'resumed all paused tasks')
+      const pausedTasks = taskList.value.filter((task) => task.status === TASK_STATUS.PAUSED)
+      const result = await resumeTasks(pausedTasks)
+      logger.info('TaskOps.resumeAllTask', `resumed=${result.resumed} blocked=${result.blocked}`)
+      return result
     } finally {
       await fetchList()
       await api.saveSession()
@@ -264,73 +343,66 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
 
   function toggleTask(task: Aria2Task) {
     const { status } = task
-    if (status === TASK_STATUS.ACTIVE && !checkTaskIsSeeder(task)) return pauseTask(task)
-    if (status === TASK_STATUS.WAITING || status === TASK_STATUS.PAUSED) return resumeTask(task)
-    logger.debug('TaskOps.toggleTask', `no-op gid=${task.gid} status=${status} seeder=${checkTaskIsSeeder(task)}`)
+    if (status === TASK_STATUS.ACTIVE && !checkTaskIsSharing(task)) return pauseTask(task)
+    if (status === TASK_STATUS.WAITING) return pauseTask(task)
+    if (status === TASK_STATUS.PAUSED) return resumeTask(task)
+    logger.debug('TaskOps.toggleTask', `no-op gid=${task.gid} status=${status} sharing=${checkTaskIsSharing(task)}`)
   }
 
-  async function stopSeeding(task: Aria2Task) {
+  async function stopSharing(task: Aria2Task) {
     const { gid } = task
+    const protocolKind = getTaskSharingKind(task) ?? (task.bittorrent ? 'bt' : task.ed2k ? 'ed2k' : null)
     try {
       await api.forcePauseTask({ gid })
       await api.removeTask({ gid })
-      // Purge from aria2's stopped list so force-save=true won't persist it
-      // in the session file. Without this, the stopped BT task reloads on
-      // restart and enters seeding again (bt-seed-unverified=true).
+      // Purge from aria2's stopped list so it is not restored on restart.
       try {
         await api.removeTaskRecord({ gid })
       } catch (e) {
-        logger.debug('TaskOps.stopSeeding', `removeTaskRecord gid=${gid} skipped: ${e}`)
+        logger.debug('TaskOps.stopSharing', `removeTaskRecord gid=${gid} skipped: ${e}`)
       }
-      // Also purge the parent metadata task from aria2's stopped list.
-      // For magnet links, the metadata resolution task (GID-A) stays in
-      // tellStopped with followedBy=[this GID] and the same infoHash.
-      // If not cleaned up, its infoHash poisons mergeHistoryIntoTasks
-      // dedup, causing the download task's history record to be discarded.
-      if (task.following) {
+      if (protocolKind === 'bt' && task.following) {
         try {
           await api.removeTaskRecord({ gid: task.following })
         } catch (e) {
-          logger.debug('TaskOps.stopSeeding', `removeTaskRecord following=${task.following} skipped: ${e}`)
+          logger.debug('TaskOps.stopSharing', `removeTaskRecord following=${task.following} skipped: ${e}`)
         }
       }
-      const record = buildBtCompletionRecord(task)
+      const record = buildSharingCompletionRecord(task)
       const historyStore = useHistoryStore()
-      // Clean up stale DB records from previous sessions (different GID, same infoHash)
-      if (task.infoHash) {
+      if (protocolKind === 'bt' && task.infoHash) {
         await historyStore.removeByInfoHash(task.infoHash, task.gid)
       }
       await historyStore.addRecord(record)
-      // Clean up .aria2 control file left behind by force-save=true.
-      // Best-effort: must never prevent fetchList/saveSession from running.
-      try {
-        await cleanupAria2ControlFile(task)
-      } catch (e) {
-        logger.debug('TaskOps.stopSeeding', `cleanupControlFile gid=${gid} skipped: ${e}`)
-      }
-      // Clean up hex40-named .torrent / .meta4 metadata left by bt-save-metadata
-      // and rpc-save-upload-metadata. Covers session-restore case where onBtComplete
-      // was suppressed by initialScanDone.
-      if (task.dir && task.infoHash) {
+      if (protocolKind === 'bt' || protocolKind === 'ed2k') {
         try {
-          await cleanupAria2MetadataFiles(task.dir, task.infoHash)
+          await cleanupAria2ControlFiles(task)
         } catch (e) {
-          logger.debug('TaskOps.stopSeeding', `cleanupMetadata gid=${gid} skipped: ${e}`)
+          logger.debug('TaskOps.stopSharing', `cleanupControlFiles gid=${gid} skipped: ${e}`)
         }
       }
-      logger.info('TaskOps.stopSeeding', `gid=${gid} infoHash=${task.infoHash ?? 'n/a'}`)
+      if (protocolKind === 'bt') {
+        if (task.dir && task.infoHash) {
+          try {
+            await cleanupAria2MetadataFiles(task.dir, task.infoHash)
+          } catch (e) {
+            logger.debug('TaskOps.stopSharing', `cleanupMetadata gid=${gid} skipped: ${e}`)
+          }
+        }
+      }
+      logger.info('TaskOps.stopSharing', `gid=${gid} kind=${protocolKind ?? 'unknown'}`)
     } finally {
       await fetchList()
       await api.saveSession()
     }
   }
 
-  async function stopAllSeeding(): Promise<number> {
-    const seeders = taskList.value.filter(checkTaskIsSeeder)
-    if (seeders.length === 0) return 0
-    await Promise.allSettled(seeders.map((t) => stopSeeding(t)))
-    logger.info('TaskOps.stopAllSeeding', `stopped ${seeders.length} seeder(s)`)
-    return seeders.length
+  async function stopAllSharing(): Promise<number> {
+    const sharingTasks = taskList.value.filter(checkTaskIsSharing)
+    if (sharingTasks.length === 0) return 0
+    await Promise.allSettled(sharingTasks.map((t) => stopSharing(t)))
+    logger.info('TaskOps.stopAllSharing', `stopped ${sharingTasks.length} sharing task(s)`)
+    return sharingTasks.length
   }
 
   async function removeTaskRecord(task: Aria2Task) {
@@ -364,8 +436,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
   async function batchRemoveTask(gids: string[]) {
     try {
       await api.batchRemoveTask({ gids })
-      // Purge each gid from aria2's stopped-result list so force-save=true
-      // (BT/magnet) won't persist entries in the session file on exit.
+      // Purge each gid from aria2's stopped-result list so it is not saved again.
       for (const gid of gids) {
         try {
           await api.removeTaskRecord({ gid })
@@ -375,6 +446,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
       }
       logger.info('TaskOps.batchRemoveTask', `removed ${gids.length} task(s) gids=[${gids.join(',')}]`)
     } finally {
+      await removeHistoryRecordsByGid(gids, 'TaskOps.batchRemoveTask')
       await fetchList()
       await api.saveSession()
     }
@@ -384,7 +456,7 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
     try {
       const tasks = await api.fetchTaskList({ type: TASK_STATUS.ACTIVE })
       return tasks.some(
-        (t) => (t.status === TASK_STATUS.ACTIVE && !checkTaskIsSeeder(t)) || t.status === TASK_STATUS.WAITING,
+        (t) => (t.status === TASK_STATUS.ACTIVE && !checkTaskIsSharing(t)) || t.status === TASK_STATUS.WAITING,
       )
     } catch (e) {
       logger.debug('TaskOps.hasActiveTasks', `fetchTaskList failed: ${e}`)
@@ -411,11 +483,13 @@ export function createTaskOperations(deps: TaskOperationsDeps) {
     cancelMagnetSelectionDownload,
     pauseTask,
     resumeTask,
+    applyMagnetFileSelection,
+    resumeTasks,
     pauseAllTask,
     resumeAllTask,
     toggleTask,
-    stopSeeding,
-    stopAllSeeding,
+    stopSharing,
+    stopAllSharing,
     removeTaskRecord,
     purgeTaskRecord,
     batchRemoveTask,

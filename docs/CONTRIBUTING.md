@@ -10,7 +10,7 @@ Before you start contributing, make sure you understand [GitHub flow](https://gu
 
 - [Rust](https://rustup.rs/) (latest stable)
 - [Node.js](https://nodejs.org/) >= 22
-- [pnpm](https://pnpm.io/) >= 9
+- [pnpm](https://pnpm.io/) 10.x, managed by the `packageManager` field in `package.json`
 
 ### Getting Started
 
@@ -25,8 +25,8 @@ Rust backend (standalone):
 
 ```bash
 cd src-tauri
-cargo build
-cargo test
+cargo check --all-targets
+cargo test --all-targets
 ```
 
 ## ✅ Code Quality
@@ -34,10 +34,15 @@ cargo test
 All checks must pass before PR merge:
 
 ```bash
-pnpm lint               # ESLint (0 errors, 0 warnings)
-pnpm test               # Vitest
-npx vue-tsc --noEmit    # TypeScript strict mode
-cd src-tauri && cargo test  # Rust tests
+pnpm lint                                      # ESLint
+pnpm format:check                              # Prettier formatting
+npx vue-tsc --noEmit                           # TypeScript strict mode
+pnpm test                                      # Vitest
+npx vite build                                 # Frontend production build
+cd src-tauri && cargo fmt -- --check           # Rust formatting
+cd src-tauri && cargo clippy --all-targets -- -D warnings
+cd src-tauri && cargo check --all-targets
+cd src-tauri && cargo test --all-targets
 ```
 
 Pre-commit hooks (husky + lint-staged) auto-run `eslint --fix` and `prettier --write` on staged files.
@@ -52,11 +57,11 @@ Pre-commit hooks (husky + lint-staged) auto-run `eslint --fix` and `prettier --w
 ## 🛡 Error Handling
 
 - **TypeScript**: Never leave `catch` blocks empty — always call `logger.debug()` at minimum.
-- **Rust**: Use the `AppError` enum (`Store`, `Engine`, `Io`, `NotFound`, `Updater`, `Upnp`) for all command return types.
+- **Rust**: Use the `AppError` enum (`Store`, `Engine`, `Io`, `NotFound`, `Updater`, `Upnp`, `Protocol`, `Aria2`, `Database`) for command return types.
 
 ## 🧪 Testing
 
-- Follow **TDD** (Red → Green → Refactor) for new utilities and guards.
+- Add focused tests for new utilities, guards, business rules, and regression fixes.
 - Test files live alongside source: `__tests__/filename.test.ts`.
 - Runtime type guards (in `guards.ts`) validate all external API responses.
 
@@ -86,7 +91,7 @@ There are language files in each directory organized by business module:
 1. Create a new directory under `src/shared/locales/` with the locale code (e.g. `src/shared/locales/de/`)
 2. Copy the files from `src/shared/locales/en-US/` as a template
 3. Translate each file
-4. Register the locale in `src/shared/locales/all.js`
+4. Register the locale in `src/shared/locales/index.js`
 5. Submit a Pull Request
 
 ## 💬 Commit Messages
@@ -113,11 +118,11 @@ Hard limits — PRs that exceed these will be closed without review:
 
 How to split a large change:
 
-| Instead of | Split into |
-|-----------|-----------|
+| Instead of                                 | Split into                                                                                                   |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
 | "Add error notification system" (1000 LOC) | PR 1: `errorNormalizer.ts` + tests → PR 2: `useAppNotification.ts` + tests → PR 3: integrate into components |
-| "Add feature + fix lint + update config" | PR 1: lint/config fixes → PR 2: the feature |
-| "Update i18n for 3 features" | One PR per feature, each updating all 26 locales |
+| "Add feature + fix lint + update config"   | PR 1: lint/config fixes → PR 2: the feature                                                                  |
+| "Update i18n for 3 features"               | One PR per feature, each updating all 27 locales                                                             |
 
 ### Before you start
 
@@ -141,16 +146,20 @@ docs: update i18n translation guide
 Run the full check suite locally. PRs that fail any of these will not be reviewed:
 
 ```bash
-pnpm format:check           # Prettier formatting
-npx vue-tsc --noEmit        # TypeScript strict mode
-pnpm test                   # Vitest unit tests
-cd src-tauri && cargo test   # Rust tests
-cd src-tauri && cargo clippy # Rust lints (zero warnings)
+pnpm lint
+pnpm format:check
+npx vue-tsc --noEmit
+pnpm test
+npx vite build
+cd src-tauri && cargo fmt -- --check
+cd src-tauri && cargo clippy --all-targets -- -D warnings
+cd src-tauri && cargo check --all-targets
+cd src-tauri && cargo test --all-targets
 ```
 
 ### i18n changes
 
-If you add or modify i18n keys, **all 26 locales must be updated** using a batch Python script. Partial updates (e.g., only `en-US` and `zh-CN`) break the app for other languages and will not be accepted. See `AGENTS.md` Section D for the script template and the full list of locale directories.
+If you add or modify i18n keys, **all 27 locales must be updated** using a batch Python script. Partial updates (e.g., only `en-US` and `zh-CN`) break the app for other languages and will not be accepted. See `AGENTS.md` Section D for the script template and the full list of locale directories.
 
 ### AI-assisted development
 
@@ -160,12 +169,12 @@ Using AI tools (Copilot, Claude, ChatGPT, Cursor, etc.) to assist development is
 
 1. You must **review and understand every line** you submit, whether you wrote it or an AI did.
 2. You must be able to **explain any change** if asked during review.
-3. Tests must be written **before** implementation (TDD), not bolted on after.
-4. All checks must **pass locally** before pushing — not after a chain of fix commits.
+3. Tests are required for behavioral or risky logic changes. Pure copy, style, docs, and low-risk UI-only changes may skip tests, but the PR must explain why.
+4. All local checks and required GitHub Actions must pass before review.
 
 **Disclosure:**
 
-The PR template includes an AI usage disclosure section. Fill it out honestly. Following the [OpenInfra Foundation standard](https://openinfra.org), you may also add a commit trailer:
+The PR template includes an AI usage disclosure section. Fill it out honestly and include the exact model name when AI was used, such as `OpenAI GPT-5.5` or `Claude Opus 4.8`. Generic names such as `ChatGPT` or `Claude` are not enough. Following the [OpenInfra Foundation standard](https://openinfra.org), you may also add a commit trailer:
 
 ```
 feat: add speed limit control

@@ -4,7 +4,8 @@
 //! tokio runtime.  Provides a local REST API for browser extension → desktop
 //! communication.
 //!
-//! All download requests are routed through the frontend via deep-link emit.
+//! Download requests are routed through the frontend as structured external
+//! inputs. Legacy OS protocol handling still uses the deep-link service.
 //! Rust's role is window lifecycle management (recreate if destroyed in
 //! lightweight mode) + event dispatch.  The frontend decides whether to show
 //! the AddTask dialog (autoSubmit=OFF) or auto-submit (autoSubmit=ON).
@@ -19,57 +20,43 @@
 
 use crate::aria2::client::Aria2State;
 use crate::error::AppError;
-use crate::services::config::RuntimeConfigState;
+use crate::services::config::{RuntimeConfigState, DEFAULT_EXTENSION_API_PORT};
+use crate::services::external_input::{self, ExternalDownloadInput, ExternalRequestHeader};
+use crate::services::port_guard;
 use axum::{
     extract::State,
-    http::{header, HeaderMap, HeaderValue, Method, StatusCode},
+    http::{header, HeaderMap, Method, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::sync::Mutex as StdMutex;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
-use tower_http::cors::{AllowOrigin, CorsLayer};
-
-// ── Pending Deep-Link State ─────────────────────────────────────────
-
-/// Stores deep-link URLs for frontend consumption after window recreation.
-///
-/// When lightweight mode destroys the WebView, `route_to_frontend` must
-/// recreate it before emitting events.  The new WebView needs time to load
-/// (`index.html` → Vue mount → `setupListeners()`), so `app.emit()` is a
-/// no-op during this window.  This state bridges the gap:
-///
-///   1. Rust writes the deep-link URL here.
-///   2. If the window already existed (listener active), Rust emits
-///      immediately and clears the queue.
-///   3. If the window was just created, the frontend's boot sequence
-///      calls `take_pending_deep_links` to consume the queued URLs.
-pub struct PendingDeepLinkState(pub StdMutex<Vec<String>>);
-
-impl PendingDeepLinkState {
-    pub fn new() -> Self {
-        Self(StdMutex::new(Vec::new()))
-    }
-}
+use tower_http::cors::CorsLayer;
 
 // ── Request / Response Types ────────────────────────────────────────
 
 /// POST /add request body from the browser extension.
-///
-/// The extension may also send `filename` — serde silently ignores it since
-/// all download logic (including output filename) now lives in the frontend.
 #[derive(Debug, Deserialize)]
 pub struct AddRequest {
     pub url: String,
+    #[serde(rename = "finalUrl")]
+    pub final_url: Option<String>,
     pub referer: Option<String>,
     pub cookie: Option<String>,
     #[serde(default, rename = "parseVideo")]
     pub parse_video: Option<bool>,
+    #[serde(rename = "userAgent")]
+    pub user_agent: Option<String>,
+    #[serde(rename = "requestHeaders", default)]
+    pub request_headers: Vec<ExternalRequestHeader>,
+    /// Output filename hint from the browser extension.
+    /// Extracted from the URL's `response-content-disposition` query parameter
+    /// (RFC 6266).
+    pub filename: Option<String>,
 }
 
 /// POST /add response.
@@ -140,6 +127,7 @@ pub fn validate_bearer_token(headers: &HeaderMap, expected_secret: &str) -> Resu
     if header_value == expected {
         Ok(())
     } else {
+        log::warn!("http_api: 401 Unauthorized (invalid or missing Bearer token)");
         Err(StatusCode::UNAUTHORIZED)
     }
 }
@@ -162,19 +150,13 @@ pub struct ApiContext {
 
 // ── Router Builder ──────────────────────────────────────────────────
 
-/// Build the Axum router with all routes and strict CORS.
-///
-/// CORS policy: only `chrome-extension://` and `moz-extension://` origins
-/// are allowed.  This prevents malicious websites from probing the local
-/// API.  Combined with Bearer token auth, this provides defense-in-depth.
+/// Build the Axum router with all routes.
 pub fn build_router(ctx: Arc<ApiContext>) -> Router {
     let cors = CorsLayer::new()
-        .allow_origin(AllowOrigin::predicate(|origin: &HeaderValue, _| {
-            let o = origin.as_bytes();
-            o.starts_with(b"chrome-extension://") || o.starts_with(b"moz-extension://")
-        }))
+        .allow_origin(tower_http::cors::Any)
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION]);
+        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
+        .allow_private_network(true);
 
     Router::new()
         .route("/ping", get(handle_ping))
@@ -205,13 +187,30 @@ async fn handle_add(
     let secret = read_api_secret(&ctx.app);
     validate_bearer_token(&headers, &secret)?;
 
+    log::info!(
+        "http_api: POST /add url={} final_url={} header_count={} has_user_agent={} has_cookie={} source=http-api filename={}",
+        summarize_url_for_log(&body.url),
+        body.final_url
+            .as_deref()
+            .map(summarize_url_for_log)
+            .unwrap_or_else(|| "none".to_string()),
+        body.request_headers.len(),
+        body.user_agent.as_ref().is_some_and(|v| !v.is_empty()),
+        body.cookie.as_ref().is_some_and(|v| !v.is_empty()),
+        if body.filename.as_ref().is_some_and(|v| !v.is_empty()) {
+            "present"
+        } else {
+            "none"
+        },
+    );
+
     // Route ALL downloads through the frontend — single code path.
     //
     // The frontend decides whether to show the AddTask dialog (autoSubmit=OFF)
     // or auto-submit silently (autoSubmit=ON) based on the user's preference.
-    // Rust's only job: ensure the window exists and is focused, then emit.
+    // Rust's only job: ensure the window exists, then emit.
     //
-    // This unified path handles all URL types (HTTP, magnet, torrent, metalink)
+    // This unified path handles supported URL types (HTTP, magnet, local torrent)
     // and all window states (normal, hidden, destroyed in lightweight mode).
     route_to_frontend(&ctx.app, &body);
     Ok(Json(AddResponse {
@@ -277,6 +276,8 @@ async fn handle_pause_all(
     let secret = read_api_secret(&ctx.app);
     validate_bearer_token(&headers, &secret)?;
 
+    log::info!("http_api: POST /pause-all");
+
     let aria2 = match ctx.app.try_state::<Aria2State>() {
         Some(s) => s,
         None => {
@@ -307,6 +308,8 @@ async fn handle_resume_all(
     let secret = read_api_secret(&ctx.app);
     validate_bearer_token(&headers, &secret)?;
 
+    log::info!("http_api: POST /resume-all");
+
     let aria2 = match ctx.app.try_state::<Aria2State>() {
         Some(s) => s,
         None => {
@@ -317,11 +320,18 @@ async fn handle_resume_all(
         }
     };
 
-    match aria2.0.unpause_all().await {
-        Ok(_) => Ok(Json(ActionResponse {
-            status: "ok".to_string(),
-            error: None,
-        })),
+    match aria2.0.resume_eligible().await {
+        Ok(result) => {
+            log::info!(
+                "http_api: POST /resume-all resumed={} blocked={}",
+                result.resumed,
+                result.blocked
+            );
+            Ok(Json(ActionResponse {
+                status: "ok".to_string(),
+                error: None,
+            }))
+        }
         Err(e) => Ok(Json(ActionResponse {
             status: "error".to_string(),
             error: Some(e.to_string()),
@@ -331,80 +341,110 @@ async fn handle_resume_all(
 
 // ── Helper Functions ────────────────────────────────────────────────
 
-/// Read the API secret for extension authentication.
-///
-/// Tries `extensionApiSecret` first (new independent key), falls back
-/// to `rpcSecret` for backward compatibility during migration.
+/// Reads the `extensionApiSecret` for HTTP API authentication.
+/// This secret is fully independent from `rpcSecret` (used for aria2 RPC).
+/// Returns empty string if not configured (auth disabled).
 fn read_api_secret(app: &AppHandle) -> String {
     app.store("config.json")
         .ok()
         .and_then(|s| s.get("preferences"))
         .and_then(|p| {
-            // Prefer extensionApiSecret, fall back to rpcSecret
             p.get("extensionApiSecret")
                 .and_then(|v| v.as_str().map(String::from))
                 .filter(|s| !s.is_empty())
-                .or_else(|| p.get("rpcSecret")?.as_str().map(String::from))
         })
         .unwrap_or_default()
 }
 
-/// Route a download request to the frontend via deep-link event.
-///
-/// Handles the window-recreation timing gap in lightweight mode:
-///   - **Window exists** → emit `deep-link-open` directly (listener is active)
-///   - **Window destroyed** → queue URL in `PendingDeepLinkState`, recreate
-///     window, let the frontend pull the URL via `take_pending_deep_links`
-///     after its boot sequence completes
-///
-/// This mirrors the window-recreation pattern used by `tray-new-task` and
-/// macOS `on_open_url` handlers.
+/// Route a download request through the shared external-input channel.
 fn route_to_frontend(app: &AppHandle, req: &AddRequest) {
-    let deep_link_str = build_deep_link_url(req);
+    let input = ExternalDownloadInput {
+        url: req.url.clone(),
+        final_url: req.final_url.clone(),
+        referer: req.referer.clone(),
+        cookie: req.cookie.clone(),
+        filename: req.filename.clone(),
+        user_agent: req.user_agent.clone(),
+        request_headers: req.request_headers.clone(),
+        parse_video: req.parse_video,
+        source: Some("http-api".to_string()),
+    };
+    if should_silent_route_extension_input(app, req) {
+        external_input::route_external_inputs(app, vec![input], "http-api", true);
+    } else {
+        external_input::route_external_inputs(app, vec![input], "http-api", false);
+    }
+}
 
-    // Queue the URL for the frontend — consumed either via emit (immediate)
-    // or via take_pending_deep_links (after window recreation boot).
-    if let Some(state) = app.try_state::<PendingDeepLinkState>() {
-        if let Ok(mut queue) = state.0.lock() {
-            queue.push(deep_link_str.clone());
+fn should_silent_route_extension_input(app: &AppHandle, req: &AddRequest) -> bool {
+    app.store("config.json")
+        .ok()
+        .and_then(|s| s.get("preferences"))
+        .map(|p| {
+            let auto_submit = p
+                .get("autoSubmitFromExtension")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true);
+            let silent = p
+                .get("silentAutoSubmitFromExtension")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true);
+            let auto_select_all = p
+                .get("autoSelectAllBtFilesFromExtension")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
+            let pause_metadata = p
+                .get("pauseMetadata")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true);
+            let effective_url = req.final_url.as_deref().unwrap_or(&req.url);
+            should_silent_route_url(
+                effective_url,
+                auto_submit,
+                silent,
+                auto_select_all,
+                pause_metadata,
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn should_silent_route_url(
+    raw_url: &str,
+    auto_submit: bool,
+    silent: bool,
+    auto_select_all: bool,
+    pause_metadata: bool,
+) -> bool {
+    if !(auto_submit && silent) {
+        return false;
+    }
+    let lower = raw_url.to_ascii_lowercase();
+    if lower.starts_with("magnet:") {
+        if auto_select_all {
+            return true;
         }
+        return !pause_metadata;
     }
+    if is_remote_torrent_url(raw_url) {
+        return auto_select_all;
+    }
+    true
+}
 
-    // Snapshot: does the window (and its frontend listener) already exist?
-    let window_was_alive = app.get_webview_window("main").is_some();
-
-    // Ensure the window exists — recreates if destroyed in lightweight mode.
-    #[cfg(target_os = "macos")]
-    {
-        use tauri::ActivationPolicy;
-        let _ = app.set_activation_policy(ActivationPolicy::Regular);
-    }
-    if let Some(window) = crate::tray::get_or_create_main_window(app) {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
-
-    if window_was_alive {
-        // Frontend listener is active — emit directly and drain the queue
-        // (the frontend will process via the listener, not the pull path).
-        if let Some(state) = app.try_state::<PendingDeepLinkState>() {
-            if let Ok(mut queue) = state.0.lock() {
-                queue.clear();
-            }
-        }
-        if let Err(e) = app.emit("deep-link-open", vec![deep_link_str]) {
-            log::error!("http_api: failed to emit deep-link-open: {e}");
-        }
-    }
-    // else: window was just recreated — the Vue app will boot, call
-    // `take_pending_deep_links`, and process the queued URLs.
+fn is_remote_torrent_url(raw_url: &str) -> bool {
+    let Ok(url) = url::Url::parse(raw_url) else {
+        return false;
+    };
+    matches!(url.scheme(), "http" | "https")
+        && url.path().to_ascii_lowercase().ends_with(".torrent")
 }
 
 /// Build a `motrixnext://new?url=X&referer=Y&cookie=Z` deep-link URL.
 ///
 /// Uses the `url` crate for proper percent-encoding of query parameter
 /// values, avoiding manual escaping bugs with special characters.
+#[cfg(test)]
 fn build_deep_link_url(req: &AddRequest) -> String {
     let mut deep_link = url::Url::parse("motrixnext://new").expect("static URL must parse");
     {
@@ -423,10 +463,47 @@ fn build_deep_link_url(req: &AddRequest) -> String {
         if matches!(req.parse_video, Some(true)) {
             q.append_pair("parse", "video");
         }
+        if let Some(ref filename) = req.filename {
+            if !filename.is_empty() {
+                q.append_pair("filename", filename);
+            }
+        }
     }
     deep_link.to_string()
 }
 
+fn summarize_url_for_log(value: &str) -> String {
+    let lower = value.to_lowercase();
+    if lower.starts_with("magnet:") {
+        return format!("scheme=magnet length={}", value.len());
+    }
+    if lower.starts_with("ed2k://") {
+        return format!("scheme=ed2k length={}", value.len());
+    }
+    if lower.starts_with("thunder://") {
+        return format!("scheme=thunder length={}", value.len());
+    }
+
+    match url::Url::parse(value) {
+        Ok(parsed) => {
+            let scheme = parsed.scheme();
+            let host = parsed.host_str().unwrap_or("none");
+            let ext = parsed
+                .path_segments()
+                .and_then(|mut segments| segments.next_back())
+                .and_then(|name| name.rsplit_once('.').map(|(_, ext)| ext))
+                .filter(|ext| !ext.is_empty() && ext.len() <= 16)
+                .unwrap_or("none");
+            format!(
+                "scheme={scheme} host={host} ext={} has_query={} length={}",
+                ext.to_ascii_lowercase(),
+                parsed.query().is_some(),
+                value.len()
+            )
+        }
+        Err(_) => format!("parseable=false length={}", value.len()),
+    }
+}
 // ── Server Lifecycle ────────────────────────────────────────────────
 
 /// Handle for a running HTTP API server.  Allows graceful shutdown.
@@ -434,12 +511,18 @@ pub struct HttpApiHandle {
     shutdown_tx: tokio::sync::oneshot::Sender<()>,
     join_handle: tokio::task::JoinHandle<()>,
     port: u16,
+    allow_remote_access: bool,
 }
 
 impl HttpApiHandle {
     /// The port this server is currently bound to.
     pub fn port(&self) -> u16 {
         self.port
+    }
+
+    /// Whether this server is bound to all network interfaces.
+    pub fn allow_remote_access(&self) -> bool {
+        self.allow_remote_access
     }
 
     /// Signal the server to shut down and wait for it to finish.
@@ -460,13 +543,22 @@ impl HttpApiState {
 
 /// Spawn the HTTP API server on the given port.
 ///
-/// The server binds to `127.0.0.1:{port}` and runs until the returned
+/// The server binds locally by default and runs until the returned
 /// handle is stopped or the application exits.
-pub async fn spawn_http_api(app: AppHandle, port: u16) -> Result<HttpApiHandle, AppError> {
+pub async fn spawn_http_api(
+    app: AppHandle,
+    port: u16,
+    allow_remote_access: bool,
+) -> Result<HttpApiHandle, AppError> {
     let ctx = Arc::new(ApiContext { app });
     let router = build_router(ctx);
 
-    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    let host = if allow_remote_access {
+        [0, 0, 0, 0]
+    } else {
+        [127, 0, 0, 1]
+    };
+    let addr = std::net::SocketAddr::from((host, port));
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .map_err(|e| AppError::Io(format!("Failed to bind HTTP API on port {port}: {e}")))?;
@@ -482,12 +574,13 @@ pub async fn spawn_http_api(app: AppHandle, port: u16) -> Result<HttpApiHandle, 
         }
     });
 
-    log::info!("http_api: listening on 127.0.0.1:{port}");
+    log::info!("http_api: listening on {addr}");
 
     Ok(HttpApiHandle {
         shutdown_tx,
         join_handle,
         port,
+        allow_remote_access,
     })
 }
 
@@ -501,7 +594,7 @@ pub async fn spawn_http_api(app: AppHandle, port: u16) -> Result<HttpApiHandle, 
 /// The old server is stopped *before* binding the new one because the old
 /// and new port may be identical (user changed and reverted), so the
 /// listener must be released first.
-pub async fn restart_on_port(app: &AppHandle, new_port: u16) -> Result<(), AppError> {
+pub async fn restart_on_port(app: &AppHandle, new_port: u16) -> Result<u16, AppError> {
     let api_state = app
         .try_state::<HttpApiState>()
         .ok_or_else(|| AppError::Engine("HttpApiState not managed".into()))?;
@@ -517,16 +610,37 @@ pub async fn restart_on_port(app: &AppHandle, new_port: u16) -> Result<(), AppEr
         handle.stop().await;
     }
 
-    // Spawn on the new port
-    let handle = spawn_http_api(app.clone(), new_port).await?;
+    let allow_remote_access = read_extension_api_allow_remote_access(app).await;
+
+    // Spawn on the new port, then recover once if the chosen port is busy.
+    let handle = match spawn_http_api(app.clone(), new_port, allow_remote_access).await {
+        Ok(handle) => handle,
+        Err(e) => {
+            log::warn!("http_api: bind failed on port {new_port}: {e}");
+            let fallback = port_guard::recover_extension_api_port(app, new_port).await?;
+            match spawn_http_api(app.clone(), fallback, allow_remote_access).await {
+                Ok(handle) => handle,
+                Err(e) => {
+                    port_guard::emit_bind_failed(
+                        app,
+                        port_guard::PortKind::ExtensionApi,
+                        fallback,
+                        port_guard::PortSwitchFailureSource::ExtensionApi,
+                    );
+                    return Err(e);
+                }
+            }
+        }
+    };
+    let port = handle.port();
     *guard = Some(handle);
-    Ok(())
+    Ok(port)
 }
 
 // ── Read extension API port from RuntimeConfig ─────────────────────
 
 /// Read the extension API port from RuntimeConfigState.
-/// Falls back to store read, then to 16801 if neither is available.
+/// Falls back to store read, then to the default extension API port if neither is available.
 pub async fn read_extension_api_port(app: &AppHandle) -> u16 {
     // Primary: RuntimeConfigState (cached, always in sync)
     if let Some(rc_state) = app.try_state::<RuntimeConfigState>() {
@@ -534,6 +648,13 @@ pub async fn read_extension_api_port(app: &AppHandle) -> u16 {
     }
     // Fallback: direct store read (during early startup before state is managed)
     read_extension_api_port_from_store(app)
+}
+
+pub async fn read_extension_api_allow_remote_access(app: &AppHandle) -> bool {
+    if let Some(rc_state) = app.try_state::<RuntimeConfigState>() {
+        return rc_state.0.read().await.allow_remote_access;
+    }
+    read_extension_api_allow_remote_access_from_store(app)
 }
 
 /// Direct store read — used only as a fallback during early startup.
@@ -548,7 +669,18 @@ fn read_extension_api_port_from_store(app: &AppHandle) -> u16 {
                     .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
             })
         })
-        .unwrap_or(16801)
+        .unwrap_or(DEFAULT_EXTENSION_API_PORT)
+}
+
+fn read_extension_api_allow_remote_access_from_store(app: &AppHandle) -> bool {
+    app.store("config.json")
+        .ok()
+        .and_then(|s| s.get("preferences"))
+        .and_then(|p| {
+            p.get("allowRemoteAccess")
+                .and_then(serde_json::Value::as_bool)
+        })
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
@@ -619,14 +751,39 @@ mod tests {
     fn deserialize_add_request_full() {
         let json = serde_json::json!({
             "url": "https://example.com/file.zip",
+            "finalUrl": "https://cdn.example.com/file.zip",
             "referer": "https://example.com/page",
             "cookie": "sid=abc",
-            "filename": "file.zip"  // ignored by serde (not in struct)
+            "userAgent": "Mozilla/5.0",
+            "requestHeaders": [
+                { "name": "Accept", "value": "application/octet-stream" },
+                { "name": "Accept-Language", "value": "en-US,en;q=0.9" }
+            ],
+            "filename": "file.zip"
         });
         let req: AddRequest = serde_json::from_value(json).expect("deserialize");
         assert_eq!(req.url, "https://example.com/file.zip");
+        assert_eq!(
+            req.final_url.as_deref(),
+            Some("https://cdn.example.com/file.zip")
+        );
         assert_eq!(req.referer.as_deref(), Some("https://example.com/page"));
         assert_eq!(req.cookie.as_deref(), Some("sid=abc"));
+        assert_eq!(req.user_agent.as_deref(), Some("Mozilla/5.0"));
+        assert_eq!(
+            req.request_headers,
+            vec![
+                ExternalRequestHeader {
+                    name: "Accept".to_string(),
+                    value: "application/octet-stream".to_string()
+                },
+                ExternalRequestHeader {
+                    name: "Accept-Language".to_string(),
+                    value: "en-US,en;q=0.9".to_string()
+                }
+            ]
+        );
+        assert_eq!(req.filename.as_deref(), Some("file.zip"));
     }
 
     #[test]
@@ -634,8 +791,22 @@ mod tests {
         let json = serde_json::json!({ "url": "https://example.com/file.zip" });
         let req: AddRequest = serde_json::from_value(json).expect("deserialize");
         assert_eq!(req.url, "https://example.com/file.zip");
+        assert!(req.final_url.is_none());
         assert!(req.referer.is_none());
         assert!(req.cookie.is_none());
+        assert!(req.user_agent.is_none());
+        assert!(req.request_headers.is_empty());
+        assert!(req.filename.is_none());
+    }
+
+    #[test]
+    fn deserialize_add_request_with_filename() {
+        let json = serde_json::json!({
+            "url": "https://cdn.quark.cn/hash123",
+            "filename": "ghost-sample-v0.1.xmgic"
+        });
+        let req: AddRequest = serde_json::from_value(json).expect("deserialize");
+        assert_eq!(req.filename.as_deref(), Some("ghost-sample-v0.1.xmgic"));
     }
 
     #[test]
@@ -854,29 +1025,119 @@ mod tests {
     fn deep_link_url_includes_parse_video_when_true() {
         let req = AddRequest {
             url: "https://example.com/v".to_string(),
+            final_url: None,
             referer: None,
             cookie: None,
             parse_video: Some(true),
+            user_agent: None,
+            request_headers: Vec::new(),
+            filename: None,
         };
         let result = build_deep_link_url(&req);
-        assert!(result.contains("parse=video"), "expected parse=video in {result}");
+        assert!(
+            result.contains("parse=video"),
+            "expected parse=video in {result}"
+        );
     }
 
     #[test]
     fn deep_link_url_omits_parse_video_when_false_or_none() {
         let req_none = AddRequest {
             url: "https://example.com/v".to_string(),
+            final_url: None,
             referer: None,
             cookie: None,
             parse_video: None,
+            user_agent: None,
+            request_headers: Vec::new(),
+            filename: None,
         };
         let req_false = AddRequest {
             url: "https://example.com/v".to_string(),
+            final_url: None,
             referer: None,
             cookie: None,
             parse_video: Some(false),
+            user_agent: None,
+            request_headers: Vec::new(),
+            filename: None,
         };
         assert!(!build_deep_link_url(&req_none).contains("parse="));
         assert!(!build_deep_link_url(&req_false).contains("parse="));
+    }
+
+    #[test]
+    fn deep_link_url_includes_filename() {
+        let req = AddRequest {
+            url: "https://cdn.quark.cn/hash123".to_string(),
+            final_url: None,
+            referer: None,
+            cookie: None,
+            parse_video: None,
+            user_agent: None,
+            request_headers: Vec::new(),
+            filename: Some("ghost-sample-v0.1.xmgic".to_string()),
+        };
+        let result = build_deep_link_url(&req);
+        assert!(result.starts_with("motrixnext://new?"));
+        assert!(result.contains("filename="));
+        // Filename characters must be percent-encoded when needed
+        assert!(result.contains("ghost-sample-v0.1.xmgic"));
+    }
+
+    #[test]
+    fn deep_link_url_omits_empty_filename() {
+        let req = AddRequest {
+            url: "https://example.com/file.zip".to_string(),
+            final_url: None,
+            referer: None,
+            cookie: None,
+            parse_video: None,
+            user_agent: None,
+            request_headers: Vec::new(),
+            filename: Some(String::new()),
+        };
+        let result = build_deep_link_url(&req);
+        assert!(!result.contains("filename="));
+    }
+
+    #[test]
+    fn deep_link_url_omits_none_filename() {
+        let req = AddRequest {
+            url: "https://example.com/file.zip".to_string(),
+            final_url: None,
+            referer: None,
+            cookie: None,
+            parse_video: None,
+            user_agent: None,
+            request_headers: Vec::new(),
+            filename: None,
+        };
+        let result = build_deep_link_url(&req);
+        assert!(!result.contains("filename="));
+    }
+
+    #[test]
+    fn url_log_summary_excludes_sensitive_query_values() {
+        let summary = summarize_url_for_log(
+            "https://example.com/download/file.zip?jwt=secret-token&response-content-disposition=attachment",
+        );
+        assert_eq!(
+            summary,
+            "scheme=https host=example.com ext=zip has_query=true length=94"
+        );
+        assert!(!summary.contains("secret-token"));
+        assert!(!summary.contains("jwt"));
+    }
+
+    #[test]
+    fn url_log_summary_redacts_ed2k_file_link_details() {
+        let summary = summarize_url_for_log(
+            "ed2k://|file|Private%20File.iso|123|0123456789abcdef0123456789abcdef|/",
+        );
+
+        assert_eq!(summary, "scheme=ed2k length=70");
+        assert!(!summary.contains("Private"));
+        assert!(!summary.contains("0123456789abcdef"));
     }
 }

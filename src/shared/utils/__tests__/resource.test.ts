@@ -13,6 +13,22 @@ describe('decodeThunderLink', () => {
     const result = decodeThunderLink(encoded)
     expect(result).toBe('http://example.com/file.zip')
   })
+  it('decodes URL-encoded Thunder payloads', () => {
+    const payload = encodeURIComponent(btoa('AAhttps://example.com/file.zipZZ'))
+    expect(decodeThunderLink(`thunder://${payload}`)).toBe('https://example.com/file.zip')
+  })
+  it('decodes Thunder payloads without Base64 padding', () => {
+    const payload = btoa('AAhttps://example.com/file.zipZZ').replace(/=+$/, '')
+    expect(decodeThunderLink(`thunder://${payload}`)).toBe('https://example.com/file.zip')
+  })
+  it('decodes UTF-8 Thunder payloads', () => {
+    const encoded = 'thunder://' + btoa(unescape(encodeURIComponent('AAhttps://example.com/文件.zipZZ')))
+    expect(decodeThunderLink(encoded)).toBe('https://example.com/文件.zip')
+  })
+  it('returns malformed thunder:// links unchanged instead of throwing', () => {
+    expect(() => decodeThunderLink('thunder://not valid base64')).not.toThrow()
+    expect(decodeThunderLink('thunder://not valid base64')).toBe('thunder://not valid base64')
+  })
 })
 
 describe('splitTaskLinks', () => {
@@ -23,12 +39,17 @@ describe('splitTaskLinks', () => {
   it('returns empty for empty input', () => {
     expect(splitTaskLinks('')).toEqual([])
   })
-  it('decodes thunder links within multiline input', () => {
+  it('keeps thunder links wrapped within multiline input', () => {
     const thunderLink = 'thunder://' + btoa('AAhttp://decoded.com/file.zipZZ')
     const result = splitTaskLinks(`http://normal.com\n${thunderLink}`)
     expect(result).toHaveLength(2)
     expect(result[0]).toBe('http://normal.com')
-    expect(result[1]).toBe('http://decoded.com/file.zip')
+    expect(result[1]).toBe(thunderLink)
+  })
+  it('keeps processing later links after a malformed thunder link', () => {
+    const thunderLink = 'thunder://' + btoa('AAhttp://decoded.com/file.zipZZ')
+    const result = splitTaskLinks(`thunder://not valid base64\n${thunderLink}\nhttp://normal.com/file.zip`)
+    expect(result).toEqual(['thunder://not valid base64', thunderLink, 'http://normal.com/file.zip'])
   })
 })
 
@@ -58,6 +79,10 @@ describe('detectResource', () => {
 
     it('detects thunder:// link', () => {
       expect(detectResource('thunder://QUFodHRwOi8vZXhhbXBsZS5jb20vZmlsZS56aXBaWg==')).toBe(true)
+    })
+
+    it('detects ED2K file link', () => {
+      expect(detectResource('ed2k://|file|Ubuntu%2026.04.iso|123456789|0123456789abcdef0123456789abcdef|/')).toBe(true)
     })
 
     it('detects URL with trailing whitespace', () => {
@@ -284,6 +309,7 @@ describe('detectResource with ClipboardConfig filter', () => {
     http: true,
     ftp: true,
     magnet: true,
+    ed2k: true,
     thunder: true,
     btHash: true,
   })
@@ -365,6 +391,18 @@ describe('detectResource with ClipboardConfig filter', () => {
       expect(detectResource('thunder://QUFodHRwOi8vZXhhbXBsZS5jb20vZmlsZS56aXBaWg==', filter)).toBe(false)
     })
 
+    it('rejects ED2K link when ed2k is disabled', () => {
+      const filter: ClipboardConfig = { ...allEnabled(), ed2k: false }
+      expect(
+        detectResource('ed2k://|file|Ubuntu%2026.04.iso|123456789|0123456789abcdef0123456789abcdef|/', filter),
+      ).toBe(false)
+    })
+
+    it('still detects HTTP URL when ed2k is disabled', () => {
+      const filter: ClipboardConfig = { ...allEnabled(), ed2k: false }
+      expect(detectResource('https://example.com/file.zip', filter)).toBe(true)
+    })
+
     it('rejects bare SHA-1 info hash when btHash is disabled', () => {
       const filter: ClipboardConfig = { ...allEnabled(), btHash: false }
       expect(detectResource('d8988e034cb5de79d319242e3365bf30a7741a6e', filter)).toBe(false)
@@ -384,21 +422,21 @@ describe('detectResource with ClipboardConfig filter', () => {
   // ── Multi-line mixed content with partial disables ────────────────
 
   describe('multi-line content with partial protocol disables', () => {
-    it('rejects multi-line when one line uses a disabled protocol', () => {
+    it('does not apply single-link protocol filters to multi-line content', () => {
       const filter: ClipboardConfig = { ...allEnabled(), magnet: false }
       const content = 'https://example.com/file.zip\nmagnet:?xt=urn:btih:abc'
-      expect(detectResource(content, filter)).toBe(false)
-    })
-
-    it('accepts multi-line when all lines use enabled protocols', () => {
-      const filter: ClipboardConfig = { ...allEnabled(), magnet: false }
-      const content = 'https://a.com/1.zip\nftp://b.com/2.iso'
       expect(detectResource(content, filter)).toBe(true)
     })
 
-    it('rejects multi-line with hash when btHash is disabled', () => {
-      const filter: ClipboardConfig = { ...allEnabled(), btHash: false }
-      const content = 'https://example.com/file.zip\nd8988e034cb5de79d319242e3365bf30a7741a6e'
+    it('does not apply single-link protocol filters to aria2 input content', () => {
+      const filter: ClipboardConfig = { ...allEnabled(), http: false }
+      const content = 'https://example.com/index.html\n  out=index.html'
+      expect(detectResource(content, filter)).toBe(true)
+    })
+
+    it('rejects multi-line prose even when it contains a valid URL', () => {
+      const filter: ClipboardConfig = { ...allEnabled(), http: false }
+      const content = 'download this file\nhttps://example.com/file.zip'
       expect(detectResource(content, filter)).toBe(false)
     })
   })
@@ -412,12 +450,14 @@ describe('detectResource with ClipboardConfig filter', () => {
         http: false,
         ftp: false,
         magnet: false,
+        ed2k: false,
         thunder: false,
         btHash: false,
       }
       expect(detectResource('https://example.com/file.zip', filter)).toBe(false)
       expect(detectResource('ftp://mirror.com/file.iso', filter)).toBe(false)
       expect(detectResource('magnet:?xt=urn:btih:abc', filter)).toBe(false)
+      expect(detectResource('ed2k://|file|a.iso|123|0123456789abcdef0123456789abcdef|/', filter)).toBe(false)
       expect(detectResource('thunder://QUFodHRwOi8vZmlsZS56aXBaWg==', filter)).toBe(false)
       expect(detectResource('d8988e034cb5de79d319242e3365bf30a7741a6e', filter)).toBe(false)
     })

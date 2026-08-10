@@ -9,6 +9,8 @@
   "showcase.light": "Modalità chiara",
   "showcase.dark": "Modalità scura",
   "story.title": "Perché Motrix Next?",
+  "story.engine.label": "Motore",
+  "story.engine": "Motrix Next usa {aria2Next} come motore di download, un fork mantenuto di aria2 che conserva le interfacce originali mentre corregge problemi storici, passa a CMake, aggiunge il supporto ED2K nativo e aggiorna le dipendenze moderne.",
   "story.p1": "Motrix di agalwood era uno dei migliori download manager open source — interfaccia pulita, basato su aria2, multipiattaforma. Ha ispirato migliaia di utenti e sviluppatori.",
   "story.p2": "Il progetto originale è in gran parte inattivo dal 2023. Lo stack Electron + Vue 2 + Vuex + Element UI ha accumulato debito tecnico, rendendo sempre più difficile manutenzione, estensione e packaging.",
   "rewrite.title": "Riscrittura completa da zero.",
@@ -56,7 +58,7 @@
   "motion.tokens.desc": "Tutte le durate e le curve sono proprietà CSS personalizzate, garantendo un ritmo unificato su 12+ componenti.",
   "features.title": "Funzionalità",
   "features.protocol.title": "Multi-protocollo",
-  "features.protocol.desc": "HTTP, FTP, BitTorrent, link Magnet.",
+  "features.protocol.desc": "HTTP, FTP, ED2K, BitTorrent, link Magnet.",
   "features.bt.title": "BitTorrent",
   "features.bt.desc": "Download selettivo dei file, DHT, scambio peer, crittografia.",
   "features.tracker.title": "Gestione tracker",
@@ -74,7 +76,7 @@
   "features.task.title": "Gestione attività",
   "features.task.desc": "Pausa, ripresa, eliminazione con pulizia file, operazioni batch.",
   "features.handler.title": "Gestore di protocollo",
-  "features.handler.desc": "Registrarsi come gestore predefinito per link Magnet e Thunder.",
+  "features.handler.desc": "Registra come gestore predefinito per link magnet, ED2K e thunder.",
   "features.notify.title": "Notifiche",
   "features.notify.desc": "Notifiche di sistema al completamento delle attività.",
   "features.light.title": "Leggero",
@@ -104,6 +106,5 @@
   "theme.dark": "Scuro",
   "hero.stars": "Stars",
   "hero.downloads": "Download",
-  "hero.version": "Ultima",
-  "starHistory.title": "Star cronologia"
+  "hero.version": "Ultima"
 }

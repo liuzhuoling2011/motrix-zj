@@ -1,17 +1,20 @@
 //! Task lifecycle monitor — polls aria2 for status transitions.
 //!
 //! Runs as a background tokio task, scanning active + stopped slices
-//! for new completions, errors, and BT-seeding transitions.
+//! for new completions, errors, and shared-upload transitions.
 //!
 //! Persists history records to the Rust-side `HistoryDb` directly,
 //! ensuring task completion data survives even when the WebView is
 //! destroyed in lightweight mode (issue #194).
 //!
-//! Also emits Tauri events to the frontend for notification display
-//! when the WebView is available.
+//! Sends native system notifications from Rust so lightweight mode still
+//! notifies when the WebView is destroyed. Also emits Tauri events to the
+//! frontend when it is available so the UI can show in-app toasts and run
+//! file actions.
 //!
 //! Port of the frontend `createTaskLifecycleService`.
 
+use super::notification::send_task_notification;
 use crate::aria2::types::Aria2Task;
 use crate::history::HistoryDbState;
 use std::collections::HashSet;
@@ -31,7 +34,22 @@ const DEFAULT_INTERVAL_MS: u64 = 2000;
 pub mod events {
     pub const TASK_ERROR: &str = "task-monitor:error";
     pub const TASK_COMPLETE: &str = "task-monitor:complete";
-    pub const BT_COMPLETE: &str = "task-monitor:bt-complete";
+    pub const SHARING_COMPLETE: &str = "task-monitor:sharing-complete";
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SharingKind {
+    Bt,
+    Ed2k,
+}
+
+impl SharingKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Bt => "bt",
+            Self::Ed2k => "ed2k",
+        }
+    }
 }
 
 /// Snapshot of a single file within a TaskEvent.
@@ -59,7 +77,11 @@ pub struct TaskEvent {
     pub total_length: String,
     pub completed_length: String,
     pub info_hash: Option<String>,
+    pub magnet_link: Option<String>,
+    pub ed2k_link: Option<String>,
     pub is_bt: bool,
+    pub is_ed2k: bool,
+    pub sharing_kind: Option<&'static str>,
     /// Full file list snapshot — required for correct multi-file BT
     /// history records (deletion, open-folder, stale detection).
     #[serde(skip_serializing)]
@@ -75,6 +97,17 @@ impl TaskEvent {
         let name = Self::extract_name(task);
         let info_hash = task.info_hash.clone().filter(|h| !h.is_empty());
         let is_bt = task.bittorrent.is_some();
+        let is_ed2k = task.ed2k.is_some();
+        let magnet_link = task
+            .bittorrent
+            .as_ref()
+            .and_then(|bt| bt.magnet_link.clone())
+            .filter(|value| !value.is_empty());
+        let ed2k_link = task
+            .ed2k
+            .as_ref()
+            .and_then(|ed2k| ed2k.ed2k_link.clone())
+            .filter(|value| !value.is_empty());
 
         let files: Vec<TaskEventFile> = task
             .files
@@ -103,7 +136,11 @@ impl TaskEvent {
             total_length: task.total_length.clone(),
             completed_length: task.completed_length.clone(),
             info_hash,
+            magnet_link,
+            ed2k_link,
             is_bt,
+            is_ed2k,
+            sharing_kind: sharing_kind(task).map(SharingKind::as_str),
             files,
             announce_list,
         }
@@ -134,31 +171,14 @@ impl TaskEvent {
     }
 }
 
-fn metadata_basename(path: &str) -> &str {
-    path.rsplit(['/', '\\']).next().unwrap_or(path)
-}
-
 fn is_metadata_task(task: &Aria2Task) -> bool {
-    if task
-        .followed_by
-        .as_ref()
-        .is_some_and(|followed_by| !followed_by.is_empty())
-    {
-        return true;
-    }
-
-    if task
-        .files
-        .first()
-        .is_some_and(|file| metadata_basename(&file.path).starts_with("[METADATA]"))
-    {
-        return true;
-    }
-
-    task.bittorrent
-        .as_ref()
-        .and_then(|bt| bt.info.as_ref())
-        .is_some_and(|info| info.name.starts_with("[METADATA]"))
+    task.bittorrent.is_some()
+        && task
+            .bittorrent
+            .as_ref()
+            .and_then(|bt| bt.info.as_ref())
+            .is_none()
+        && task.following.is_none()
 }
 
 /// Builds the JSON `meta` field for a history record.
@@ -186,6 +206,18 @@ fn build_history_meta_json(event: &TaskEvent) -> Option<String> {
         meta.insert(
             "infoHash".to_string(),
             serde_json::Value::String(hash.clone()),
+        );
+    }
+    if let Some(ref magnet_link) = event.magnet_link {
+        meta.insert(
+            "magnetLink".to_string(),
+            serde_json::Value::String(magnet_link.clone()),
+        );
+    }
+    if let Some(ref ed2k_link) = event.ed2k_link {
+        meta.insert(
+            "ed2kLink".to_string(),
+            serde_json::Value::String(ed2k_link.clone()),
         );
     }
 
@@ -240,37 +272,56 @@ fn build_history_meta_json(event: &TaskEvent) -> Option<String> {
 ///
 /// The resulting record uses `ON CONFLICT(gid) DO UPDATE` when inserted,
 /// so duplicate writes from both Rust and frontend are idempotent.
-pub fn build_history_record(event: &TaskEvent, event_name: &str) -> crate::history::HistoryRecord {
+#[cfg(test)]
+fn build_history_record(event: &TaskEvent, event_name: &str) -> crate::history::HistoryRecord {
+    build_history_record_with_added_at(event, event_name, None)
+}
+
+pub fn build_history_record_with_added_at(
+    event: &TaskEvent,
+    event_name: &str,
+    added_at: Option<String>,
+) -> crate::history::HistoryRecord {
     let status = match event_name {
-        events::TASK_COMPLETE | events::BT_COMPLETE => "complete",
+        events::TASK_COMPLETE | events::SHARING_COMPLETE => "complete",
         events::TASK_ERROR => "error",
         _ => "unknown",
     };
 
     let task_type = if event.is_bt {
         Some("bt".to_string())
+    } else if event.is_ed2k {
+        Some("ed2k".to_string())
     } else {
         Some("uri".to_string())
     };
 
     let total_length = event.total_length.parse::<i64>().ok();
     let now = chrono::Utc::now().to_rfc3339();
+    let added_at = added_at.unwrap_or_else(|| now.clone());
 
     // Build structured JSON meta matching the frontend's buildHistoryMeta() format.
     // This ensures historyRecordToTask() can correctly reconstruct multi-file BT
     // tasks for deletion, open-folder, and deduplication.
     let meta = build_history_meta_json(event);
 
+    let uri = event
+        .files
+        .first()
+        .and_then(|file| file.uris.first())
+        .filter(|uri| !uri.is_empty())
+        .cloned();
+
     crate::history::HistoryRecord {
         id: None,
         gid: event.gid.clone(),
         name: event.name.clone(),
-        uri: None,
+        uri,
         dir: Some(event.dir.clone()),
         total_length,
         status: status.to_string(),
         task_type,
-        added_at: Some(now.clone()),
+        added_at: Some(added_at),
         created_at: None,
         completed_at: Some(now),
         meta,
@@ -281,8 +332,9 @@ pub fn build_history_record(event: &TaskEvent, event_name: &str) -> crate::histo
 pub struct TaskNotifier {
     notified_errors: HashSet<String>,
     notified_completes: HashSet<String>,
-    notified_bt_completes: HashSet<String>,
-    initial_scan_done: bool,
+    notified_sharing_completes: HashSet<String>,
+    restored_sharing_completes: HashSet<String>,
+    scan_count: u8,
 }
 
 impl TaskNotifier {
@@ -290,9 +342,14 @@ impl TaskNotifier {
         Self {
             notified_errors: HashSet::new(),
             notified_completes: HashSet::new(),
-            notified_bt_completes: HashSet::new(),
-            initial_scan_done: false,
+            notified_sharing_completes: HashSet::new(),
+            restored_sharing_completes: HashSet::new(),
+            scan_count: 0,
         }
+    }
+
+    fn initial_scan_done(&self) -> bool {
+        self.scan_count > 0
     }
 
     /// Scan tasks and return events that should be emitted.
@@ -312,7 +369,7 @@ impl TaskNotifier {
                 if let Some(code) = &task.error_code {
                     if code != "0" && !self.notified_errors.contains(&task.gid) {
                         self.notified_errors.insert(task.gid.clone());
-                        if self.initial_scan_done {
+                        if self.initial_scan_done() {
                             emit.push((
                                 events::TASK_ERROR.to_string(),
                                 TaskEvent::from_aria2(task),
@@ -325,7 +382,7 @@ impl TaskNotifier {
             // Completion detection
             if task.status == "complete" && !self.notified_completes.contains(&task.gid) {
                 self.notified_completes.insert(task.gid.clone());
-                if self.initial_scan_done {
+                if self.initial_scan_done() {
                     emit.push((
                         events::TASK_COMPLETE.to_string(),
                         TaskEvent::from_aria2(task),
@@ -333,29 +390,101 @@ impl TaskNotifier {
                 }
             }
 
-            // BT seeding detection (active + seeder == "true" + has bittorrent)
-            if task.bittorrent.is_some()
-                && task.seeder.as_deref() == Some("true")
-                && task.status == "active"
-                && !self.notified_bt_completes.contains(&task.gid)
-            {
-                self.notified_bt_completes.insert(task.gid.clone());
-                if self.initial_scan_done {
-                    emit.push((events::BT_COMPLETE.to_string(), TaskEvent::from_aria2(task)));
+            if !self.initial_scan_done() {
+                if let Some(kind) = protocol_sharing_kind(task) {
+                    self.restored_sharing_completes
+                        .extend(sharing_restore_keys(task, kind));
+                }
+            }
+
+            if let Some(kind) = sharing_kind(task) {
+                let key = sharing_completion_key(task, kind);
+                if !self.notified_sharing_completes.contains(&key) {
+                    self.notified_sharing_completes.insert(key.clone());
+                    if self.initial_scan_done() && !self.is_restored_sharing(task, kind) {
+                        emit.push((
+                            events::SHARING_COMPLETE.to_string(),
+                            TaskEvent::from_aria2(task),
+                        ));
+                    }
                 }
             }
         }
 
-        if !self.initial_scan_done {
+        if !self.initial_scan_done() {
             log::debug!(
                 "task_monitor: initial scan suppressed {} pre-existing tasks",
                 tasks.len()
             );
         }
-        self.initial_scan_done = true;
+        self.scan_count = self.scan_count.saturating_add(1);
 
         emit
     }
+
+    fn is_restored_sharing(&self, task: &Aria2Task, kind: SharingKind) -> bool {
+        sharing_restore_keys(task, kind)
+            .iter()
+            .any(|key| self.restored_sharing_completes.contains(key))
+    }
+}
+
+fn protocol_sharing_kind(task: &Aria2Task) -> Option<SharingKind> {
+    if task.bittorrent.is_some() {
+        Some(SharingKind::Bt)
+    } else if task.ed2k.is_some() {
+        Some(SharingKind::Ed2k)
+    } else {
+        None
+    }
+}
+
+fn sharing_kind(task: &Aria2Task) -> Option<SharingKind> {
+    if task.status != "active" || task.seeder.as_deref() != Some("true") {
+        return None;
+    }
+    protocol_sharing_kind(task)
+}
+
+fn sharing_completion_key(task: &Aria2Task, kind: SharingKind) -> String {
+    match kind {
+        SharingKind::Bt => task
+            .info_hash
+            .as_deref()
+            .filter(|hash| !hash.is_empty())
+            .map(|hash| format!("bt:{hash}"))
+            .unwrap_or_else(|| format!("bt:{}", task.gid)),
+        SharingKind::Ed2k => task
+            .ed2k
+            .as_ref()
+            .and_then(|info| info.hash.as_deref())
+            .filter(|hash| !hash.is_empty())
+            .map(|hash| format!("ed2k:{hash}"))
+            .unwrap_or_else(|| format!("ed2k:{}", task.gid)),
+    }
+}
+
+fn sharing_restore_keys(task: &Aria2Task, kind: SharingKind) -> Vec<String> {
+    let prefix = kind.as_str();
+    let mut keys = vec![format!("{prefix}:{}", task.gid)];
+    match kind {
+        SharingKind::Bt => {
+            if let Some(hash) = task.info_hash.as_deref().filter(|hash| !hash.is_empty()) {
+                keys.push(format!("bt:{hash}"));
+            }
+        }
+        SharingKind::Ed2k => {
+            if let Some(hash) = task
+                .ed2k
+                .as_ref()
+                .and_then(|info| info.hash.as_deref())
+                .filter(|hash| !hash.is_empty())
+            {
+                keys.push(format!("ed2k:{hash}"));
+            }
+        }
+    }
+    keys
 }
 
 /// Handle for controlling the background monitor task.
@@ -439,9 +568,8 @@ async fn monitor_loop(
         // that complete within a single poll window.
         let has_new_completion = events
             .iter()
-            .any(|(n, _)| n == events::TASK_COMPLETE || n == events::BT_COMPLETE);
+            .any(|(n, _)| n == events::TASK_COMPLETE || n == events::SHARING_COMPLETE);
 
-        // Gate on user preference — skip notification events when disabled
         if !events.is_empty() {
             // ── Rust-side history persistence (lightweight mode safety) ──
             // Write completion/error records directly to the DB so they
@@ -451,15 +579,36 @@ async fn monitor_loop(
             if let Some(db_state) = app.try_state::<HistoryDbState>() {
                 for (event_name, payload) in &events {
                     if event_name == events::TASK_COMPLETE
-                        || event_name == events::BT_COMPLETE
+                        || event_name == events::SHARING_COMPLETE
                         || event_name == events::TASK_ERROR
                     {
-                        let record = build_history_record(payload, event_name);
                         let db = db_state.0.clone();
+                        let payload = payload.clone();
                         // Spawn a non-blocking write — monitor loop must not
                         // block on DB I/O to keep polling responsive.
                         let event_name_owned = event_name.clone();
                         tokio::spawn(async move {
+                            let existing_added_at = match db.get_task_birth(&payload.gid).await {
+                                Ok(added_at) => added_at,
+                                Err(e) => {
+                                    log::warn!(
+                                        "task_monitor: task_birth lookup failed for {event_name_owned}: {e}"
+                                    );
+                                    None
+                                }
+                            };
+                            let record = build_history_record_with_added_at(
+                                &payload,
+                                &event_name_owned,
+                                existing_added_at,
+                            );
+                            if let Some(added_at) = record.added_at.as_deref() {
+                                if let Err(e) = db.record_task_birth(&record.gid, added_at).await {
+                                    log::warn!(
+                                        "task_monitor: task_birth write failed for {event_name_owned}: {e}"
+                                    );
+                                }
+                            }
                             if let Err(e) = db.add_record(&record).await {
                                 log::warn!(
                                     "task_monitor: history write failed for {event_name_owned}: {e}"
@@ -470,7 +619,24 @@ async fn monitor_loop(
                 }
             }
 
+            let runtime_config = match app.try_state::<super::config::RuntimeConfigState>() {
+                Some(state) => state.snapshot().await,
+                None => {
+                    log::warn!("notification:runtime-config-unavailable fallback=defaults");
+                    super::config::RuntimeConfig::default()
+                }
+            };
+
             for (event_name, payload) in events {
+                let webview_alive = app.get_webview_window("main").is_some();
+                log::info!(
+                    "task_monitor:event type={} gid={} name={:?} webview_alive={}",
+                    event_name,
+                    payload.gid,
+                    payload.name,
+                    webview_alive
+                );
+                send_task_notification(&app, &event_name, &payload, &runtime_config);
                 if let Err(e) = app.emit(&event_name, &payload) {
                     log::warn!("task_monitor: failed to emit {event_name}: {e}");
                 }
@@ -547,17 +713,11 @@ async fn monitor_loop(
     }
 }
 
-/// Counts active downloads, excluding BT tasks that are only seeding.
-///
-/// A seeder is identified by `bittorrent` metadata present, `seeder == "true"`,
-/// and `status == "active"`. These are upload-only tasks that must not block
-/// the auto-shutdown trigger.
+/// Counts active downloads, excluding P2P tasks that are only sharing.
 fn count_active_downloads(tasks: &[Aria2Task]) -> usize {
     tasks
         .iter()
-        .filter(|t| {
-            t.status == "active" && !(t.bittorrent.is_some() && t.seeder.as_deref() == Some("true"))
-        })
+        .filter(|t| t.status == "active" && sharing_kind(t).is_none())
         .count()
 }
 
@@ -573,7 +733,7 @@ impl TaskMonitorState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aria2::types::{Aria2BtInfo, Aria2BtName, Aria2File};
+    use crate::aria2::types::{Aria2BtInfo, Aria2BtName, Aria2Ed2kInfo, Aria2File, Aria2FileUri};
 
     fn make_task(gid: &str, status: &str) -> Aria2Task {
         Aria2Task {
@@ -581,10 +741,6 @@ mod tests {
             status: status.to_string(),
             total_length: "1024".to_string(),
             completed_length: "1024".to_string(),
-            upload_length: "0".to_string(),
-            download_speed: "0".to_string(),
-            upload_speed: "0".to_string(),
-            connections: "0".to_string(),
             dir: "/tmp".to_string(),
             files: vec![Aria2File {
                 index: "1".to_string(),
@@ -594,20 +750,7 @@ mod tests {
                 selected: "true".to_string(),
                 uris: vec![],
             }],
-            bittorrent: None,
-            info_hash: None,
-            seeder: None,
-            num_seeders: None,
-            num_pieces: None,
-            piece_length: None,
-            error_code: None,
-            error_message: None,
-            bitfield: None,
-            verified_length: None,
-            verify_integrity_pending: None,
-            followed_by: None,
-            following: None,
-            belongs_to: None,
+            ..Aria2Task::default()
         }
     }
 
@@ -618,12 +761,33 @@ mod tests {
                 name: "Ubuntu.iso".to_string(),
             }),
             announce_list: Some(vec![vec!["udp://tracker.example.com:6969".to_string()]]),
-            creation_date: None,
-            comment: None,
-            mode: None,
+            magnet_link: Some("magnet:?xt=urn:btih:abcdef1234567890&dn=Ubuntu.iso".to_string()),
+            ..Aria2BtInfo::default()
         });
         task.info_hash = Some("abcdef1234567890".to_string());
         task.seeder = Some(if seeder { "true" } else { "false" }.to_string());
+        task
+    }
+
+    fn make_bt_task_with_hash(gid: &str, status: &str, seeder: bool, info_hash: &str) -> Aria2Task {
+        let mut task = make_bt_task(gid, status, seeder);
+        task.info_hash = Some(info_hash.to_string());
+        task
+    }
+
+    fn make_ed2k_task(gid: &str, status: &str, sharing: bool) -> Aria2Task {
+        let mut task = make_task(gid, status);
+        task.ed2k = Some(Aria2Ed2kInfo {
+            ed2k_link: Some(
+                "ed2k://|file|ed2k.bin|1024|31313131313131313131313131313131|/".to_string(),
+            ),
+            hash: Some("ed2khash".to_string()),
+            name: Some("ed2k.bin".to_string()),
+            length: Some("1024".to_string()),
+            completed_length: Some("1024".to_string()),
+            ..Aria2Ed2kInfo::default()
+        });
+        task.seeder = Some(if sharing { "true" } else { "false" }.to_string());
         task
     }
 
@@ -636,10 +800,6 @@ mod tests {
             status: "active".to_string(),
             total_length: "2048".to_string(),
             completed_length: "2048".to_string(),
-            upload_length: "0".to_string(),
-            download_speed: "0".to_string(),
-            upload_speed: "0".to_string(),
-            connections: "0".to_string(),
             dir: "/downloads".to_string(),
             files: vec![
                 Aria2File {
@@ -667,23 +827,13 @@ mod tests {
                     vec!["udp://tracker1.example.com:6969".to_string()],
                     vec!["udp://tracker2.example.com:6969".to_string()],
                 ]),
-                creation_date: None,
-                comment: None,
+                magnet_link: Some("magnet:?xt=urn:btih:deadbeef&dn=MyTorrent".to_string()),
                 mode: Some("multi".to_string()),
+                ..Aria2BtInfo::default()
             }),
             info_hash: Some("deadbeef".repeat(5)),
             seeder: Some("true".to_string()),
-            num_seeders: None,
-            num_pieces: None,
-            piece_length: None,
-            error_code: None,
-            error_message: None,
-            bitfield: None,
-            verified_length: None,
-            verify_integrity_pending: None,
-            followed_by: None,
-            following: None,
-            belongs_to: None,
+            ..Aria2Task::default()
         }
     }
 
@@ -696,17 +846,7 @@ mod tests {
 
     fn make_metadata_task(gid: &str) -> Aria2Task {
         let mut task = make_task(gid, "complete");
-        task.files[0].path = "/downloads/[METADATA]KNOPPIX_V9.1CD-2021-01-25-EN".to_string();
-        task.followed_by = Some(vec!["child-gid".to_string()]);
-        task.bittorrent = Some(Aria2BtInfo {
-            info: Some(Aria2BtName {
-                name: "[METADATA]KNOPPIX_V9.1CD-2021-01-25-EN".to_string(),
-            }),
-            announce_list: None,
-            creation_date: None,
-            comment: None,
-            mode: None,
-        });
+        task.bittorrent = Some(Aria2BtInfo::default());
         task.info_hash = Some("abcdef1234567890abcdef1234567890abcdef12".to_string());
         task
     }
@@ -724,7 +864,7 @@ mod tests {
 
         let events = notifier.scan(&tasks);
         assert!(events.is_empty(), "initial scan should suppress all events");
-        assert!(notifier.initial_scan_done);
+        assert!(notifier.initial_scan_done());
     }
 
     #[test]
@@ -827,21 +967,116 @@ mod tests {
         assert_eq!(events[0].0, events::TASK_COMPLETE);
     }
 
-    // ── BT seeding detection ────────────────────────────────────────
+    // ── shared-upload detection ────────────────────────────────────────
 
     #[test]
-    fn detects_bt_seeding_start() {
+    fn detects_bt_sharing_start() {
         let mut notifier = TaskNotifier::new();
         notifier.scan(&[]);
 
         let events = notifier.scan(&[make_bt_task("g1", "active", true)]);
         assert_eq!(events.len(), 1);
-        assert_eq!(events[0].0, events::BT_COMPLETE);
+        assert_eq!(events[0].0, events::SHARING_COMPLETE);
         assert!(events[0].1.is_bt);
     }
 
     #[test]
-    fn bt_not_seeding_is_not_emitted() {
+    fn detects_ed2k_sharing_start() {
+        let mut notifier = TaskNotifier::new();
+        notifier.scan(&[]);
+
+        let events = notifier.scan(&[make_ed2k_task("ed2k1", "active", true)]);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].0, events::SHARING_COMPLETE);
+        assert_eq!(events[0].1.sharing_kind, Some("ed2k"));
+    }
+
+    #[test]
+    fn restored_bt_complete_that_reports_seeder_later_does_not_emit() {
+        let mut notifier = TaskNotifier::new();
+        notifier.scan(&[make_bt_task("g1", "active", false)]);
+
+        let events = notifier.scan(&[make_bt_task("g2", "active", true)]);
+
+        assert!(
+            events.is_empty(),
+            "restored complete BT tasks must not emit when seeder becomes true later"
+        );
+    }
+
+    #[test]
+    fn restored_bt_that_starts_as_zero_length_does_not_emit_when_seeder_arrives() {
+        let mut notifier = TaskNotifier::new();
+        let mut restoring = make_bt_task("g1", "active", false);
+        restoring.total_length = "0".to_string();
+        restoring.completed_length = "0".to_string();
+        restoring.info_hash = None;
+
+        notifier.scan(&[restoring]);
+
+        let events = notifier.scan(&[make_bt_task_with_hash(
+            "g1",
+            "active",
+            true,
+            "hydrated-info-hash",
+        )]);
+
+        assert!(
+            events.is_empty(),
+            "restored BT tasks can start as 0/0 before aria2 hydrates seeder and infoHash"
+        );
+    }
+
+    #[test]
+    fn restored_bt_complete_is_matched_by_info_hash_across_gid_changes() {
+        let mut notifier = TaskNotifier::new();
+        notifier.scan(&[make_bt_task_with_hash(
+            "old-gid",
+            "active",
+            false,
+            "same-info-hash",
+        )]);
+
+        let events = notifier.scan(&[make_bt_task_with_hash(
+            "new-gid",
+            "active",
+            true,
+            "same-info-hash",
+        )]);
+
+        assert!(
+            events.is_empty(),
+            "restored BT completion baseline should use infoHash before gid"
+        );
+    }
+
+    #[test]
+    fn bt_sharing_after_initial_restore_window_emits() {
+        let mut notifier = TaskNotifier::new();
+        let mut downloading = make_bt_task("g1", "active", false);
+        downloading.completed_length = "512".to_string();
+
+        notifier.scan(&[]);
+        notifier.scan(&[downloading]);
+
+        let events = notifier.scan(&[make_bt_task("g1", "active", true)]);
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].0, events::SHARING_COMPLETE);
+    }
+
+    #[test]
+    fn existing_seeder_first_scan_never_reemits() {
+        let mut notifier = TaskNotifier::new();
+        notifier.scan(&[make_bt_task("g1", "active", true)]);
+
+        let events = notifier.scan(&[make_bt_task("g1", "active", true)]);
+
+        assert!(events.is_empty());
+    }
+
+    #[test]
+    fn bt_not_sharing_is_not_emitted() {
         let mut notifier = TaskNotifier::new();
         notifier.scan(&[]);
 
@@ -850,7 +1085,7 @@ mod tests {
     }
 
     #[test]
-    fn bt_seeding_but_not_active_is_not_emitted() {
+    fn bt_sharing_but_not_active_is_not_emitted() {
         let mut notifier = TaskNotifier::new();
         notifier.scan(&[]);
 
@@ -864,14 +1099,14 @@ mod tests {
     fn fresh_notifier_has_clean_state() {
         let mut notifier = TaskNotifier::new();
         notifier.scan(&[make_task("g1", "complete")]);
-        assert!(notifier.initial_scan_done);
+        assert!(notifier.initial_scan_done());
 
         // On restart, a new notifier is created — verify it starts clean
         let fresh = TaskNotifier::new();
-        assert!(!fresh.initial_scan_done);
+        assert!(!fresh.initial_scan_done());
         assert!(fresh.notified_completes.is_empty());
         assert!(fresh.notified_errors.is_empty());
-        assert!(fresh.notified_bt_completes.is_empty());
+        assert!(fresh.notified_sharing_completes.is_empty());
     }
 
     // ── TaskEvent extraction ────────────────────────────────────────
@@ -920,7 +1155,7 @@ mod tests {
         let types: Vec<&str> = events.iter().map(|(t, _)| t.as_str()).collect();
         assert!(types.contains(&events::TASK_COMPLETE));
         assert!(types.contains(&events::TASK_ERROR));
-        assert!(types.contains(&events::BT_COMPLETE));
+        assert!(types.contains(&events::SHARING_COMPLETE));
     }
 
     // ── build_history_record unit tests ─────────────────────────────
@@ -943,10 +1178,24 @@ mod tests {
     }
 
     #[test]
+    fn build_history_record_with_added_at_uses_persisted_task_birth() {
+        let task = make_task("g1", "complete");
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record_with_added_at(
+            &event,
+            events::TASK_COMPLETE,
+            Some("2025-01-01T00:00:00Z".to_string()),
+        );
+
+        assert_eq!(record.added_at.as_deref(), Some("2025-01-01T00:00:00Z"));
+        assert_ne!(record.completed_at, record.added_at);
+    }
+
+    #[test]
     fn build_history_record_sets_complete_status_for_bt_complete() {
         let task = make_bt_task("g2", "active", true);
         let event = TaskEvent::from_aria2(&task);
-        let record = build_history_record(&event, events::BT_COMPLETE);
+        let record = build_history_record(&event, events::SHARING_COMPLETE);
 
         assert_eq!(record.gid, "g2");
         assert_eq!(record.status, "complete");
@@ -982,10 +1231,27 @@ mod tests {
     }
 
     #[test]
+    fn build_history_record_preserves_primary_uri_for_lightweight_mode_restart() {
+        let mut task = make_task("g1", "complete");
+        task.files[0].path = "/tmp/ИТОГИ ЛДУ 2026.xlsx".to_string();
+        task.files[0].uris = vec![Aria2FileUri {
+            uri: "https://mail-attachment.googleusercontent.com/attachment/u/0/".to_string(),
+            status: "used".to_string(),
+        }];
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::TASK_COMPLETE);
+
+        assert_eq!(
+            record.uri.as_deref(),
+            Some("https://mail-attachment.googleusercontent.com/attachment/u/0/")
+        );
+    }
+
+    #[test]
     fn build_history_record_derives_task_type_for_bt() {
         let task = make_bt_task("g1", "active", true);
         let event = TaskEvent::from_aria2(&task);
-        let record = build_history_record(&event, events::BT_COMPLETE);
+        let record = build_history_record(&event, events::SHARING_COMPLETE);
 
         assert_eq!(record.task_type, Some("bt".to_string()));
     }
@@ -1020,7 +1286,7 @@ mod tests {
     fn bt_meta_is_valid_json_with_info_hash() {
         let task = make_bt_task("g1", "active", true);
         let event = TaskEvent::from_aria2(&task);
-        let record = build_history_record(&event, events::BT_COMPLETE);
+        let record = build_history_record(&event, events::SHARING_COMPLETE);
 
         let meta_str = record.meta.as_ref().unwrap();
         let meta: serde_json::Value =
@@ -1033,7 +1299,7 @@ mod tests {
     fn bt_meta_contains_announce_list() {
         let task = make_bt_task("g1", "active", true);
         let event = TaskEvent::from_aria2(&task);
-        let record = build_history_record(&event, events::BT_COMPLETE);
+        let record = build_history_record(&event, events::SHARING_COMPLETE);
 
         let meta: serde_json::Value = serde_json::from_str(record.meta.as_ref().unwrap()).unwrap();
         let al = meta["announceList"].as_array().unwrap();
@@ -1042,10 +1308,36 @@ mod tests {
     }
 
     #[test]
+    fn bt_meta_contains_engine_magnet_link() {
+        let task = make_bt_task("g1", "active", true);
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::SHARING_COMPLETE);
+
+        let meta: serde_json::Value = serde_json::from_str(record.meta.as_ref().unwrap()).unwrap();
+        assert_eq!(
+            meta["magnetLink"],
+            "magnet:?xt=urn:btih:abcdef1234567890&dn=Ubuntu.iso"
+        );
+    }
+
+    #[test]
+    fn ed2k_meta_contains_engine_ed2k_link() {
+        let task = make_ed2k_task("g1", "active", true);
+        let event = TaskEvent::from_aria2(&task);
+        let record = build_history_record(&event, events::SHARING_COMPLETE);
+
+        let meta: serde_json::Value = serde_json::from_str(record.meta.as_ref().unwrap()).unwrap();
+        assert_eq!(
+            meta["ed2kLink"],
+            "ed2k://|file|ed2k.bin|1024|31313131313131313131313131313131|/"
+        );
+    }
+
+    #[test]
     fn multi_file_bt_meta_contains_files_snapshot() {
         let task = make_multi_file_bt_task("g1");
         let event = TaskEvent::from_aria2(&task);
-        let record = build_history_record(&event, events::BT_COMPLETE);
+        let record = build_history_record(&event, events::SHARING_COMPLETE);
 
         let meta: serde_json::Value = serde_json::from_str(record.meta.as_ref().unwrap()).unwrap();
 
@@ -1064,7 +1356,7 @@ mod tests {
     fn multi_file_bt_meta_has_announce_list_and_info_hash() {
         let task = make_multi_file_bt_task("g1");
         let event = TaskEvent::from_aria2(&task);
-        let record = build_history_record(&event, events::BT_COMPLETE);
+        let record = build_history_record(&event, events::SHARING_COMPLETE);
 
         let meta: serde_json::Value = serde_json::from_str(record.meta.as_ref().unwrap()).unwrap();
 
@@ -1093,7 +1385,7 @@ mod tests {
         // (files snapshot only needed for multi-file or multi-mirror)
         let task = make_bt_task("g1", "active", true);
         let event = TaskEvent::from_aria2(&task);
-        let record = build_history_record(&event, events::BT_COMPLETE);
+        let record = build_history_record(&event, events::SHARING_COMPLETE);
 
         let meta: serde_json::Value = serde_json::from_str(record.meta.as_ref().unwrap()).unwrap();
         assert!(meta.get("infoHash").is_some());
@@ -1117,16 +1409,17 @@ mod tests {
     // ── count_active_downloads (auto-shutdown) ──────────────────────
     //
     // Validates the pure helper that determines whether any "real"
-    // downloads are in progress.  BT tasks that are only seeding
+    // downloads are in progress.  BT tasks that are only sharing
     // (active + seeder=true) must be excluded so they don't block
     // the auto-shutdown trigger.
 
     #[test]
-    fn count_active_downloads_excludes_bt_seeders() {
+    fn count_active_downloads_excludes_shared_upload_tasks() {
         let tasks = vec![
-            make_task("g1", "active"),           // real download
-            make_bt_task("g2", "active", true),  // seeder — excluded
-            make_bt_task("g3", "active", false), // BT download — counted
+            make_task("g1", "active"),
+            make_bt_task("g2", "active", true),
+            make_ed2k_task("g3", "active", true),
+            make_bt_task("g4", "active", false),
         ];
         assert_eq!(count_active_downloads(&tasks), 2);
     }
@@ -1149,23 +1442,20 @@ mod tests {
     }
 
     #[test]
-    fn count_active_downloads_all_seeders_returns_zero() {
+    fn count_active_downloads_all_sharing_tasks_returns_zero() {
         let tasks = vec![
             make_bt_task("g1", "active", true),
-            make_bt_task("g2", "active", true),
+            make_ed2k_task("g2", "active", true),
         ];
         assert_eq!(count_active_downloads(&tasks), 0);
     }
 
     #[test]
-    fn count_active_downloads_mixed_seeder_and_paused_seeder() {
-        // Paused seeder is NOT active, so it shouldn't be counted at all.
-        // Active seeder is excluded by the filter.
-        // Only the plain active download counts.
+    fn count_active_downloads_mixed_sharing_and_paused_sharing() {
         let tasks = vec![
-            make_task("g1", "active"),          // counted
-            make_bt_task("g2", "paused", true), // not active → ignored
-            make_bt_task("g3", "active", true), // seeder → excluded
+            make_task("g1", "active"),
+            make_bt_task("g2", "paused", true),
+            make_ed2k_task("g3", "active", true),
         ];
         assert_eq!(count_active_downloads(&tasks), 1);
     }

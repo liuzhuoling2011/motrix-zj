@@ -5,6 +5,10 @@ import { useTaskStore } from '../task'
 import type { Aria2Task, Aria2Peer, TaskStatus, HistoryRecord } from '@shared/types'
 import { _resetForTesting, registerAddedAt } from '@/composables/useTaskOrder'
 
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn().mockResolvedValue(undefined),
+}))
+
 // ── Mock history store (DB-primary architecture) ─────────────────────
 const mockHistoryFns = {
   init: vi.fn().mockResolvedValue(undefined),
@@ -22,6 +26,14 @@ const mockHistoryFns = {
 }
 vi.mock('@/stores/history', () => ({
   useHistoryStore: () => mockHistoryFns,
+}))
+
+const mockHttpAuthFns = {
+  findByUrl: vi.fn().mockResolvedValue(null),
+  markUsed: vi.fn().mockResolvedValue(undefined),
+}
+vi.mock('@/stores/httpAuth', () => ({
+  useHttpAuthStore: () => mockHttpAuthFns,
 }))
 
 const makeMockTask = (gid: string, status: TaskStatus = 'active', extra: Partial<Aria2Task> = {}): Aria2Task => ({
@@ -57,7 +69,6 @@ function createMockApi() {
     addUri: vi.fn().mockResolvedValue(['gid3']),
     addUriAtomic: vi.fn().mockResolvedValue('gid3'),
     addTorrent: vi.fn().mockResolvedValue('gid4'),
-    addMetalink: vi.fn().mockResolvedValue(['gid5']),
     getOption: vi.fn().mockResolvedValue({}),
     changeOption: vi.fn().mockResolvedValue(undefined),
     getFiles: vi.fn().mockResolvedValue([]),
@@ -65,9 +76,6 @@ function createMockApi() {
     forcePauseTask: vi.fn().mockResolvedValue('gid1'),
     pauseTask: vi.fn().mockResolvedValue('gid1'),
     resumeTask: vi.fn().mockResolvedValue('gid1'),
-    pauseAllTask: vi.fn().mockResolvedValue('OK'),
-    forcePauseAllTask: vi.fn().mockResolvedValue('OK'),
-    resumeAllTask: vi.fn().mockResolvedValue('OK'),
     batchResumeTask: vi.fn().mockResolvedValue([]),
     batchPauseTask: vi.fn().mockResolvedValue([]),
     batchForcePauseTask: vi.fn().mockResolvedValue([]),
@@ -91,6 +99,8 @@ describe('TaskStore', () => {
     Object.values(mockHistoryFns).forEach((fn) => fn.mockClear())
     mockHistoryFns.getRecords.mockResolvedValue([])
     mockHistoryFns.recordTaskBirth.mockResolvedValue(undefined)
+    mockHttpAuthFns.findByUrl.mockResolvedValue(null)
+    mockHttpAuthFns.markUsed.mockResolvedValue(undefined)
     // Reset in-memory task order state
     _resetForTesting()
   })
@@ -104,6 +114,56 @@ describe('TaskStore', () => {
     // timestamps so gid2 (later) comes before gid1 (earlier).
     expect(store.taskList[0].gid).toBe('gid2')
     expect(mockApi.fetchTaskList).toHaveBeenCalledWith({ type: 'active' })
+  })
+
+  it('manual active order survives polling and inserts new tasks above stored tasks', async () => {
+    const { usePreferenceStore } = await import('@/stores/preference')
+    const preferenceStore = usePreferenceStore()
+    preferenceStore.updatePreference({
+      taskSort: {
+        active: { field: 'manual', direction: 'desc' },
+        stopped: { field: 'added-at', direction: 'desc' },
+        all: { field: 'added-at', direction: 'desc' },
+      },
+      taskManualOrder: {
+        active: ['old-2', 'old-1'],
+        stopped: [],
+        all: [],
+      },
+    })
+    registerAddedAt('old-1', '2024-01-01T00:00:00Z')
+    registerAddedAt('old-2', '2024-01-02T00:00:00Z')
+    registerAddedAt('fresh', '2024-01-03T00:00:00Z')
+    mockApi.fetchTaskList.mockResolvedValueOnce([makeMockTask('old-1'), makeMockTask('fresh'), makeMockTask('old-2')])
+
+    await store.fetchList()
+
+    expect(store.taskList.map((task) => task.gid)).toEqual(['fresh', 'old-2', 'old-1'])
+  })
+
+  it('applies active sort changes before waiting for the next poll', async () => {
+    const { usePreferenceStore } = await import('@/stores/preference')
+    const preferenceStore = usePreferenceStore()
+    const saveSpy = vi.spyOn(preferenceStore, 'updateAndSave').mockResolvedValue(true)
+    registerAddedAt('alpha', '2024-01-01T00:00:00Z')
+    registerAddedAt('beta', '2024-01-02T00:00:00Z')
+    mockApi.fetchTaskList.mockResolvedValue([
+      makeMockTask('beta', 'active', { files: [{ path: '/tmp/beta.zip' } as Aria2Task['files'][number]] }),
+      makeMockTask('alpha', 'active', { files: [{ path: '/tmp/alpha.zip' } as Aria2Task['files'][number]] }),
+    ])
+    await store.fetchList()
+    expect(store.taskList.map((task) => task.gid)).toEqual(['beta', 'alpha'])
+
+    await store.changeCurrentSort('name')
+
+    expect(preferenceStore.config.taskSort.active).toEqual({ field: 'name', direction: 'desc' })
+    expect(store.taskList.map((task) => task.gid)).toEqual(['beta', 'alpha'])
+
+    await store.changeCurrentSort('name')
+
+    expect(preferenceStore.config.taskSort.active).toEqual({ field: 'name', direction: 'asc' })
+    expect(store.taskList.map((task) => task.gid)).toEqual(['alpha', 'beta'])
+    expect(saveSpy).toHaveBeenCalledTimes(2)
   })
 
   it('fetchList prunes selectedGidList to valid gids only', async () => {
@@ -299,64 +359,65 @@ describe('TaskStore', () => {
       expect(gids).toEqual(['fresh', 'old'])
     })
 
-    it('filters out completed metadata tasks from the stopped source', async () => {
+    it('filters out completed native aria2 metadata tasks from the stopped source', async () => {
       await store.changeCurrentList('all')
 
-      // Completed metadata task — should be hidden
       const completedMeta = makeMockTask('meta1', 'complete', {
+        bittorrent: {},
         followedBy: ['real-gid'],
-        files: [
-          {
-            index: '1',
-            path: '[METADATA]KNOPPIX_V9.1',
-            length: '26000',
-            completedLength: '26000',
-            selected: 'true',
-            uris: [],
-          },
-        ],
       })
       const realTask = makeMockTask('real-gid', 'active')
 
-      mockApi.fetchTaskList
-        .mockResolvedValueOnce([realTask]) // active — the real download
-        .mockResolvedValueOnce([completedMeta]) // stopped — stale metadata
+      mockApi.fetchTaskList.mockResolvedValueOnce([realTask]).mockResolvedValueOnce([completedMeta])
       mockHistoryFns.getRecords.mockResolvedValueOnce([])
 
       await store.fetchList()
 
-      // Completed metadata task should be excluded
       expect(store.taskList).toHaveLength(1)
       expect(store.taskList[0].gid).toBe('real-gid')
     })
 
-    it('keeps actively-downloading metadata tasks visible', async () => {
+    it('keeps actively-downloading native aria2 metadata tasks visible', async () => {
       await store.changeCurrentList('all')
 
-      // Active metadata task — still resolving, must remain visible
       const activeMeta = makeMockTask('meta-active', 'active', {
+        bittorrent: {},
+      })
+
+      mockApi.fetchTaskList.mockResolvedValueOnce([activeMeta]).mockResolvedValueOnce([]) // stopped
+      mockHistoryFns.getRecords.mockResolvedValueOnce([])
+
+      await store.fetchList()
+
+      expect(store.taskList).toHaveLength(1)
+      expect(store.taskList[0].gid).toBe('meta-active')
+    })
+
+    it('filters ED2K search request groups from the task list', async () => {
+      await store.changeCurrentList('all')
+
+      const searchTask = makeMockTask('search-gid', 'active', {
+        ed2k: { searchActive: true },
         files: [
           {
             index: '1',
-            path: '[METADATA]KNOPPIX_V9.1CD',
-            length: '26000',
-            completedLength: '5000',
+            path: '/Users/test/Downloads/aria2-next-ed2k-search-search-gid',
+            length: '0',
+            completedLength: '0',
             selected: 'true',
             uris: [],
           },
         ],
       })
+      const downloadTask = makeMockTask('download-gid', 'active')
 
-      mockApi.fetchTaskList
-        .mockResolvedValueOnce([activeMeta]) // active — metadata still downloading
-        .mockResolvedValueOnce([]) // stopped
+      mockApi.fetchTaskList.mockResolvedValueOnce([searchTask, downloadTask]).mockResolvedValueOnce([])
       mockHistoryFns.getRecords.mockResolvedValueOnce([])
 
       await store.fetchList()
 
-      // Active metadata must NOT be filtered — user needs to see the download progress
       expect(store.taskList).toHaveLength(1)
-      expect(store.taskList[0].gid).toBe('meta-active')
+      expect(store.taskList[0].gid).toBe('download-gid')
     })
   })
 
@@ -380,12 +441,99 @@ describe('TaskStore', () => {
     expect(store.selectedGidList).toEqual(['a', 'b', 'c'])
   })
 
-  // ─── addUri / addTorrent / addMetalink ──────────────────
+  // ─── pagination ────────────────────────────────────────
+
+  it('keeps independent task page state per tab and clamps overflowing pages', async () => {
+    store.setTaskPage('active', 3)
+    store.setTaskPage('stopped', 2)
+    store.setTaskPageSize(2)
+    await store.fetchList()
+
+    store.clampCurrentTaskPage()
+
+    expect(store.taskPagination.active.page).toBe(1)
+    expect(store.taskPagination.stopped.page).toBe(2)
+    expect(store.taskPagination.pageSize).toBe(2)
+  })
+
+  it('keeps the previous page count while a different tab is loading', async () => {
+    const activeTasks = [
+      makeMockTask('a1'),
+      makeMockTask('a2'),
+      makeMockTask('a3'),
+      makeMockTask('a4'),
+      makeMockTask('a5'),
+    ]
+    mockApi.fetchTaskList.mockResolvedValueOnce([...activeTasks])
+    store.setTaskPageSize(2)
+    await store.fetchList()
+    expect(store.currentTaskPageCount()).toBe(3)
+
+    mockHistoryFns.getRecords.mockImplementationOnce(async () => {
+      expect(store.taskList.map((task) => task.gid).sort()).toEqual(activeTasks.map((task) => task.gid).sort())
+      expect(store.currentTaskPageCount()).toBe(3)
+      return [
+        { gid: 'b1', name: 'b1.zip', status: 'complete' } as HistoryRecord,
+        { gid: 'b2', name: 'b2.zip', status: 'complete' } as HistoryRecord,
+      ]
+    })
+
+    await store.changeCurrentList('stopped')
+
+    expect(store.currentTaskPageCount()).toBe(1)
+  })
+
+  it('writes a reordered visible page back into the full task list before saving manual order', async () => {
+    const { usePreferenceStore } = await import('@/stores/preference')
+    const preferenceStore = usePreferenceStore()
+    const saveSpy = vi.spyOn(preferenceStore, 'updateAndSave').mockResolvedValue(true)
+    store.taskList = ['a', 'b', 'c', 'd', 'e'].map((gid) => makeMockTask(gid))
+    store.setTaskPageSize(2)
+    store.setTaskPage('active', 2)
+
+    await store.saveVisiblePageManualOrder([makeMockTask('d'), makeMockTask('c')])
+
+    expect(store.taskList.map((task) => task.gid)).toEqual(['a', 'b', 'd', 'c', 'e'])
+    expect(saveSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskManualOrder: expect.objectContaining({
+          active: ['a', 'b', 'd', 'c', 'e'],
+        }),
+      }),
+    )
+  })
+
+  // ─── addUri / addTorrent ────────────────────────────────
 
   it('addUri calls API and refreshes list', async () => {
     await store.addUri({ uris: ['http://example.com/file.zip'], outs: [], options: {} })
     expect(mockApi.addUri).toHaveBeenCalled()
     expect(mockApi.fetchTaskList).toHaveBeenCalled()
+  })
+
+  it('addUri injects saved HTTP auth credentials for matching origins', async () => {
+    mockHttpAuthFns.findByUrl.mockResolvedValueOnce({
+      id: 10,
+      origin: 'https://files.example.com',
+      username: 'demo',
+      password: 'secret',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      last_used_at: null,
+    })
+
+    await store.addUri({ uris: ['https://files.example.com/private/file.zip'], outs: [], options: {} })
+
+    expect(mockApi.addUri).toHaveBeenCalledWith({
+      uris: ['https://files.example.com/private/file.zip'],
+      outs: [''],
+      options: expect.objectContaining({
+        'http-user': 'demo',
+        'http-passwd': 'secret',
+      }),
+      fileCategory: undefined,
+    })
+    expect(mockHttpAuthFns.markUsed).toHaveBeenCalledWith(10)
   })
 
   it('addTorrent calls API, refreshes, and returns gid', async () => {
@@ -395,10 +543,15 @@ describe('TaskStore', () => {
     expect(mockApi.fetchTaskList).toHaveBeenCalled()
   })
 
-  it('addMetalink calls API and refreshes list', async () => {
-    await store.addMetalink({ metalink: 'base64data', options: {} })
-    expect(mockApi.addMetalink).toHaveBeenCalled()
-    expect(mockApi.fetchTaskList).toHaveBeenCalled()
+  it('addMagnetUri forces integrity checking for the follow-up BitTorrent download', async () => {
+    const gid = await store.addMagnetUri({ uri: 'magnet:?xt=urn:btih:abc123', options: { dir: '/dl' } })
+
+    expect(gid).toBe('gid3')
+    expect(mockApi.addUri).toHaveBeenCalledWith({
+      uris: ['magnet:?xt=urn:btih:abc123'],
+      outs: [],
+      options: { dir: '/dl', 'pause-metadata': 'true', 'check-integrity': 'true', 'force-save': 'true' },
+    })
   })
 
   // ─── pauseAllTask / resumeAllTask ───────────────────────
@@ -409,7 +562,6 @@ describe('TaskStore', () => {
     await store.pauseAllTask()
     expect(mockApi.forcePauseTask).toHaveBeenCalledWith({ gid: 'gid1' })
     expect(mockApi.forcePauseTask).toHaveBeenCalledWith({ gid: 'gid2' })
-    expect(mockApi.forcePauseAllTask).not.toHaveBeenCalled()
     expect(mockApi.saveSession).toHaveBeenCalled()
   })
 
@@ -425,12 +577,13 @@ describe('TaskStore', () => {
     await store.pauseAllTask()
     expect(mockApi.forcePauseTask).toHaveBeenCalledWith({ gid: 'dl-1' })
     expect(mockApi.forcePauseTask).toHaveBeenCalledTimes(1)
-    expect(mockApi.forcePauseAllTask).not.toHaveBeenCalled()
   })
 
-  it('resumeAllTask calls API, refreshes, and saves session', async () => {
+  it('resumeAllTask resumes eligible paused tasks, refreshes, and saves session', async () => {
+    mockApi.fetchTaskList.mockResolvedValueOnce([makeMockTask('paused-1', 'paused')])
+    await store.fetchList()
     await store.resumeAllTask()
-    expect(mockApi.resumeAllTask).toHaveBeenCalled()
+    expect(mockApi.batchResumeTask).toHaveBeenCalledWith({ gids: ['paused-1'] })
     expect(mockApi.fetchTaskList).toHaveBeenCalled()
     expect(mockApi.saveSession).toHaveBeenCalled()
   })
@@ -453,11 +606,18 @@ describe('TaskStore', () => {
 
   // ─── changeCurrentList ──────────────────────────────────
 
-  it('changeCurrentList resets list and fetches new type', async () => {
+  it('changeCurrentList keeps the current list visible until the target tab data arrives', async () => {
     store.taskList = [makeMockTask('old')]
-    await store.changeCurrentList('completed')
-    expect(store.currentList).toBe('completed')
-    expect(mockApi.fetchTaskList).toHaveBeenCalledWith({ type: 'completed' })
+    mockApi.fetchTaskList.mockImplementationOnce(async () => {
+      expect(store.taskList.map((task) => task.gid)).toEqual(['old'])
+      return [makeMockTask('fresh')]
+    })
+
+    await store.changeCurrentList('waiting')
+
+    expect(store.currentList).toBe('waiting')
+    expect(mockApi.fetchTaskList).toHaveBeenCalledWith({ type: 'waiting' })
+    expect(store.taskList.map((task) => task.gid)).toEqual(['fresh'])
   })
 
   it('changeCurrentList clears selectedGidList', async () => {
@@ -530,10 +690,11 @@ describe('TaskStore', () => {
     expect(mockApi.resumeTask).toHaveBeenCalled()
   })
 
-  it('toggleTask resumes waiting task', async () => {
+  it('toggleTask pauses waiting task', async () => {
     const task = makeMockTask('gid1', 'waiting')
     await store.toggleTask(task)
-    expect(mockApi.resumeTask).toHaveBeenCalled()
+    expect(mockApi.pauseTask).toHaveBeenCalledWith({ gid: 'gid1' })
+    expect(mockApi.resumeTask).not.toHaveBeenCalled()
   })
 
   // ─── batch operations ───────────────────────────────────
@@ -550,8 +711,14 @@ describe('TaskStore', () => {
     expect(mockApi.batchPauseTask).not.toHaveBeenCalled()
   })
 
-  it('batchPauseSelectedTasks calls API with selected gids', async () => {
-    store.selectTasks(['gid1', 'gid2'])
+  it('batchPauseSelectedTasks only submits active and waiting gids', async () => {
+    store.taskList = [
+      makeMockTask('gid1', 'active'),
+      makeMockTask('gid2', 'waiting'),
+      makeMockTask('gid3', 'paused'),
+      makeMockTask('gid4', 'complete'),
+    ]
+    store.selectTasks(['gid1', 'gid2', 'gid3', 'gid4'])
     await store.batchPauseSelectedTasks()
     expect(mockApi.batchPauseTask).toHaveBeenCalledWith({ gids: ['gid1', 'gid2'] })
   })
@@ -562,10 +729,16 @@ describe('TaskStore', () => {
     expect(mockApi.batchResumeTask).not.toHaveBeenCalled()
   })
 
-  it('batchResumeSelectedTasks calls API with selected gids', async () => {
-    store.selectTasks(['gid1', 'gid2'])
+  it('batchResumeSelectedTasks only submits paused gids', async () => {
+    store.taskList = [
+      makeMockTask('gid1', 'paused'),
+      makeMockTask('gid2', 'waiting'),
+      makeMockTask('gid3', 'active'),
+      makeMockTask('gid4', 'error'),
+    ]
+    store.selectTasks(['gid1', 'gid2', 'gid3', 'gid4'])
     await store.batchResumeSelectedTasks()
-    expect(mockApi.batchResumeTask).toHaveBeenCalledWith({ gids: ['gid1', 'gid2'] })
+    expect(mockApi.batchResumeTask).toHaveBeenCalledWith({ gids: ['gid1'] })
   })
 
   // ─── updateCurrentTaskItem ──────────────────────────────
@@ -600,35 +773,35 @@ describe('TaskStore', () => {
     expect(store.currentTaskPeers).toEqual([])
   })
 
-  // ─── seedingList ────────────────────────────────────────
+  // ─── sharingList ────────────────────────────────────────
 
-  it('addToSeedingList adds new gid', () => {
-    store.addToSeedingList('gid1')
-    expect(store.seedingList).toContain('gid1')
+  it('addToSharingList adds new gid', () => {
+    store.addToSharingList('gid1')
+    expect(store.sharingList).toContain('gid1')
   })
 
-  it('addToSeedingList ignores duplicates', () => {
-    store.addToSeedingList('gid1')
-    store.addToSeedingList('gid1')
-    expect(store.seedingList).toEqual(['gid1'])
+  it('addToSharingList ignores duplicates', () => {
+    store.addToSharingList('gid1')
+    store.addToSharingList('gid1')
+    expect(store.sharingList).toEqual(['gid1'])
   })
 
-  it('removeFromSeedingList removes existing gid', () => {
-    store.addToSeedingList('gid1')
-    store.addToSeedingList('gid2')
-    store.removeFromSeedingList('gid1')
-    expect(store.seedingList).toEqual(['gid2'])
+  it('removeFromSharingList removes existing gid', () => {
+    store.addToSharingList('gid1')
+    store.addToSharingList('gid2')
+    store.removeFromSharingList('gid1')
+    expect(store.sharingList).toEqual(['gid2'])
   })
 
-  it('removeFromSeedingList ignores non-existent gid', () => {
-    store.addToSeedingList('gid1')
-    store.removeFromSeedingList('gid999')
-    expect(store.seedingList).toEqual(['gid1'])
+  it('removeFromSharingList ignores non-existent gid', () => {
+    store.addToSharingList('gid1')
+    store.removeFromSharingList('gid999')
+    expect(store.sharingList).toEqual(['gid1'])
   })
 
-  // ─── stopSeeding ────────────────────────────────────────
+  // ─── stopSharing ────────────────────────────────────────
 
-  it('stopSeeding calls forcePause then removeTask then writes DB', async () => {
+  it('stopSharing calls forcePause then removeTask then writes DB', async () => {
     const callOrder: string[] = []
     mockApi.forcePauseTask.mockImplementation(() => {
       callOrder.push('forcePause')
@@ -640,7 +813,7 @@ describe('TaskStore', () => {
     })
 
     const task = makeMockTask('gid1', 'active', { bittorrent: { info: { name: 'seed' } }, seeder: 'true' })
-    await store.stopSeeding(task)
+    await store.stopSharing(task)
 
     expect(mockApi.forcePauseTask).toHaveBeenCalledWith({ gid: 'gid1' })
     expect(mockApi.removeTask).toHaveBeenCalledWith({ gid: 'gid1' })
@@ -649,23 +822,23 @@ describe('TaskStore', () => {
     expect(mockHistoryFns.addRecord).toHaveBeenCalledWith(expect.objectContaining({ gid: 'gid1', status: 'complete' }))
   })
 
-  it('stopSeeding does not call removeTask if forcePause fails', async () => {
+  it('stopSharing does not call removeTask if forcePause fails', async () => {
     mockApi.forcePauseTask.mockRejectedValueOnce(new Error('pause failed'))
 
     const task = makeMockTask('gid1', 'active', { bittorrent: { info: { name: 'x' } }, seeder: 'true' })
-    await expect(store.stopSeeding(task)).rejects.toThrow('pause failed')
+    await expect(store.stopSharing(task)).rejects.toThrow('pause failed')
     expect(mockApi.forcePauseTask).toHaveBeenCalledWith({ gid: 'gid1' })
     expect(mockApi.removeTask).not.toHaveBeenCalled()
     expect(mockHistoryFns.addRecord).not.toHaveBeenCalled()
   })
 
-  // ─── stopAllSeeding ─────────────────────────────────────
+  // ─── stopAllSharing ─────────────────────────────────────
 
-  it('stopAllSeeding calls two-step stop + DB write for every seeding task', async () => {
+  it('stopAllSharing calls two-step stop + DB write for every sharing task', async () => {
     const seeder1 = makeMockTask('s1', 'active', { bittorrent: { info: { name: 'a' } }, seeder: 'true' })
     const seeder2 = makeMockTask('s2', 'active', { bittorrent: { info: { name: 'b' } }, seeder: 'true' })
     store.taskList = [seeder1, seeder2]
-    const count = await store.stopAllSeeding()
+    const count = await store.stopAllSharing()
     expect(count).toBe(2)
     expect(mockApi.forcePauseTask).toHaveBeenCalledWith({ gid: 's1' })
     expect(mockApi.forcePauseTask).toHaveBeenCalledWith({ gid: 's2' })
@@ -675,11 +848,11 @@ describe('TaskStore', () => {
     expect(mockHistoryFns.addRecord).toHaveBeenCalledTimes(2)
   })
 
-  it('stopAllSeeding skips non-seeding tasks', async () => {
+  it('stopAllSharing skips non-sharing tasks', async () => {
     const active = makeMockTask('a1', 'active')
     const seeder = makeMockTask('s1', 'active', { bittorrent: { info: { name: 'x' } }, seeder: 'true' })
     store.taskList = [active, seeder]
-    const count = await store.stopAllSeeding()
+    const count = await store.stopAllSharing()
     expect(count).toBe(1)
     expect(mockApi.forcePauseTask).toHaveBeenCalledTimes(1)
     expect(mockApi.forcePauseTask).toHaveBeenCalledWith({ gid: 's1' })
@@ -687,20 +860,20 @@ describe('TaskStore', () => {
     expect(mockApi.removeTask).toHaveBeenCalledWith({ gid: 's1' })
   })
 
-  it('stopAllSeeding returns 0 when no seeding tasks exist', async () => {
+  it('stopAllSharing returns 0 when no sharing tasks exist', async () => {
     store.taskList = [makeMockTask('a1', 'active')]
-    const count = await store.stopAllSeeding()
+    const count = await store.stopAllSharing()
     expect(count).toBe(0)
     expect(mockApi.forcePauseTask).not.toHaveBeenCalled()
     expect(mockApi.removeTask).not.toHaveBeenCalled()
   })
 
-  it('stopAllSeeding continues even if one task fails', async () => {
+  it('stopAllSharing continues even if one task fails', async () => {
     const seeder1 = makeMockTask('s1', 'active', { bittorrent: { info: { name: 'a' } }, seeder: 'true' })
     const seeder2 = makeMockTask('s2', 'active', { bittorrent: { info: { name: 'b' } }, seeder: 'true' })
     store.taskList = [seeder1, seeder2]
     mockApi.forcePauseTask.mockRejectedValueOnce(new Error('fail'))
-    const count = await store.stopAllSeeding()
+    const count = await store.stopAllSharing()
     expect(count).toBe(2)
     // Both tasks attempted — s1 failed at forcePause, s2 succeeded with both steps
     expect(mockApi.forcePauseTask).toHaveBeenCalledTimes(2)

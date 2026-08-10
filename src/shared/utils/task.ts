@@ -1,5 +1,5 @@
-/** @fileoverview Task metadata operations: naming, progress, BT detection, magnet links. */
-import { difference, parseInt } from 'lodash-es'
+/** @fileoverview Task metadata operations: naming, progress, task links, and open targets. */
+import { parseInt } from 'lodash-es'
 import { join } from '@tauri-apps/api/path'
 import type { Aria2Task, Aria2File } from '@shared/types'
 import { resolveTaskFilePath } from '@/composables/useArchivedPaths'
@@ -13,7 +13,16 @@ export const calcProgress = (totalLength: string | number, completedLength: stri
   return parseFloat(percentage.toFixed(decimal))
 }
 
-/** Calculates upload-to-download ratio for seeding tasks. */
+const parseLength = (value: string | number | undefined): number => {
+  const parsed = Number(value ?? 0)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
+export const getTaskCompletedLength = (task: Aria2Task): number => {
+  return parseLength(task.completedLength)
+}
+
+/** Calculates upload-to-download ratio for shared-upload tasks. */
 export const calcRatio = (totalLength: string | number, uploadLength: string | number): number => {
   const total = parseInt(String(totalLength), 10)
   const upload = parseInt(String(uploadLength), 10)
@@ -63,7 +72,7 @@ export const getTaskName = (task: Aria2Task | null, options: { defaultName?: str
     const name = getFileNameFromFile(files[0])
     result = name || result
   } else {
-    // Multi-file HTTP/Metalink: use first non-empty filename
+    // Multi-file HTTP: use first non-empty filename
     const firstName = files.map((f) => getFileNameFromFile(f)).find((n) => !!n)
     result = firstName || result
   }
@@ -92,10 +101,26 @@ export const isMagnetTask = (task: Aria2Task): boolean => {
   return !!bittorrent && !bittorrent.info
 }
 
-/** Returns true if the task is actively seeding (BT upload-only, must be running). */
-export const checkTaskIsSeeder = (task: Aria2Task): boolean => {
-  const { bittorrent, seeder, status } = task
-  return !!bittorrent && seeder === 'true' && status === 'active'
+/** Returns true when native aria2 is still resolving torrent metadata. */
+export const isBtMetadataTask = (task: Aria2Task): boolean => {
+  if (!task.bittorrent) return false
+  if (task.bittorrent.info) return false
+  return !task.following
+}
+
+export type TaskSharingKind = 'bt' | 'ed2k'
+
+/** Returns the protocol-specific shared-upload state, if the task is upload-only and active. */
+export const getTaskSharingKind = (task: Aria2Task): TaskSharingKind | null => {
+  if (task.status !== 'active' || task.seeder !== 'true') return null
+  if (task.bittorrent) return 'bt'
+  if (task.ed2k) return 'ed2k'
+  return null
+}
+
+/** Returns true if the task is in a completed shared-upload state. */
+export const checkTaskIsSharing = (task: Aria2Task): boolean => {
+  return getTaskSharingKind(task) !== null
 }
 
 /** Returns true if the task is a BitTorrent download (has bittorrent metadata). */
@@ -103,36 +128,26 @@ export const checkTaskIsBT = (task: Partial<Aria2Task> = {} as Partial<Aria2Task
   return !!task.bittorrent
 }
 
-/** Builds a magnet link from a BT task, optionally including tracker URLs. */
-export const buildMagnetLink = (task: Aria2Task, withTracker = false, btTracker: string[] = []): string => {
-  const { bittorrent, infoHash } = task
-  const info = bittorrent?.info
-
-  const params = [`magnet:?xt=urn:btih:${infoHash}`]
-  if (info && info.name) {
-    params.push(`dn=${encodeURIComponent(info.name)}`)
-  }
-
-  if (withTracker && bittorrent?.announceList) {
-    const flatList = bittorrent.announceList.flat()
-    const trackers = difference(flatList, btTracker)
-    trackers.forEach((tracker) => {
-      params.push(`tr=${encodeURIComponent(tracker)}`)
-    })
-  }
-
-  return params.join('&')
+/** Returns true for Aria2 Next internal ED2K search request groups. */
+export const checkTaskIsEd2kSearch = (task: Partial<Aria2Task> = {} as Partial<Aria2Task>): boolean => {
+  return !!(
+    task.ed2k?.searchActive === true || task.files?.some((file) => file.path.includes('aria2-next-ed2k-search-'))
+  )
 }
 
 /**
  * Collects all download URIs from a task.
- * For BT tasks, returns this magnet link.
+ * For BT and ED2K tasks, returns the engine-serialized canonical link.
  * For HTTP/FTP tasks, iterates all files and extracts their URIs.
  */
-export const getTaskUris = (task: Aria2Task, withTracker = false): string[] => {
-  if (checkTaskIsBT(task)) {
-    const magnet = buildMagnetLink(task, withTracker)
+export const getTaskUris = (task: Aria2Task, _withTracker = false): string[] => {
+  const magnet = task.bittorrent?.magnetLink?.trim()
+  if (magnet) {
     return magnet ? [magnet] : []
+  }
+  const ed2kLink = task.ed2k?.ed2kLink?.trim()
+  if (ed2kLink) {
+    return [ed2kLink]
   }
   const { files } = task
   if (!files || files.length === 0) return []
@@ -153,15 +168,16 @@ export const getTaskUris = (task: Aria2Task, withTracker = false): string[] => {
  * with ALL its mirrors in a single call, preserving multi-source semantics.
  *
  * - BT: single group containing the magnet link
+ * - ED2K: single group containing the file link
  * - HTTP/FTP: one group per file, each containing ALL mirror URIs
  *
  * Each group maps to one addUriAtomic({ uris: [...mirrors] }) call.
  */
-export const getRestartDescriptors = (task: Aria2Task, withTracker = false): string[][] => {
-  if (checkTaskIsBT(task)) {
-    const magnet = buildMagnetLink(task, withTracker)
-    return magnet ? [[magnet]] : []
-  }
+export const getRestartDescriptors = (task: Aria2Task, _withTracker = false): string[][] => {
+  const magnet = task.bittorrent?.magnetLink?.trim()
+  if (magnet) return [[magnet]]
+  const ed2kLink = task.ed2k?.ed2kLink?.trim()
+  if (ed2kLink) return [[ed2kLink]]
   const { files } = task
   if (!files || files.length === 0) return []
   const descriptors: string[][] = []
@@ -228,3 +244,38 @@ export const resolveOpenTarget = async (task: Aria2Task): Promise<string> => {
 }
 
 export { getFileNameFromFile }
+
+// ── Stable task identity (dedup of live tasks vs history records) ───
+
+export interface TaskIdentityBuckets {
+  gids: string[]
+  btInfoHashes: string[]
+  ed2kHashes: string[]
+  ed2kLinks: string[]
+}
+
+function addUnique(values: Set<string>, value: string | undefined): void {
+  const normalized = value?.trim()
+  if (normalized) values.add(normalized)
+}
+
+export function collectTaskIdentityBuckets(tasks: Aria2Task[]): TaskIdentityBuckets {
+  const gids = new Set<string>()
+  const btInfoHashes = new Set<string>()
+  const ed2kHashes = new Set<string>()
+  const ed2kLinks = new Set<string>()
+
+  for (const task of tasks) {
+    addUnique(gids, task.gid)
+    addUnique(btInfoHashes, task.infoHash)
+    addUnique(ed2kHashes, task.ed2k?.hash)
+    addUnique(ed2kLinks, task.ed2k?.ed2kLink)
+  }
+
+  return {
+    gids: [...gids],
+    btInfoHashes: [...btInfoHashes],
+    ed2kHashes: [...ed2kHashes],
+    ed2kLinks: [...ed2kLinks],
+  }
+}

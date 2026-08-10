@@ -9,7 +9,7 @@ export default {
   'click-to-copy': 'Kopyalamak için tıklayın',
   'version-copied': '{label} sürümü kopyalandı',
   'app-version': 'Motrix Next Sürümü',
-  'aria2-version': 'aria2 Sürümü',
+  'aria2-version': 'Aria2 Next Sürümü',
   'loading': 'Yükleniyor…',
   'unavailable': 'Kullanılamıyor',
 }

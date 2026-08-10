@@ -9,6 +9,8 @@
   "showcase.light": "حالت روشن",
   "showcase.dark": "حالت تاریک",
   "story.title": "چرا Motrix Next؟",
+  "story.engine.label": "موتور",
+  "story.engine": "Motrix Next از {aria2Next} به‌عنوان موتور دانلود خود استفاده می‌کند؛ یک fork نگهداری‌شده از aria2 که رابط‌های اصلی را حفظ می‌کند و هم‌زمان مشکلات قدیمی را برطرف می‌کند، به CMake مهاجرت می‌کند، پشتیبانی بومی ED2K را اضافه می‌کند و وابستگی‌های مدرن را به‌روز می‌کند.",
   "story.p1": "Motrix ساخته agalwood یکی از بهترین مدیران دانلود متن‌باز بود — رابط کاربری تمیز، مبتنی بر aria2، چندسکویی. هزاران کاربر و توسعه‌دهنده را الهام بخشید.",
   "story.p2": "پروژه اصلی از ۲۰۲۳ تا حد زیادی غیرفعال بوده است. پشته Electron + Vue 2 + Vuex + Element UI بدهی فنی انباشته کرد و نگهداری، توسعه و بسته‌بندی را دشوارتر ساخت.",
   "rewrite.title": "بازنویسی کامل از صفر.",
@@ -56,7 +58,7 @@
   "motion.tokens.desc": "تمام مدت‌ها و منحنی‌ها ویژگی‌های سفارشی CSS هستند و ریتم یکپارچه در ۱۲+ مؤلفه را تضمین می‌کنند.",
   "features.title": "ویژگی‌ها",
   "features.protocol.title": "چند پروتکلی",
-  "features.protocol.desc": "HTTP، FTP، BitTorrent، لینک‌های Magnet.",
+  "features.protocol.desc": "HTTP، FTP، ED2K، BitTorrent و لینک‌های Magnet.",
   "features.bt.title": "BitTorrent",
   "features.bt.desc": "دانلود انتخابی فایل، DHT، تبادل همتا، رمزنگاری.",
   "features.tracker.title": "مدیریت ردیاب‌ها",
@@ -74,7 +76,7 @@
   "features.task.title": "مدیریت وظایف",
   "features.task.desc": "توقف، ازسرگیری، حذف با پاکسازی فایل، عملیات دسته‌ای.",
   "features.handler.title": "مدیریت پروتکل",
-  "features.handler.desc": "ثبت به‌عنوان مدیر پیش‌فرض لینک‌های Magnet و Thunder.",
+  "features.handler.desc": "ثبت به‌عنوان برنامه پیش‌فرض برای لینک‌های magnet، ED2K و thunder.",
   "features.notify.title": "اعلان‌ها",
   "features.notify.desc": "اعلان‌های سیستم هنگام تکمیل وظایف.",
   "features.light.title": "سبک",
@@ -104,6 +106,5 @@
   "theme.dark": "تاریک",
   "hero.stars": "Stars",
   "hero.downloads": "دانلودها",
-  "hero.version": "آخرین",
-  "starHistory.title": "Star تاریخچه"
+  "hero.version": "آخرین"
 }

@@ -9,7 +9,7 @@ export default {
   'click-to-copy': 'Kattintson a másoláshoz',
   'version-copied': '{label} verziószám másolva',
   'app-version': 'Motrix Next verzió',
-  'aria2-version': 'aria2 verzió',
+  'aria2-version': 'Aria2 Next verzió',
   'loading': 'Betöltés…',
   'unavailable': 'Nem elérhető',
 }

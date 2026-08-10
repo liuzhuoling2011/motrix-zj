@@ -13,7 +13,6 @@ import {
   getActionTarget,
   resolvePhaseAfterDownload,
   shouldAllowUpdateDialogClose,
-  isUpdateRollback,
   calcProgressPercent,
   bytesToMB,
   getUpdateProxy,
@@ -129,27 +128,6 @@ describe('shouldAllowUpdateDialogClose', () => {
   })
 })
 
-// ── isUpdateRollback ────────────────────────────────────────────────
-
-describe('isUpdateRollback', () => {
-  it('returns false when versions are empty', () => {
-    expect(isUpdateRollback('', '2.0.0')).toBe(false)
-    expect(isUpdateRollback('2.0.0', '')).toBe(false)
-  })
-
-  it('returns false for upgrade', () => {
-    expect(isUpdateRollback('1.0.0', '2.0.0')).toBe(false)
-  })
-
-  it('returns true for downgrade', () => {
-    expect(isUpdateRollback('2.0.0', '1.0.0')).toBe(true)
-  })
-
-  it('returns false for same version', () => {
-    expect(isUpdateRollback('2.0.0', '2.0.0')).toBe(false)
-  })
-})
-
 // ── calcProgressPercent ─────────────────────────────────────────────
 
 describe('calcProgressPercent', () => {
@@ -195,23 +173,35 @@ describe('getUpdateProxy', () => {
   })
 
   it('returns null when proxy is disabled', () => {
-    expect(getUpdateProxy({ enable: false, server: 'http://p:8080', scope: ['update-app'] })).toBeNull()
+    expect(getUpdateProxy({ mode: 'direct', server: 'http://p:8080', scope: ['update-app'] })).toBeNull()
   })
 
   it('returns null when no server', () => {
-    expect(getUpdateProxy({ enable: true, server: '', scope: ['update-app'] })).toBeNull()
+    expect(getUpdateProxy({ mode: 'manual', server: '', scope: ['update-app'] })).toBeNull()
   })
 
   it('returns null when scope does not include update-app', () => {
-    expect(getUpdateProxy({ enable: true, server: 'http://p:8080', scope: ['download'] })).toBeNull()
+    expect(getUpdateProxy({ mode: 'manual', server: 'http://p:8080', scope: ['download'] })).toBeNull()
   })
 
   it('returns server when fully configured', () => {
-    expect(getUpdateProxy({ enable: true, server: 'http://p:8080', scope: ['update-app'] })).toBe('http://p:8080')
+    expect(getUpdateProxy({ mode: 'manual', server: 'http://p:8080', scope: ['update-app'] })).toBe('http://p:8080')
+  })
+
+  it('adds encoded proxy credentials when configured', () => {
+    expect(
+      getUpdateProxy({
+        mode: 'manual',
+        server: 'http://p:8080',
+        username: 'user@example.com',
+        password: 'pa:ss word',
+        scope: ['update-app'],
+      }),
+    ).toBe('http://user%40example.com:pa%3Ass%20word@p:8080/')
   })
 
   it('returns null when scope is missing', () => {
-    expect(getUpdateProxy({ enable: true, server: 'http://p:8080' })).toBeNull()
+    expect(getUpdateProxy({ mode: 'manual', server: 'http://p:8080' })).toBeNull()
   })
 })
 

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder,
 };
 
@@ -21,6 +21,10 @@ pub const TRAY_ICON_BYTES: &[u8] = include_bytes!("../icons/tray-icon@2x.png");
 #[cfg(not(target_os = "macos"))]
 pub const TRAY_ICON_BYTES: &[u8] = include_bytes!("../icons/tray-icon-color.png");
 
+/// Whether the current platform expects the tray icon to be rendered as an
+/// AppKit template image.
+pub const TRAY_ICON_IS_TEMPLATE: bool = cfg!(target_os = "macos");
+
 /// Creates a `tauri::image::Image` from the embedded tray icon bytes.
 ///
 /// This is the single source of truth for the tray icon bitmap, shared
@@ -28,6 +32,17 @@ pub const TRAY_ICON_BYTES: &[u8] = include_bytes!("../icons/tray-icon-color.png"
 /// workaround that must re-set the icon after `set_title` on macOS.
 pub fn tray_icon_image() -> tauri::image::Image<'static> {
     tauri::image::Image::from_bytes(TRAY_ICON_BYTES).expect("embedded tray icon is valid PNG")
+}
+
+/// Re-applies the tray icon while preserving platform-specific rendering flags.
+///
+/// macOS menu bar icons must be template images so AppKit can render the same
+/// monochrome mask correctly on light, dark, and highlighted menu bar states.
+/// Any path that re-sets the icon must restore that flag immediately afterward,
+/// otherwise AppKit treats the bitmap as a normal white image.
+pub fn refresh_tray_icon(tray: &TrayIcon<tauri::Wry>) -> tauri::Result<()> {
+    let icon = tray_icon_image();
+    tray.set_icon_with_as_template(Some(icon), TRAY_ICON_IS_TEMPLATE)
 }
 
 /// Holds references to tray menu items for dynamic label updates (i18n).
@@ -59,6 +74,9 @@ pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::Window> {
 
     // Window was destroyed — recreate from config.
     log::warn!("tray:window-not-found label=main — recreating after compositor force-close");
+    crate::services::deep_link::mark_frontend_unready(app);
+    crate::services::external_input::mark_frontend_unready(app);
+    crate::services::frontend_action::mark_frontend_actions_unready(app);
 
     // When the main window dies without normal teardown (OS compositor
     // force-close, unhandled GPU crash, etc.) its child webviews can
@@ -89,8 +107,7 @@ pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::Window> {
     let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("Motrix Next")
         .inner_size(1068.0, 680.0)
-        .min_inner_size(970.0, 560.0)
-        .center()
+        .min_inner_size(560.0, 360.0)
         .visible(false);
 
     // macOS: native traffic lights via overlay title bar (matches tauri.macos.conf.json).
@@ -113,6 +130,7 @@ pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::Window> {
 
     match builder.build() {
         Ok(w) => {
+            crate::restore_window_state_if_enabled(app, &w);
             log::info!("tray:window-recreated label=main");
             // Re-install the resize hook so the embedded panel (if the user
             // reopens it later in this session) tracks the new window.
@@ -124,6 +142,52 @@ pub fn get_or_create_main_window(app: &AppHandle) -> Option<tauri::Window> {
             None
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowActivationOutcome {
+    Activated,
+    WindowUnavailable,
+}
+
+pub fn ensure_main_window(app: &AppHandle, source: &'static str) -> WindowActivationOutcome {
+    log::info!("window:ensure-start source={source}");
+    if get_or_create_main_window(app).is_some() {
+        log::info!("window:ensure-done source={source}");
+        WindowActivationOutcome::Activated
+    } else {
+        log::error!("window:ensure-failed source={source} reason=window-unavailable");
+        WindowActivationOutcome::WindowUnavailable
+    }
+}
+
+pub fn activate_main_window(app: &AppHandle, source: &'static str) -> WindowActivationOutcome {
+    log::info!("window:activate-start source={source}");
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::ActivationPolicy;
+        if let Err(e) = app.set_activation_policy(ActivationPolicy::Regular) {
+            log::warn!("window:activate-policy-failed source={source} error={e}");
+        }
+    }
+
+    let Some(window) = get_or_create_main_window(app) else {
+        log::error!("window:activate-failed source={source} reason=window-unavailable");
+        return WindowActivationOutcome::WindowUnavailable;
+    };
+
+    if let Err(e) = window.unminimize() {
+        log::warn!("window:activate-unminimize-failed source={source} error={e}");
+    }
+    if let Err(e) = window.show() {
+        log::warn!("window:activate-show-failed source={source} error={e}");
+    }
+    if let Err(e) = window.set_focus() {
+        log::warn!("window:activate-focus-failed source={source} error={e}");
+    }
+
+    log::info!("window:activate-done source={source}");
+    WindowActivationOutcome::Activated
 }
 
 pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::Error>> {
@@ -164,6 +228,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
         .show_menu_on_left_click(false)
         .tooltip("Motrix Next")
         .icon(tray_icon_image())
+        .icon_as_template(TRAY_ICON_IS_TEMPLATE)
         .on_tray_icon_event(|tray, event| {
             // Left-click: show main window (macOS and Windows).
             // Linux libappindicator does not emit TrayIconEvent::Click —
@@ -176,16 +241,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
             {
                 let app = tray.app_handle();
                 log::info!("tray:left-click — showing main window");
-                #[cfg(target_os = "macos")]
-                {
-                    use tauri::ActivationPolicy;
-                    let _ = app.set_activation_policy(ActivationPolicy::Regular);
-                }
-                if let Some(window) = get_or_create_main_window(app) {
-                    let _ = window.unminimize();
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+                activate_main_window(app, "tray-left-click");
             }
         })
         .on_menu_event(|app, event| {
@@ -193,16 +249,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
             match id {
                 "show" => {
                     log::info!("tray:menu-show — showing main window");
-                    #[cfg(target_os = "macos")]
-                    {
-                        use tauri::ActivationPolicy;
-                        let _ = app.set_activation_policy(ActivationPolicy::Regular);
-                    }
-                    if let Some(window) = get_or_create_main_window(app) {
-                        let _ = window.unminimize();
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
+                    activate_main_window(app, "tray-menu-show");
                 }
                 "tray-pause-all" => {
                     log::info!("tray:pause-all — calling aria2 directly");
@@ -220,8 +267,13 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
                     let app = app.clone();
                     tauri::async_runtime::spawn(async move {
                         if let Some(aria2) = app.try_state::<crate::aria2::client::Aria2State>() {
-                            if let Err(e) = aria2.0.unpause_all().await {
-                                log::warn!("tray:resume-all failed: {e}");
+                            match aria2.0.resume_eligible().await {
+                                Ok(result) => log::info!(
+                                    "tray:resume-all resumed={} blocked={}",
+                                    result.resumed,
+                                    result.blocked
+                                ),
+                                Err(e) => log::warn!("tray:resume-all failed: {e}"),
                             }
                         }
                     });
@@ -236,23 +288,13 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
                     app.exit(0);
                 }
                 "tray-new-task" => {
-                    // Ensure the window exists before emitting the "new-task" event.
-                    // In lightweight mode, destroy() killed the WebView — emit would
-                    // go nowhere. Recreate the window first so the newly loaded
-                    // frontend can receive the event and open the Add Task dialog.
-                    log::info!("tray:new-task — ensuring window exists");
-                    #[cfg(target_os = "macos")]
-                    {
-                        use tauri::ActivationPolicy;
-                        let _ = app.set_activation_policy(ActivationPolicy::Regular);
-                    }
-                    if let Some(window) = get_or_create_main_window(app) {
-                        let _ = window.unminimize();
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
-                    // Emit to the (now existing) frontend to open the Add Task dialog
-                    let _ = app.emit("tray-menu-action", "new-task");
+                    log::info!("tray:new-task — dispatching frontend action");
+                    crate::services::frontend_action::dispatch_frontend_action(
+                        app,
+                        crate::services::frontend_action::FrontendActionChannel::TrayMenuAction,
+                        crate::services::frontend_action::FrontendActionKind::NewTask,
+                        "tray-new-task",
+                    );
                 }
                 _ => {
                     if let Some(action) = resolve_tray_action(id) {
@@ -292,8 +334,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std::error::
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             if let Some(tray) = app_handle.tray_by_id("motrix-next") {
-                let icon = tray_icon_image();
-                let _ = tray.set_icon(Some(icon));
+                let _ = refresh_tray_icon(&tray);
                 log::info!(
                     "tray:linux-deferred-icon-refresh — re-set icon after 3 s startup delay"
                 );

@@ -9,6 +9,8 @@
   "showcase.light": "الوضع الفاتح",
   "showcase.dark": "الوضع الداكن",
   "story.title": "لماذا Motrix Next؟",
+  "story.engine.label": "المحرك",
+  "story.engine": "يستخدم Motrix Next {aria2Next} كمحرك التنزيل الخاص به، وهو fork مُصان من aria2 يحافظ على الواجهات الأصلية مع إصلاح المشكلات القديمة، والانتقال إلى CMake، وإضافة دعم ED2K أصلي، وتحديث الاعتماديات الحديثة.",
   "story.p1": "كان Motrix من agalwood أحد أفضل مديري التنزيل مفتوحة المصدر — واجهة نظيفة، مدعوم بـ aria2، متعدد المنصات. ألهم آلاف المستخدمين والمطورين.",
   "story.p2": "المشروع الأصلي غير نشط إلى حد كبير منذ 2023. تراكمت الديون التقنية في حزمة Electron + Vue 2 + Vuex + Element UI، مما جعل الصيانة والتوسعة والتغليف أصعب.",
   "rewrite.title": "إعادة بناء من الصفر.",
@@ -56,7 +58,7 @@
   "motion.tokens.desc": "جميع المدد والمنحنيات هي خصائص CSS مخصصة لضمان إيقاع موحد عبر 12+ مكوناً.",
   "features.title": "الميزات",
   "features.protocol.title": "متعدد البروتوكولات",
-  "features.protocol.desc": "HTTP، FTP، BitTorrent، روابط Magnet.",
+  "features.protocol.desc": "HTTP وFTP وED2K وBitTorrent وروابط Magnet.",
   "features.bt.title": "BitTorrent",
   "features.bt.desc": "تنزيل انتقائي للملفات، DHT، تبادل الأقران، التشفير.",
   "features.tracker.title": "إدارة المتتبعات",
@@ -74,7 +76,7 @@
   "features.task.title": "إدارة المهام",
   "features.task.desc": "إيقاف مؤقت، استئناف، حذف مع تنظيف الملفات، عمليات دفعية.",
   "features.handler.title": "معالج البروتوكول",
-  "features.handler.desc": "التسجيل كمعالج افتراضي لروابط Magnet و Thunder.",
+  "features.handler.desc": "التسجيل كمعالج افتراضي لروابط magnet وED2K وthunder.",
   "features.notify.title": "الإشعارات",
   "features.notify.desc": "إشعارات النظام عند إكمال المهام.",
   "features.light.title": "خفيف الوزن",
@@ -104,6 +106,5 @@
   "theme.dark": "داكن",
   "hero.stars": "Stars",
   "hero.downloads": "التنزيلات",
-  "hero.version": "الأحدث",
-  "starHistory.title": "Star تاريخ"
+  "hero.version": "الأحدث"
 }

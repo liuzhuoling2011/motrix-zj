@@ -37,6 +37,18 @@ pub fn save_system_config(app: AppHandle, config: Value) -> Result<(), AppError>
     Ok(())
 }
 
+#[tauri::command]
+pub fn read_settings_backup_file(path: String) -> Result<String, AppError> {
+    std::fs::read_to_string(&path)
+        .map_err(|e| AppError::Io(format!("Failed to read settings backup: {e}")))
+}
+
+#[tauri::command]
+pub fn write_settings_backup_file(path: String, content: String) -> Result<(), AppError> {
+    std::fs::write(&path, content)
+        .map_err(|e| AppError::Io(format!("Failed to write settings backup: {e}")))
+}
+
 /// Clears user, system, and preference stores, resetting the app to defaults.
 /// Also removes the aria2 session file to prevent tasks from resurrecting.
 #[tauri::command]
@@ -58,6 +70,7 @@ pub fn factory_reset(app: AppHandle) -> Result<(), AppError> {
 
     // Remove aria2 session file so downloads don't reappear after restart
     clear_session_file_inner(&app)?;
+    crate::commands::bt_blocklist::remove_bt_peer_blocklist_cache(&app)?;
 
     Ok(())
 }

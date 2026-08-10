@@ -63,4 +63,41 @@ describe('renderCompletionToast', () => {
     // VNode should be an object with type and children (Vue h() output)
     expect(typeof vnode).toBe('object')
   })
+
+  it('keeps completion toast width content-driven and preserves right-side actions', () => {
+    const onOpenFile = vi.fn()
+    const onShowInFolder = vi.fn()
+    const result = renderCompletionToast({
+      body: 'very-long-file-name.zip completed',
+      t,
+      onOpenFile,
+      onShowInFolder,
+    })
+
+    expect(typeof result).toBe('function')
+    const vnode = (result as () => { props?: { style?: Record<string, string> }; children?: unknown[] })()
+    const children = vnode.children as Array<{ props?: { class?: string; style?: Record<string, string> } }>
+    const body = children[0]
+    const actions = children[1]
+
+    expect(vnode.props?.style).toMatchObject({
+      maxWidth: '100%',
+      minWidth: '0',
+    })
+    expect(vnode.props?.style?.width).toBeUndefined()
+    expect(vnode.props?.style?.gridTemplateColumns).toBe('minmax(0, 1fr) max-content')
+    expect(body.props?.class).toBe('technical-text-wrap')
+    expect(body.props?.style).toMatchObject({
+      minWidth: '0',
+      overflow: 'hidden',
+      display: '-webkit-box',
+      WebkitLineClamp: '2',
+      WebkitBoxOrient: 'vertical',
+    })
+    expect(actions.props?.style).toMatchObject({
+      display: 'inline-flex',
+      flexWrap: 'nowrap',
+      whiteSpace: 'nowrap',
+    })
+  })
 })

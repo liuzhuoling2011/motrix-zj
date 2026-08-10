@@ -1,15 +1,14 @@
 /** @fileoverview Pinia store for download task management: list, add, pause, resume, remove. */
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import { EMPTY_STRING } from '@shared/constants'
-import { intersection } from '@shared/utils'
+import { reactive, ref, watch } from 'vue'
+import { EMPTY_STRING, TASK_STATUS } from '@shared/constants'
+import { checkTaskIsEd2kSearch, intersection } from '@shared/utils'
 import { logger } from '@shared/logger'
 import type {
   Aria2Task,
   Aria2File,
   Aria2Peer,
   Aria2EngineOptions,
-  AddMetalinkParams,
   TaskApi,
   YtdlpProgress,
   YtdlpLog,
@@ -17,7 +16,7 @@ import type {
 import * as ytdlpApi from '@/api/ytdlp'
 
 import { historyRecordToTask, mergeHistoryIntoTasks, isMetadataTask } from '@/composables/useTaskLifecycle'
-import { shouldShowFileSelection } from '@/composables/useMagnetFlow'
+import { buildMetadataOnlyOptions, shouldShowFileSelection } from '@/composables/useMagnetFlow'
 import {
   registerAddedAt,
   getAddedAt,
@@ -25,9 +24,19 @@ import {
   loadAddedAtFromRecords,
   buildSortableAddedAtMap,
 } from '@/composables/useTaskOrder'
-import { sortTasks, sortRecords } from '@/composables/useTaskSort'
+import {
+  applyManualOrder,
+  createManualOrderSnapshot,
+  sortTasks,
+  sortRecords,
+  type ActiveSortField,
+  type AllSortField,
+  type SortDirection,
+  type StoppedSortField,
+} from '@/composables/useTaskSort'
 import { DEFAULT_TASK_SORT } from '@/composables/useTaskSort'
 import { useHistoryStore } from '@/stores/history'
+import { useHttpAuthStore } from '@/stores/httpAuth'
 import { usePreferenceStore } from '@/stores/preference'
 
 import { restartTask as restartTaskImpl } from './restart'
@@ -35,7 +44,16 @@ import { createTaskOperations } from './operations'
 
 export type { Aria2Task, Aria2File, Aria2Peer }
 
+type TaskTabKey = 'active' | 'stopped' | 'all'
+
+const DEFAULT_TASK_PAGE_SIZE = 20
+
+function normalizeTaskTab(list: string): TaskTabKey {
+  return list === 'stopped' ? 'stopped' : list === 'all' ? 'all' : 'active'
+}
+
 export const useTaskStore = defineStore('task', () => {
+  const preferenceStore = usePreferenceStore()
   const currentList = ref('active')
   const taskDetailVisible = ref(false)
   const currentTaskGid = ref(EMPTY_STRING)
@@ -43,9 +61,17 @@ export const useTaskStore = defineStore('task', () => {
   const currentTaskItem = ref<Aria2Task | null>(null)
   const currentTaskFiles = ref<Aria2File[]>([])
   const currentTaskPeers = ref<Aria2Peer[]>([])
-  const seedingList = ref<string[]>([])
+  const sharingList = ref<string[]>([])
   const taskList = ref<Aria2Task[]>([])
   const selectedGidList = ref<string[]>([])
+  const taskListTransitionRevision = ref(0)
+  const taskPagination = reactive({
+    active: { page: 1, total: 0, loaded: false },
+    stopped: { page: 1, total: 0, loaded: false },
+    all: { page: 1, total: 0, loaded: false },
+    pageSize: clampPageSize(preferenceStore.config.taskPageSize),
+  })
+  const visibleTaskPageCount = ref(1)
 
   /** Live progress snapshots for yt-dlp direct downloads (task_id → progress).
    *  Populated by the `ytdlp-progress` event stream; overlaid onto tasks at
@@ -148,14 +174,85 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   async function changeCurrentList(list: string) {
+    const sameList = currentList.value === list
     currentList.value = list
-    taskList.value = []
-    selectedGidList.value = []
+    if (!sameList) {
+      selectedGidList.value = []
+      const tab = currentTaskTab()
+      if (taskPagination[tab].loaded) refreshCurrentTaskPageCount()
+    }
     await fetchList()
   }
 
+  function currentTaskTab(): TaskTabKey {
+    return normalizeTaskTab(currentList.value)
+  }
+
+  function clampPage(page: number): number {
+    return Math.max(1, Math.floor(Number.isFinite(page) ? page : 1))
+  }
+
+  function clampPageSize(size: number): number {
+    return Math.min(Math.max(1, Math.floor(Number.isFinite(size) ? size : DEFAULT_TASK_PAGE_SIZE)), 100)
+  }
+
+  function maxTaskPage(tab = currentTaskTab()): number {
+    return Math.max(1, Math.ceil(taskPagination[tab].total / taskPagination.pageSize))
+  }
+
+  function currentTaskPageCount(): number {
+    return visibleTaskPageCount.value
+  }
+
+  function refreshCurrentTaskPageCount(tab = currentTaskTab()) {
+    visibleTaskPageCount.value = maxTaskPage(tab)
+  }
+
+  function clampCurrentTaskPage() {
+    const tab = currentTaskTab()
+    taskPagination[tab].page = Math.min(clampPage(taskPagination[tab].page), maxTaskPage(tab))
+  }
+
+  function updateCurrentTaskTotal(total: number) {
+    const tab = currentTaskTab()
+    taskPagination[tab].total = Math.max(0, Math.floor(Number.isFinite(total) ? total : 0))
+    taskPagination[tab].loaded = true
+  }
+
+  function setTaskPage(tab: TaskTabKey, page: number) {
+    taskPagination[tab].page = clampPage(page)
+  }
+
+  function setCurrentTaskPage(page: number) {
+    setTaskPage(currentTaskTab(), page)
+  }
+
+  function applyTaskPageSize(size: number) {
+    const pageSize = clampPageSize(size)
+    if (taskPagination.pageSize === pageSize) return pageSize
+    taskPagination.pageSize = pageSize
+    clampCurrentTaskPage()
+    refreshCurrentTaskPageCount()
+    return pageSize
+  }
+
+  function setTaskPageSize(size: number) {
+    const pageSize = applyTaskPageSize(size)
+    preferenceStore
+      .updateAndSave({ taskPageSize: pageSize })
+      .catch((e: unknown) => logger.error('TaskStore.setTaskPageSize', e))
+  }
+
+  watch(
+    () => preferenceStore.config.taskPageSize,
+    (size) => {
+      applyTaskPageSize(size)
+    },
+  )
+
   async function fetchList() {
     try {
+      const tabAtFetchStart = currentTaskTab()
       // Stopped tab is DB-primary: history.db is the single source of truth.
       // Active tab reads from aria2 (tellActive + tellWaiting).
       // All tab merges: aria2 active + aria2 stopped (bridge) + history DB.
@@ -165,7 +262,13 @@ export const useTaskStore = defineStore('task', () => {
         const historyStore = useHistoryStore()
         const records = await historyStore.getRecords()
         const { field, direction } = sortConfig.stopped
-        sortRecords(records, field, direction)
+        if (field === 'manual') {
+          applyManualOrder(records, usePreferenceStore().config.taskManualOrder.stopped, (fresh) => {
+            sortRecords(fresh, 'added-at', 'desc')
+          })
+        } else {
+          sortRecords(records, field, direction)
+        }
         data = records.map(historyRecordToTask)
       } else if (currentList.value === 'all') {
         const ALL_STOPPED_LIMIT = 128
@@ -176,6 +279,7 @@ export const useTaskStore = defineStore('task', () => {
           useHistoryStore().getRecords(undefined, ALL_HISTORY_LIMIT),
         ])
         data = mergeHistoryIntoTasks([...activeTasks, ...stoppedTasks], historyRecords)
+        data = data.filter((t) => !checkTaskIsEd2kSearch(t))
         // Filter stale metadata tasks (completed magnet resolution) but keep
         // actively-downloading metadata visible so users see the progress.
         const LIVE_TASK_STATUSES = new Set(['active', 'waiting', 'paused'])
@@ -200,7 +304,13 @@ export const useTaskStore = defineStore('task', () => {
 
         const addedAtIndex = buildSortableAddedAtMap(data, historyRecords)
         const { field, direction } = sortConfig.all
-        sortTasks(data, field, direction, addedAtIndex)
+        if (field === 'manual') {
+          applyManualOrder(data, usePreferenceStore().config.taskManualOrder.all, (fresh) => {
+            sortTasks(fresh, 'added-at', 'desc', addedAtIndex)
+          })
+        } else {
+          sortTasks(data, field, direction, addedAtIndex)
+        }
       } else {
         // Active tab: aria2 returns insertion-order; apply user sort.
         // Also include history records for tasks with in-flight yt-dlp progress
@@ -216,16 +326,26 @@ export const useTaskStore = defineStore('task', () => {
             data = [...data, ...ytdlpRecords.map(historyRecordToTask)]
           }
         }
+        data = data.filter((t) => !checkTaskIsEd2kSearch(t))
         trackFirstSeen(data)
         const addedAtIndex = buildSortableAddedAtMap(data, [])
         const { field, direction } = sortConfig.active
-        sortTasks(data, field, direction, addedAtIndex)
+        if (field === 'manual') {
+          applyManualOrder(data, usePreferenceStore().config.taskManualOrder.active, (fresh) => {
+            sortTasks(fresh, 'added-at', 'desc', addedAtIndex)
+          })
+        } else {
+          sortTasks(data, field, direction, addedAtIndex)
+        }
       }
 
       // Apply live yt-dlp progress onto any matching tasks before render.
       applyYtdlpProgress(data)
 
       taskList.value = data
+      updateCurrentTaskTotal(data.length)
+      clampCurrentTaskPage()
+      if (currentTaskTab() === tabAtFetchStart) refreshCurrentTaskPageCount()
       const gids = data.map((task: Aria2Task) => task.gid)
       selectedGidList.value = intersection(selectedGidList.value, gids)
       if (taskDetailVisible.value && currentTaskGid.value) {
@@ -245,6 +365,61 @@ export const useTaskStore = defineStore('task', () => {
 
   function selectTasks(list: string[]) {
     selectedGidList.value = list
+  }
+
+  async function saveManualOrder(gids: string[]) {
+    const preferenceStore = usePreferenceStore()
+    const tab = currentTaskTab()
+    const taskSort = {
+      ...preferenceStore.config.taskSort,
+      [tab]: {
+        ...preferenceStore.config.taskSort[tab],
+        field: 'manual',
+      },
+    }
+    const taskManualOrder = {
+      ...preferenceStore.config.taskManualOrder,
+      [tab]: [...gids],
+    }
+    await preferenceStore.updateAndSave({ taskSort, taskManualOrder })
+  }
+
+  async function saveCurrentManualOrder() {
+    await saveManualOrder(createManualOrderSnapshot(taskList.value))
+  }
+
+  async function saveVisiblePageManualOrder(visibleTasks: Aria2Task[]) {
+    const tab = currentTaskTab()
+    const start = (taskPagination[tab].page - 1) * taskPagination.pageSize
+    const nextList = [...taskList.value]
+    nextList.splice(start, visibleTasks.length, ...visibleTasks)
+    taskList.value = nextList
+    await saveManualOrder(createManualOrderSnapshot(nextList))
+  }
+
+  async function changeCurrentSort(field: ActiveSortField | StoppedSortField | AllSortField) {
+    const preferenceStore = usePreferenceStore()
+    const tab = currentTaskTab()
+    const taskSort = preferenceStore.config?.taskSort ?? DEFAULT_TASK_SORT
+    const current = taskSort[tab]
+    const direction: SortDirection =
+      field === 'manual' ? 'desc' : current.field === field ? (current.direction === 'desc' ? 'asc' : 'desc') : 'desc'
+    const nextTaskSort = { ...taskSort, [tab]: { field, direction } }
+    const nextConfig =
+      field === 'manual'
+        ? {
+            taskSort: nextTaskSort,
+            taskManualOrder: {
+              ...preferenceStore.config.taskManualOrder,
+              [tab]: createManualOrderSnapshot(taskList.value),
+            },
+          }
+        : { taskSort: nextTaskSort }
+
+    preferenceStore.updatePreference(nextConfig)
+    taskListTransitionRevision.value += 1
+    await fetchList()
+    preferenceStore.updateAndSave(nextConfig).catch((e: unknown) => logger.error('TaskStore.changeCurrentSort', e))
   }
 
   function selectAllTask() {
@@ -286,9 +461,27 @@ export const useTaskStore = defineStore('task', () => {
     uris: string[]
     outs: string[]
     options: Aria2EngineOptions
-    fileCategory?: { enabled: boolean; categories: import('@shared/types').FileCategory[] }
+    fileCategory?: {
+      enabled: boolean
+      categories: import('@shared/types').FileCategory[]
+      contexts?: Record<string, import('@shared/types').ExternalDownloadContext>
+    }
   }) {
-    const gids = await api.addUri(data)
+    const gids: string[] = []
+    const httpAuthStore = useHttpAuthStore()
+
+    for (let index = 0; index < data.uris.length; index++) {
+      const uri = data.uris[index]
+      const options = await applySavedHttpAuth(uri, data.options, httpAuthStore)
+      const added = await api.addUri({
+        uris: [uri],
+        outs: [data.outs[index] ?? ''],
+        options,
+        fileCategory: data.fileCategory,
+      })
+      gids.push(...added)
+    }
+
     const now = new Date().toISOString()
     const historyStore = useHistoryStore()
     for (const gid of gids) {
@@ -298,25 +491,63 @@ export const useTaskStore = defineStore('task', () => {
     await fetchList()
   }
 
+  async function addUriAtomic(data: { uris: string[]; options: Aria2EngineOptions }) {
+    const httpAuthStore = useHttpAuthStore()
+    const options = await applySavedHttpAuth(data.uris[0] ?? '', data.options, httpAuthStore)
+    const gid = await api.addUriAtomic({ uris: data.uris, options })
+    const now = new Date().toISOString()
+    registerAddedAt(gid, now)
+    const historyStore = useHistoryStore()
+    historyStore.recordTaskBirth(gid, now).catch((e) => logger.debug('taskBirth.write', e))
+    await fetchList()
+    return gid
+  }
+
+  async function applySavedHttpAuth(
+    uri: string,
+    options: Aria2EngineOptions,
+    httpAuthStore: ReturnType<typeof useHttpAuthStore>,
+  ): Promise<Aria2EngineOptions> {
+    if (options['http-user'] || options.httpUser) return options
+
+    const credential = await httpAuthStore.findByUrl(uri)
+    if (!credential) return options
+
+    if (credential.id) {
+      httpAuthStore.markUsed(credential.id).catch((e) => logger.debug('httpAuth.markUsed', e))
+    }
+    return {
+      ...options,
+      'http-user': credential.username,
+      'http-passwd': credential.password,
+    }
+  }
+
   /**
    * Adds a magnet URI as a normal download. Returns the metadata GID.
    *
    * The global `pause-metadata` setting (controlled by btAutoDownloadContent)
    * determines what happens after metadata resolves:
-   * - pause-metadata=true  → follow-up download auto-pauses → poller polls
-   *   followedBy, shows file selection, then unpauses
+   * - pause-metadata=true  → followedBy content task stays paused until selection
    * - pause-metadata=false → follow-up download starts immediately (no selection)
    *
    * Directly registers the GID for monitoring to avoid caller-chain breaks.
    */
   async function addMagnetUri(data: { uri: string; options: Aria2EngineOptions }): Promise<string> {
-    // Magnet URIs are BT downloads — need force-save=true for session
-    // persistence (seeding resumption). HTTP downloads must NOT have this.
-    const magnetOptions: Aria2EngineOptions = { ...data.options, 'force-save': 'true' }
+    const { usePreferenceStore } = await import('@/stores/preference')
+    const preferenceStore = usePreferenceStore()
+    const pauseMetadataOption = data.options['pause-metadata']
+    const pauseMetadata =
+      typeof pauseMetadataOption === 'string' ? pauseMetadataOption : preferenceStore.config.pauseMetadata
+    const showFileSelection = shouldShowFileSelection({ pauseMetadata })
+    const options = showFileSelection
+      ? { ...buildMetadataOnlyOptions(data.options), 'check-integrity': 'true', 'force-save': 'true' }
+      : { ...data.options, 'pause-metadata': 'false', 'check-integrity': 'true', 'force-save': 'true' }
+
     const gids = await api.addUri({
       uris: [data.uri],
       outs: [],
-      options: magnetOptions,
+      options,
     })
     const gid = gids[0]
 
@@ -329,9 +560,7 @@ export const useTaskStore = defineStore('task', () => {
     // Only register for file selection polling when pause-metadata is enabled.
     // When btAutoDownloadContent=true (pauseMetadata=false), aria2 starts the
     // follow-up download immediately — file selection is not needed.
-    const { usePreferenceStore } = await import('@/stores/preference')
-    const preferenceStore = usePreferenceStore()
-    if (shouldShowFileSelection(preferenceStore.config)) {
+    if (showFileSelection) {
       const { useAppStore } = await import('@/stores/app')
       const appStore = useAppStore()
       appStore.pendingMagnetGids = [...appStore.pendingMagnetGids, gid]
@@ -361,17 +590,6 @@ export const useTaskStore = defineStore('task', () => {
     return gid
   }
 
-  async function addMetalink(data: AddMetalinkParams) {
-    const gids = await api.addMetalink(data)
-    const now = new Date().toISOString()
-    const historyStore = useHistoryStore()
-    for (const gid of gids) {
-      registerAddedAt(gid, now)
-      historyStore.recordTaskBirth(gid, now).catch((e) => logger.debug('taskBirth.write', e))
-    }
-    await fetchList()
-  }
-
   async function getTaskOption(gid: string) {
     return api.getOption({ gid })
   }
@@ -385,24 +603,33 @@ export const useTaskStore = defineStore('task', () => {
   const taskOps = {} as ReturnType<typeof createTaskOperations>
 
   async function batchResumeSelectedTasks() {
-    if (selectedGidList.value.length === 0) return
-    return api.batchResumeTask({ gids: selectedGidList.value })
+    const selected = new Set(selectedGidList.value)
+    const tasks = taskList.value.filter((task) => selected.has(task.gid) && task.status === TASK_STATUS.PAUSED)
+    if (tasks.length === 0) return { resumed: 0, blocked: 0 }
+    return taskOps.resumeTasks(tasks)
   }
 
   async function batchPauseSelectedTasks() {
-    if (selectedGidList.value.length === 0) return
-    return api.batchPauseTask({ gids: selectedGidList.value })
+    const selected = new Set(selectedGidList.value)
+    const gids = taskList.value
+      .filter((task) => {
+        if (!selected.has(task.gid)) return false
+        return task.status === TASK_STATUS.ACTIVE || task.status === TASK_STATUS.WAITING
+      })
+      .map((task) => task.gid)
+    if (gids.length === 0) return
+    return api.batchPauseTask({ gids })
   }
 
-  function addToSeedingList(gid: string) {
-    if (seedingList.value.includes(gid)) return
-    seedingList.value = [...seedingList.value, gid]
+  function addToSharingList(gid: string) {
+    if (sharingList.value.includes(gid)) return
+    sharingList.value = [...sharingList.value, gid]
   }
 
-  function removeFromSeedingList(gid: string) {
-    const idx = seedingList.value.indexOf(gid)
+  function removeFromSharingList(gid: string) {
+    const idx = sharingList.value.indexOf(gid)
     if (idx === -1) return
-    seedingList.value = [...seedingList.value.slice(0, idx), ...seedingList.value.slice(idx + 1)]
+    sharingList.value = [...sharingList.value.slice(0, idx), ...sharingList.value.slice(idx + 1)]
   }
 
   async function restartTask(task: Aria2Task) {
@@ -418,15 +645,26 @@ export const useTaskStore = defineStore('task', () => {
     currentTaskItem,
     currentTaskFiles,
     currentTaskPeers,
-    seedingList,
+    sharingList,
     taskList,
     selectedGidList,
     ytdlpLogMap,
     getYtdlpLogs,
+    taskListTransitionRevision,
+    taskPagination,
+    currentTaskPageCount,
     setApi,
     changeCurrentList,
     fetchList,
     selectTasks,
+    saveManualOrder,
+    saveCurrentManualOrder,
+    saveVisiblePageManualOrder,
+    setTaskPage,
+    setCurrentTaskPage,
+    setTaskPageSize,
+    clampCurrentTaskPage,
+    changeCurrentSort,
     selectAllTask,
     fetchItem,
     showTaskDetail,
@@ -434,8 +672,8 @@ export const useTaskStore = defineStore('task', () => {
     hideTaskDetail,
     updateCurrentTaskItem,
     addUri,
+    addUriAtomic,
     addTorrent,
-    addMetalink,
     addMagnetUri,
     getFiles,
     fetchTaskStatus,
@@ -446,13 +684,15 @@ export const useTaskStore = defineStore('task', () => {
       taskOps.cancelMagnetSelectionDownload(target),
     pauseTask: (task: Aria2Task) => taskOps.pauseTask(task),
     resumeTask: (task: Aria2Task) => taskOps.resumeTask(task),
+    applyMagnetFileSelection: (task: Aria2Task, selectFile: string) =>
+      taskOps.applyMagnetFileSelection(task, selectFile),
     pauseAllTask: () => taskOps.pauseAllTask(),
     resumeAllTask: () => taskOps.resumeAllTask(),
     toggleTask: (task: Aria2Task) => taskOps.toggleTask(task),
-    addToSeedingList,
-    removeFromSeedingList,
-    stopSeeding: (task: Aria2Task) => taskOps.stopSeeding(task),
-    stopAllSeeding: () => taskOps.stopAllSeeding(),
+    addToSharingList,
+    removeFromSharingList,
+    stopSharing: (task: Aria2Task) => taskOps.stopSharing(task),
+    stopAllSharing: () => taskOps.stopAllSharing(),
     removeTaskRecord: (task: Aria2Task) => taskOps.removeTaskRecord(task),
     purgeTaskRecord: () => taskOps.purgeTaskRecord(),
     saveSession: () => taskOps.saveSession(),

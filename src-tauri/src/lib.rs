@@ -6,6 +6,7 @@ mod engine;
 mod error;
 mod gpu_guard;
 mod history;
+mod log_policy;
 #[cfg(target_os = "macos")]
 mod menu;
 mod services;
@@ -23,7 +24,9 @@ pub use commands::protocol::try_run_elevated;
 use crate::commands::power::ShutdownCancelState;
 use crate::commands::updater::{DownloadedUpdate, UpdateCancelState};
 use engine::EngineState;
+use services::port_guard::DEFAULT_RPC_PORT;
 use tauri::{Emitter, Manager};
+#[cfg(target_os = "macos")]
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_store::StoreExt;
 use upnp::UpnpState;
@@ -179,8 +182,8 @@ const WEB_PANEL_FRAME_INIT_SCRIPT: &str = r#"
 /// Pre-reads the user's log-level preference from the raw config.json file.
 ///
 /// `tauri-plugin-store` isn't available until after `Builder.build()`, so we
-/// read the raw JSON file directly.  Falls back to `Debug` if absent so that
-/// first-run users get full diagnostic output for bug reports.
+/// read the raw JSON file directly. Falls back to `Warn` when no preference
+/// has been persisted yet.
 pub(crate) fn read_log_level() -> log::LevelFilter {
     (|| -> Option<log::LevelFilter> {
         let data_dir = dirs::data_dir()?.join("com.motrix.next");
@@ -196,7 +199,7 @@ pub(crate) fn read_log_level() -> log::LevelFilter {
             _ => None,
         }
     })()
-    .unwrap_or(log::LevelFilter::Debug)
+    .unwrap_or(log::LevelFilter::Warn)
 }
 
 /// Tracks the application lifecycle phase for window visibility decisions.
@@ -246,6 +249,69 @@ impl AppLifecycleState {
     }
 }
 
+fn window_state_flags() -> tauri_plugin_window_state::StateFlags {
+    use tauri_plugin_window_state::StateFlags;
+
+    #[cfg(target_os = "macos")]
+    {
+        StateFlags::all() & !StateFlags::MAXIMIZED & !StateFlags::VISIBLE
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        StateFlags::all() & !StateFlags::VISIBLE
+    }
+}
+
+/// Reads a boolean preference straight from the persistent `config.json`
+/// store, without an IPC round-trip. Returns `default` when the store is
+/// unavailable or the key is absent / not a boolean.
+///
+/// This is the single reader for the many Rust-side window/exit/lightweight
+/// decisions that must run before (or without) a live WebView.
+pub(crate) fn read_pref_bool(app: &tauri::AppHandle, key: &str, default: bool) -> bool {
+    app.store("config.json")
+        .ok()
+        .and_then(|s| s.get("preferences"))
+        .and_then(|p| p.get(key)?.as_bool())
+        .unwrap_or(default)
+}
+
+fn keep_window_state_enabled(app: &tauri::AppHandle) -> bool {
+    read_pref_bool(app, "keepWindowState", false)
+}
+
+/// Restores window geometry when the user has opted into window-state restore.
+///
+/// Visibility is intentionally excluded. The app owns visibility through the
+/// autostart silent-mode guard and the frontend show-on-ready flow, so restoring
+/// visibility here would reintroduce startup flashes.
+pub(crate) fn restore_window_state_if_enabled(
+    app: &tauri::AppHandle,
+    window: &tauri::WebviewWindow,
+) {
+    use tauri_plugin_window_state::WindowExt;
+
+    if !keep_window_state_enabled(app) {
+        return;
+    }
+
+    if let Err(e) = window.restore_state(window_state_flags()) {
+        log::warn!(
+            "window-state:restore-failed label={} error={}",
+            window.label(),
+            e
+        );
+    }
+}
+
+fn save_window_state_before_lightweight_destroy(app: &tauri::AppHandle) {
+    use tauri_plugin_window_state::AppHandleExt;
+
+    if let Err(e) = app.save_window_state(window_state_flags()) {
+        log::warn!("window-state:save-before-lightweight-destroy-failed error={e}");
+    }
+}
+
 /// Minimizes the main window to tray, either by destroying the WebView
 /// (lightweight mode — reduces memory usage) or by
 /// hiding it (standard mode — instant show on tray click).
@@ -263,18 +329,14 @@ pub(crate) fn handle_minimize_to_tray(app: &tauri::AppHandle, window: &tauri::Wi
             log::info!("lifecycle: cold-start phase ended");
         }
     }
-    let store_prefs = app
-        .store("config.json")
-        .ok()
-        .and_then(|s| s.get("preferences"));
-
-    let lightweight = store_prefs
-        .as_ref()
-        .and_then(|p| p.get("lightweightMode")?.as_bool())
-        .unwrap_or(false);
+    let lightweight = read_pref_bool(app, "lightweightMode", false);
 
     if lightweight {
         log::info!("tray:lightweight-destroy label={}", window.label());
+        save_window_state_before_lightweight_destroy(app);
+        services::deep_link::mark_frontend_unready(app);
+        services::external_input::mark_frontend_unready(app);
+        services::frontend_action::mark_frontend_actions_unready(app);
         let _ = window.destroy();
     } else {
         log::info!("tray:hide label={}", window.label());
@@ -283,11 +345,7 @@ pub(crate) fn handle_minimize_to_tray(app: &tauri::AppHandle, window: &tauri::Wi
 
     #[cfg(target_os = "macos")]
     {
-        let hide_dock = store_prefs
-            .as_ref()
-            .and_then(|p| p.get("hideDockOnMinimize")?.as_bool())
-            .unwrap_or(false);
-        if hide_dock {
+        if read_pref_bool(app, "hideDockOnMinimize", false) {
             use tauri::ActivationPolicy;
             let _ = app.set_activation_policy(ActivationPolicy::Accessory);
         }
@@ -298,6 +356,14 @@ pub(crate) fn handle_minimize_to_tray(app: &tauri::AppHandle, window: &tauri::Wi
 /// workarounds.  Called once by `Builder.setup()`.
 fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let handle = app.handle();
+    match handle.path().app_log_dir() {
+        Ok(log_dir) => {
+            if let Err(error) = log_policy::remove_legacy_log_files(&log_dir) {
+                log::warn!("Failed to remove legacy log files: {error}");
+            }
+        }
+        Err(error) => log::warn!("Failed to resolve log directory for cleanup: {error}"),
+    }
     #[cfg(target_os = "macos")]
     {
         let m = menu::build_menu(handle)?;
@@ -309,7 +375,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // Aria2 JSON-RPC client — starts with default credentials, updated
     // after engine start via Aria2Client::update_credentials().
     let aria2_state = aria2::client::Aria2State(std::sync::Arc::new(
-        aria2::client::Aria2Client::new(16800, String::new()),
+        aria2::client::Aria2Client::new(DEFAULT_RPC_PORT, String::new()),
     ));
     app.manage(aria2_state);
 
@@ -331,8 +397,15 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(services::stat::StatServiceState::new());
     app.manage(services::speed::SpeedSchedulerState::new());
     app.manage(services::monitor::TaskMonitorState::new());
+    app.manage(services::aria2_events::Aria2EventState::new());
+    app.manage(services::bt_blocklist::BtPeerBlocklistServiceState::new());
+    app.manage(commands::bt_blocklist::BtPeerBlocklistUpdateState::new());
     app.manage(services::http_api::HttpApiState::new());
-    app.manage(services::http_api::PendingDeepLinkState::new());
+    #[cfg(target_os = "linux")]
+    app.manage(services::notification::LinuxNotificationRegistry::new());
+    app.manage(services::deep_link::PendingDeepLinkState::new());
+    app.manage(services::external_input::PendingExternalInputState::new());
+    app.manage(services::frontend_action::PendingFrontendActionState::new());
 
     // App lifecycle — tracks cold-start vs runtime phase for autostart
     // visibility decisions.  See AppLifecycleState doc and issue #206.
@@ -354,7 +427,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         // Reconcile yt-dlp orphan records from prior sessions (sidecar
         // killed abruptly, never committed the 'error' status transition).
         let db_for_reconcile = history_db_arc.clone();
-        let _ = tauri::async_runtime::block_on(async {
+        tauri::async_runtime::block_on(async {
             match tokio::time::timeout(
                 std::time::Duration::from_secs(2),
                 db_for_reconcile.reconcile_ytdlp_orphans(),
@@ -397,13 +470,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         "close-window" => {
             log::info!("menu:close-window — handling Cmd+W");
 
-            let should_hide = app
-                .store("config.json")
-                .ok()
-                .and_then(|s| s.get("preferences"))
-                .as_ref()
-                .and_then(|p| p.get("minimizeToTrayOnClose")?.as_bool())
-                .unwrap_or(false);
+            let should_hide = read_pref_bool(app, "minimizeToTrayOnClose", false);
 
             if should_hide {
                 if let Some(window) = app.get_window("main") {
@@ -414,37 +481,29 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                 let _ = app.emit("show-exit-dialog", ());
             }
         }
-        "about" | "new-task" | "open-torrent" | "preferences" => {
-            // These menu actions open in-app dialogs — ensure the window
-            // exists before emitting. In lightweight mode the WebView may
-            // have been destroyed, making emit a no-op.
-            if let Some(window) = tray::get_or_create_main_window(app) {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
+        id => {
+            if let Some(action) = services::frontend_action::menu_action_from_id(id) {
+                services::frontend_action::dispatch_frontend_action(
+                    app,
+                    services::frontend_action::FrontendActionChannel::MenuEvent,
+                    action,
+                    "native-menu-action",
+                );
             }
-            let _ = app.emit("menu-event", event.id().as_ref());
         }
-        "release-notes" => {
-            let _ = app.emit("menu-event", "release-notes");
-        }
-        "report-issue" => {
-            let _ = app.emit("menu-event", "report-issue");
-        }
-        _ => {}
     });
 
     // On macOS, runtime deep links arrive via RunEvent::Opened → the
     // plugin emits "deep-link://new-url".  We listen for that event and
-    // re-emit it as "deep-link-open" so the frontend (useAppEvents.ts)
-    // can handle it with window-surfacing logic.
+    // route it through the shared external-input service. If lightweight
+    // mode destroyed the WebView, the service queues the URLs and schedules
+    // window wake-up outside this native callback.
     //
     // On Windows/Linux this listener is compile-time excluded because
     // runtime deep links there arrive via the single-instance plugin,
-    // which already: (a) calls handle_cli_arguments → emits
-    // "deep-link://new-url", and (b) invokes our callback → emits
-    // "single-instance-triggered".  The frontend handles case (b) via
-    // listen('single-instance-triggered') in useAppEvents.ts.
+    // which invokes the single-instance callback below. That callback uses
+    // the same shared external-input service and emits "deep-link-open"
+    // only when an existing frontend listener is already alive.
     // Registering on_open_url on those platforms would cause
     // handleDeepLinkUrls() to fire twice per URL (once from (a) hitting
     // this listener, once from (b) hitting useAppEvents).
@@ -453,16 +512,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         let app_handle = app.handle().clone();
         app.deep_link().on_open_url(move |event| {
             let urls: Vec<String> = event.urls().iter().map(ToString::to_string).collect();
-            // Ensure the window exists before emitting — in lightweight mode
-            // the WebView may have been destroyed, making emit a no-op.
-            use tauri::ActivationPolicy;
-            let _ = app_handle.set_activation_policy(ActivationPolicy::Regular);
-            if let Some(w) = tray::get_or_create_main_window(&app_handle) {
-                let _ = w.unminimize();
-                let _ = w.show();
-                let _ = w.set_focus();
-            }
-            let _ = app_handle.emit("deep-link-open", &urls);
+            services::deep_link::route_external_inputs(&app_handle, urls, "macos-open-url");
         });
     }
 
@@ -487,45 +537,11 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Conditionally restore window state based on user preference.
-    // The window-state plugin is registered with skip_initial_state("main")
-    // so it does NOT auto-restore.  We read the preference here and
-    // call restore_state() manually only when the user has opted in.
-    // The plugin still saves state on exit regardless, so toggling the
-    // preference on later will pick up the last saved geometry.
-    {
-        use tauri_plugin_window_state::{StateFlags, WindowExt};
-
-        let keep_state = app
-            .store("config.json")
-            .ok()
-            .and_then(|s| s.get("preferences"))
-            .and_then(|p| p.get("keepWindowState")?.as_bool())
-            .unwrap_or(false);
-
-        if keep_state {
-            if let Some(w) = app.get_window("main") {
-                // Exclude VISIBLE — window visibility is managed entirely by
-                // the autostart-silent-mode logic below and the frontend's
-                // MainLayout.vue.  Allowing the window-state plugin to restore
-                // VISIBLE would race with the autostart check and show the
-                // window before the frontend can decide to hide it (#109).
-                //
-                // Exclude MAXIMIZED on macOS — known tao bug where
-                // isMaximized() triggers infinite resize loop (#5812).
-                let flags = {
-                    #[cfg(target_os = "macos")]
-                    {
-                        StateFlags::all() & !StateFlags::MAXIMIZED & !StateFlags::VISIBLE
-                    }
-                    #[cfg(not(target_os = "macos"))]
-                    {
-                        StateFlags::all() & !StateFlags::VISIBLE
-                    }
-                };
-                let _ = w.restore_state(flags);
-            }
-        }
+    // The window-state plugin is registered with skip_initial_state("main"),
+    // so initial and lightweight-recreated windows both restore through the
+    // same explicit helper.
+    if let Some(w) = app.get_webview_window("main") {
+        restore_window_state_if_enabled(handle, &w);
     }
 
     // Window visibility follows a two-layer defense-in-depth pattern:
@@ -590,22 +606,8 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(target_os = "macos")]
     {
         let is_autostart = std::env::args().any(|a| a == "--autostart");
-        let hide_dock = app
-            .store("config.json")
-            .ok()
-            .and_then(|s| s.get("preferences"))
-            .map(|prefs| {
-                let auto_hide = prefs
-                    .get("autoHideWindow")
-                    .and_then(serde_json::Value::as_bool)
-                    .unwrap_or(false);
-                let dock_hide = prefs
-                    .get("hideDockOnMinimize")
-                    .and_then(serde_json::Value::as_bool)
-                    .unwrap_or(false);
-                auto_hide && dock_hide
-            })
-            .unwrap_or(false);
+        let hide_dock = read_pref_bool(app.handle(), "autoHideWindow", false)
+            && read_pref_bool(app.handle(), "hideDockOnMinimize", false);
         if hide_dock && is_autostart {
             use tauri::ActivationPolicy;
             app.set_activation_policy(ActivationPolicy::Accessory);
@@ -633,12 +635,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     {
         let is_autostart =
             std::env::args().any(|a| a == "--autostart" || a.starts_with("--autostart="));
-        let auto_hide = app
-            .store("config.json")
-            .ok()
-            .and_then(|s| s.get("preferences"))
-            .and_then(|p| p.get("autoHideWindow")?.as_bool())
-            .unwrap_or(false);
+        let auto_hide = read_pref_bool(app.handle(), "autoHideWindow", false);
 
         let should_hide = is_autostart && auto_hide;
 
@@ -661,12 +658,6 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-
-    // ── GPU guard: mark successful startup ───────────────────────────
-    // If the user opted into hardware rendering, the sentinel file was
-    // written by gpu_guard::pre_flight(). Reaching this point proves
-    // that WebKitGTK's EGL init succeeded — safe to delete the sentinel.
-    gpu_guard::mark_healthy();
 
     // ── GeoIP: load bundled DB-IP Country Lite for peer country flags ─
     let geoip_state = commands::geoip::init_geoip(&app.handle().clone());
@@ -708,12 +699,7 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
             log::info!("app:exit-requested code={:?}", code);
 
             if code.is_none() {
-                let should_hide = app
-                    .store("config.json")
-                    .ok()
-                    .and_then(|s| s.get("preferences"))
-                    .and_then(|p| p.get("minimizeToTrayOnClose")?.as_bool())
-                    .unwrap_or(false);
+                let should_hide = read_pref_bool(app, "minimizeToTrayOnClose", false);
 
                 log::debug!("app:exit-requested minimizeToTrayOnClose={}", should_hide);
 
@@ -732,13 +718,7 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
             // persistent store and clear records directly via HistoryDb.
             // Best-effort with 2s timeout — never blocks app exit.
             {
-                use tauri_plugin_store::StoreExt;
-                let clear_on_exit = app
-                    .store("config.json")
-                    .ok()
-                    .and_then(|s| s.get("preferences"))
-                    .and_then(|p| p.get("clearCompletedOnExit")?.as_bool())
-                    .unwrap_or(false);
+                let clear_on_exit = read_pref_bool(app, "clearCompletedOnExit", false);
                 if clear_on_exit {
                     if let Some(db_state) = app.try_state::<history::HistoryDbState>() {
                         let db = db_state.0.clone();
@@ -791,18 +771,28 @@ fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
                     .await;
                 });
             }
+            // Stop stat service before process shutdown so any active
+            // keep-awake power assertion is released deterministically.
+            if let Some(stat_state) = app.try_state::<services::stat::StatServiceState>() {
+                let _ = tauri::async_runtime::block_on(async {
+                    tokio::time::timeout(std::time::Duration::from_millis(500), async {
+                        let handle = {
+                            let mut guard = stat_state.0.lock().await;
+                            guard.take()
+                        };
+                        if let Some(handle) = handle {
+                            handle.stop().await;
+                        }
+                    })
+                    .await
+                });
+                log::info!("stat_service: stopped");
+            }
         }
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen { .. } => {
             log::info!("app:reopen — restoring main window");
-            // Restore Dock icon before showing the window.
-            use tauri::ActivationPolicy;
-            let _ = app.set_activation_policy(ActivationPolicy::Regular);
-            if let Some(window) = tray::get_or_create_main_window(app) {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            tray::activate_main_window(app, "macos-reopen");
         }
         _ => {}
     }
@@ -815,21 +805,17 @@ pub fn run() {
     // WORKAROUND for WebKitGTK Bug #262607 (RESOLVED WONTFIX).
     // <https://bugs.webkit.org/show_bug.cgi?id=262607>
     //
-    // WebKitGTK's DMA-BUF renderer crashes on various GPU/driver/compositor
-    // combinations (NVIDIA, Intel UHD + Wayland, Broadcom on RPi, VM guests).
-    // The DMA-BUF renderer has no graceful fallback — a failed EGL init
-    // calls `abort()`, killing the entire process.
+    // WebKitGTK hardware rendering can crash on various GPU, driver, and
+    // compositor combinations. DMA-BUF is the best-known failure path, but
+    // AppImage/Wayland systems can still hit GBM/DRI through accelerated
+    // compositing, so software mode disables both paths.
     //
     // Strategy:
     // - Default: hardware rendering OFF (software compositing).
     //   Safe for all GPUs, negligible perf difference for a download manager UI.
-    // - Users can opt in via Advanced → "Hardware Rendering" toggle.
-    // - If opting in crashes the app, gpu_guard detects a leftover sentinel
-    //   file on the next launch and auto-reverts the preference to OFF.
-    //
-    // The `is_dmabuf_renderer_disabled()` command in fs.rs reads the same
-    // env var at runtime, so the frontend's border-radius workaround
-    // (MainLayout.vue) activates automatically.
+    // - Users can opt in via Advanced → "WebKitGTK Hardware Acceleration".
+    // - If opting in crashes the app, edit config.json and set
+    //   preferences.hardwareRendering to false.
     //
     // SAFETY: `set_var` (called inside pre_flight) is unsafe since Rust 1.83.
     // Safe here because it executes at the very start of `main()`, before
@@ -881,7 +867,7 @@ pub fn run() {
                         message
                     ))
                 })
-                .max_file_size(10_000_000)
+                .max_file_size(log_policy::MAX_LOG_FILE_SIZE.into())
                 .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepOne)
                 .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
                 .level(log_level)
@@ -921,6 +907,12 @@ pub fn run() {
                             sql: include_str!("../migrations/002_add_added_at.sql"),
                             kind: tauri_plugin_sql::MigrationKind::Up,
                         },
+                        tauri_plugin_sql::Migration {
+                            version: 3,
+                            description: "add HTTP auth credentials table",
+                            sql: include_str!("../migrations/003_http_auth_credentials.sql"),
+                            kind: tauri_plugin_sql::MigrationKind::Up,
+                        },
                     ],
                 )
                 .build(),
@@ -942,21 +934,23 @@ pub fn run() {
     #[cfg(desktop)]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            // Use get_or_create_main_window() instead of get_webview_window()
-            // because in lightweight mode the WebView may have been destroyed.
-            // get_webview_window("main") would return None, silently failing.
-            // Recreating the window matches the tray "show" behavior. Issue #196.
-            #[cfg(target_os = "macos")]
-            {
-                use tauri::ActivationPolicy;
-                let _ = app.set_activation_policy(ActivationPolicy::Regular);
+            let urls = services::deep_link::filter_external_input_args(&argv);
+            if !urls.is_empty() {
+                services::deep_link::route_external_inputs(app, urls, "single-instance");
+                return;
             }
-            if let Some(w) = tray::get_or_create_main_window(app) {
-                let _ = w.unminimize();
-                let _ = w.show();
-                let _ = w.set_focus();
+
+            if services::deep_link::is_autostart_arg_launch(&argv) {
+                log::info!("single-instance:autostart-skip argc={}", argv.len());
+                return;
             }
-            let _ = app.emit("single-instance-triggered", &argv);
+
+            let app_handle = app.clone();
+            if let Err(e) = app.run_on_main_thread(move || {
+                tray::activate_main_window(&app_handle, "single-instance-launch");
+            }) {
+                log::warn!("single-instance:activate-schedule-failed error={e}");
+            }
         }));
     }
 
@@ -1003,9 +997,12 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_system_config,
             commands::save_system_config,
+            commands::read_settings_backup_file,
+            commands::write_settings_backup_file,
             commands::start_engine_command,
             commands::stop_engine_command,
             commands::restart_engine_command,
+            commands::resolve_bt_listen_port,
             commands::factory_reset,
             commands::clear_session_file,
             commands::update_tray_title,
@@ -1013,6 +1010,8 @@ pub fn run() {
             commands::update_menu_labels,
             commands::update_progress_bar,
             commands::update_dock_badge,
+            commands::send_task_start_notification,
+            commands::send_app_system_notification,
             commands::check_for_update,
             commands::download_update,
             commands::apply_update,
@@ -1020,6 +1019,11 @@ pub fn run() {
             commands::start_upnp_mapping,
             commands::stop_upnp_mapping,
             commands::get_upnp_status,
+            commands::get_ed2k_bootstrap_status,
+            commands::sync_ed2k_bootstrap_files,
+            commands::get_bt_peer_blocklist_status,
+            commands::sync_bt_peer_blocklist,
+            commands::reconcile_bt_peer_blocklist,
             commands::set_dock_visible,
             commands::minimize_to_tray,
             commands::probe_trackers,
@@ -1029,24 +1033,28 @@ pub fn run() {
             commands::export_diagnostic_logs,
             commands::check_path_exists,
             commands::check_path_is_dir,
+            commands::read_local_file,
+            commands::list_dir_files,
             commands::show_item_in_dir,
             commands::open_path_normalized,
-            commands::remove_file,
+            commands::delete_path,
             commands::move_file,
-            commands::trash_file,
             commands::get_engine_conf_path,
-            commands::is_dmabuf_renderer_disabled,
             commands::set_window_alpha,
             commands::is_default_protocol_client,
             commands::set_default_protocol_client,
             commands::remove_as_default_protocol_client,
-            commands::fetch_remote_bytes,
             commands::resolve_filename,
+            commands::fetch_remote_bytes,
             commands::get_system_proxy,
             commands::lookup_peer_ips,
             commands::refresh_runtime_config,
             commands::restart_http_api,
+            commands::peek_pending_deep_links_silent,
+            commands::peek_pending_external_inputs_silent,
             commands::take_pending_deep_links,
+            commands::take_pending_external_inputs,
+            commands::take_pending_frontend_actions,
             commands::history_add_record,
             commands::history_get_records,
             commands::history_remove_record,
@@ -1069,14 +1077,13 @@ pub fn run() {
             commands::aria2_get_files,
             commands::aria2_add_uri,
             commands::aria2_add_torrent,
-            commands::aria2_add_metalink,
+            commands::aria2_ed2k_search,
+            commands::aria2_get_ed2k_search_results,
+            commands::aria2_cleanup_ed2k_search,
             commands::aria2_force_remove,
             commands::aria2_force_pause,
             commands::aria2_pause,
             commands::aria2_unpause,
-            commands::aria2_pause_all,
-            commands::aria2_force_pause_all,
-            commands::aria2_unpause_all,
             commands::aria2_save_session,
             commands::aria2_remove_download_result,
             commands::aria2_purge_download_result,
@@ -1134,13 +1141,7 @@ pub fn run() {
 
                 // Read minimize-to-tray preference directly from the
                 // persistent store (Rust-side, no IPC round-trip).
-                let should_hide = app
-                    .store("config.json")
-                    .ok()
-                    .and_then(|s| s.get("preferences"))
-                    .as_ref()
-                    .and_then(|p| p.get("minimizeToTrayOnClose")?.as_bool())
-                    .unwrap_or(false);
+                let should_hide = read_pref_bool(app, "minimizeToTrayOnClose", false);
 
                 log::debug!("window:prefs minimizeToTrayOnClose={}", should_hide);
 
@@ -1168,4 +1169,14 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(handle_run_event);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AppLifecycleState;
+
+    #[test]
+    fn app_lifecycle_starts_cold() {
+        assert!(AppLifecycleState::new().is_cold_start());
+    }
 }

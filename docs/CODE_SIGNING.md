@@ -13,7 +13,7 @@ Only artifacts built from this repository's official CI pipeline ([GitHub Action
 
 ## Upstream Dependencies
 
-The bundled [aria2](https://aria2.github.io/) sidecar binary is [compiled from source](https://github.com/AnInsomniacy/aria2-builder) by the project maintainer using a public GitHub Actions workflow.
+The bundled [Aria2 Next](https://github.com/AnInsomniacy/aria2-next) sidecar binary is a maintained aria2-compatible engine built by the project maintainer using public GitHub Actions workflows.
 
 ## Privacy Policy
 

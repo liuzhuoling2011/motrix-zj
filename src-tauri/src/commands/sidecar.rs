@@ -102,7 +102,10 @@ async fn probe_version(app: &tauri::AppHandle, name: &str) -> Result<String, Str
 
 async fn probe_with_timeout(app: &tauri::AppHandle, name: &str) -> Option<String> {
     let budget = probe_timeout_for(name);
-    log::info!("sidecar {name}: probing version (timeout {}s)", budget.as_secs());
+    log::info!(
+        "sidecar {name}: probing version (timeout {}s)",
+        budget.as_secs()
+    );
     match tokio::time::timeout(budget, probe_version(app, name)).await {
         Ok(Ok(v)) => {
             log::info!("sidecar {name}: version = {v}");
@@ -113,7 +116,10 @@ async fn probe_with_timeout(app: &tauri::AppHandle, name: &str) -> Option<String
             None
         }
         Err(_) => {
-            log::warn!("sidecar {name}: probe timed out after {}s", budget.as_secs());
+            log::warn!(
+                "sidecar {name}: probe timed out after {}s",
+                budget.as_secs()
+            );
             None
         }
     }

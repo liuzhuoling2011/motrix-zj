@@ -11,10 +11,15 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import type { BatchItem } from '@shared/types'
 
-// ── Mock Tauri readFile ────────────────────────────────────────────
+// ── Mock Rust IPC local file read ───────────────────────────────────
 const mockReadFile = vi.fn()
-vi.mock('@tauri-apps/plugin-fs', () => ({
-  readFile: (...args: unknown[]) => mockReadFile(...args),
+const mockFetchRemoteBytes = vi.fn()
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: (cmd: string, args?: { path?: string }) => {
+    if (cmd === 'read_local_file') return mockReadFile(args?.path)
+    if (cmd === 'fetch_remote_bytes') return mockFetchRemoteBytes(args)
+    return Promise.reject(new Error(`Unexpected invoke: ${cmd}`))
+  },
 }))
 
 // ── Mock Tauri openDialog ──────────────────────────────────────────
@@ -31,11 +36,6 @@ vi.mock('@/composables/useTorrentParser', () => ({
   uint8ToBase64: (...args: unknown[]) => mockUint8ToBase64(...args),
 }))
 
-// ── Mock bencode ───────────────────────────────────────────────────
-vi.mock('bencode', () => ({
-  default: { decode: vi.fn(), encode: vi.fn() },
-}))
-
 // ── Mock logger ────────────────────────────────────────────────────
 vi.mock('@shared/logger', () => ({
   logger: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() },
@@ -43,9 +43,16 @@ vi.mock('@shared/logger', () => ({
 
 // ── Mock batch helpers ─────────────────────────────────────────────
 vi.mock('@shared/utils/batchHelpers', () => ({
+  detectExternalInputKind: (path: string) => {
+    try {
+      if (new URL(path).pathname.endsWith('.torrent')) return 'torrent'
+    } catch {
+      return 'uri'
+    }
+    return 'uri'
+  },
   detectKind: (path: string) => {
     if (path.endsWith('.torrent')) return 'torrent'
-    if (path.endsWith('.metalink') || path.endsWith('.meta4')) return 'metalink'
     return 'uri'
   },
   createBatchItem: (kind: string, source: string) => ({
@@ -132,14 +139,6 @@ describe('resolveFileItem', () => {
     expect(item.selectedFileIndices).toEqual([0, 1, 2])
   })
 
-  it('does NOT parse torrent metadata for metalink files', async () => {
-    const item = makeBatchItem({ kind: 'metalink', source: '/test.metalink' })
-    await resolveFileItem(item, mockT)
-
-    expect(mockParseTorrentBuffer).not.toHaveBeenCalled()
-    expect(item.payload).toBe('base64data')
-  })
-
   it('marks item as failed when readFile throws', async () => {
     mockReadFile.mockRejectedValueOnce(new Error('Permission denied'))
 
@@ -166,7 +165,7 @@ describe('resolveFileItem', () => {
     // Some implementations return ArrayBuffer instead of Uint8Array
     mockReadFile.mockResolvedValue(new ArrayBuffer(4))
 
-    const item = makeBatchItem({ kind: 'metalink' })
+    const item = makeBatchItem({ kind: 'torrent' })
     await resolveFileItem(item, mockT)
 
     expect(mockUint8ToBase64).toHaveBeenCalled()
@@ -182,6 +181,7 @@ describe('resolveUnresolvedItems', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockReadFile.mockResolvedValue(new Uint8Array([10, 20]))
+    mockFetchRemoteBytes.mockResolvedValue([30, 40])
     mockUint8ToBase64.mockReturnValue('resolved-base64')
     mockParseTorrentBuffer.mockResolvedValue(null)
   })
@@ -195,6 +195,32 @@ describe('resolveUnresolvedItems', () => {
     })
     await resolveUnresolvedItems([item], mockT)
     expect(mockReadFile).toHaveBeenCalledWith('/test.torrent')
+    expect(item.payload).toBe('resolved-base64')
+  })
+
+  it('resolves remote torrent items with browser request context', async () => {
+    const item = makeBatchItem({
+      source: 'https://example.com/linux.torrent?token=abc',
+      payload: 'https://example.com/linux.torrent?token=abc',
+      browserContext: {
+        referer: 'https://example.com/page',
+        cookie: 'sid=1',
+        userAgent: 'Mozilla/5.0',
+        requestHeaders: [{ name: 'Accept-Language', value: 'en-US' }],
+      },
+    })
+
+    await resolveUnresolvedItems([item], mockT, 'http://127.0.0.1:7890')
+
+    expect(mockReadFile).not.toHaveBeenCalled()
+    expect(mockFetchRemoteBytes).toHaveBeenCalledWith({
+      url: 'https://example.com/linux.torrent?token=abc',
+      proxy: 'http://127.0.0.1:7890',
+      referer: 'https://example.com/page',
+      cookie: 'sid=1',
+      userAgent: 'Mozilla/5.0',
+      requestHeaders: [{ name: 'Accept-Language', value: 'en-US' }],
+    })
     expect(item.payload).toBe('resolved-base64')
   })
 
@@ -265,12 +291,12 @@ describe('chooseTorrentFile', () => {
     mockParseTorrentBuffer.mockResolvedValue(null)
   })
 
-  it('displays dialog with torrent/metalink filter', async () => {
+  it('displays dialog with torrent filter', async () => {
     mockOpenDialog.mockResolvedValueOnce(null)
     await chooseTorrentFile(makeDeps())
     expect(mockOpenDialog).toHaveBeenCalledWith({
       multiple: true,
-      filters: [{ name: 'Torrent / Metalink', extensions: ['torrent', 'metalink', 'meta4'] }],
+      filters: [{ name: 'Torrent', extensions: ['torrent'] }],
     })
   })
 
@@ -326,13 +352,13 @@ describe('chooseTorrentFile', () => {
   })
 
   it('resolves each new file before appending to batch', async () => {
-    mockOpenDialog.mockResolvedValueOnce(['/a.torrent', '/b.metalink'])
+    mockOpenDialog.mockResolvedValueOnce(['/a.torrent', '/b.torrent'])
     const deps = makeDeps()
     await chooseTorrentFile(deps)
 
     expect(mockReadFile).toHaveBeenCalledTimes(2)
     expect(mockReadFile).toHaveBeenCalledWith('/a.torrent')
-    expect(mockReadFile).toHaveBeenCalledWith('/b.metalink')
+    expect(mockReadFile).toHaveBeenCalledWith('/b.torrent')
   })
 
   it('does not throw when openDialog throws', async () => {

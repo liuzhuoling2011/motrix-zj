@@ -9,6 +9,8 @@
   "showcase.light": "Heller Modus",
   "showcase.dark": "Dunkler Modus",
   "story.title": "Warum Motrix Next?",
+  "story.engine.label": "Engine",
+  "story.engine": "Motrix Next verwendet {aria2Next} als Download-Engine, einen gepflegten aria2-Fork, der die ursprünglichen Schnittstellen beibehält, langjährige Probleme behebt, auf CMake umstellt, native ED2K-Unterstützung ergänzt und moderne Abhängigkeiten aktualisiert.",
   "story.p1": "Motrix von agalwood war einer der besten Open-Source-Download-Manager — saubere Benutzeroberfläche, aria2-basiert, plattformübergreifend. Es inspirierte Tausende von Nutzern und Entwicklern.",
   "story.p2": "Das Originalprojekt ist seit 2023 weitgehend inaktiv. Der Electron + Vue 2 + Vuex + Element UI Stack hat technische Schulden angehäuft, was Wartung, Erweiterung und Paketierung zunehmend erschwert.",
   "rewrite.title": "Komplett neu geschrieben.",
@@ -56,7 +58,7 @@
   "motion.tokens.desc": "Alle Dauern und Kurven sind CSS Custom Properties für einen einheitlichen Rhythmus über 12+ Komponenten.",
   "features.title": "Funktionen",
   "features.protocol.title": "Multi-Protokoll",
-  "features.protocol.desc": "HTTP, FTP, BitTorrent, Magnet-Links.",
+  "features.protocol.desc": "HTTP, FTP, ED2K, BitTorrent und Magnet-Links.",
   "features.bt.title": "BitTorrent",
   "features.bt.desc": "Selektiver Dateidownload, DHT, Peer-Exchange, Verschlüsselung.",
   "features.tracker.title": "Tracker-Verwaltung",
@@ -74,7 +76,7 @@
   "features.task.title": "Aufgabenverwaltung",
   "features.task.desc": "Pausieren, Fortsetzen, Löschen mit Dateibereinigung, Stapeloperationen.",
   "features.handler.title": "Protokoll-Handler",
-  "features.handler.desc": "Als Standard-Handler für Magnet- und Thunder-Links registrieren.",
+  "features.handler.desc": "Als Standardhandler für Magnet-, ED2K- und Thunder-Links registrieren.",
   "features.notify.title": "Benachrichtigungen",
   "features.notify.desc": "Systembenachrichtigungen bei Aufgabenabschluss.",
   "features.light.title": "Leichtgewicht",
@@ -104,6 +106,5 @@
   "theme.dark": "Dunkel",
   "hero.stars": "Stars",
   "hero.downloads": "Downloads",
-  "hero.version": "Aktuell",
-  "starHistory.title": "Star-Verlauf"
+  "hero.version": "Aktuell"
 }

@@ -77,7 +77,7 @@ describe('runMigrations version stamping', () => {
 describe('v1 migration — proxy.scope backfill', () => {
   it('backfills empty scope array with all PROXY_SCOPE_OPTIONS', () => {
     const config: Partial<AppConfig> = {
-      proxy: { enable: true, server: 'http://127.0.0.1:7890', bypass: '', scope: [] },
+      proxy: { mode: 'manual', server: 'http://127.0.0.1:7890', bypass: '', scope: [] },
     }
     runMigrations(config)
     expect(config.proxy!.scope).toEqual([...PROXY_SCOPE_OPTIONS])
@@ -85,7 +85,7 @@ describe('v1 migration — proxy.scope backfill', () => {
 
   it('backfills even when proxy is disabled (consistency)', () => {
     const config: Partial<AppConfig> = {
-      proxy: { enable: false, server: '', bypass: '', scope: [] },
+      proxy: { mode: 'direct', server: '', bypass: '', scope: [] },
     }
     runMigrations(config)
     expect(config.proxy!.scope).toEqual([...PROXY_SCOPE_OPTIONS])
@@ -93,7 +93,7 @@ describe('v1 migration — proxy.scope backfill', () => {
 
   it('preserves user-selected scope values (does not overwrite)', () => {
     const config: Partial<AppConfig> = {
-      proxy: { enable: true, server: 'http://proxy:8080', bypass: '', scope: ['download'] },
+      proxy: { mode: 'manual', server: 'http://proxy:8080', bypass: '', scope: ['download'] },
     }
     runMigrations(config)
     expect(config.proxy!.scope).toEqual(['download'])
@@ -102,7 +102,6 @@ describe('v1 migration — proxy.scope backfill', () => {
   it('preserves full scope array unchanged', () => {
     const config: Partial<AppConfig> = {
       proxy: {
-        enable: true,
         server: 'http://proxy:8080',
         bypass: '',
         scope: [...PROXY_SCOPE_OPTIONS],
@@ -120,7 +119,7 @@ describe('v1 migration — proxy.scope backfill', () => {
 
   it('handles proxy without scope field (scope is undefined)', () => {
     const config: Partial<AppConfig> = {
-      proxy: { enable: true, server: 'http://proxy:8080', bypass: '' } as AppConfig['proxy'],
+      proxy: { mode: 'manual', server: 'http://proxy:8080', bypass: '' } as AppConfig['proxy'],
     }
     runMigrations(config)
     // No scope field to backfill — migration should not crash
@@ -133,7 +132,7 @@ describe('v1 migration — proxy.scope backfill', () => {
 describe('runMigrations idempotency', () => {
   it('running migrations twice produces identical results', () => {
     const config: Partial<AppConfig> = {
-      proxy: { enable: true, server: 'http://127.0.0.1:7890', bypass: '', scope: [] },
+      proxy: { mode: 'manual', server: 'http://127.0.0.1:7890', bypass: '', scope: [] },
     }
     runMigrations(config)
     const snapshot = JSON.parse(JSON.stringify(config))
@@ -153,7 +152,7 @@ describe('runMigrations preserves unrelated config fields', () => {
       locale: 'zh-CN',
       split: 16,
       dir: '/downloads',
-      proxy: { enable: true, server: 'http://proxy:1080', bypass: '', scope: [] },
+      proxy: { mode: 'manual', server: 'http://proxy:1080', bypass: '', scope: [] },
     }
     runMigrations(config)
     expect(config.theme).toBe('dark')
@@ -190,7 +189,6 @@ describe('runMigrations error isolation', () => {
       // proxy.scope is a non-array value — Object.defineProperty to
       // make .length throw when accessed
       proxy: {
-        enable: true,
         server: 'http://proxy:8080',
         bypass: '',
         get scope(): string[] {
@@ -216,7 +214,6 @@ describe('runMigrations error isolation', () => {
     // Verify runMigrations never throws, even with bad data
     const config: Partial<AppConfig> = {
       proxy: {
-        enable: true,
         server: 'http://proxy:8080',
         bypass: '',
         get scope(): string[] {
@@ -311,7 +308,7 @@ describe('v3 migration — flatten autoSubmitFromExtension', () => {
   it('flattens object with enable=true to boolean true', () => {
     const config = {
       configVersion: 2,
-      autoSubmitFromExtension: { enable: true, http: true, magnet: true, torrent: false, metalink: false },
+      autoSubmitFromExtension: { enable: true, http: true, magnet: true, torrent: false },
     } as unknown as Partial<AppConfig>
     runMigrations(config)
     expect(config.autoSubmitFromExtension).toBe(true)
@@ -320,7 +317,7 @@ describe('v3 migration — flatten autoSubmitFromExtension', () => {
   it('flattens object with enable=false to boolean false', () => {
     const config = {
       configVersion: 2,
-      autoSubmitFromExtension: { enable: false, http: true, magnet: true, torrent: true, metalink: true },
+      autoSubmitFromExtension: { enable: false, http: true, magnet: true, torrent: true },
     } as unknown as Partial<AppConfig>
     runMigrations(config)
     expect(config.autoSubmitFromExtension).toBe(false)
@@ -345,7 +342,7 @@ describe('v3 migration — flatten autoSubmitFromExtension', () => {
   it('stamps configVersion to 3 after migration', () => {
     const config = {
       configVersion: 2,
-      autoSubmitFromExtension: { enable: false, http: true, magnet: true, torrent: false, metalink: false },
+      autoSubmitFromExtension: { enable: false, http: true, magnet: true, torrent: false },
     } as unknown as Partial<AppConfig>
     runMigrations(config)
     expect(config.configVersion).toBe(CONFIG_VERSION)
@@ -437,9 +434,9 @@ describe('v4 migration — path separator normalization and category auto-popula
     expect(config.fileCategories).toEqual(existingCats)
   })
 
-  it('is idempotent — running on already-migrated v4 config is a no-op', () => {
+  it('is idempotent — running on current config is a no-op', () => {
     const config = {
-      configVersion: 4,
+      configVersion: CONFIG_VERSION,
       dir: 'C:/Users/test/Downloads',
       fileCategoryEnabled: true,
       fileCategories: [
@@ -452,19 +449,46 @@ describe('v4 migration — path separator normalization and category auto-popula
   })
 })
 
-// ── Full v0 → v4 integration ──────────────────────────────────────
+// ── v5 Migration: ED2K clipboard default ──────────────────────────
 
-describe('v0 → v4 full migration path', () => {
+describe('v5 migration — ED2K clipboard backfill', () => {
+  it('backfills clipboard.ed2k when clipboard already exists', () => {
+    const config = {
+      configVersion: 4,
+      clipboard: { enable: true, http: true, ftp: true, magnet: true, thunder: true, btHash: true },
+    } as Partial<AppConfig>
+
+    runMigrations(config)
+
+    expect(config.clipboard?.ed2k).toBe(true)
+  })
+
+  it('preserves explicit ed2k=false values', () => {
+    const config = {
+      configVersion: 4,
+      clipboard: { enable: true, http: true, ftp: true, magnet: true, ed2k: false, thunder: true, btHash: true },
+    } as Partial<AppConfig>
+
+    runMigrations(config)
+
+    expect(config.clipboard?.ed2k).toBe(false)
+  })
+})
+
+// ── Full v0 → v5 integration ──────────────────────────────────────
+
+describe('v0 → v5 full migration path', () => {
   it('runs all migrations in sequence on fresh config', () => {
     const config = {
-      proxy: { enable: true, server: 'http://proxy:1080', bypass: '', scope: [] },
+      proxy: { mode: 'manual', server: 'http://proxy:1080', bypass: '', scope: [] },
       engineMaxConnectionPerServer: 64,
       split: 64,
       maxConnectionPerServer: 64,
-      autoSubmitFromExtension: { enable: true, http: true, magnet: true, torrent: false, metalink: false },
+      autoSubmitFromExtension: { enable: true, http: true, magnet: true, torrent: false },
       dir: 'C:\\Users\\test\\Downloads',
       fileCategoryEnabled: true,
       fileCategories: [],
+      clipboard: { enable: true, http: true, ftp: true, magnet: true, thunder: true, btHash: true },
     } as unknown as Partial<AppConfig>
 
     const result = runMigrations(config)
@@ -480,6 +504,8 @@ describe('v0 → v4 full migration path', () => {
     expect(config.dir).toBe('C:/Users/test/Downloads')
     expect(config.fileCategories!.length).toBeGreaterThan(0)
     expect(config.fileCategories![0].directory).toMatch(/^C:\/Users\/test\/Downloads\//)
+    // v5: ED2K clipboard surface backfilled
+    expect(config.clipboard?.ed2k).toBe(true)
     // Both split and maxConnectionPerServer preserved
     expect(config.split).toBe(64)
     expect(config.maxConnectionPerServer).toBe(64)

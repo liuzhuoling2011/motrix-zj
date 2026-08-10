@@ -12,7 +12,7 @@ vi.mock('@tauri-apps/plugin-log', () => ({
   trace: vi.fn().mockResolvedValue(undefined),
 }))
 
-import { logger } from '@shared/logger'
+import { formatLogFields, logger } from '@shared/logger'
 import * as tauriLog from '@tauri-apps/plugin-log'
 
 // Cast to mock types for assertions
@@ -70,9 +70,16 @@ describe('logger (tauri-plugin-log bridging)', () => {
       expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[Ctx] msg'))
     })
 
-    it('converts non-Error objects to string via String()', () => {
+    it('formats structured Tauri errors without [object Object]', () => {
+      logger.error('Ctx', { Aria2: 'aria2 RPC error [1]: Unsupported URI scheme' })
+      expect(mockTauriError).toHaveBeenCalledWith(
+        expect.stringContaining('[Ctx] Aria2 Next error [1]: Unsupported URI scheme'),
+      )
+    })
+
+    it('serializes unknown objects instead of returning [object Object]', () => {
       logger.error('Ctx', { code: 500 })
-      expect(mockTauriError).toHaveBeenCalledWith(expect.stringContaining('[object Object]'))
+      expect(mockTauriError).toHaveBeenCalledWith(expect.stringContaining('[Ctx] {"code":500}'))
     })
 
     it('does not throw when tauri bridge rejects', () => {
@@ -180,6 +187,20 @@ describe('logger (tauri-plugin-log bridging)', () => {
 
       expect(() => logger.debug('Ctx', payload)).not.toThrow()
       expect(mockTauriDebug).toHaveBeenCalledWith(expect.stringContaining('[Ctx]'))
+    })
+  })
+
+  // ─── structured fields ───────────────────────────────────
+
+  describe('formatLogFields', () => {
+    it('formats stable key-value fields without JSON noise', () => {
+      expect(formatLogFields({ traceId: 'external-input-1', count: 2, hasCookie: false })).toBe(
+        'traceId=external-input-1 count=2 hasCookie=false',
+      )
+    })
+
+    it('keeps nullish values explicit for diagnostics', () => {
+      expect(formatLogFields({ route: null, reason: undefined })).toBe('route=null reason=undefined')
     })
   })
 

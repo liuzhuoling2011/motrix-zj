@@ -22,9 +22,9 @@ describe('buildGeneralForm', () => {
 
   // ── Language ─────────────────────────────────────────────────────
 
-  it('defaults locale to en-US', () => {
+  it('defaults locale to auto (follow system)', () => {
     const form = buildGeneralForm(emptyConfig)
-    expect(form.locale).toBe('en-US')
+    expect(form.locale).toBe('auto')
   })
 
   it('reads locale from config', () => {
@@ -69,6 +69,26 @@ describe('buildGeneralForm', () => {
     expect(form.showProgressBar).toBe(DEFAULT_APP_CONFIG.showProgressBar)
   })
 
+  it('defaults taskCardMode from DEFAULT_APP_CONFIG', () => {
+    const form = buildGeneralForm(emptyConfig)
+    expect(form.taskCardMode).toBe(DEFAULT_APP_CONFIG.taskCardMode)
+  })
+
+  it('defaults taskListWatermark from DEFAULT_APP_CONFIG', () => {
+    const form = buildGeneralForm(emptyConfig)
+    expect(form.taskListWatermark).toBe(DEFAULT_APP_CONFIG.taskListWatermark)
+  })
+
+  it('reads taskCardMode from config', () => {
+    const form = buildGeneralForm({ taskCardMode: 'compact' } as AppConfig)
+    expect(form.taskCardMode).toBe('compact')
+  })
+
+  it('reads taskListWatermark from config', () => {
+    const form = buildGeneralForm({ taskListWatermark: false } as AppConfig)
+    expect(form.taskListWatermark).toBe(false)
+  })
+
   it('reads showProgressBar from config', () => {
     const form = buildGeneralForm({ showProgressBar: false } as AppConfig)
     expect(form.showProgressBar).toBe(false)
@@ -91,14 +111,24 @@ describe('buildGeneralForm', () => {
     expect(form.autoCheckUpdate).toBe(true)
   })
 
-  it('defaults autoCheckUpdateInterval to 24', () => {
+  it('defaults autoCheckUpdateInterval to every startup', () => {
     const form = buildGeneralForm(emptyConfig)
-    expect(form.autoCheckUpdateInterval).toBe(24)
+    expect(form.autoCheckUpdateInterval).toBe(0)
   })
 
   it('reads autoCheckUpdateInterval from config', () => {
     const form = buildGeneralForm({ autoCheckUpdateInterval: 168 } as unknown as AppConfig)
     expect(form.autoCheckUpdateInterval).toBe(168)
+  })
+
+  it('preserves every-startup autoCheckUpdateInterval from config', () => {
+    const form = buildGeneralForm({ autoCheckUpdateInterval: 0 } as unknown as AppConfig)
+    expect(form.autoCheckUpdateInterval).toBe(0)
+  })
+
+  it('exposes all supported update channels', async () => {
+    const { UPDATE_CHANNELS } = await import('@shared/constants')
+    expect(UPDATE_CHANNELS).toEqual(['stable', 'beta', 'latest'])
   })
 
   it('defaults updateChannel to stable', () => {
@@ -109,6 +139,11 @@ describe('buildGeneralForm', () => {
   it('reads updateChannel from config', () => {
     const form = buildGeneralForm({ updateChannel: 'beta' } as AppConfig)
     expect(form.updateChannel).toBe('beta')
+  })
+
+  it('reads all-channel latest updateChannel from config', () => {
+    const form = buildGeneralForm({ updateChannel: 'latest' } as AppConfig)
+    expect(form.updateChannel).toBe('latest')
   })
 
   // ── Startup Behavior ────────────────────────────────────────────
@@ -185,14 +220,18 @@ describe('buildGeneralForm', () => {
     expect(form.lightweightMode).toBe(true)
   })
 
-  // ── Completeness: all 16 fields are present ─────────────────────
+  // ── Completeness: all 18 fields are present ─────────────────────
 
-  it('returns all 16 form fields', () => {
+  it('returns all 20 form fields', () => {
     const form = buildGeneralForm(emptyConfig)
     const keys = Object.keys(form)
     expect(keys).toContain('locale')
     expect(keys).toContain('theme')
     expect(keys).toContain('colorScheme')
+    expect(keys).toContain('customColorScheme')
+    expect(keys).toContain('taskCardMode')
+    expect(keys).toContain('taskListWatermark')
+    expect(keys).toContain('sidebarTaskCounts')
     expect(keys).toContain('autoCheckUpdate')
     expect(keys).toContain('autoCheckUpdateInterval')
     expect(keys).toContain('updateChannel')
@@ -206,7 +245,7 @@ describe('buildGeneralForm', () => {
     expect(keys).toContain('hideDockOnMinimize')
     expect(keys).toContain('traySpeedometer')
     expect(keys).toContain('lightweightMode')
-    expect(keys).toHaveLength(16)
+    expect(keys).toHaveLength(20)
   })
 })
 
@@ -217,8 +256,12 @@ describe('buildGeneralSystemConfig', () => {
     locale: 'en-US',
     theme: 'auto',
     colorScheme: 'amber',
+    customColorScheme: '#737373',
+    taskCardMode: 'full',
+    taskListWatermark: true,
+    sidebarTaskCounts: true,
     autoCheckUpdate: true,
-    autoCheckUpdateInterval: 24,
+    autoCheckUpdateInterval: 0,
     updateChannel: 'stable',
     showProgressBar: true,
     dockBadgeSpeed: true,
@@ -258,8 +301,12 @@ describe('transformGeneralForStore', () => {
     locale: 'en-US',
     theme: 'auto',
     colorScheme: 'amber',
+    customColorScheme: '#737373',
+    taskCardMode: 'full',
+    taskListWatermark: true,
+    sidebarTaskCounts: true,
     autoCheckUpdate: true,
-    autoCheckUpdateInterval: 24,
+    autoCheckUpdateInterval: 0,
     updateChannel: 'stable',
     showProgressBar: true,
     dockBadgeSpeed: true,
@@ -278,8 +325,12 @@ describe('transformGeneralForStore', () => {
     expect(result.locale).toBe('en-US')
     expect(result.theme).toBe('auto')
     expect(result.colorScheme).toBe('amber')
+    expect(result.customColorScheme).toBe('#737373')
+    expect(result.taskCardMode).toBe('full')
+    expect(result.taskListWatermark).toBe(true)
+    expect(result.sidebarTaskCounts).toBe(true)
     expect(result.autoCheckUpdate).toBe(true)
-    expect(result.autoCheckUpdateInterval).toBe(24)
+    expect(result.autoCheckUpdateInterval).toBe(0)
     expect(result.updateChannel).toBe('stable')
     expect(result.showProgressBar).toBe(true)
     expect(result.dockBadgeSpeed).toBe(true)

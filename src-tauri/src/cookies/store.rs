@@ -19,7 +19,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use tauri::webview::Cookie;
 
@@ -36,7 +36,8 @@ impl CookieStore {
         }
     }
 
-    pub fn base_dir(&self) -> &Path {
+    #[cfg(test)]
+    pub fn base_dir(&self) -> &std::path::Path {
         &self.base_dir
     }
 

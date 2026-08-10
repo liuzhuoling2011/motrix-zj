@@ -6,20 +6,13 @@
 import type { Aria2Task, Aria2File, HistoryRecord, HistoryMeta, HistoryFileSnapshot } from '@shared/types'
 import { decodePathSegment } from '@shared/utils/batchHelpers'
 import { normalizeSep } from '@shared/utils/autoArchive'
+import { isBtMetadataTask } from '@shared/utils/task'
 import { getAddedAt } from '@/composables/useTaskOrder'
 import { logger } from '@shared/logger'
 
-/** Detect BT metadata-only downloads (the intermediate magnet resolution phase).
- *
- * These tasks have `[METADATA]` in the first file path (aria2 convention when
- * bt-save-metadata is enabled) or a `followedBy` field pointing to the real
- * download. They should NOT be persisted as history records. */
+/** Detect magnet tasks that are still resolving BitTorrent metadata. */
 export function isMetadataTask(task: Aria2Task): boolean {
-  if (task.followedBy && task.followedBy.length > 0) return true
-  const firstPath = task.files?.[0]?.path ?? ''
-  const firstName = firstPath.split(/[/\\]/).pop() ?? firstPath
-  const btName = task.bittorrent?.info?.name ?? ''
-  return firstPath.startsWith('[METADATA]') || firstName.startsWith('[METADATA]') || btName.startsWith('[METADATA]')
+  return isBtMetadataTask(task)
 }
 
 // ── Centralized history snapshot helpers ────────────────────────────
@@ -34,6 +27,9 @@ export function isMetadataTask(task: Aria2Task): boolean {
 export function buildHistoryMeta(task: Aria2Task): HistoryMeta {
   const meta: HistoryMeta = {}
   if (task.infoHash) meta.infoHash = task.infoHash
+  if (task.bittorrent?.magnetLink) meta.magnetLink = task.bittorrent.magnetLink
+  if (task.ed2k?.ed2kLink) meta.ed2kLink = task.ed2k.ed2kLink
+  if (task.ed2k?.hash) meta.ed2kHash = task.ed2k.hash
   if (task.bittorrent?.announceList && task.bittorrent.announceList.length > 0) {
     meta.announceList = task.bittorrent.announceList.map((tier) => [...tier])
   }
@@ -95,7 +91,7 @@ export function buildHistoryRecord(task: Aria2Task): HistoryRecord {
   const name = btName || (pathName ? decodePathSegment(pathName) : '') || 'Unknown'
 
   const uri = firstFile?.uris?.[0]?.uri
-  const taskType = task.bittorrent ? 'bt' : 'uri'
+  const taskType = task.bittorrent ? 'bt' : task.ed2k ? 'ed2k' : 'uri'
 
   // Build structured meta snapshot (centralised — no inline JSON.stringify elsewhere)
   const meta = buildHistoryMeta(task)
@@ -114,16 +110,16 @@ export function buildHistoryRecord(task: Aria2Task): HistoryRecord {
   }
 }
 
-/** Build a history record for a BT task entering seeding state.
+/** Build a history record for a task entering shared-upload state.
  *
- * Seeding means the download phase is complete — all pieces verified.
- * Aria2 still reports status='active' for seeders, but from the user's
+ * Shared upload means the download phase is complete and verified.
+ * Aria2 still reports status='active' for these tasks, but from the user's
  * perspective the download is done. This function overrides status to
  * 'complete' so the record correctly reflects download completion.
  *
  * Used by both the lifecycle service (automatic detection) and
- * stopSeeding (manual stop) to avoid duplicating the override logic. */
-export function buildBtCompletionRecord(task: Aria2Task): HistoryRecord {
+ * stopSharing (manual stop) to avoid duplicating the override logic. */
+export function buildSharingCompletionRecord(task: Aria2Task): HistoryRecord {
   const record = buildHistoryRecord(task)
   record.status = 'complete'
   return record
@@ -187,8 +183,21 @@ export function historyRecordToTask(record: HistoryRecord): Aria2Task {
   // BT tasks get a bittorrent.info stub so getTaskName() resolves correctly
   if (record.task_type === 'bt') {
     task.bittorrent = { info: { name: record.name } }
+    if (meta.magnetLink) {
+      task.bittorrent.magnetLink = meta.magnetLink
+    }
     if (meta.announceList && meta.announceList.length > 0) {
       task.bittorrent.announceList = meta.announceList.map((tier) => [...tier])
+    }
+  }
+
+  if (record.task_type === 'ed2k') {
+    task.ed2k = {
+      name: record.name,
+      length: totalLength,
+    }
+    if (meta.ed2kLink) {
+      task.ed2k.ed2kLink = meta.ed2kLink
     }
   }
 

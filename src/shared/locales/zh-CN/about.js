@@ -9,7 +9,7 @@ export default {
   'click-to-copy': '点击复制',
   'version-copied': '已复制 {label} 版本号',
   'app-version': 'Motrix Next 版本',
-  'aria2-version': 'aria2 版本',
+  'aria2-version': 'Aria2 Next 版本',
   'loading': '加载中…',
   'unavailable': '不可用',
 }

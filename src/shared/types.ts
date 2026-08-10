@@ -3,6 +3,10 @@
 /** Task lifecycle status as reported by aria2 RPC. */
 export type TaskStatus = 'active' | 'waiting' | 'paused' | 'error' | 'complete' | 'removed'
 
+export type AppLogLevel = 'error' | 'warn' | 'info' | 'debug'
+export type Aria2LogLevel = AppLogLevel | 'trace'
+export type FileDeletionMode = 'trash' | 'permanent'
+
 /** URI entry within an aria2 file descriptor. */
 export interface Aria2FileUri {
   uri: string
@@ -24,9 +28,68 @@ export interface Aria2File {
 export interface Aria2BtInfo {
   info?: { name: string }
   announceList?: string[][]
+  magnetLink?: string
   creationDate?: number
   comment?: string
   mode?: string
+}
+
+/** ED2K metadata attached to a task when the download is an ED2K file link. */
+export interface Aria2Ed2kInfo {
+  ed2kLink?: string
+  hash?: string
+  name?: string
+  length?: string
+  completedLength?: string
+  partHashCount?: string
+  aichRoot?: string
+  serverCount?: string
+  connectedServerCount?: string
+  peerCount?: string
+  queuedPeerCount?: string
+  acceptedPeerCount?: string
+  deadPeerCount?: string
+  lowIdPeerCount?: string
+  callbackWaitingPeerCount?: string
+  kadNodeCount?: string
+  kadRouterCount?: string
+  kadFirewalled?: boolean
+  kadObservedAddressCount?: string
+  searchActive?: boolean
+  searchMoreResults?: boolean
+  searchResultCount?: string
+  uploadingPeerCount?: string
+  waitingUploadPeerCount?: string
+  peerCreditCount?: string
+}
+
+export interface Ed2kSearchOptions {
+  fileType?: string
+  extension?: string
+  minSize?: string
+  maxSize?: string
+  minSourceCount?: string
+  minCompleteSourceCount?: string
+}
+
+export interface Ed2kSearchResult {
+  hash?: string
+  name?: string
+  length?: string
+  sourceCount?: string
+  completeSourceCount?: string
+  fileType?: string
+  extension?: string
+  sourceNetwork?: string
+  ed2kLink?: string
+}
+
+export interface Ed2kSearchResults {
+  gid?: string
+  status?: string
+  moreResults?: boolean
+  results?: Ed2kSearchResult[]
+  [key: string]: unknown
 }
 
 /** Remote peer information for an active BitTorrent task. */
@@ -58,6 +121,7 @@ export interface Aria2Task {
   dir: string
   files: Aria2File[]
   bittorrent?: Aria2BtInfo
+  ed2k?: Aria2Ed2kInfo
   infoHash?: string
   numSeeders?: string
   seeder?: string
@@ -72,6 +136,8 @@ export interface Aria2Task {
   followedBy?: string[]
   following?: string
   belongsTo?: string
+  /** JSON metadata attached to history-backed synthetic tasks (for example yt-dlp details). */
+  meta?: string
 }
 
 /** Parsed global statistics with numeric values (post-conversion from string). */
@@ -81,6 +147,7 @@ export interface Aria2GlobalStat {
   numActive: number
   numWaiting: number
   numStopped: number
+  numStoppedTotal: number
 }
 
 /** Engine version information returned by aria2.getVersion. */
@@ -100,10 +167,12 @@ export interface Aria2RawGlobalStat {
   [key: string]: string
 }
 
-/** HTTP/SOCKS proxy configuration for aria2 and tracker requests. */
+/** HTTP proxy configuration for download tasks and scoped app requests. */
 export interface ProxyConfig {
-  enable: boolean
+  mode?: import('@shared/utils/proxy').EngineProxyMode
   server: string
+  username?: string
+  password?: string
   bypass?: string
   scope?: string[]
 }
@@ -119,12 +188,8 @@ export interface SystemProxyInfo {
   isSocks: boolean
 }
 
-/** Protocol handler registration settings (system-level). */
-export interface ProtocolsConfig {
-  magnet: boolean
-  thunder: boolean
-  motrixnext: boolean
-}
+export type UpdateChannel = 'stable' | 'beta' | 'latest'
+export type ResolvedUpdateChannel = Exclude<UpdateChannel, 'latest'>
 
 /** Clipboard auto-detection filter: controls which protocol families
  *  trigger the "new task" dialog when a URL is detected in the clipboard. */
@@ -137,22 +202,61 @@ export interface ClipboardConfig {
   ftp: boolean
   /** Detect magnet: URIs. */
   magnet: boolean
+  /** Detect ed2k:// file links. */
+  ed2k: boolean
   /** Detect thunder:// (迅雷) links. */
   thunder: boolean
   /** Detect bare BitTorrent v1 info hashes (40-char hex / 32-char Base32). */
   btHash: boolean
 }
 
+/** Automatic local port conflict recovery policy. */
+export interface PortConflictRecoveryConfig {
+  enabled: boolean
+  rangeStart: number
+  rangeEnd: number
+  rpc: boolean
+  extensionApi: boolean
+  bt: boolean
+  dht: boolean
+  ed2k: boolean
+  ed2kUdp: boolean
+}
+
 /** A file category rule mapping extensions to a download directory. */
+export type FileCategoryUrlPatternMode = 'wildcard' | 'regex'
+
 export interface FileCategory {
   /** Display label — i18n key suffix for built-in categories, user-provided name for custom ones. */
   label: string
   /** File extensions (lowercase, no dot prefix) belonging to this category. */
   extensions: string[]
+  /** URL, final URL, or referer match rules. Empty means URL is ignored. */
+  urlPatterns?: string[]
+  /** Matching mode for urlPatterns. */
+  urlPatternMode?: FileCategoryUrlPatternMode
   /** Absolute directory path where matching files are saved. */
   directory: string
   /** Whether this is a built-in category (cannot be deleted, label resolved via i18n). */
   builtIn?: boolean
+}
+
+export interface UserAgentProfile {
+  id: string
+  name: string
+  value: string
+  createdAt: number
+  updatedAt: number
+}
+
+export interface UserAgentRule {
+  id: string
+  enabled: boolean
+  hostPattern: string
+  profileId: string
+  overridePlugin: boolean
+  createdAt: number
+  updatedAt: number
 }
 
 /** Application user preferences with full type coverage. */
@@ -165,6 +269,11 @@ export interface AppConfig {
   dbSchemaVersion: number
   theme: 'auto' | 'light' | 'dark'
   colorScheme: string
+  customColorScheme: string
+  taskCardMode: 'full' | 'compact'
+  taskListWatermark: boolean
+  sidebarTaskCounts: boolean
+  taskPageSize: number
   locale: string
   dir: string
   split: number
@@ -193,21 +302,31 @@ export interface AppConfig {
   fileCategoryEnabled: boolean
   /** User-configurable file classification rules. */
   fileCategories: FileCategory[]
-  seedTime: number
-  seedRatio: number
+  shareTime: number
+  shareRatio: number
   btMaxPeers: number
+  btDhtIpv4Enabled: boolean
+  btDhtIpv6Enabled: boolean
+  btPeerExchangeEnabled: boolean
+  btLocalPeerDiscoveryEnabled: boolean
   openAtLogin: boolean
   autoCheckUpdate: boolean
   autoHideWindow: boolean
   minimizeToTrayOnClose: boolean
   hideDockOnMinimize: boolean
   lightweightMode: boolean
-  autoSyncTracker: boolean
-  keepSeeding: boolean
+  btTrackerAutoSync: boolean
+  btTrackerSyncIntervalHours: number
+  btPeerBlocklistEnabled: boolean
+  btPeerBlocklistUrl: string
+  btPeerBlocklistAutoSync: boolean
+  btPeerBlocklistSyncIntervalHours: number
+  keepSharing: boolean
   keepWindowState: boolean
 
   newTaskShowDownloading: boolean
   noConfirmBeforeDeleteTask: boolean
+  fileDeletionMode: FileDeletionMode
   deleteFilesWhenSkipConfirm: boolean
   resumeAllWhenAppLaunched: boolean
   taskNotification: boolean
@@ -218,48 +337,66 @@ export interface AppConfig {
   showProgressBar: boolean
   traySpeedometer: boolean
   dockBadgeSpeed: boolean
-  logLevel: string
+  logLevel: AppLogLevel
+  aria2LogLevel: Aria2LogLevel
   engineBinPath: string
+  /** Directory for internal temporary engine files. Empty means the OS temporary directory. */
+  tempFilesDir: string
   cookie: string
   proxy: ProxyConfig
-  protocols: ProtocolsConfig
   clipboard: ClipboardConfig
-  /** When true, extension-intercepted URI downloads (HTTP/FTP/magnet) bypass
-   *  the AddTask dialog and submit immediately using user defaults.
-   *  Torrent/metalink URLs always show the dialog regardless — they require
-   *  a fetch→parse→file-select pipeline that cannot be skipped. */
+  /** When true, extension-intercepted URI downloads bypass the AddTask dialog. */
   autoSubmitFromExtension: boolean
+  /** When true, extension-intercepted BT tasks skip file selection and download every file. */
+  autoSelectAllBtFilesFromExtension: boolean
+  /** When true, auto-submitted extension downloads are handled in the
+   *  background without raising the main window. Only applies when
+   *  autoSubmitFromExtension is enabled. */
+  silentAutoSubmitFromExtension: boolean
   trackerSource: string[]
   customTrackerUrls: string[]
   historyDirectories: string[]
   favoriteDirectories: string[]
   lastCheckUpdateTime: number
   lastSyncTrackerTime: number
-  /** Linux-only: opt into DMA-BUF GPU hardware rendering (default: false = software).
-   *  If enabling this causes a WebKitGTK crash, the Rust gpu_guard module
-   *  automatically reverts it to false on the next launch. */
+  /** Linux-only: opt into DMA-BUF GPU hardware rendering (default: false = software). */
   hardwareRendering: boolean
-  updateChannel: 'stable' | 'beta'
+  updateChannel: UpdateChannel
   runMode: string
   userAgent: string
+  userAgentProfiles: UserAgentProfile[]
+  userAgentRules: UserAgentRule[]
+  recentUserAgentProfileIds: string[]
   rpcListenPort: number
   /** Port for the embedded HTTP API that browser extensions use to submit
-   *  downloads.  Defaults to 16801 (one above the aria2 RPC port). */
+   *  downloads. Defaults to 29110. */
   extensionApiPort: number
-  /** Shared secret for the extension HTTP API.  The browser extension must
-   *  send this as a `Bearer` token in the `Authorization` header.  When empty,
-   *  authentication is disabled (not recommended). */
+  /** Shared secret for the extension HTTP API. The browser extension must
+   *  send this as a `Bearer` token in the `Authorization` header.
+   *  Empty string means the user intentionally cleared it. */
   extensionApiSecret: string
+  /** Shared secret for the aria2 RPC API. Empty string means the user intentionally cleared it. */
   rpcSecret: string
+  /** When true, aria2 RPC and the extension API listen on all network interfaces. */
+  allowRemoteAccess: boolean
+  /** Automatically switches locally bound ports when another process or OS reservation blocks them. */
+  autoChangeConflictingPorts: boolean
+  portConflictRecovery: PortConflictRecoveryConfig
   listenPort: number
+  btExternalIp: string
+  btExternalPort: number
   dhtListenPort: number
+  ed2kListenPort: number
+  ed2kUdpListenPort: number
+  ed2kServer: string
+  ed2kServerMetUrl: string
+  ed2kNodesDatUrl: string
+  ed2kBootstrapAutoSync: boolean
+  ed2kBootstrapSyncIntervalHours: number
+  ed2kUploadSlots: number
+  ed2kSearchTimeout: number
   btTracker: string
-  forceSave: boolean
-  btSaveMetadata: boolean
-  btLoadSavedMetadata: boolean
   btForceEncryption: boolean
-  followTorrent: boolean
-  followMetalink: boolean
   pauseMetadata: boolean
   continue: boolean
   /** When true, aria2 applies the remote server's Last-Modified timestamp
@@ -270,11 +407,13 @@ export interface AppConfig {
   deleteTorrentAfterComplete: boolean
   autoDeleteStaleRecords: boolean
   clearCompletedOnExit: boolean
+  /** Completed history retention in days. 0 means keep forever. */
+  completedRecordRetentionDays: number
   /** When true, the system shuts down after all downloads complete. */
   shutdownWhenComplete: boolean
-  /** When true, prevents system sleep and display dimming while downloads are active.
+  /** When true, prevents system idle sleep while downloads are active.
    *  Uses OS-native APIs: macOS IOPMAssertion, Windows SetThreadExecutionState,
-   *  Linux D-Bus org.freedesktop.ScreenSaver + systemd Inhibit. */
+   *  Linux systemd Inhibit. */
   keepAwake: boolean
   /** Maximum number of retries per download (0 = unlimited). Maps to aria2 --max-tries. */
   maxTries: number
@@ -287,8 +426,12 @@ export interface AppConfig {
   /** Disk space pre-allocation method. Maps to aria2 --file-allocation.
    *  Values: 'none' | 'trunc' | 'prealloc' | 'falloc' */
   fileAllocation: string
+  /** Enables c-ares based asynchronous DNS resolution. Maps to aria2 --async-dns. */
+  asyncDns: boolean
   /** Per-tab sort configuration (field + direction), persisted independently per tab. */
   taskSort: import('@/composables/useTaskSort').TaskSortConfig
+  /** Per-tab manual task order. Unknown tasks are inserted above stored tasks. */
+  taskManualOrder: import('@/composables/useTaskSort').TaskManualOrderConfig
   [key: string]: unknown
 }
 
@@ -297,24 +440,58 @@ export interface Aria2EngineOptions {
   [key: string]: string | string[] | undefined
 }
 
+export interface BrowserRequestHeader {
+  name: string
+  value: string
+}
+
+export interface ExternalDownloadContext {
+  url?: string
+  finalUrl?: string
+  referer?: string
+  cookie?: string
+  userAgent?: string
+  requestHeaders?: BrowserRequestHeader[]
+  traceId?: string
+}
+
+export interface ExternalDownloadInput extends ExternalDownloadContext {
+  url: string
+  finalUrl?: string
+  filename?: string
+  parseVideo?: boolean
+  source?: string
+}
+
+/** Saved HTTP Basic authentication credential scoped to a normalized URL origin. */
+export interface HttpAuthCredential {
+  id: number
+  origin: string
+  username: string
+  password: string
+  created_at?: string
+  updated_at?: string
+  last_used_at?: string | null
+}
+
+export interface HttpAuthInput {
+  url: string
+  username: string
+  password: string
+}
+
 /** Parameters for adding a URI-based download task. */
 export interface AddUriParams {
   uris: string[]
   outs: string[]
   options: Aria2EngineOptions
   /** Optional file classification config for per-URI directory routing. */
-  fileCategory?: { enabled: boolean; categories: FileCategory[] }
+  fileCategory?: { enabled: boolean; categories: FileCategory[]; contexts?: Record<string, ExternalDownloadContext> }
 }
 
 /** Parameters for adding a torrent-based download task. */
 export interface AddTorrentParams {
   torrent: string
-  options: Aria2EngineOptions
-}
-
-/** Parameters for adding a metalink-based download task. */
-export interface AddMetalinkParams {
-  metalink: string
   options: Aria2EngineOptions
 }
 
@@ -334,11 +511,15 @@ export interface TauriUpdate {
   version: string
   body: string | null
   date: string | null
+  channel: ResolvedUpdateChannel
+  requestedChannel: UpdateChannel
+  /** Computed by Rust via the semver crate — true for cross-channel downgrades. */
+  isRollback: boolean
 }
 
 // ── Batch Add Task ──────────────────────────────────────────────────
 
-export type BatchItemKind = 'uri' | 'torrent' | 'metalink'
+export type BatchItemKind = 'uri' | 'torrent'
 export type BatchItemStatus = 'pending' | 'submitted' | 'failed'
 
 /** A single item in the add-task batch queue. */
@@ -350,8 +531,10 @@ export interface BatchItem {
   source: string
   /** Human-readable display name (filename or truncated URI). */
   displayName: string
-  /** URI text (for uri kind) or base64-encoded file content (for torrent/metalink). */
+  /** URI text (for uri kind) or base64-encoded file content (for torrent). */
   payload: string
+  /** Browser request context captured by the extension for this item. */
+  browserContext?: ExternalDownloadContext
   /** Parsed torrent metadata — only present for torrent items. */
   torrentMeta?: { infoHash: string; files: { idx: number; path: string; length: number }[] }
   /** Selected file indices for torrent selective download. */
@@ -364,7 +547,7 @@ export interface BatchItem {
 /** Per-file snapshot stored in HistoryMeta.files for multi-file task reconstruction.
  *
  * Captures all data needed to fully restore restart, delete, and stale-cleanup
- * semantics for each individual file within a multi-file download (metalink, etc.). */
+ * semantics for each individual file within a multi-file download. */
 export interface HistoryFileSnapshot {
   /** Full local file path. */
   path: string
@@ -386,6 +569,12 @@ export interface HistoryFileSnapshot {
 export interface HistoryMeta {
   /** BT info hash — used for magnet link reconstruction on restart. */
   infoHash?: string
+  /** Engine-serialized BT magnet link. */
+  magnetLink?: string
+  /** Engine-serialized ED2K file link. */
+  ed2kLink?: string
+  /** ED2K file hash — used to deduplicate shared-upload records across sessions. */
+  ed2kHash?: string
   /** BT announce tiers — used to restore tracker-aware magnet restart links. */
   announceList?: string[][]
   /** Complete file list with all URIs — present when files.length > 1. */
@@ -408,7 +597,7 @@ export interface HistoryRecord {
   total_length?: number
   /** Terminal status: 'complete', 'error', or 'removed'. */
   status: string
-  /** Download type: 'uri', 'torrent', or 'metalink'. */
+  /** Download type: 'uri' or 'torrent'. */
   task_type?: string
   /** ISO 8601 timestamp when the task was first added to the download queue.
    *  Once set, never changes — used for position-stable ordering across all tabs. */
@@ -428,9 +617,8 @@ export interface TaskApi {
   fetchTaskItemWithPeers: (params: { gid: string }) => Promise<Aria2Task & { peers: Aria2Peer[] }>
   fetchActiveTaskList: () => Promise<Aria2Task[]>
   addUri: (params: AddUriParams) => Promise<string[]>
-  addUriAtomic: (params: { uris: string[]; options: Record<string, string> }) => Promise<string>
+  addUriAtomic: (params: { uris: string[]; options: Aria2EngineOptions }) => Promise<string>
   addTorrent: (params: AddTorrentParams) => Promise<string>
-  addMetalink: (params: AddMetalinkParams) => Promise<string[]>
   getOption: (params: { gid: string }) => Promise<Record<string, string>>
   changeOption: (params: TaskOptionParams) => Promise<void>
   getFiles: (params: { gid: string }) => Promise<Aria2File[]>
@@ -438,9 +626,6 @@ export interface TaskApi {
   forcePauseTask: (params: { gid: string }) => Promise<string>
   pauseTask: (params: { gid: string }) => Promise<string>
   resumeTask: (params: { gid: string }) => Promise<string>
-  pauseAllTask: () => Promise<string>
-  forcePauseAllTask: () => Promise<string>
-  resumeAllTask: () => Promise<string>
   batchResumeTask: (params: { gids: string[] }) => Promise<unknown[][]>
   batchPauseTask: (params: { gids: string[] }) => Promise<unknown[][]>
   batchForcePauseTask: (params: { gids: string[] }) => Promise<unknown[][]>

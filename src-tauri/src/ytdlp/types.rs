@@ -116,14 +116,3 @@ pub struct YtdlpLog {
     pub stream: String, // "stdout" | "stderr"
     pub line: String,
 }
-
-impl VideoFormat {
-    /// Returns true when this format uses a streaming protocol that aria2
-    /// cannot download directly (HLS, DASH, etc.).
-    pub fn is_streaming(&self) -> bool {
-        matches!(
-            self.protocol.as_str(),
-            "m3u8" | "m3u8_native" | "http_dash_segments" | "dash"
-        )
-    }
-}

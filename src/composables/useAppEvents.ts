@@ -11,23 +11,72 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { useRouter, useRoute } from 'vue-router'
-import { logger } from '@shared/logger'
+import { formatLogFields, logger } from '@shared/logger'
 import { setEngineReady, isEngineReady } from '@/api/aria2'
 import { detectKind, createBatchItem } from '@shared/utils/batchHelpers'
+import { createExternalInputTraceId, summarizeExternalInputBatch } from '@shared/utils/externalInputDiagnostics'
+import { getErrorMessage } from '@shared/utils/errorMessage'
+import { isMotrixNewTaskLink } from '@shared/utils/motrixDeepLink'
+import type { ExternalDownloadInput } from '@shared/types'
+import { handleTaskStart } from '@/composables/useTaskNotifyHandlers'
 import { onUnmounted, watch, type Ref, type WatchStopHandle } from 'vue'
+
+interface DeepLinkHandlingResult {
+  received: number
+  queued: number
+  autoSubmitted: number
+  ignored: number
+}
+
+interface PendingDeepLinksPayload {
+  urls: string[]
+  silent: boolean
+}
+
+type DeepLinkEventPayload = string[] | PendingDeepLinksPayload
+
+interface PendingExternalInputsPayload {
+  inputs: ExternalDownloadInput[]
+  silent: boolean
+}
+
+type PendingFrontendActionChannel = 'menu-event' | 'tray-menu-action'
+
+interface PendingFrontendAction {
+  channel: PendingFrontendActionChannel
+  action: string
+}
+
+interface PortSwitchEvent {
+  kind: 'rpc' | 'extensionApi' | 'bt' | 'dht' | 'ed2k' | 'ed2kUdp'
+  oldPort: number
+  newPort: number
+}
+
+interface PortSwitchFailureEvent {
+  kind: 'rpc' | 'extensionApi' | 'bt' | 'dht' | 'ed2k' | 'ed2kUdp'
+  port: number
+  reason: 'disabled' | 'noAvailablePort' | 'bindFailed'
+  source: 'startup' | 'btRuntime' | 'extensionApi'
+}
 
 interface AppEventsDeps {
   t: (key: string, params?: Record<string, unknown>) => string
   appStore: {
     showAddTaskDialog: () => void
     enqueueBatch: (items: ReturnType<typeof createBatchItem>[]) => number
-    handleDeepLinkUrls: (urls: string[]) => void
+    handleDeepLinkUrls: (urls: string[]) => DeepLinkHandlingResult | void
+    handleExternalInputs: (inputs: ExternalDownloadInput[]) => DeepLinkHandlingResult | void
+    setExternalInputErrorHandler?: (handler: ((error: unknown) => void) | null) => void
+    setExternalInputStartHandler?: (handler: ((taskNames: string[]) => void) | null) => void
     engineReady: boolean
     engineRestarting: boolean
+    addTaskVisible: boolean
+    pendingBatch: unknown[]
+    pendingMagnetGids: string[]
+    externalInputSubmitting: boolean
   }
   taskStore: {
-    taskList: unknown[]
-    selectedGidList: string[]
     hasPausedTasks: () => Promise<boolean>
     hasActiveTasks: () => Promise<boolean>
     resumeAllTask: () => Promise<unknown>
@@ -39,8 +88,15 @@ interface AppEventsDeps {
     saveBeforeLeave: (() => Promise<void>) | null
     config: {
       rpcListenPort?: string | number
-      rpcSecret?: string
+      rpcSecret: string
+      extensionApiPort?: number
+      listenPort?: number
+      dhtListenPort?: number
+      ed2kListenPort?: number
+      ed2kUdpListenPort?: number
+      lightweightMode?: boolean
     }
+    updatePreference?: (cfg: Record<string, unknown>) => void
   }
   message: {
     success: (msg: string) => void
@@ -61,6 +117,7 @@ interface AppEventsReturn {
     unlistenMenuEvent: (() => void) | null
     unlistenTrayMenu: (() => void) | null
     unlistenDeepLink: (() => void) | null
+    unlistenExternalInput: (() => void) | null
     unlistenSingleInstance: (() => void) | null
     teardown: () => void
   }>
@@ -82,6 +139,8 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
   const router = useRouter()
   const route = useRoute()
   const cleanupFns: Array<() => void> = []
+  let silentCleanupTimer: ReturnType<typeof setTimeout> | null = null
+  let engineRecoveredWaitInFlight = false
 
   function registerCleanup(cleanup: (() => void) | null | undefined): () => void {
     let active = true
@@ -95,6 +154,10 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
   }
 
   function teardown() {
+    if (silentCleanupTimer) {
+      clearTimeout(silentCleanupTimer)
+      silentCleanupTimer = null
+    }
     const pending = cleanupFns.splice(0)
     for (const cleanup of pending.reverse()) {
       cleanup()
@@ -102,6 +165,43 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
   }
 
   onUnmounted(teardown)
+
+  function setupExternalInputHandlers() {
+    appStore.setExternalInputErrorHandler?.((error) => {
+      message.error(
+        getErrorMessage(error, {
+          fallback: t('task.error-unknown'),
+          labels: { Aria2: t('task.error-aria2-next') },
+        }),
+        { closable: true },
+      )
+    })
+    registerCleanup(() => appStore.setExternalInputErrorHandler?.(null))
+
+    appStore.setExternalInputStartHandler?.((taskNames) => {
+      handleTaskStart(taskNames, {
+        messageInfo: message.info,
+        t,
+      })
+    })
+    registerCleanup(() => appStore.setExternalInputStartHandler?.(null))
+  }
+
+  setupExternalInputHandlers()
+
+  async function runExternalInputWindowStage(
+    traceId: string,
+    stage: 'unminimize' | 'show' | 'setFocus',
+    operation: () => Promise<void>,
+  ) {
+    try {
+      await operation()
+      logger.debug('ExternalInput', formatLogFields({ traceId, stage, result: 'ok' }))
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      logger.warn('ExternalInput', formatLogFields({ traceId, stage, result: 'failed', reason }))
+    }
+  }
 
   // ─── Engine lifecycle watchers ────────────────────────────────────
   async function setupEngineWatchers() {
@@ -130,6 +230,11 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
     const unlistenEngineRecovered = registerCleanup(
       await listen<{ source: string }>('engine-recovered', async (event) => {
         logger.info('MainLayout', `engine recovered (source: ${event.payload.source})`)
+        if (engineRecoveredWaitInFlight) {
+          logger.debug('MainLayout', 'engine-recovered: readiness check already in flight, skipping')
+          return
+        }
+        engineRecoveredWaitInFlight = true
 
         // Rust-side health check with retries — also updates Aria2Client credentials.
         // on_engine_ready() was already called by restart_engine_command before
@@ -150,6 +255,8 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
           logger.error('MainLayout', `engine-recovered: wait_for_engine failed: ${e}`)
           setEngineReady(false)
           appStore.engineReady = false
+        } finally {
+          engineRecoveredWaitInFlight = false
         }
       }),
     )
@@ -160,9 +267,60 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       }),
     )
 
-    const unlistenHttpApiFailed = registerCleanup(
-      await listen<number>('http-api-bind-failed', (event) => {
-        message.error(t('preferences.extension-api-port-failed', { port: event.payload }))
+    const unlistenPortAutoSwitched = registerCleanup(
+      await listen<PortSwitchEvent[]>('port-auto-switched', (event) => {
+        const switches = event.payload
+        if (!Array.isArray(switches) || switches.length === 0) return
+        const labels: Record<PortSwitchEvent['kind'], string> = {
+          rpc: t('preferences.rpc-listen-port'),
+          extensionApi: t('preferences.extension-api-port'),
+          bt: t('preferences.bt-port'),
+          dht: t('preferences.dht-port'),
+          ed2k: t('preferences.ed2k-listen-port'),
+          ed2kUdp: t('preferences.ed2k-udp-listen-port'),
+        }
+        const ports = switches
+          .map((item) => `${labels[item.kind] ?? item.kind} ${item.oldPort} -> ${item.newPort}`)
+          .join(', ')
+        const patch: Record<string, number> = {}
+        for (const item of switches) {
+          if (item.kind === 'rpc') patch.rpcListenPort = item.newPort
+          if (item.kind === 'extensionApi') patch.extensionApiPort = item.newPort
+          if (item.kind === 'bt') patch.listenPort = item.newPort
+          if (item.kind === 'dht') patch.dhtListenPort = item.newPort
+          if (item.kind === 'ed2k') patch.ed2kListenPort = item.newPort
+          if (item.kind === 'ed2kUdp') patch.ed2kUdpListenPort = item.newPort
+        }
+        preferenceStore.updatePreference?.(patch)
+        message.info(t('preferences.port-auto-switched', { ports }))
+      }),
+    )
+
+    const unlistenPortAutoSwitchFailed = registerCleanup(
+      await listen<PortSwitchFailureEvent>('port-auto-switch-failed', (event) => {
+        const failure = event.payload
+        if (!failure || typeof failure.port !== 'number') return
+        const labels: Record<PortSwitchFailureEvent['kind'], string> = {
+          rpc: t('preferences.rpc-listen-port'),
+          extensionApi: t('preferences.extension-api-port'),
+          bt: t('preferences.bt-port'),
+          dht: t('preferences.dht-port'),
+          ed2k: t('preferences.ed2k-listen-port'),
+          ed2kUdp: t('preferences.ed2k-udp-listen-port'),
+        }
+        const params = {
+          label: labels[failure.kind] ?? failure.kind,
+          port: failure.port,
+        }
+        if (failure.reason === 'disabled') {
+          message.warning(t('preferences.port-auto-switch-disabled', params))
+          return
+        }
+        if (failure.reason === 'noAvailablePort') {
+          message.error(t('preferences.port-auto-switch-no-available-port', params), { closable: true })
+          return
+        }
+        message.error(t('preferences.port-auto-switch-bind-failed', params), { closable: true })
       }),
     )
 
@@ -171,7 +329,8 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
       unwatchEngineState,
       unlistenEngineRecovered,
       unlistenEngineStopped,
-      unlistenHttpApiFailed,
+      unlistenPortAutoSwitched,
+      unlistenPortAutoSwitchFailed,
     }
   }
 
@@ -179,11 +338,6 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
   function setupNavGuard() {
     return registerCleanup(
       router.beforeEach((to, from) => {
-        if (from.name === 'task' && to.name === 'task' && from.params.status !== to.params.status) {
-          taskStore.taskList = []
-          taskStore.selectedGidList = []
-        }
-
         const leavingPrefs = from.path.startsWith('/preference') && !to.path.startsWith('/preference')
         const switchingPrefsTab =
           from.path.startsWith('/preference') && to.path.startsWith('/preference') && from.path !== to.path
@@ -228,51 +382,7 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
   async function setupMenuListener() {
     return registerCleanup(
       await listen<string>('menu-event', async (event) => {
-        const action = event.payload
-        switch (action) {
-          case 'about':
-            deps.onAbout()
-            break
-          case 'new-task':
-            await getCurrentWindow().unminimize()
-            await getCurrentWindow().show()
-            await getCurrentWindow().setFocus()
-            appStore.showAddTaskDialog()
-            break
-          case 'open-torrent': {
-            const selected = await openDialog({
-              multiple: true,
-              filters: [{ name: 'Torrent / Metalink', extensions: ['torrent', 'metalink', 'meta4'] }],
-            })
-            if (typeof selected === 'string') {
-              const skipped = appStore.enqueueBatch([createBatchItem(detectKind(selected), selected)])
-              if (skipped > 0) message.warning(t('task.duplicate-task'))
-            } else if (Array.isArray(selected) && selected.length > 0) {
-              const skipped = appStore.enqueueBatch(selected.map((p) => createBatchItem(detectKind(p), p)))
-              if (skipped > 0) message.warning(t('task.duplicate-task'))
-            }
-            break
-          }
-          case 'preferences':
-            router.push('/preference').catch(() => {
-              /* duplicate navigation */
-            })
-            break
-          case 'resume-all':
-            if (!(await taskStore.hasPausedTasks())) break
-            taskStore.resumeAllTask().catch((e) => logger.error('TrayMenu', e))
-            break
-          case 'pause-all':
-            if (!(await taskStore.hasActiveTasks())) break
-            taskStore.pauseAllTask().catch((e) => logger.error('TrayMenu', e))
-            break
-          case 'release-notes':
-            openUrl('https://github.com/AnInsomniacy/motrix-next/releases').catch((e) => logger.error('TrayMenu', e))
-            break
-          case 'report-issue':
-            openUrl('https://github.com/AnInsomniacy/motrix-next/issues').catch((e) => logger.error('TrayMenu', e))
-            break
-        }
+        await handleMenuAction(event.payload)
       }),
     )
   }
@@ -281,102 +391,148 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
   async function setupTrayListener() {
     return registerCleanup(
       await listen<string>('tray-menu-action', async (event) => {
-        const action = event.payload
-        const mainWindow = getCurrentWindow()
-        switch (action) {
-          case 'show':
-            await mainWindow.unminimize()
-            await mainWindow.show()
-            await mainWindow.setFocus()
-            break
-          case 'new-task':
-            await mainWindow.unminimize()
-            await mainWindow.show()
-            await mainWindow.setFocus()
-            appStore.showAddTaskDialog()
-            break
-          case 'resume-all':
-            await mainWindow.unminimize()
-            await mainWindow.show()
-            await mainWindow.setFocus()
-            if (!(await taskStore.hasPausedTasks())) {
-              message.info(t('task.no-paused-tasks'))
-              break
-            }
-            if (!isEngineReady()) {
-              message.warning(t('app.engine-not-ready'))
-            } else {
-              navDialog.warning({
-                title: t('task.resume-all-task'),
-                content: t('task.resume-all-task-confirm') || 'Resume all tasks?',
-                positiveText: t('app.yes'),
-                negativeText: t('app.no'),
-                onPositiveClick: () => {
-                  taskStore
-                    .resumeAllTask()
-                    .then(() => message.success(t('task.resume-all-task-success')))
-                    .catch(() => message.error(t('task.resume-all-task-fail')))
-                },
-              })
-            }
-            break
-          case 'pause-all':
-            await mainWindow.unminimize()
-            await mainWindow.show()
-            await mainWindow.setFocus()
-            if (!(await taskStore.hasActiveTasks())) {
-              message.info(t('task.no-active-tasks'))
-              break
-            }
-            if (!isEngineReady()) {
-              message.warning(t('app.engine-not-ready'))
-            } else {
-              const d = navDialog.warning({
-                title: t('task.pause-all-task'),
-                content: t('task.pause-all-task-confirm') || 'Pause all tasks?',
-                positiveText: t('app.yes'),
-                negativeText: t('app.no'),
-                onPositiveClick: () => {
-                  d.loading = true
-                  d.negativeButtonProps = { disabled: true }
-                  d.closable = false
-                  d.maskClosable = false
-                  taskStore
-                    .pauseAllTask()
-                    .then(async () => {
-                      await new Promise((r) => setTimeout(r, 500))
-                      await taskStore.fetchList()
-                      message.success(t('task.pause-all-task-success'))
-                      d.destroy()
-                    })
-                    .catch(() => {
-                      message.error(t('task.pause-all-task-fail'))
-                      d.destroy()
-                    })
-                  return false
-                },
-              })
-            }
-            break
-          case 'quit':
-            await handleExitConfirm()
-            break
-        }
+        await handleTrayAction(event.payload)
       }),
     )
   }
 
-  // ─── Drag & drop .torrent / .metalink files ──────────────────────
+  async function surfaceMainWindow() {
+    const mainWindow = getCurrentWindow()
+    await mainWindow.unminimize()
+    await mainWindow.show()
+    await mainWindow.setFocus()
+  }
+
+  async function handleMenuAction(action: string) {
+    switch (action) {
+      case 'about':
+        deps.onAbout()
+        break
+      case 'new-task':
+        await surfaceMainWindow()
+        appStore.showAddTaskDialog()
+        break
+      case 'open-torrent': {
+        const selected = await openDialog({
+          multiple: true,
+          filters: [{ name: 'Torrent', extensions: ['torrent'] }],
+        })
+        if (typeof selected === 'string') {
+          const skipped = appStore.enqueueBatch([createBatchItem(detectKind(selected), selected)])
+          if (skipped > 0) message.warning(t('task.duplicate-task'))
+        } else if (Array.isArray(selected) && selected.length > 0) {
+          const skipped = appStore.enqueueBatch(selected.map((p) => createBatchItem(detectKind(p), p)))
+          if (skipped > 0) message.warning(t('task.duplicate-task'))
+        }
+        break
+      }
+      case 'preferences':
+        router.push('/preference').catch(() => {
+          /* duplicate navigation */
+        })
+        break
+      case 'resume-all':
+        if (!(await taskStore.hasPausedTasks())) break
+        taskStore.resumeAllTask().catch((e) => logger.error('TrayMenu', e))
+        break
+      case 'pause-all':
+        if (!(await taskStore.hasActiveTasks())) break
+        taskStore.pauseAllTask().catch((e) => logger.error('TrayMenu', e))
+        break
+      case 'release-notes':
+        openUrl('https://github.com/AnInsomniacy/motrix-next/releases').catch((e) => logger.error('TrayMenu', e))
+        break
+      case 'report-issue':
+        openUrl('https://github.com/AnInsomniacy/motrix-next/issues').catch((e) => logger.error('TrayMenu', e))
+        break
+    }
+  }
+
+  async function handleTrayAction(action: string) {
+    switch (action) {
+      case 'show':
+        await surfaceMainWindow()
+        break
+      case 'new-task':
+        await surfaceMainWindow()
+        appStore.showAddTaskDialog()
+        break
+      case 'resume-all':
+        await surfaceMainWindow()
+        if (!(await taskStore.hasPausedTasks())) {
+          message.info(t('task.no-paused-tasks'))
+          break
+        }
+        if (!isEngineReady()) {
+          message.warning(t('app.engine-not-ready'))
+        } else {
+          navDialog.warning({
+            title: t('task.resume-all-task'),
+            content: t('task.resume-all-task-confirm') || 'Resume all tasks?',
+            positiveText: t('app.yes'),
+            negativeText: t('app.no'),
+            onPositiveClick: () => {
+              taskStore
+                .resumeAllTask()
+                .then(() => message.success(t('task.resume-all-task-success')))
+                .catch(() => message.error(t('task.resume-all-task-fail')))
+            },
+          })
+        }
+        break
+      case 'pause-all': {
+        await surfaceMainWindow()
+        if (!(await taskStore.hasActiveTasks())) {
+          message.info(t('task.no-active-tasks'))
+          break
+        }
+        if (!isEngineReady()) {
+          message.warning(t('app.engine-not-ready'))
+          break
+        }
+        const d = navDialog.warning({
+          title: t('task.pause-all-task'),
+          content: t('task.pause-all-task-confirm') || 'Pause all tasks?',
+          positiveText: t('app.yes'),
+          negativeText: t('app.no'),
+          onPositiveClick: () => {
+            d.loading = true
+            d.negativeButtonProps = { disabled: true }
+            d.closable = false
+            d.maskClosable = false
+            taskStore
+              .pauseAllTask()
+              .then(async () => {
+                await new Promise((r) => setTimeout(r, 500))
+                await taskStore.fetchList()
+                message.success(t('task.pause-all-task-success'))
+                d.destroy()
+              })
+              .catch(() => {
+                message.error(t('task.pause-all-task-fail'))
+                d.destroy()
+              })
+            return false
+          },
+        })
+        break
+      }
+      case 'quit':
+        await handleExitConfirm()
+        break
+    }
+  }
+
+  // ─── Drag & drop .torrent files ──────────────────────────────────
   async function setupDragDropListener() {
     const webview = getCurrentWebview()
     return registerCleanup(
       await webview.onDragDropEvent((event) => {
         if (event.payload.type === 'drop') {
           const paths = event.payload.paths
-          const validPaths =
-            paths?.filter((p: string) => p.endsWith('.torrent') || p.endsWith('.metalink') || p.endsWith('.meta4')) ||
-            []
+          const validPaths = paths?.filter((p: string) => p.endsWith('.torrent')) || []
           if (validPaths.length > 0) {
+            logger.info('DragDrop', `dropped ${validPaths.length} file(s): [${validPaths.join(', ')}]`)
             const items = validPaths.map((p: string) => createBatchItem(detectKind(p), p))
             const skipped = appStore.enqueueBatch(items)
             if (skipped > 0) message.warning(t('task.duplicate-task'))
@@ -396,72 +552,267 @@ export function useAppEvents(deps: AppEventsDeps): AppEventsReturn {
    * Shared by the live `deep-link-open` listener and the pending-URL
    * consumption path (lightweight mode window recreation).
    */
-  async function processIncomingDeepLinks(urls: string[]) {
-    const mainWindow = getCurrentWindow()
-    await mainWindow.unminimize()
-    await mainWindow.show()
-    await mainWindow.setFocus()
+  async function scheduleSilentLightweightCleanup(traceId: string) {
+    if (silentCleanupTimer) clearTimeout(silentCleanupTimer)
+    silentCleanupTimer = setTimeout(() => {
+      silentCleanupTimer = null
+      void (async () => {
+        if (!preferenceStore.config.lightweightMode) return
+        if (appStore.externalInputSubmitting) return
+        if (appStore.addTaskVisible) return
+        if (appStore.pendingBatch.length > 0) return
+        if (appStore.pendingMagnetGids.length > 0) return
+        const mainWindow = getCurrentWindow()
+        try {
+          if (await mainWindow.isVisible()) return
+          const { invoke } = await import('@tauri-apps/api/core')
+          await invoke('minimize_to_tray')
+          logger.info('ExternalInput', formatLogFields({ traceId, stage: 'silent-cleanup', result: 'ok' }))
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error)
+          logger.debug(
+            'ExternalInput',
+            formatLogFields({ traceId, stage: 'silent-cleanup', result: 'skipped', reason }),
+          )
+        }
+      })()
+    }, 7000)
+  }
+
+  async function processIncomingDeepLinks(urls: string[], options: { silent?: boolean } = {}) {
+    const traceId = createExternalInputTraceId()
+    const silent = options.silent === true
+    logger.info(
+      'ExternalInput',
+      formatLogFields({
+        traceId,
+        stage: 'received',
+        route: route.path,
+        silent,
+        ...summarizeExternalInputBatch(urls),
+      }),
+    )
+    if (!silent) {
+      const mainWindow = getCurrentWindow()
+      await runExternalInputWindowStage(traceId, 'unminimize', () => mainWindow.unminimize())
+      await runExternalInputWindowStage(traceId, 'show', () => mainWindow.show())
+      await runExternalInputWindowStage(traceId, 'setFocus', () => mainWindow.setFocus())
+    }
 
     // Navigate to the "All" downloads tab when receiving new tasks from
     // extension.  Always land on /task/all regardless of current sub-tab
     // (active, stopped, etc.) so the user sees the full task list.
-    const hasNewTask = urls.some((url) => url.toLowerCase().startsWith('motrixnext://new'))
-    if (hasNewTask && route.path !== '/task/all') {
-      router.push('/task/all').catch(() => {})
+    const hasNewTask = urls.some(isMotrixNewTaskLink)
+    if (!silent && hasNewTask && route.path !== '/task/all') {
+      try {
+        await router.push('/task/all')
+        logger.debug('ExternalInput', formatLogFields({ traceId, stage: 'navigate', result: 'ok', route: '/task/all' }))
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error)
+        logger.warn(
+          'ExternalInput',
+          formatLogFields({ traceId, stage: 'navigate', result: 'failed', route: '/task/all', reason }),
+        )
+      }
     }
 
-    appStore.handleDeepLinkUrls(urls)
+    logger.info('ExternalInput', formatLogFields({ traceId, stage: 'route-download', result: 'start' }))
+    try {
+      const handlingResult = appStore.handleDeepLinkUrls(urls)
+      logger.info(
+        'ExternalInput',
+        formatLogFields({
+          traceId,
+          stage: 'route-download',
+          result: 'ok',
+          received: handlingResult?.received ?? 'unknown',
+          queued: handlingResult?.queued ?? 'unknown',
+          autoSubmitted: handlingResult?.autoSubmitted ?? 'unknown',
+          ignored: handlingResult?.ignored ?? 'unknown',
+        }),
+      )
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      logger.error('ExternalInput', formatLogFields({ traceId, stage: 'route-download', result: 'failed', reason }))
+      throw error
+    }
+    if (silent) {
+      await scheduleSilentLightweightCleanup(traceId)
+    }
+  }
+
+  async function processIncomingExternalInputs(inputs: ExternalDownloadInput[], options: { silent?: boolean } = {}) {
+    const traceId = createExternalInputTraceId()
+    const silent = options.silent === true
+    logger.info(
+      'ExternalInput',
+      formatLogFields({
+        traceId,
+        stage: 'received',
+        source: 'structured',
+        route: route.path,
+        silent,
+        count: inputs.length,
+        hasCookie: inputs.some((input) => Boolean(input.cookie)),
+        hasUserAgent: inputs.some((input) => Boolean(input.userAgent)),
+        headerCount: inputs.reduce((count, input) => count + (input.requestHeaders?.length ?? 0), 0),
+      }),
+    )
+    if (!silent) {
+      const mainWindow = getCurrentWindow()
+      await runExternalInputWindowStage(traceId, 'unminimize', () => mainWindow.unminimize())
+      await runExternalInputWindowStage(traceId, 'show', () => mainWindow.show())
+      await runExternalInputWindowStage(traceId, 'setFocus', () => mainWindow.setFocus())
+    }
+
+    if (!silent && inputs.length > 0 && route.path !== '/task/all') {
+      try {
+        await router.push('/task/all')
+        logger.debug('ExternalInput', formatLogFields({ traceId, stage: 'navigate', result: 'ok', route: '/task/all' }))
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error)
+        logger.warn(
+          'ExternalInput',
+          formatLogFields({ traceId, stage: 'navigate', result: 'failed', route: '/task/all', reason }),
+        )
+      }
+    }
+
+    logger.info('ExternalInput', formatLogFields({ traceId, stage: 'route-download', result: 'start' }))
+    try {
+      const tracedInputs = inputs.map((input) => ({ ...input, traceId }))
+      const handlingResult = appStore.handleExternalInputs(tracedInputs)
+      logger.info(
+        'ExternalInput',
+        formatLogFields({
+          traceId,
+          stage: 'route-download',
+          result: 'ok',
+          received: handlingResult?.received ?? 'unknown',
+          queued: handlingResult?.queued ?? 'unknown',
+          autoSubmitted: handlingResult?.autoSubmitted ?? 'unknown',
+          ignored: handlingResult?.ignored ?? 'unknown',
+        }),
+      )
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      logger.error('ExternalInput', formatLogFields({ traceId, stage: 'route-download', result: 'failed', reason }))
+      throw error
+    }
+    if (silent) {
+      await scheduleSilentLightweightCleanup(traceId)
+    }
+  }
+
+  function normalizeDeepLinkPayload(payload: DeepLinkEventPayload): PendingDeepLinksPayload {
+    return Array.isArray(payload) ? { urls: payload, silent: false } : payload
+  }
+
+  function normalizeExternalInputPayload(
+    payload: PendingExternalInputsPayload | ExternalDownloadInput[],
+  ): PendingExternalInputsPayload {
+    return Array.isArray(payload) ? { inputs: payload, silent: false } : payload
   }
 
   async function setupExternalInputListeners() {
     const unlistenDeepLink = registerCleanup(
-      await listen<string[]>('deep-link-open', async (event) => {
-        await processIncomingDeepLinks(event.payload)
+      await listen<DeepLinkEventPayload>('deep-link-open', async (event) => {
+        const payload = normalizeDeepLinkPayload(event.payload)
+        await processIncomingDeepLinks(payload.urls, { silent: payload.silent })
+      }),
+    )
+
+    const unlistenExternalInput = registerCleanup(
+      await listen<PendingExternalInputsPayload>('external-input-open', async (event) => {
+        await processIncomingExternalInputs(event.payload.inputs, { silent: event.payload.silent })
       }),
     )
 
     const unlistenSingleInstance = registerCleanup(
-      await listen<string[]>('single-instance-triggered', (event) => {
+      await listen<string[]>('single-instance-triggered', async (event) => {
         const argv = event.payload
-        const urls = argv.filter(
-          (a) =>
+        const urls = argv.filter((a) => {
+          const lower = a.toLowerCase()
+          return (
             !a.startsWith('-') &&
-            (a.includes('://') || a.endsWith('.torrent') || a.endsWith('.metalink') || a.endsWith('.meta4')),
-        )
-        if (urls.length > 0) appStore.handleDeepLinkUrls(urls)
+            (lower.includes('://') ||
+              lower.startsWith('magnet:') ||
+              lower.startsWith('ed2k://') ||
+              lower.endsWith('.torrent'))
+          )
+        })
+        if (urls.length > 0) {
+          logger.info('SingleInstance', `forwarding ${urls.length} URL(s) from second instance`)
+          await processIncomingDeepLinks(urls)
+        }
       }),
     )
 
-    return { unlistenDeepLink, unlistenSingleInstance }
+    return { unlistenDeepLink, unlistenExternalInput, unlistenSingleInstance }
   }
 
   // ─── Orchestrator ─────────────────────────────────────────────────
   async function setupListeners() {
     teardown()
+    setupExternalInputHandlers()
 
     await setupEngineWatchers()
     setupNavGuard()
 
+    const { unlistenDeepLink, unlistenExternalInput, unlistenSingleInstance } = await setupExternalInputListeners()
     const unlistenDragDrop = await setupDragDropListener()
     const unlistenMenuEvent = await setupMenuListener()
     const unlistenTrayMenu = await setupTrayListener()
-    const { unlistenDeepLink, unlistenSingleInstance } = await setupExternalInputListeners()
 
     // After all listeners are registered, consume any deep-link URLs
     // queued by Rust during window recreation (lightweight mode timing gap).
     // Normal startups return an empty array — this is a no-op.
     try {
       const { invoke } = await import('@tauri-apps/api/core')
-      const pendingUrls = await invoke<string[]>('take_pending_deep_links')
+      const pending = normalizeDeepLinkPayload(await invoke<DeepLinkEventPayload>('take_pending_deep_links'))
+      const pendingUrls = pending.urls
+      const silent = pending.silent === true
       if (pendingUrls.length > 0) {
-        logger.info('AppEvents', `consuming ${pendingUrls.length} pending deep-link(s) from window recreation`)
-        await processIncomingDeepLinks(pendingUrls)
+        logger.info(
+          'AppEvents',
+          `consuming ${pendingUrls.length} pending deep-link(s) from window recreation silent=${silent}`,
+        )
+        await processIncomingDeepLinks(pendingUrls, { silent })
+      }
+      const pendingExternal = normalizeExternalInputPayload(
+        await invoke<PendingExternalInputsPayload | ExternalDownloadInput[]>('take_pending_external_inputs'),
+      )
+      if (pendingExternal.inputs.length > 0) {
+        logger.info(
+          'AppEvents',
+          `consuming ${pendingExternal.inputs.length} pending external input(s) from window recreation silent=${pendingExternal.silent}`,
+        )
+        await processIncomingExternalInputs(pendingExternal.inputs, { silent: pendingExternal.silent })
+      }
+      const pendingActions = await invoke<PendingFrontendAction[]>('take_pending_frontend_actions')
+      if (pendingActions.length > 0) {
+        logger.info('AppEvents', `consuming ${pendingActions.length} pending frontend action(s) from window recreation`)
+        for (const pendingAction of pendingActions) {
+          if (pendingAction.channel === 'menu-event') {
+            await handleMenuAction(pendingAction.action)
+          } else if (pendingAction.channel === 'tray-menu-action') {
+            await handleTrayAction(pendingAction.action)
+          }
+        }
       }
     } catch (e) {
-      logger.debug('AppEvents.pendingDeepLinks', e)
+      logger.debug('AppEvents.pendingNativeEvents', e)
     }
 
-    return { unlistenDragDrop, unlistenMenuEvent, unlistenTrayMenu, unlistenDeepLink, unlistenSingleInstance, teardown }
+    return {
+      unlistenDragDrop,
+      unlistenMenuEvent,
+      unlistenTrayMenu,
+      unlistenDeepLink,
+      unlistenExternalInput,
+      unlistenSingleInstance,
+      teardown,
+    }
   }
 
   return { setupListeners }

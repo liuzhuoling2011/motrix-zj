@@ -5,13 +5,15 @@
  * notifications/automation, and auto-cleanup. This is the core download
  * experience tab — most fields map to aria2 engine options.
  */
-import type { AppConfig, FileCategory } from '@shared/types'
+import type { AppConfig, FileCategory, FileDeletionMode } from '@shared/types'
 import {
   DEFAULT_APP_CONFIG as D,
   buildDefaultCategories,
   BUILTIN_CATEGORY_LABELS,
   BUILTIN_CATEGORY_TEMPLATES,
+  COMPLETED_RECORD_RETENTION_OPTIONS,
 } from '@shared/constants'
+import { normalizeFileCategory } from '@shared/utils/fileCategory'
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -35,6 +37,7 @@ export interface DownloadsForm {
   speedScheduleDays: number
   newTaskShowDownloading: boolean
   noConfirmBeforeDeleteTask: boolean
+  fileDeletionMode: FileDeletionMode
   deleteFilesWhenSkipConfirm: boolean
   taskNotification: boolean
   notifyOnStart: boolean
@@ -44,6 +47,7 @@ export interface DownloadsForm {
   deleteTorrentAfterComplete: boolean
   autoDeleteStaleRecords: boolean
   clearCompletedOnExit: boolean
+  completedRecordRetentionDays: number
 }
 
 // ── Internals ───────────────────────────────────────────────────────
@@ -60,15 +64,17 @@ function hydrateCategories(categories: FileCategory[], baseDir: string): FileCat
     BUILTIN_CATEGORY_TEMPLATES.map((t) => [t.label, t.subdirName]),
   )
 
-  return categories.map((cat) => {
-    const isBuiltIn = cat.builtIn ?? BUILTIN_CATEGORY_LABELS.has(cat.label)
-    let directory = cat.directory
-    if (!directory) {
-      const subdirName = templateMap.get(cat.label)
-      directory = subdirName ? `${normalizedBase}/${subdirName}` : normalizedBase
-    }
-    return { ...cat, builtIn: isBuiltIn, directory }
-  })
+  return categories
+    .map((cat) => {
+      const isBuiltIn = cat.builtIn ?? BUILTIN_CATEGORY_LABELS.has(cat.label)
+      let directory = cat.directory
+      if (!directory) {
+        const subdirName = templateMap.get(cat.label)
+        directory = subdirName ? `${normalizedBase}/${subdirName}` : normalizedBase
+      }
+      return { ...cat, builtIn: isBuiltIn, directory }
+    })
+    .map(normalizeFileCategory)
 }
 
 // ── Pure Functions ──────────────────────────────────────────────────
@@ -100,6 +106,7 @@ export function buildDownloadsForm(config: AppConfig, defaultDir: string = ''): 
     speedScheduleDays: config.speedScheduleDays ?? D.speedScheduleDays,
     newTaskShowDownloading: config.newTaskShowDownloading ?? D.newTaskShowDownloading,
     noConfirmBeforeDeleteTask: config.noConfirmBeforeDeleteTask ?? D.noConfirmBeforeDeleteTask,
+    fileDeletionMode: config.fileDeletionMode ?? D.fileDeletionMode,
     deleteFilesWhenSkipConfirm: config.deleteFilesWhenSkipConfirm ?? D.deleteFilesWhenSkipConfirm,
     taskNotification: config.taskNotification ?? D.taskNotification,
     notifyOnStart: config.notifyOnStart ?? D.notifyOnStart,
@@ -109,6 +116,7 @@ export function buildDownloadsForm(config: AppConfig, defaultDir: string = ''): 
     deleteTorrentAfterComplete: config.deleteTorrentAfterComplete ?? false,
     autoDeleteStaleRecords: config.autoDeleteStaleRecords ?? false,
     clearCompletedOnExit: config.clearCompletedOnExit ?? false,
+    completedRecordRetentionDays: config.completedRecordRetentionDays ?? D.completedRecordRetentionDays,
   }
 }
 
@@ -144,9 +152,28 @@ export function transformDownloadsForStore(f: DownloadsForm): Partial<AppConfig>
   // the categories array is empty (edge case from GitHub issue #229).
   if (f.fileCategoryEnabled && (!f.fileCategories || f.fileCategories.length === 0)) {
     data.fileCategories = buildDefaultCategories(f.dir)
+  } else {
+    data.fileCategories = f.fileCategories.map(normalizeFileCategory)
   }
 
   data.split = f.split
 
   return data
+}
+
+export function recordDownloadsDirectory(f: DownloadsForm, recordDirectory: (directory: string) => void): void {
+  const directory = f.dir.trim()
+  if (!directory) return
+  recordDirectory(directory)
+}
+
+export function getCompletedRecordRetentionSelectValue(days: number): number {
+  return COMPLETED_RECORD_RETENTION_OPTIONS.includes(days as (typeof COMPLETED_RECORD_RETENTION_OPTIONS)[number])
+    ? days
+    : -1
+}
+
+export function resolveCompletedRecordRetentionDays(selectedValue: number, currentDays: number): number {
+  if (selectedValue !== -1) return selectedValue
+  return currentDays > 0 ? currentDays : 30
 }

@@ -1,5 +1,6 @@
 /** @fileoverview Application-wide constants: themes, intervals, suffixes, limits. */
-import { DEFAULT_TASK_SORT } from '@/composables/useTaskSort'
+import { DEFAULT_TASK_MANUAL_ORDER, DEFAULT_TASK_SORT } from '@/composables/useTaskSort'
+import type { AppLogLevel, Aria2LogLevel } from '@shared/types'
 export const EMPTY_STRING = ''
 export const IS_PORTABLE = false
 
@@ -17,6 +18,8 @@ export interface ColorSchemeDefinition {
   labelKey: string
   /** Seed hex fed to MCU `themeFromSourceColor` to generate the full M3 tonal palette. */
   seed: string
+  /** Palette generation mode. Content keeps low-chroma colors visually neutral. */
+  variant?: 'source' | 'content'
 }
 
 /**
@@ -39,9 +42,12 @@ export const COLOR_SCHEMES: ColorSchemeDefinition[] = [
   { id: 'coral', labelKey: 'preferences.color-scheme-coral', seed: '#F97316' },
   { id: 'glacier', labelKey: 'preferences.color-scheme-glacier', seed: '#06B6D4' },
   { id: 'evergreen', labelKey: 'preferences.color-scheme-evergreen', seed: '#15803D' },
-  { id: 'graphite', labelKey: 'preferences.color-scheme-graphite', seed: '#6B7280' },
+  { id: 'graphite', labelKey: 'preferences.color-scheme-graphite', seed: '#737373', variant: 'content' },
   { id: 'sakura', labelKey: 'preferences.color-scheme-sakura', seed: '#EC4899' },
 ]
+
+export const CUSTOM_COLOR_SCHEME_ID = 'custom'
+export const DEFAULT_CUSTOM_COLOR_SCHEME = '#737373'
 
 export const APP_RUN_MODE = {
   STANDARD: 1,
@@ -61,16 +67,27 @@ export const TASK_STATUS = {
   ERROR: 'error',
   COMPLETE: 'complete',
   REMOVED: 'removed',
-  SEEDING: 'seeding',
+  SHARING: 'sharing',
 }
 
-export const LOG_LEVELS = ['error', 'warn', 'info', 'debug']
+export const APP_LOG_LEVELS = ['error', 'warn', 'info', 'debug'] as const satisfies readonly AppLogLevel[]
+export const ARIA2_LOG_LEVELS = ['error', 'warn', 'info', 'debug', 'trace'] as const satisfies readonly Aria2LogLevel[]
 
 export const MAX_NUM_OF_DIRECTORIES = 5
 
 export const ENGINE_RPC_HOST = '127.0.0.1'
-export const ENGINE_RPC_PORT = 16800
-export const ENGINE_MAX_CONCURRENT_DOWNLOADS = 10
+export const ENGINE_RPC_PORT = 29100
+export const EXTENSION_API_PORT = 29110
+export const BT_LISTEN_PORT = 29120
+export const DHT_LISTEN_PORT = 29130
+export const ED2K_LISTEN_PORT = 29140
+export const ED2K_UDP_LISTEN_PORT = 29150
+export const ED2K_SERVER_MET_URL = 'https://upd.emule-security.org/server.met'
+export const ED2K_NODES_DAT_URL = 'https://upd.emule-security.org/nodes.dat'
+export const BT_PEER_BLOCKLIST_URL = 'https://bcr.pbh-btn.com/combine/all.txt'
+export const PORT_RECOVERY_RANGE_START = 29000
+export const PORT_RECOVERY_RANGE_END = 29999
+export const ENGINE_MAX_CONCURRENT_DOWNLOADS = 100
 export const ENGINE_MAX_CONNECTION_PER_SERVER = 256
 export const ENGINE_DEFAULT_CONNECTION_PER_SERVER = 64
 export const ENGINE_DEFAULT_SPLIT = 64
@@ -92,14 +109,13 @@ export const ONE_SECOND = 1000
 export const ONE_MINUTE = ONE_SECOND * 60
 export const ONE_HOUR = ONE_MINUTE * 60
 export const ONE_DAY = ONE_HOUR * 24
-
-// 12 Hours
-export const AUTO_SYNC_TRACKER_INTERVAL = ONE_HOUR * 12
+export const COMPLETED_RECORD_RETENTION_FOREVER = 0
+export const COMPLETED_RECORD_RETENTION_OPTIONS = [0, 1, 7, 180, 365] as const
 
 // One Week
 export const AUTO_CHECK_UPDATE_INTERVAL = ONE_DAY * 7
 
-export const UPDATE_CHANNELS = ['stable', 'beta'] as const
+export const UPDATE_CHANNELS = ['stable', 'beta', 'latest'] as const
 
 /**
  * Factory default values for every AppConfig field.
@@ -115,8 +131,8 @@ export const UPDATE_CHANNELS = ['stable', 'beta'] as const
  * - Security best practices (UPnP off, rpcSecret generated at runtime)
  *
  * Dynamic values handled at runtime:
- * - `locale: ''`    → OS locale detection in main.ts
- * - `dir: ''`       → system Downloads directory via Tauri API
+ * - `locale: 'auto'` → OS locale detection in main.ts
+ * - `dir: ''`       → user-visible download directory resolver at runtime
  * - `rpcSecret`     → ABSENT from defaults; auto-generated on first launch in main.ts
  */
 
@@ -193,18 +209,44 @@ export const MAX_FILE_CATEGORIES = 20
  *  on categories loaded from persisted config (which may lack the field). */
 export const BUILTIN_CATEGORY_LABELS: ReadonlySet<string> = new Set(BUILTIN_CATEGORY_TEMPLATES.map((t) => t.label))
 
+/** Latest registered SQLite migration version for history.db.
+ *  Keep this in sync with tauri_plugin_sql migrations in src-tauri/src/lib.rs
+ *  and REGISTERED_VERSIONS in src-tauri/src/db_guard.rs. */
+export const CURRENT_DB_SCHEMA_VERSION = 3
+
+/** Official, independently hosted tracker-list sources. */
+export const TRACKER_SOURCE_OPTIONS = [
+  {
+    owner: 'ngosang',
+    repository: 'trackerslist',
+    value: 'https://ngosang.github.io/trackerslist/trackers_best.txt',
+  },
+  {
+    owner: 'XIU2',
+    repository: 'TrackersListCollection',
+    value: 'https://cf.trackerslist.com/best.txt',
+  },
+] as const
+
+export const DEFAULT_TRACKER_SOURCE = TRACKER_SOURCE_OPTIONS.map((source) => source.value)
+
 export const DEFAULT_APP_CONFIG = {
-  configVersion: 4,
-  dbSchemaVersion: 2,
+  configVersion: 5,
+  dbSchemaVersion: CURRENT_DB_SCHEMA_VERSION,
   // ── Appearance ──────────────────────────────────────────────────
   theme: 'auto' as const,
   colorScheme: 'evergreen',
-  locale: '',
+  customColorScheme: DEFAULT_CUSTOM_COLOR_SCHEME,
+  taskCardMode: 'full' as const,
+  taskListWatermark: true,
+  sidebarTaskCounts: true,
+  taskPageSize: 20,
+  locale: 'auto',
 
-  // ── Download Core (aria2 defaults: concurrent=5, split=5, conn/server=1) ──
+  // ── Download Core ─────────────────────────────────────────────────
   dir: '',
   split: ENGINE_DEFAULT_SPLIT, // parallel segments per file; independent of maxConnectionPerServer since v2
-  maxConcurrentDownloads: 5, // aria2 default; IDM=4, FDM=3~12
+  maxConcurrentDownloads: 6,
   maxConnectionPerServer: ENGINE_DEFAULT_CONNECTION_PER_SERVER, // per-server connection cap; independent of split since v2
   maxOverallDownloadLimit: '0',
   maxOverallUploadLimit: '0',
@@ -220,17 +262,18 @@ export const DEFAULT_APP_CONFIG = {
   fileCategoryEnabled: false, // opt-in: does not affect existing users until enabled
   fileCategories: [] as import('@shared/types').FileCategory[],
 
+  // ── P2P Sharing (BT + ED2K) ────────────────────────────────────
+  shareRatio: 2, // Transmission/qBT-style default for healthy P2P contribution
+  shareTime: 2880, // 48h default sharing window
+  keepSharing: false, // stop by condition by default
+
   // ── BitTorrent (qBT/Transmission/Deluge conventions) ──────────
   btMaxPeers: ENGINE_DEFAULT_BT_MAX_PEERS, // aria2 default=55; qBT=100, Transmission=60, Deluge=200
-  seedRatio: 2, // old Motrix=2, Transmission=2; 2:1 supports BT ecosystem health
-  seedTime: 2880, // old Motrix=2880 (48h); generous default for healthy swarm contribution
-  keepSeeding: false, // qBT stops at ratio; safer default for new users
-  forceSave: true, // persist completed/seeding BT tasks in session file (aria2 skips FINISHED tasks without this)
-  btSaveMetadata: true, // always save .torrent after metadata resolves for fast session restore
-  btLoadSavedMetadata: true, // load cached .torrent on restart, skip DHT re-download
+  btDhtIpv4Enabled: true, // improves peer discovery; also enables UDP tracker support
+  btDhtIpv6Enabled: true, // restores IPv6 DHT peer discovery
+  btPeerExchangeEnabled: true, // improves peer discovery inside active swarms
+  btLocalPeerDiscoveryEnabled: true, // aria2.conf legacy default; helps LAN peers
   btForceEncryption: false, // qBT default "Allow", not "Force"; forcing reduces peers
-  followTorrent: true, // aria2 default=true
-  followMetalink: true, // aria2 default=true
   pauseMetadata: true, // pause follow-up download after metadata — let user select files first
   continue: true, // aria2 default=true; resume incomplete downloads
   remoteTime: false, // aria2 default=false; file timestamp = download completion time
@@ -247,50 +290,93 @@ export const DEFAULT_APP_CONFIG = {
   traySpeedometer: false, // opt-in: supported on macOS menu bar + Linux appindicator
   dockBadgeSpeed: true, // macOS Dock badge on by default
   taskNotification: true, // users expect download-complete notifications
-  notifyOnStart: false, // user just clicked submit — OS popup is noisy
+  notifyOnStart: true,
   notifyOnComplete: true, // main value of OS notification: background completion alert
   newTaskShowDownloading: true, // auto-navigate to downloads after adding task
   noConfirmBeforeDeleteTask: false, // require confirmation to prevent accidental deletion
+  fileDeletionMode: 'trash' as const,
   deleteFilesWhenSkipConfirm: false, // when skip-confirm is on, default to keeping files (safe)
   resumeAllWhenAppLaunched: false, // don't flood bandwidth on launch
 
   // ── Auto Update ───────────────────────────────────────────────
   autoCheckUpdate: true, // qBT checks every launch; security best practice
-  autoCheckUpdateInterval: 24, // 24h (daily) is standard check frequency
-  /** Linux-only: DMA-BUF GPU rendering ON by default for best performance.
-   *  Crash sentinel in gpu_guard auto-reverts to software rendering on failure. */
-  hardwareRendering: true,
+  autoCheckUpdateInterval: 0, // 0 means every frontend startup, including lightweight restores
+  /** Linux-only: DMA-BUF GPU rendering is opt-in for Wayland/WebKitGTK stability. */
+  hardwareRendering: false,
   updateChannel: 'stable' as const,
   lastCheckUpdateTime: 0,
 
   // ── Network & Security ────────────────────────────────────────
   enableUpnp: true, // old Motrix=true; required for BitTorrent behind NAT
   rpcListenPort: ENGINE_RPC_PORT,
-  extensionApiPort: 16801,
-  extensionApiSecret: '',
+  extensionApiPort: EXTENSION_API_PORT,
+  allowRemoteAccess: false,
+  autoChangeConflictingPorts: true,
+  portConflictRecovery: {
+    enabled: true,
+    rangeStart: PORT_RECOVERY_RANGE_START,
+    rangeEnd: PORT_RECOVERY_RANGE_END,
+    rpc: true,
+    extensionApi: true,
+    bt: true,
+    dht: true,
+    ed2k: true,
+    ed2kUdp: true,
+  },
+  // extensionApiSecret is intentionally ABSENT from defaults.
   // rpcSecret is intentionally ABSENT from defaults.
-  // undefined → main.ts auto-generates on first launch.
-  // '' → user intentionally cleared (respected, not regenerated).
-  // 'abc' → user-set or auto-generated secret (kept as-is).
-  listenPort: 21301,
-  dhtListenPort: 26701,
-  proxy: { enable: false, server: '', bypass: '', scope: ['download', 'update-app', 'update-trackers'] },
-  protocols: { magnet: true, thunder: false, motrixnext: true },
-  clipboard: { enable: true, http: true, ftp: true, magnet: true, thunder: true, btHash: true },
-  autoSubmitFromExtension: false,
+  // For both secrets:
+  //   undefined → main.ts auto-generates on first launch.
+  //   '' → user intentionally cleared (respected, not regenerated).
+  //   'abc' → user-set or auto-generated secret (kept as-is).
+  listenPort: BT_LISTEN_PORT,
+  btExternalIp: '',
+  btExternalPort: 0,
+  dhtListenPort: DHT_LISTEN_PORT,
+  ed2kListenPort: ED2K_LISTEN_PORT,
+  ed2kUdpListenPort: ED2K_UDP_LISTEN_PORT,
+  ed2kServer: '',
+  ed2kServerMetUrl: ED2K_SERVER_MET_URL,
+  ed2kNodesDatUrl: ED2K_NODES_DAT_URL,
+  ed2kUploadSlots: 3,
+  ed2kSearchTimeout: 20,
+  proxy: {
+    mode: 'direct' as const,
+    server: '',
+    username: '',
+    password: '',
+    bypass: '',
+    scope: ['download', 'update-app', 'update-trackers'],
+  },
+  clipboard: { enable: true, http: true, ftp: true, magnet: true, ed2k: true, thunder: true, btHash: true },
+  autoSubmitFromExtension: true,
+  autoSelectAllBtFilesFromExtension: false,
+  silentAutoSubmitFromExtension: true,
   userAgent:
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
-  logLevel: 'debug', // captures full diagnostic output for bug reports out of the box
+  userAgentProfiles: [],
+  userAgentRules: [],
+  recentUserAgentProfileIds: [],
+  logLevel: 'warn' as const,
+  aria2LogLevel: 'warn' as const,
   cookie: '',
   runMode: '',
   engineBinPath: '',
+  tempFilesDir: '',
 
   // ── Tracker ───────────────────────────────────────────────────
-  autoSyncTracker: true,
-  trackerSource: [] as string[], // populated from DEFAULT_TRACKER_SOURCE below at runtime
+  btTrackerAutoSync: true,
+  btTrackerSyncIntervalHours: 24,
+  btPeerBlocklistEnabled: true,
+  btPeerBlocklistUrl: BT_PEER_BLOCKLIST_URL,
+  btPeerBlocklistAutoSync: true,
+  btPeerBlocklistSyncIntervalHours: 24,
+  trackerSource: [...DEFAULT_TRACKER_SOURCE],
   customTrackerUrls: [] as string[],
   btTracker: '',
   lastSyncTrackerTime: 0,
+  ed2kBootstrapAutoSync: true,
+  ed2kBootstrapSyncIntervalHours: 24,
 
   // ── Directories ───────────────────────────────────────────────
   historyDirectories: [] as string[],
@@ -300,6 +386,7 @@ export const DEFAULT_APP_CONFIG = {
   deleteTorrentAfterComplete: false,
   autoDeleteStaleRecords: false,
   clearCompletedOnExit: false,
+  completedRecordRetentionDays: COMPLETED_RECORD_RETENTION_FOREVER,
 
   // ── Power Management ────────────────────────────────────────────
   shutdownWhenComplete: false,
@@ -310,137 +397,17 @@ export const DEFAULT_APP_CONFIG = {
   retryWait: 10, // seconds; aria2 waits this long after 503 before retrying
   connectTimeout: 10, // seconds to establish connection
   timeout: 10, // seconds for data transfer after connection
-  fileAllocation: 'none', // 'none' | 'trunc' | 'prealloc' | 'falloc'
+  fileAllocation: 'trunc' as const, // 'none' | 'trunc' | 'prealloc' | 'falloc'
+  asyncDns: false, // aria2-next default=true; keep Motrix default conservative
 
   // ── Task Sorting ─────────────────────────────────────────────
   taskSort: DEFAULT_TASK_SORT,
+  taskManualOrder: DEFAULT_TASK_MANUAL_ORDER,
 }
 
 export const FILE_ALLOCATION_OPTIONS = ['none', 'trunc', 'prealloc', 'falloc'] as const
 
 export const MAX_BT_TRACKER_LENGTH = 6144
-
-/**
- * @see https://github.com/ngosang/trackerslist
- */
-export const NGOSANG_TRACKERS_BEST_URL =
-  'https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_best.txt'
-export const NGOSANG_TRACKERS_BEST_IP_URL =
-  'https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_best_ip.txt'
-export const NGOSANG_TRACKERS_ALL_URL = 'https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt'
-export const NGOSANG_TRACKERS_ALL_IP_URL =
-  'https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all_ip.txt'
-
-export const NGOSANG_TRACKERS_BEST_URL_CDN = 'https://cdn.jsdelivr.net/gh/ngosang/trackerslist/trackers_best.txt'
-export const NGOSANG_TRACKERS_BEST_IP_URL_CDN = 'https://cdn.jsdelivr.net/gh/ngosang/trackerslist/trackers_best_ip.txt'
-export const NGOSANG_TRACKERS_ALL_URL_CDN = 'https://cdn.jsdelivr.net/gh/ngosang/trackerslist/trackers_all.txt'
-export const NGOSANG_TRACKERS_ALL_IP_URL_CDN = 'https://cdn.jsdelivr.net/gh/ngosang/trackerslist/trackers_all_ip.txt'
-
-/**
- * @see https://github.com/XIU2/TrackersListCollection
- */
-export const XIU2_TRACKERS_BEST_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/best.txt'
-export const XIU2_TRACKERS_ALL_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/all.txt'
-export const XIU2_TRACKERS_HTTP_URL = 'https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/http.txt'
-
-export const XIU2_TRACKERS_BEST_URL_CDN = 'https://cdn.jsdelivr.net/gh/XIU2/TrackersListCollection/best.txt'
-export const XIU2_TRACKERS_ALL_URL_CDN = 'https://cdn.jsdelivr.net/gh/XIU2/TrackersListCollection/all.txt'
-export const XIU2_TRACKERS_HTTP_URL_CDN = 'https://cdn.jsdelivr.net/gh/XIU2/TrackersListCollection/http.txt'
-
-// For bt-exclude-tracker
-export const XIU2_TRACKERS_BLACK_URL = 'https://cdn.jsdelivr.net/gh/XIU2/TrackersListCollection/blacklist.txt'
-
-/** Sensible default tracker sources for first install (CDN endpoints). */
-export const DEFAULT_TRACKER_SOURCE = [NGOSANG_TRACKERS_BEST_URL_CDN, NGOSANG_TRACKERS_BEST_IP_URL_CDN]
-
-// Backfill DEFAULT_APP_CONFIG.trackerSource now that the URLs are defined.
-// This preserves the single-source-of-truth invariant: DEFAULT_APP_CONFIG
-// is the authoritative set of defaults, and trackerSource is populated
-// once JS finishes evaluating all module-level constants.
-;(DEFAULT_APP_CONFIG as Record<string, unknown>).trackerSource = [...DEFAULT_TRACKER_SOURCE]
-
-export const TRACKER_SOURCE_OPTIONS = [
-  {
-    label: 'ngosang/trackerslist',
-    options: [
-      {
-        value: NGOSANG_TRACKERS_BEST_URL,
-        label: 'trackers_best.txt',
-        cdn: false,
-      },
-      {
-        value: NGOSANG_TRACKERS_BEST_IP_URL,
-        label: 'trackers_best_ip.txt',
-        cdn: false,
-      },
-      {
-        value: NGOSANG_TRACKERS_ALL_URL,
-        label: 'trackers_all.txt',
-        cdn: false,
-      },
-      {
-        value: NGOSANG_TRACKERS_ALL_IP_URL,
-        label: 'trackers_all_ip.txt',
-        cdn: false,
-      },
-      {
-        value: NGOSANG_TRACKERS_BEST_URL_CDN,
-        label: 'trackers_best.txt',
-        cdn: true,
-      },
-      {
-        value: NGOSANG_TRACKERS_BEST_IP_URL_CDN,
-        label: 'trackers_best_ip.txt',
-        cdn: true,
-      },
-      {
-        value: NGOSANG_TRACKERS_ALL_URL_CDN,
-        label: 'trackers_all.txt',
-        cdn: true,
-      },
-      {
-        value: NGOSANG_TRACKERS_ALL_IP_URL_CDN,
-        label: 'trackers_all_ip.txt',
-        cdn: true,
-      },
-    ],
-  },
-  {
-    label: 'XIU2/TrackersListCollection',
-    options: [
-      {
-        value: XIU2_TRACKERS_BEST_URL,
-        label: 'best.txt',
-        cdn: false,
-      },
-      {
-        value: XIU2_TRACKERS_ALL_URL,
-        label: 'all.txt',
-        cdn: false,
-      },
-      {
-        value: XIU2_TRACKERS_HTTP_URL,
-        label: 'http.txt',
-        cdn: false,
-      },
-      {
-        value: XIU2_TRACKERS_BEST_URL_CDN,
-        label: 'best.txt',
-        cdn: true,
-      },
-      {
-        value: XIU2_TRACKERS_ALL_URL_CDN,
-        label: 'all.txt',
-        cdn: true,
-      },
-      {
-        value: XIU2_TRACKERS_HTTP_URL_CDN,
-        label: 'http.txt',
-        cdn: true,
-      },
-    ],
-  },
-]
 
 export const PROXY_SCOPES = {
   DOWNLOAD: 'download',
@@ -472,7 +439,7 @@ export const TRAY_CANVAS_CONFIG = {
   TEXT_FONT_SIZE: 8,
 }
 
-export const COMMON_RESOURCE_TAGS = ['http://', 'https://', 'ftp://', 'magnet:']
+export const COMMON_RESOURCE_TAGS = ['http://', 'https://', 'ftp://', 'magnet:', 'ed2k://']
 export const THUNDER_RESOURCE_TAGS = ['thunder://']
 
 export const RESOURCE_TAGS = [...COMMON_RESOURCE_TAGS, ...THUNDER_RESOURCE_TAGS]

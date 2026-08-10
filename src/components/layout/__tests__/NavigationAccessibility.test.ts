@@ -29,12 +29,25 @@ vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
     showAddTaskDialog: showAddTaskDialogMock,
     webPanelOpen: false,
+    stat: {
+      numActive: 2,
+      numWaiting: 1,
+    },
+  }),
+}))
+
+vi.mock('@/stores/history', () => ({
+  useHistoryStore: () => ({
+    recordTotal: 5,
+    refreshRecordTotal: vi.fn().mockResolvedValue(5),
   }),
 }))
 
 vi.mock('@/stores/preference', () => ({
   usePreferenceStore: () => ({
-    config: {},
+    config: {
+      sidebarTaskCounts: true,
+    },
   }),
 }))
 
@@ -54,6 +67,7 @@ vi.mock('@vicons/ionicons5', () => ({
   ConstructOutline: { template: '<i />' },
   DownloadOutline: { template: '<i />' },
   MagnetOutline: { template: '<i />' },
+  GitNetworkOutline: { template: '<i />' },
   GlobeOutline: { template: '<i />' },
 }))
 
@@ -81,6 +95,14 @@ describe('keyboard-accessible navigation', () => {
     expect(showAddTaskDialogMock).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps the sidebar logo visual-only instead of linking to GitHub', () => {
+    const wrapper = mount(AsideBar)
+
+    expect(wrapper.find('.logo-mini a').exists()).toBe(false)
+    expect(wrapper.find('.logo-mini').text()).toContain('ZJ')
+    expect(wrapper.html()).not.toContain('github.com/AnInsomniacy/motrix-next')
+  })
+
   it('renders TaskSubnav routes as buttons and marks the active route', async () => {
     const wrapper = mount(TaskSubnav)
     const buttons = wrapper.findAll('button')
@@ -99,10 +121,10 @@ describe('keyboard-accessible navigation', () => {
     const wrapper = mount(PreferenceSubnav)
     const buttons = wrapper.findAll('button')
 
-    expect(buttons).toHaveLength(5)
+    expect(buttons).toHaveLength(6)
     expect(buttons[0].attributes('aria-current')).toBe('page')
 
-    await buttons[4].trigger('click')
+    await buttons[5].trigger('click')
     expect(pushMock).toHaveBeenCalledWith({ path: '/preference/advanced' })
   })
 })

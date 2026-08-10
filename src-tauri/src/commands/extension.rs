@@ -5,8 +5,8 @@ use tauri::{AppHandle, Manager};
 const EXTENSION_DIR_NAME: &str = "chromium-mv3";
 
 fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), AppError> {
-    for entry in std::fs::read_dir(src)
-        .map_err(|e| AppError::Io(format!("read_dir {src:?}: {e}")))?
+    for entry in
+        std::fs::read_dir(src).map_err(|e| AppError::Io(format!("read_dir {src:?}: {e}")))?
     {
         let entry = entry.map_err(|e| AppError::Io(format!("read entry: {e}")))?;
         let from = entry.path();

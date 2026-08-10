@@ -18,11 +18,12 @@ import { createPinia, setActivePinia } from 'pinia'
 
 const mockIsEngineReady = vi.fn().mockReturnValue(true)
 const mockFetchList = vi.fn().mockResolvedValue(undefined)
-const mockResumeAllTask = vi.fn().mockResolvedValue(undefined)
+const mockResumeAllTask = vi.fn().mockResolvedValue({ resumed: 1, blocked: 0 })
 const mockPauseAllTask = vi.fn().mockResolvedValue(undefined)
 const mockPurgeTaskRecord = vi.fn().mockResolvedValue(undefined)
 const mockBatchRemoveTask = vi.fn().mockResolvedValue(undefined)
-const mockStopAllSeeding = vi.fn().mockResolvedValue(2)
+const mockStopAllSharing = vi.fn().mockResolvedValue(2)
+const mockDeleteTaskFiles = vi.fn().mockResolvedValue(undefined)
 
 // Dialog mock: captures onPositiveClick so we can invoke it in tests
 let lastDialogOptions: Record<string, unknown> | null = null
@@ -36,14 +37,55 @@ const mockMessageSuccess = vi.fn(() => ({ destroy: vi.fn() }))
 const mockMessageWarning = vi.fn(() => ({ destroy: vi.fn() }))
 const mockMessageError = vi.fn(() => ({ destroy: vi.fn() }))
 
+function renderDialogText(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (typeof value !== 'function') return ''
+  const parts: string[] = []
+  const walk = (node: unknown) => {
+    if (typeof node === 'string') {
+      parts.push(node)
+      return
+    }
+    if (!node || typeof node !== 'object') return
+    const children = (node as { children?: unknown }).children
+    if (Array.isArray(children)) {
+      children.forEach(walk)
+      return
+    }
+    if (typeof children === 'string') {
+      parts.push(children)
+      return
+    }
+    if (children && typeof children === 'object') {
+      const defaultSlot = (children as { default?: () => unknown }).default
+      if (typeof defaultSlot === 'function') walk(defaultSlot())
+    }
+  }
+  walk(value())
+  return parts.join(' ')
+}
+
 // ── Module mocks ────────────────────────────────────────────────────
 
 vi.mock('@/api/aria2', () => ({
   isEngineReady: () => mockIsEngineReady(),
 }))
 
+function translateForTest(key: string, params?: Record<string, unknown>): string {
+  const messages: Record<string, string> = {
+    'task.delete-all-task': 'Clear Download Queue',
+    'task.delete-task-queue': 'Clear Download Queue',
+    'task.batch-delete-task-confirm': `This will remove ${params?.count ?? '{count}'} downloading, queued, or paused task(s).`,
+    'task.delete-local-files-trash-label': 'Move files to Trash',
+    'task.delete-local-files-permanent-label': 'Permanently delete files',
+    'task.purge-record': 'Clear History Records',
+    'task.purge-record-confirm': 'This will remove all completed, failed, or removed task records.',
+  }
+  return messages[key] ?? key
+}
+
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({ t: translateForTest }),
 }))
 
 vi.mock('naive-ui', () => ({
@@ -53,12 +95,16 @@ vi.mock('naive-ui', () => ({
   },
   NIcon: { template: '<span :class="$attrs.class"><slot /></span>' },
   NTooltip: { template: '<span><slot /><slot name="trigger" /></span>' },
-  NCheckbox: { template: '<label><slot /></label>' },
+  NCheckbox: { template: '<label><slot /></label>', props: ['checked'] },
   NPopover: {
     template: '<div><slot name="trigger" /></div>',
     props: ['show', 'trigger', 'placement', 'showArrow', 'raw'],
   },
-  useDialog: () => ({ warning: mockDialogWarning }),
+  useDialog: () => ({
+    error: mockDialogWarning,
+    info: mockDialogWarning,
+    warning: mockDialogWarning,
+  }),
   useMessage: () => ({
     success: mockMessageSuccess,
     error: mockMessageError,
@@ -101,10 +147,11 @@ vi.mock('@/composables/useAppMessage', () => ({
 }))
 
 vi.mock('@/composables/useFileDelete', () => ({
-  deleteTaskFiles: vi.fn().mockResolvedValue(undefined),
+  deleteTaskFiles: (...args: unknown[]) => mockDeleteTaskFiles(...args),
 }))
 
 import TaskActions from '../TaskActions.vue'
+import { usePreferenceStore } from '@/stores/preference'
 import { useTaskStore } from '@/stores/task'
 import { ref, type Ref } from 'vue'
 
@@ -122,7 +169,7 @@ const createWrapper = () =>
 
 /**
  * Click the Nth button in the component (0-indexed).
- * Button order in template: [0]Add [1]Refresh [2]ResumeAll [3]PauseAll [4]StopAllSeed [5]DeleteAll
+ * Button order in template: [0]Add [1]Refresh [2]ResumeAll [3]PauseAll [4]StopAllSharing [5]DeleteAll
  * When currentList === 'stopped': [0]Add [1]Refresh [2]Purge
  */
 async function clickButton(wrapper: ReturnType<typeof createWrapper>, index: number) {
@@ -149,7 +196,7 @@ describe('TaskActions', () => {
     taskStore.pauseAllTask = mockPauseAllTask
     taskStore.purgeTaskRecord = mockPurgeTaskRecord
     taskStore.batchRemoveTask = mockBatchRemoveTask
-    taskStore.stopAllSeeding = mockStopAllSeeding
+    taskStore.stopAllSharing = mockStopAllSharing
   })
 
   afterEach(() => {
@@ -166,7 +213,7 @@ describe('TaskActions', () => {
   it('renders all 7 action buttons when list is not stopped', () => {
     const wrapper = createWrapper()
     const buttons = wrapper.findAll('button')
-    // Add + Refresh + Sort + ResumeAll + PauseAll + StopAllSeed + DeleteAll = 7
+    // Add + Refresh + Sort + ResumeAll + PauseAll + StopAllSharing + DeleteAll = 7
     expect(buttons.length).toBe(7)
   })
 
@@ -249,7 +296,7 @@ describe('TaskActions', () => {
   describe('disabled state guards', () => {
     it('Resume All button is disabled when taskList is empty', () => {
       const wrapper = createWrapper()
-      // Button order: [0]Add [1]Refresh [2]ResumeAll [3]PauseAll [4]StopAllSeed [5]DeleteAll
+      // Button order: [0]Add [1]Refresh [2]ResumeAll [3]PauseAll [4]StopAllSharing [5]DeleteAll
       const resumeBtn = wrapper.findAll('button')[3]
       expect(resumeBtn.attributes('disabled')).toBeDefined()
     })
@@ -312,7 +359,7 @@ describe('TaskActions', () => {
       expect(pauseBtn.attributes('disabled')).toBeUndefined()
     })
 
-    it('Resume All button remains disabled with completed/error/seeding tasks', () => {
+    it('Resume All button remains disabled with completed/error/sharing tasks', () => {
       const taskStore = useTaskStore()
       taskStore.taskList = [
         { gid: 'c1', status: 'complete' },
@@ -459,6 +506,11 @@ describe('TaskActions', () => {
       const wrapper = createWrapper()
 
       await clickButton(wrapper, 3) // Purge
+      expect(lastDialogOptions?.title).toBe('Clear History Records')
+      expect(renderDialogText(lastDialogOptions?.content)).toContain(
+        'This will remove all completed, failed, or removed task records.',
+      )
+      expect(renderDialogText(lastDialogOptions?.content)).toContain('Move files to Trash')
       const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
       // onPositiveClick has internal setTimeout(50) — must advance timer
       const promise = onPositiveClick()
@@ -487,6 +539,23 @@ describe('TaskActions', () => {
       await clickButton(wrapper, 6) // Delete All
 
       expect(mockDialogWarning).toHaveBeenCalledOnce()
+      expect(lastDialogOptions?.title).toBe('Clear Download Queue')
+      expect(renderDialogText(lastDialogOptions?.content)).toContain(
+        'This will remove 2 downloading, queued, or paused task(s).',
+      )
+      expect(renderDialogText(lastDialogOptions?.content)).toContain('Move files to Trash')
+    })
+
+    it('shows the permanent deletion action when configured', async () => {
+      const preferenceStore = usePreferenceStore()
+      preferenceStore.config.fileDeletionMode = 'permanent'
+      const taskStore = useTaskStore()
+      taskStore.taskList = [{ gid: 'g1' }] as never
+
+      const wrapper = createWrapper()
+      await clickButton(wrapper, 6)
+
+      expect(renderDialogText(lastDialogOptions?.content)).toContain('Permanently delete files')
     })
 
     it('calls batchRemoveTask with all gids on confirmation', async () => {
@@ -521,10 +590,10 @@ describe('TaskActions', () => {
     })
   })
 
-  // ── Stop All Seeding Animation Linkage ──────────────────────────
+  // ── Stop All Sharing Animation Linkage ──────────────────────────
 
-  describe('stop all seeding animation', () => {
-    it('pushes all seeder gids into stoppingGids on positive click', async () => {
+  describe('stop all sharing animation', () => {
+    it('pushes all sharing gids into stoppingGids on positive click', async () => {
       const taskStore = useTaskStore()
       taskStore.taskList = [
         { gid: 's1', status: 'active', bittorrent: { info: { name: 'a' } }, seeder: 'true' },
@@ -533,7 +602,7 @@ describe('TaskActions', () => {
       ] as never
 
       const wrapper = createWrapper()
-      await clickButton(wrapper, 5) // Stop All Seeding
+      await clickButton(wrapper, 5) // Stop All Sharing
 
       const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
       onPositiveClick() // fire-and-forget — watcher keeps spinning
@@ -544,7 +613,7 @@ describe('TaskActions', () => {
       expect(stoppingGids.value).not.toContain('a1')
     })
 
-    it('shows spinning while snapshotted seeder tasks still have seeder=true', async () => {
+    it('shows spinning while snapshotted sharing tasks still have seeder=true', async () => {
       const taskStore = useTaskStore()
       taskStore.taskList = [
         { gid: 's1', status: 'active', bittorrent: { info: { name: 'x' } }, seeder: 'true' },
@@ -557,10 +626,10 @@ describe('TaskActions', () => {
       onPositiveClick()
       await wrapper.vm.$nextTick()
 
-      // Task still seeding → button should spin
+      // Task still sharing, so the button should spin.
       expect(wrapper.find('.stop-all-spinning').exists()).toBe(true)
 
-      // Simulate task exiting seeding state
+      // Simulate task exiting sharing state.
       taskStore.taskList = [{ gid: 's1', bittorrent: { info: { name: 'x' } }, seeder: 'false' }] as never
       await wrapper.vm.$nextTick()
 
@@ -568,7 +637,7 @@ describe('TaskActions', () => {
       expect(wrapper.find('.stop-all-spinning').exists()).toBe(false)
     })
 
-    it('ignores new seeders appearing during batch stop', async () => {
+    it('ignores new sharing tasks appearing during batch stop', async () => {
       const taskStore = useTaskStore()
       taskStore.taskList = [
         { gid: 's1', status: 'active', bittorrent: { info: { name: 'a' } }, seeder: 'true' },
@@ -583,7 +652,7 @@ describe('TaskActions', () => {
 
       expect(wrapper.find('.stop-all-spinning').exists()).toBe(true)
 
-      // Original seeder exits, but a NEW seeder appears
+      // Original task exits, but a new sharing task appears.
       taskStore.taskList = [
         { gid: 's1', bittorrent: { info: { name: 'a' } }, seeder: 'false' },
         { gid: 's_new', status: 'active', bittorrent: { info: { name: 'new' } }, seeder: 'true' },
@@ -594,7 +663,7 @@ describe('TaskActions', () => {
       expect(wrapper.find('.stop-all-spinning').exists()).toBe(false)
     })
 
-    it('calls stopAllSeeding store method on confirm', async () => {
+    it('calls stopAllSharing store method on confirm', async () => {
       const taskStore = useTaskStore()
       taskStore.taskList = [
         { gid: 's1', status: 'active', bittorrent: { info: { name: 'x' } }, seeder: 'true' },
@@ -606,10 +675,10 @@ describe('TaskActions', () => {
       const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
       await onPositiveClick()
 
-      expect(mockStopAllSeeding).toHaveBeenCalledOnce()
+      expect(mockStopAllSharing).toHaveBeenCalledOnce()
     })
 
-    it('stops spinning after safety timeout even if tasks remain seeding', async () => {
+    it('stops spinning after safety timeout even if tasks remain sharing', async () => {
       const taskStore = useTaskStore()
       taskStore.taskList = [
         { gid: 's1', status: 'active', bittorrent: { info: { name: 'x' } }, seeder: 'true' },
@@ -640,7 +709,7 @@ describe('TaskActions', () => {
       taskStore.currentList = 'all'
       const wrapper = createWrapper()
       const buttons = wrapper.findAll('button')
-      // Add + Refresh + Sort + ResumeAll + PauseAll + StopAllSeed + DeleteAll + Purge = 8
+      // Add + Refresh + Sort + ResumeAll + PauseAll + StopAllSharing + DeleteAll + Purge = 8
       expect(buttons.length).toBe(8)
     })
 
@@ -655,7 +724,7 @@ describe('TaskActions', () => {
       ] as never
 
       const wrapper = createWrapper()
-      // Button order in 'all': [0]Add [1]Refresh [2]ResumeAll [3]PauseAll [4]StopAllSeed [5]DeleteAll [6]Purge
+      // Button order in 'all': [0]Add [1]Refresh [2]ResumeAll [3]PauseAll [4]StopAllSharing [5]DeleteAll [6]Purge
       await clickButton(wrapper, 6) // Delete All
 
       expect(mockDialogWarning).toHaveBeenCalledOnce()
@@ -701,6 +770,36 @@ describe('TaskActions', () => {
       // Last button = Purge
       const purgeBtn = wrapper.findAll('button')[7]
       expect(purgeBtn).toBeDefined()
+    })
+
+    it('Purge Records in all view only deletes files for stopped records', async () => {
+      const taskStore = useTaskStore()
+      taskStore.currentList = 'all'
+      taskStore.taskList = [
+        { gid: 'a1', status: 'active' },
+        { gid: 'p1', status: 'paused' },
+        { gid: 'c1', status: 'complete' },
+        { gid: 'e1', status: 'error' },
+      ] as never
+
+      const wrapper = createWrapper()
+      await clickButton(wrapper, 7)
+
+      const content = lastDialogOptions!.content as () => unknown
+      const checkbox = Array.isArray((content() as { children?: unknown[] }).children)
+        ? ((content() as { children: Array<{ props?: Record<string, unknown> }> }).children[1]?.props ?? {})
+        : {}
+      ;(checkbox['onUpdate:checked'] as (value: boolean) => void)(true)
+
+      const onPositiveClick = lastDialogOptions!.onPositiveClick as () => Promise<void>
+      const promise = onPositiveClick()
+      await vi.advanceTimersByTimeAsync(100)
+      await promise
+
+      expect(mockDeleteTaskFiles).toHaveBeenCalledTimes(2)
+      expect(mockDeleteTaskFiles.mock.calls.map((call) => (call[0] as { gid: string }).gid)).toEqual(['c1', 'e1'])
+      expect(mockDeleteTaskFiles.mock.calls.every((call) => call[1] === 'trash')).toBe(true)
+      expect(mockPurgeTaskRecord).toHaveBeenCalledOnce()
     })
 
     it('Resume All works in all view when paused tasks exist', async () => {

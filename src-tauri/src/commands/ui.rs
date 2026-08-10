@@ -17,13 +17,11 @@ pub fn update_tray_title(app: AppHandle, title: String) -> Result<(), AppError> 
     if let Some(tray) = app.tray_by_id("motrix-next") {
         tray.set_title(Some(&title))
             .map_err(|e| AppError::Io(e.to_string()))?;
-        // Workaround: re-set icon after set_title to prevent macOS icon disappearing (Tauri/tao bug).
-        // Uses the dedicated tray icon — NOT default_window_icon() which is the
-        // full-colour app icon and would look out of place in the macOS menu bar.
+        // Re-apply the dedicated tray icon after set_title so macOS keeps the
+        // template mask without rendering the full-colour window icon.
         #[cfg(target_os = "macos")]
         {
-            let icon = crate::tray::tray_icon_image();
-            let _ = tray.set_icon(Some(icon));
+            let _ = crate::tray::refresh_tray_icon(&tray);
         }
     }
     Ok(())

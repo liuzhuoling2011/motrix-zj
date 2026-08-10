@@ -2,13 +2,25 @@
  * @fileoverview Aria2 API — invoke() transport layer.
  *
  * All aria2 RPC calls go through Tauri invoke() to the Rust backend.
- * The Rust Aria2Client handles HTTP JSON-RPC communication with aria2c.
+ * The Rust Aria2Client handles HTTP JSON-RPC communication with Aria2 Next.
  */
 import { invoke } from '@tauri-apps/api/core'
 import { changeKeysToCamelCase, formatOptionsForEngine } from '@shared/utils'
-import type { Aria2Task, Aria2RawGlobalStat, Aria2Peer, Aria2EngineOptions, Aria2File, AppConfig } from '@shared/types'
-import { logger } from '@shared/logger'
+import type {
+  Aria2Task,
+  Aria2RawGlobalStat,
+  Aria2Peer,
+  Aria2EngineOptions,
+  Aria2File,
+  AppConfig,
+  Ed2kSearchOptions,
+  Ed2kSearchResults,
+  ExternalDownloadContext,
+} from '@shared/types'
+import { formatLogFields, logger } from '@shared/logger'
 import { resolveDownloadDir } from '@shared/utils/fileCategory'
+import { sanitizeAria2OutHint } from '@shared/utils/batchHelpers'
+import { summarizeAria2Options, summarizeExternalInput } from '@shared/utils/externalInputDiagnostics'
 
 /**
  * Engine readiness state.
@@ -26,6 +38,14 @@ export function isEngineReady(): boolean {
 /** Marks the engine as ready/unready. */
 export function setEngineReady(ready: boolean): void {
   engineReady = ready
+}
+
+function withBtSafetyOptions(options: Aria2EngineOptions): Aria2EngineOptions {
+  return {
+    ...options,
+    'check-integrity': options['check-integrity'] ?? 'true',
+    'force-save': options['force-save'] ?? 'true',
+  }
 }
 
 /** Retrieves aria2 engine version and list of enabled features. */
@@ -97,7 +117,11 @@ export async function addUri(params: {
   uris: string[]
   outs: string[]
   options: Aria2EngineOptions
-  fileCategory?: { enabled: boolean; categories: import('@shared/types').FileCategory[] }
+  fileCategory?: {
+    enabled: boolean
+    categories: import('@shared/types').FileCategory[]
+    contexts?: Record<string, ExternalDownloadContext>
+  }
 }): Promise<string[]> {
   const { uris, outs, options, fileCategory } = params
   const engineOptions = formatOptionsForEngine(options)
@@ -107,23 +131,39 @@ export async function addUri(params: {
     const opts: Record<string, string> = { ...engineOptions }
     if (outs[index]) opts.out = outs[index]
 
+    // Defense-in-depth: sanitize out for filesystem safety (#261, #264).
+    // Rust sanitize_out_option is the authoritative boundary; this is belt-and-suspenders.
+    if (opts.out) opts.out = sanitizeAria2OutHint(opts.out)
+    if (!opts.out) delete opts.out
+
     // Smart file classification: resolve per-URI download directory
     if (fileCategory?.enabled && fileCategory.categories.length > 0) {
-      opts.dir = resolveDownloadDir(uri, opts.dir || '', true, fileCategory.categories)
+      const context = fileCategory.contexts?.[uri]
+      opts.dir = resolveDownloadDir(opts.out || uri, opts.dir || '', true, fileCategory.categories, {
+        urls: [uri, context?.finalUrl ?? '', context?.url ?? '', context?.referer ?? ''],
+      })
     }
 
     return invoke<string>('aria2_add_uri', { uris: [uri], options: opts })
   })
 
   const gids = await Promise.all(tasks)
-  logger.info('aria2.addUri', `added ${gids.length} URI task(s) gids=[${gids.join(',')}]`)
+  logger.info(
+    'aria2.addUri',
+    formatLogFields({
+      added: gids.length,
+      gids: `[${gids.join(',')}]`,
+      first: uris[0] ? summarizeExternalInput(uris[0]) : 'none',
+      ...summarizeAria2Options(engineOptions),
+    }),
+  )
   return gids
 }
 
 /**
  * Adds a single download with all URIs as mirrors (alternative sources).
  */
-export async function addUriAtomic(params: { uris: string[]; options: Record<string, string> }): Promise<string> {
+export async function addUriAtomic(params: { uris: string[]; options: Aria2EngineOptions }): Promise<string> {
   const { uris, options } = params
   const engineOptions = formatOptionsForEngine(options)
   const gid = await invoke<string>('aria2_add_uri', { uris, options: engineOptions })
@@ -133,20 +173,28 @@ export async function addUriAtomic(params: { uris: string[]; options: Record<str
 
 /** Adds a torrent download from a base64-encoded .torrent file. */
 export async function addTorrent(params: { torrent: string; options: Aria2EngineOptions }): Promise<string> {
-  const engineOptions = formatOptionsForEngine(params.options)
-  engineOptions['force-save'] = 'true'
+  const engineOptions = formatOptionsForEngine(withBtSafetyOptions(params.options))
   const gid = await invoke<string>('aria2_add_torrent', { torrent: params.torrent, options: engineOptions })
   logger.info('aria2.addTorrent', `gid=${gid}`)
   return gid
 }
 
-/** Adds a metalink download from a base64-encoded .metalink file. */
-export async function addMetalink(params: { metalink: string; options: Aria2EngineOptions }): Promise<string[]> {
-  const engineOptions = formatOptionsForEngine(params.options)
-  engineOptions['force-save'] = 'true'
-  const gids = await invoke<string[]>('aria2_add_metalink', { metalink: params.metalink, options: engineOptions })
-  logger.info('aria2.addMetalink', `added ${gids.length} task(s) gids=[${gids.join(',')}]`)
-  return gids
+/** Starts an ED2K search and returns the search GID. */
+export async function ed2kSearch(params: { keyword: string; options?: Ed2kSearchOptions }): Promise<string> {
+  return invoke<string>('aria2_ed2k_search', {
+    keyword: params.keyword,
+    options: params.options ?? {},
+  })
+}
+
+/** Fetches ED2K search results by search GID. */
+export async function getEd2kSearchResults(params: { gid: string }): Promise<Ed2kSearchResults> {
+  return invoke<Ed2kSearchResults>('aria2_get_ed2k_search_results', { gid: params.gid })
+}
+
+/** Cleans up an internal ED2K search task and its temporary files. */
+export async function cleanupEd2kSearch(params: { gid: string }): Promise<void> {
+  await invoke<void>('aria2_cleanup_ed2k_search', { gid: params.gid })
 }
 
 /** Forcefully removes a download task by GID. */
@@ -167,21 +215,6 @@ export async function pauseTask(params: { gid: string }): Promise<string> {
 /** Resumes a paused download task by GID. */
 export async function resumeTask(params: { gid: string }): Promise<string> {
   return invoke<string>('aria2_unpause', { gid: params.gid })
-}
-
-/** Pauses all active downloads (graceful). */
-export async function pauseAllTask(): Promise<string> {
-  return invoke<string>('aria2_pause_all')
-}
-
-/** Forcefully pauses all active downloads. */
-export async function forcePauseAllTask(): Promise<string> {
-  return invoke<string>('aria2_force_pause_all')
-}
-
-/** Resumes all paused downloads. */
-export async function resumeAllTask(): Promise<string> {
-  return invoke<string>('aria2_unpause_all')
 }
 
 /** Saves the current aria2 session to disk. */
@@ -234,14 +267,13 @@ const api = {
   addUri,
   addUriAtomic,
   addTorrent,
-  addMetalink,
+  ed2kSearch,
+  getEd2kSearchResults,
+  cleanupEd2kSearch,
   removeTask,
   forcePauseTask,
   pauseTask,
   resumeTask,
-  pauseAllTask,
-  forcePauseAllTask,
-  resumeAllTask,
   saveSession,
   removeTaskRecord,
   purgeTaskRecord,

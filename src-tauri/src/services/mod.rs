@@ -5,6 +5,7 @@
 //! - `stat` — Global stat polling (download/upload speed)
 //! - `speed` — Speed limit scheduler (time-of-day limits)
 //! - `monitor` — Task lifecycle monitor (completion/error notifications)
+//! - `aria2_events` — WebSocket bridge for immediate aria2 notifications
 //!
 //! The `on_engine_ready()` function orchestrates post-start initialization:
 //! 1. Updates `Aria2Client` credentials to match the just-started engine
@@ -12,38 +13,28 @@
 //! 3. Syncs global options to aria2 via `changeGlobalOption`
 //! 4. Stops old background services and spawns fresh ones
 
+pub mod aria2_events;
+pub mod bt_blocklist;
 pub mod config;
+pub mod deep_link;
+pub mod external_input;
+pub mod frontend_action;
 pub mod http_api;
 pub mod monitor;
+pub mod notification;
+pub mod notification_i18n;
+pub mod port_guard;
+pub mod power;
 pub mod speed;
 pub mod stat;
 
 use crate::aria2::client::Aria2State;
+use crate::engine::{non_hot_reloadable_keys, supported_engine_keys};
 use crate::error::AppError;
 use config::RuntimeConfigState;
-use tauri::{Emitter, Manager};
+use port_guard::DEFAULT_RPC_PORT;
+use tauri::Manager;
 use tauri_plugin_store::StoreExt;
-
-/// Keys that aria2 rejects via `changeGlobalOption` — they are bound at
-/// process startup via CLI args and cannot be changed at runtime.
-///
-/// Matches the `NON_HOT_RELOADABLE` set in `src/shared/utils/config.ts`.
-const NON_HOT_RELOADABLE: &[&str] = &[
-    // needRestartKeys
-    "dht-listen-port",
-    "listen-port",
-    "rpc-listen-port",
-    "rpc-secret",
-    // aria2 docs exclusions
-    "checksum",
-    "index-out",
-    "out",
-    "pause",
-    "select-file",
-    "rpc-save-upload-metadata",
-    // Needs full app relaunch (tauri-plugin-log init)
-    "log-level",
-];
 
 /// Reads the `system.json` store and returns its key-value pairs as a
 /// flat `Map<String, String>`, filtered to only hot-reloadable keys.
@@ -60,7 +51,9 @@ fn read_system_options(
     // system.json stores all keys at the root level
     let mut opts = serde_json::Map::new();
     for key in store.keys() {
-        if NON_HOT_RELOADABLE.contains(&key.as_str()) {
+        if !supported_engine_keys().contains(key.as_str())
+            || non_hot_reloadable_keys().contains(key.as_str())
+        {
             continue;
         }
         if let Some(val) = store.get(&key) {
@@ -164,6 +157,7 @@ pub async fn on_engine_ready(app: &tauri::AppHandle) -> Result<(), AppError> {
 ///
 /// Safe to call multiple times — idempotent stop + fresh spawn.
 async fn spawn_background_services(app: &tauri::AppHandle) {
+    use bt_blocklist::{self, BtPeerBlocklistServiceState};
     use monitor::{self, TaskMonitorState};
     use speed::{self, SpeedSchedulerState};
     use stat::{self, StatServiceState};
@@ -178,9 +172,12 @@ async fn spawn_background_services(app: &tauri::AppHandle) {
 
     // Stop existing services (handles restart scenario)
     if let Some(ss) = app.try_state::<StatServiceState>() {
-        let mut guard = ss.0.lock().await;
-        if let Some(old) = guard.take() {
-            old.stop();
+        let old = {
+            let mut guard = ss.0.lock().await;
+            guard.take()
+        };
+        if let Some(old) = old {
+            old.stop().await;
             log::debug!("runtime_services: stopped old stat_service");
         }
     }
@@ -198,6 +195,20 @@ async fn spawn_background_services(app: &tauri::AppHandle) {
             log::debug!("runtime_services: stopped old task_monitor");
         }
     }
+    if let Some(es) = app.try_state::<aria2_events::Aria2EventState>() {
+        let mut guard = es.0.lock().await;
+        if let Some(old) = guard.take() {
+            old.stop();
+            log::debug!("runtime_services: stopped old aria2_event_listener");
+        }
+    }
+    if let Some(bs) = app.try_state::<BtPeerBlocklistServiceState>() {
+        let mut guard = bs.0.lock().await;
+        if let Some(old) = guard.take() {
+            old.stop();
+            log::debug!("runtime_services: stopped old bt_peer_blocklist service");
+        }
+    }
 
     // Spawn fresh services
     let stat_handle = stat::spawn_stat_service(app.clone(), aria2_arc.clone());
@@ -210,38 +221,61 @@ async fn spawn_background_services(app: &tauri::AppHandle) {
         *ss.0.lock().await = Some(scheduler_handle);
     }
 
+    let blocklist_handle =
+        bt_blocklist::spawn_bt_peer_blocklist_service(app.clone(), aria2_arc.clone());
+    if let Some(bs) = app.try_state::<BtPeerBlocklistServiceState>() {
+        *bs.0.lock().await = Some(blocklist_handle);
+    }
+
     let monitor_handle = monitor::spawn_task_monitor(app.clone(), aria2_arc);
     if let Some(ts) = app.try_state::<TaskMonitorState>() {
         *ts.0.lock().await = Some(monitor_handle);
     }
 
+    if let Some(aria2) = app.try_state::<Aria2State>() {
+        let event_handle = aria2_events::spawn_aria2_event_listener(app.clone(), aria2.0.clone());
+        if let Some(es) = app.try_state::<aria2_events::Aria2EventState>() {
+            *es.0.lock().await = Some(event_handle);
+        }
+    }
+
     // HTTP API — keep running across engine restarts.  Idempotent: skips
-    // if already bound to the correct port.  On port mismatch (config change
-    // between engine cycles) the old server is stopped and a new one spawned.
+    // if already bound to the correct port and interface. On mismatch the old
+    // server is stopped and a new one spawned.
     let desired_port = http_api::read_extension_api_port(app).await;
+    let desired_remote_access = http_api::read_extension_api_allow_remote_access(app).await;
     if let Some(api_state) = app.try_state::<http_api::HttpApiState>() {
-        let current_port = api_state
-            .0
-            .lock()
-            .await
+        let guard = api_state.0.lock().await;
+        let current_port = guard.as_ref().map(http_api::HttpApiHandle::port);
+        let current_remote_access = guard
             .as_ref()
-            .map(http_api::HttpApiHandle::port);
-        if current_port != Some(desired_port) {
+            .map(http_api::HttpApiHandle::allow_remote_access);
+        drop(guard);
+        if current_port != Some(desired_port)
+            || current_remote_access != Some(desired_remote_access)
+        {
             match http_api::restart_on_port(app, desired_port).await {
-                Ok(()) => {
-                    log::info!("runtime_services: HTTP API listening on port {desired_port}");
+                Ok(active_port) => {
+                    log::info!("runtime_services: HTTP API listening on port {active_port}");
                 }
                 Err(e) => {
-                    log::error!(
+                    log::warn!(
                         "runtime_services: HTTP API bind failed on port {desired_port}: {e}"
                     );
-                    let _ = app.emit("http-api-bind-failed", desired_port);
+                    port_guard::emit_bind_failed(
+                        app,
+                        port_guard::PortKind::ExtensionApi,
+                        desired_port,
+                        port_guard::PortSwitchFailureSource::Startup,
+                    );
                 }
             }
         }
     }
 
-    log::info!("runtime_services: spawned stat_service + speed_scheduler + task_monitor");
+    log::info!(
+        "runtime_services: spawned stat_service + speed_scheduler + task_monitor + bt_peer_blocklist"
+    );
 }
 
 /// Read engine port and secret from the config store.
@@ -261,7 +295,7 @@ fn read_engine_credentials(app: &tauri::AppHandle) -> Result<(u16, String), AppE
                     .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
             })
         })
-        .unwrap_or(16800);
+        .unwrap_or(DEFAULT_RPC_PORT);
 
     let secret = prefs
         .as_ref()
@@ -295,7 +329,7 @@ fn is_in_scheduled_period_at(
     days: u8,
     now: chrono::DateTime<chrono::Local>,
 ) -> bool {
-    use chrono::{Datelike, Timelike};
+    use chrono::{Datelike, NaiveTime, Timelike};
 
     // Day-of-week check: Mon=1, Tue=2, ..., Sun=64; 0 = every day
     if days != 0 {
@@ -306,26 +340,18 @@ fn is_in_scheduled_period_at(
         }
     }
 
-    let parse_hm = |s: &str| -> Option<(u32, u32)> {
-        let parts: Vec<&str> = s.split(':').collect();
-        if parts.len() != 2 {
-            return None;
-        }
-        Some((parts[0].parse().ok()?, parts[1].parse().ok()?))
+    let from_time = match NaiveTime::parse_from_str(from, "%H:%M") {
+        Ok(v) => v,
+        Err(_) => return false,
     };
-
-    let (from_h, from_m) = match parse_hm(from) {
-        Some(v) => v,
-        None => return false,
-    };
-    let (to_h, to_m) = match parse_hm(to) {
-        Some(v) => v,
-        None => return false,
+    let to_time = match NaiveTime::parse_from_str(to, "%H:%M") {
+        Ok(v) => v,
+        Err(_) => return false,
     };
 
     let now_minutes = now.hour() * 60 + now.minute();
-    let from_minutes = from_h * 60 + from_m;
-    let to_minutes = to_h * 60 + to_m;
+    let from_minutes = from_time.hour() * 60 + from_time.minute();
+    let to_minutes = to_time.hour() * 60 + to_time.minute();
 
     if from_minutes <= to_minutes {
         // Same-day span: 08:00 → 22:00
@@ -450,25 +476,45 @@ mod tests {
         assert!(!is_in_scheduled_period_at("08:00", "bad", 0, now));
     }
 
-    // ── NON_HOT_RELOADABLE ─────────────────────────────────────────
+    #[test]
+    fn invalid_time_components_return_false() {
+        let now = make_time(12, 0, 0);
+        assert!(!is_in_scheduled_period_at("00:99", "23:59", 0, now));
+        assert!(!is_in_scheduled_period_at("24:00", "23:59", 0, now));
+    }
+
+    // ── non_hot_reloadable_keys (shared aria2Options.json) ─────────
 
     #[test]
-    fn non_hot_reloadable_contains_restart_keys() {
-        assert!(NON_HOT_RELOADABLE.contains(&"rpc-listen-port"));
-        assert!(NON_HOT_RELOADABLE.contains(&"rpc-secret"));
-        assert!(NON_HOT_RELOADABLE.contains(&"listen-port"));
-        assert!(NON_HOT_RELOADABLE.contains(&"dht-listen-port"));
+    fn non_hot_reloadable_keys_cover_restart_and_startup_only_options() {
+        let keys = crate::engine::non_hot_reloadable_keys();
+        for key in [
+            "rpc-listen-port",
+            "allow-remote-access",
+            "rpc-secret",
+            "dht-listen-port",
+            "ed2k-listen-port",
+            "ed2k-udp-listen-port",
+            "enable-dht",
+            "enable-dht6",
+            "enable-peer-exchange",
+            "bt-enable-lpd",
+            "bt-force-encryption",
+            "bt-require-crypto",
+            "bt-max-peers",
+        ] {
+            assert!(keys.contains(key), "missing: {key}");
+        }
     }
 
     #[test]
-    fn non_hot_reloadable_contains_log_level() {
-        assert!(NON_HOT_RELOADABLE.contains(&"log-level"));
-    }
-
-    #[test]
-    fn non_hot_reloadable_does_not_contain_normal_keys() {
-        assert!(!NON_HOT_RELOADABLE.contains(&"max-overall-download-limit"));
-        assert!(!NON_HOT_RELOADABLE.contains(&"dir"));
-        assert!(!NON_HOT_RELOADABLE.contains(&"split"));
+    fn non_hot_reloadable_keys_exclude_hot_reloadable_options() {
+        let keys = crate::engine::non_hot_reloadable_keys();
+        assert!(!keys.contains("max-overall-download-limit"));
+        assert!(!keys.contains("dir"));
+        assert!(!keys.contains("split"));
+        assert!(!keys.contains("listen-port"));
+        assert!(!keys.contains("bt-external-ip"));
+        assert!(!keys.contains("bt-external-port"));
     }
 }

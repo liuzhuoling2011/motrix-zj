@@ -2,14 +2,15 @@
  * @fileoverview Composable for managing per-task options in the Task Detail drawer.
  *
  * Reads the current task's options via `getTaskOption`, exposes a reactive form
- * for UA, referer, cookie, authorization, and proxy (tri-state: none/global/custom),
+ * for UA, referer, cookie, authorization, and proxy,
  * and applies changes via `changeTaskOption`.
  *
  * ## aria2 source code verification
  *
  * All target options are confirmed mutable via `changeOption` in
  * `OptionHandlerFactory.cc` — each has `setChangeOptionForReserved(true)`:
- * - `all-proxy` (L1390) — HttpProxyOptionHandler, accepts any proxy URL
+ * - `all-proxy` — HttpProxyOptionHandler, accepts HTTP proxy URLs
+ * - `no-proxy` — bypass list
  * - `user-agent` (L1223) — DefaultOptionHandler
  * - `referer` (L1185) — DefaultOptionHandler
  * - `header` (L1094) — CumulativeOptionHandler, accepts array input
@@ -21,11 +22,11 @@
  */
 import { ref, reactive, computed, watch, type Ref } from 'vue'
 import { isEngineReady } from '@/api/aria2'
-import { isGlobalProxyConfigured } from '@/composables/useAddTaskSubmit'
-import { isValidAria2ProxyUrl } from '@/composables/useAdvancedPreference'
+import { sanitizeHeaderValue, sanitizeHttpHeaderOptions } from '@shared/utils/headerSanitize'
 import { TASK_STATUS } from '@shared/constants'
 import type { Aria2Task, Aria2EngineOptions, ProxyConfig } from '@shared/types'
 import { logger } from '@shared/logger'
+import { buildTaskProxyOptions, hasInvalidManualProxy, type TaskProxyMode } from '@shared/utils/proxy'
 
 // ── Constants ─────────────────────────────────────────────────────
 
@@ -35,15 +36,19 @@ const MODIFIABLE_STATUSES = new Set([TASK_STATUS.ACTIVE, TASK_STATUS.WAITING, TA
 // ── Public types ──────────────────────────────────────────────────
 
 /** Proxy configuration mode for a specific task. */
-export type ProxyMode = 'none' | 'global' | 'custom'
+export type ProxyMode = TaskProxyMode
 
 export interface TaskDetailOptionsForm {
   userAgent: string
   referer: string
   cookie: string
   authorization: string
+  httpAuthUsername: string
+  httpAuthPassword: string
   proxyMode: ProxyMode
   customProxy: string
+  customProxyUsername: string
+  customProxyPassword: string
 }
 
 export interface UseTaskDetailOptionsConfig {
@@ -91,8 +96,10 @@ export function parseHeaders(raw: string | string[] | undefined): {
  */
 export function buildHeaders(cookie: string, authorization: string): string[] {
   const headers: string[] = []
-  if (cookie) headers.push(`Cookie: ${cookie}`)
-  if (authorization) headers.push(`Authorization: ${authorization}`)
+  const cleanCookie = sanitizeHeaderValue(cookie)
+  const cleanAuthorization = sanitizeHeaderValue(authorization)
+  if (cleanCookie) headers.push(`Cookie: ${cleanCookie}`)
+  if (cleanAuthorization) headers.push(`Authorization: ${cleanAuthorization}`)
   return headers
 }
 
@@ -104,8 +111,12 @@ function createEmptyForm(): TaskDetailOptionsForm {
     referer: '',
     cookie: '',
     authorization: '',
-    proxyMode: 'none',
+    httpAuthUsername: '',
+    httpAuthPassword: '',
+    proxyMode: 'direct',
     customProxy: '',
+    customProxyUsername: '',
+    customProxyPassword: '',
   }
 }
 
@@ -115,32 +126,15 @@ function snapshotForm(source: TaskDetailOptionsForm, target: TaskDetailOptionsFo
 
 // ── Proxy detection ───────────────────────────────────────────────
 
-/** Strips trailing slashes for URL comparison (aria2 normalizes proxy URLs). */
-function normalizeProxyUrl(url: string): string {
-  return url.replace(/\/+$/, '')
-}
-
-/**
- * Detects the proxy mode from the loaded all-proxy value.
- * - Empty → none
- * - Matches global proxy server → global
- * - Anything else → custom (with the URL preserved)
- *
- * Uses normalized comparison because aria2's HttpProxyOptionHandler
- * reconstructs URLs via uri::construct(), which appends a trailing
- * slash (e.g. "http://host:port" → "http://host:port/").
- */
-function detectProxyMode(allProxy: string, globalServer: string): { mode: ProxyMode; custom: string } {
-  if (!allProxy) return { mode: 'none', custom: '' }
-  if (globalServer && normalizeProxyUrl(allProxy) === normalizeProxyUrl(globalServer)) {
-    return { mode: 'global', custom: '' }
-  }
-  return { mode: 'custom', custom: allProxy }
+function detectProxyMode(opts: Record<string, string>): { mode: ProxyMode; custom: string } {
+  const allProxy = (opts.allProxy as string) ?? ''
+  if (allProxy) return { mode: 'manual', custom: allProxy }
+  return { mode: 'direct', custom: '' }
 }
 
 // ── Options loader ────────────────────────────────────────────────
 
-function populateFormFromResponse(opts: Record<string, string>, form: TaskDetailOptionsForm, globalServer: string) {
+function populateFormFromResponse(opts: Record<string, string>, form: TaskDetailOptionsForm) {
   form.userAgent = (opts.userAgent as string) ?? ''
   form.referer = (opts.referer as string) ?? ''
 
@@ -148,11 +142,14 @@ function populateFormFromResponse(opts: Record<string, string>, form: TaskDetail
   const parsed = parseHeaders(headerRaw)
   form.cookie = parsed.cookie
   form.authorization = parsed.authorization
+  form.httpAuthUsername = (opts.httpUser as string) ?? ''
+  form.httpAuthPassword = (opts.httpPasswd as string) ?? ''
 
-  const allProxy = (opts.allProxy as string) ?? ''
-  const detected = detectProxyMode(allProxy, globalServer)
+  const detected = detectProxyMode(opts)
   form.proxyMode = detected.mode
   form.customProxy = detected.custom
+  form.customProxyUsername = (opts.allProxyUser as string) ?? ''
+  form.customProxyPassword = (opts.allProxyPasswd as string) ?? ''
 }
 
 // ── Changed-options diff builder ──────────────────────────────────
@@ -160,32 +157,40 @@ function populateFormFromResponse(opts: Record<string, string>, form: TaskDetail
 function buildChangedOptions(
   form: TaskDetailOptionsForm,
   loaded: TaskDetailOptionsForm,
-  resolvedProxy: string,
+  proxyOptions: Aria2EngineOptions,
 ): Aria2EngineOptions {
   const options: Aria2EngineOptions = {}
+  const sanitizedHeaders = sanitizeHttpHeaderOptions({
+    userAgent: form.userAgent,
+    referer: form.referer,
+    cookie: form.cookie,
+    authorization: form.authorization,
+  })
 
   if (form.userAgent !== loaded.userAgent) {
-    options['user-agent'] = form.userAgent
+    options['user-agent'] = sanitizedHeaders.userAgent ?? ''
   }
   if (form.referer !== loaded.referer) {
-    options.referer = form.referer
+    options.referer = sanitizedHeaders.referer ?? ''
   }
   if (form.cookie !== loaded.cookie || form.authorization !== loaded.authorization) {
     options.header = buildHeaders(form.cookie, form.authorization)
   }
-  if (form.proxyMode !== loaded.proxyMode || form.customProxy !== loaded.customProxy) {
-    options['all-proxy'] = resolvedProxy
+  if (form.httpAuthUsername !== loaded.httpAuthUsername || form.httpAuthPassword !== loaded.httpAuthPassword) {
+    const username = sanitizeHeaderValue(form.httpAuthUsername)
+    options['http-user'] = username
+    options['http-passwd'] = sanitizeHeaderValue(form.httpAuthPassword)
+  }
+  if (
+    form.proxyMode !== loaded.proxyMode ||
+    form.customProxy !== loaded.customProxy ||
+    form.customProxyUsername !== loaded.customProxyUsername ||
+    form.customProxyPassword !== loaded.customProxyPassword
+  ) {
+    Object.assign(options, proxyOptions)
   }
 
   return options
-}
-
-// ── Proxy resolution ──────────────────────────────────────────────
-
-function resolveProxy(mode: ProxyMode, customProxy: string, globalServer: string): string {
-  if (mode === 'global') return globalServer
-  if (mode === 'custom') return customProxy
-  return ''
 }
 
 // ── Composable ────────────────────────────────────────────────────
@@ -202,17 +207,18 @@ export function useTaskDetailOptions(config: UseTaskDetailOptionsConfig) {
     return MODIFIABLE_STATUSES.has(task.value.status)
   })
 
-  const globalProxyAvailable = computed(() => isGlobalProxyConfigured(proxyConfig()))
-  const proxyAddress = computed(() => proxyConfig()?.server ?? '')
-
   const dirty = computed(
     () =>
       form.userAgent !== loaded.userAgent ||
       form.referer !== loaded.referer ||
       form.cookie !== loaded.cookie ||
       form.authorization !== loaded.authorization ||
+      form.httpAuthUsername !== loaded.httpAuthUsername ||
+      form.httpAuthPassword !== loaded.httpAuthPassword ||
       form.proxyMode !== loaded.proxyMode ||
-      form.customProxy !== loaded.customProxy,
+      form.customProxy !== loaded.customProxy ||
+      form.customProxyUsername !== loaded.customProxyUsername ||
+      form.customProxyPassword !== loaded.customProxyPassword,
   )
 
   function resetForm() {
@@ -223,17 +229,7 @@ export function useTaskDetailOptions(config: UseTaskDetailOptionsConfig) {
   async function loadOptions(gid: string) {
     try {
       const opts = await getTaskOption(gid)
-      populateFormFromResponse(opts, form, proxyAddress.value)
-
-      // If the global proxy has been disabled since this task was created,
-      // the detected 'global' mode is stale — downgrade to 'custom' so the
-      // UI truthfully shows the actual per-task proxy address from aria2.
-      // The user can then manually clear it or switch to 'none'.
-      if (form.proxyMode === 'global' && !globalProxyAvailable.value) {
-        const actualProxy = (opts.allProxy as string) ?? ''
-        form.proxyMode = actualProxy ? 'custom' : 'none'
-        form.customProxy = actualProxy
-      }
+      populateFormFromResponse(opts, form)
 
       snapshotForm(form, loaded)
     } catch (err) {
@@ -248,28 +244,25 @@ export function useTaskDetailOptions(config: UseTaskDetailOptionsConfig) {
     { immediate: true },
   )
 
-  // Sync proxyMode in real-time when global proxy config changes.
-  // Covers the timing gap where loadOptions ran before the preference
-  // store finished loading, leaving a stale 'global' mode.
-  watch(globalProxyAvailable, (available) => {
-    if (!available && form.proxyMode === 'global') {
-      form.proxyMode = form.customProxy ? 'custom' : 'none'
-    }
-  })
-
   async function applyOptions(): Promise<void> {
     if (applying.value || !task.value || !dirty.value) return
     applying.value = true
     try {
-      const proxy = resolveProxy(form.proxyMode, form.customProxy, proxyAddress.value)
+      const proxyOptions = buildTaskProxyOptions(
+        form.proxyMode,
+        form.customProxy,
+        proxyConfig(),
+        form.customProxyUsername,
+        form.customProxyPassword,
+      )
 
       // Validate proxy format before sending to aria2 — prevents errorCode=28 crash
-      if (proxy && !isValidAria2ProxyUrl(proxy)) {
+      if (hasInvalidManualProxy(proxyOptions)) {
         message.error(t('task.proxy-unsupported-protocol'))
         return
       }
 
-      const options = buildChangedOptions(form, loaded, proxy)
+      const options = buildChangedOptions(form, loaded, proxyOptions)
       await changeTaskOption({ gid: task.value.gid, options })
       snapshotForm(form, loaded)
       const key = task.value.status === TASK_STATUS.ACTIVE ? 'task.options-applied-restart' : 'task.options-applied'
@@ -282,5 +275,5 @@ export function useTaskDetailOptions(config: UseTaskDetailOptionsConfig) {
     }
   }
 
-  return { form, canModify, globalProxyAvailable, proxyAddress, dirty, applying, applyOptions }
+  return { form, canModify, dirty, applying, applyOptions }
 }

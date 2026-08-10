@@ -30,11 +30,14 @@ export const ENGINE_MAX_RETRIES = 10
 /** Default duration for notification messages (ms). */
 export const MESSAGE_DURATION = 3000
 
+/** Maximum number of in-app notification messages shown at once. */
+export const MESSAGE_MAX_COUNT = 3
+
 /** JSON-RPC call timeout (ms). */
 export const RPC_TIMEOUT = 15_000
 
 /** Default aria2 RPC listen port. */
-export const DEFAULT_ARIA2_PORT = 16800
+export const DEFAULT_ARIA2_PORT = 29100
 
 /** Minimum visible loading duration for tracker sync animation (ms). */
 export const SYNC_MIN_DURATION = 600

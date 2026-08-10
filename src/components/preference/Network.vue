@@ -1,24 +1,24 @@
 <script setup lang="ts">
 /** @fileoverview Network preference tab: proxy, ports, user-agent, timeouts, file allocation. */
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
 import { usePreferenceForm } from '@/composables/usePreferenceForm'
 import { useEngineRestart } from '@/composables/useEngineRestart'
+import { usePlatform } from '@/composables/usePlatform'
 import { useSystemProxyDetect } from '@/composables/useSystemProxyDetect'
 import { logger } from '@shared/logger'
+import { getErrorMessage } from '@shared/utils/errorMessage'
 import { useAppMessage } from '@/composables/useAppMessage'
 import { PROXY_SCOPE_OPTIONS, FILE_ALLOCATION_OPTIONS, ENGINE_RPC_PORT } from '@shared/constants'
-import { diffConfig, checkIsNeedRestart } from '@shared/utils/config'
 import {
   buildNetworkForm,
   buildNetworkSystemConfig,
   transformNetworkForStore,
-  isValidAria2ProxyUrl,
-  randomBtPort,
-  randomDhtPort,
+  validateNetworkForm,
 } from '@/composables/useNetworkPreference'
+import { proxySwitchValueToMode } from '@shared/utils/proxy'
 
 import userAgentMap from '@shared/ua'
 import { hasUnsafeHeaderChars, sanitizeHeaderValue } from '@shared/utils/headerSanitize'
@@ -37,26 +37,56 @@ import {
   NText,
   useDialog,
 } from 'naive-ui'
-const needsRestart = ref(false)
+const showUserAgentManager = ref(false)
 import PreferenceActionBar from './PreferenceActionBar.vue'
-import { SearchOutline, DiceOutline } from '@vicons/ionicons5'
+import PreferenceCheckboxGrid from './PreferenceCheckboxGrid.vue'
+import PreferenceHintLabel from './PreferenceHintLabel.vue'
+import UserAgentManager from './UserAgentManager.vue'
+import { SearchOutline } from '@vicons/ionicons5'
 
 const { t } = useI18n()
 const preferenceStore = usePreferenceStore()
 const dialog = useDialog()
 const message = useAppMessage()
+const { isWindows } = usePlatform()
 
 const proxyScopeOptions = PROXY_SCOPE_OPTIONS.map((s: string) => ({
   label: t(`preferences.proxy-scope-${s}`),
   value: s,
 }))
+const fileAllocationOptions = computed(() =>
+  FILE_ALLOCATION_OPTIONS.filter((value) => !(isWindows.value && value === 'falloc')).map((value) => ({
+    label: value,
+    value,
+  })),
+)
+
+type PortRecoveryTarget = 'rpc' | 'extensionApi' | 'bt' | 'dht' | 'ed2k' | 'ed2kUdp'
+const portRecoveryTargets: PortRecoveryTarget[] = ['rpc', 'extensionApi', 'bt', 'dht', 'ed2k', 'ed2kUdp']
+const portRecoveryTargetOptions = computed(() => [
+  { label: t('preferences.rpc-listen-port'), value: 'rpc' },
+  { label: t('preferences.extension-api-port'), value: 'extensionApi' },
+  { label: t('preferences.port-conflict-recovery-bt'), value: 'bt' },
+  { label: t('preferences.port-conflict-recovery-dht'), value: 'dht' },
+  { label: t('preferences.port-conflict-recovery-ed2k'), value: 'ed2k' },
+  { label: t('preferences.port-conflict-recovery-ed2k-udp'), value: 'ed2kUdp' },
+])
+const selectedPortRecoveryTargets = computed<string[]>({
+  get: () => portRecoveryTargets.filter((target) => form.value.portConflictRecovery[target]),
+  set: (targets) => {
+    const selected = new Set(targets)
+    for (const target of portRecoveryTargets) {
+      form.value.portConflictRecovery[target] = selected.has(target)
+    }
+  },
+})
 
 // ── Proxy detection ─────────────────────────────────────────────────
 const { detecting: detectingProxy, detect: detectProxy } = useSystemProxyDetect({
   onSuccess(info) {
     form.value.proxy.server = info.server
     if (info.bypass) form.value.proxy.bypass = info.bypass
-    if (!form.value.proxy.enable) form.value.proxy.enable = true
+    form.value.proxy.mode = 'manual'
     message.success(t('preferences.proxy-detected-success'))
   },
   onSocks() {
@@ -76,79 +106,40 @@ function buildForm() {
 
 const { restartEngine } = useEngineRestart()
 
-const { form, isDirty, handleSave, handleReset, resetSnapshot } = usePreferenceForm({
+const { form, isDirty, handleSave, handleReset, resetSnapshot, patchSnapshot } = usePreferenceForm({
   buildForm,
   buildSystemConfig: buildNetworkSystemConfig,
   transformForStore: transformNetworkForStore,
-  beforeSave: async (f) => {
-    // Validate proxy URL
-    if (f.proxy.enable && f.proxy.server) {
-      if (!isValidAria2ProxyUrl(f.proxy.server)) {
-        message.error(t('preferences.proxy-invalid'))
-        return false
-      }
+  beforeSave: (f) => {
+    const validationKey = validateNetworkForm(f)
+    if (validationKey) {
+      message.error(t(validationKey))
+      return false
     }
-
-    // Gate: engine restart confirmation (BT/DHT port change).
-    // Must confirm BEFORE saving — declining cancels the entire save so
-    // config.json never contains values the running engine doesn't match.
-    const changed = diffConfig(preferenceStore.config, f)
-    if (checkIsNeedRestart(changed)) {
-      const ok = await new Promise<boolean>((resolve) => {
-        dialog.warning({
-          title: t('preferences.engine-restart-title'),
-          content: t('preferences.engine-restart-confirm'),
-          positiveText: t('preferences.engine-restart-now'),
-          negativeText: t('app.cancel'),
-          maskClosable: false,
-          onPositiveClick: () => resolve(true),
-          onNegativeClick: () => resolve(false),
-          onClose: () => resolve(false),
-        })
-      })
-      if (!ok) return false
-      needsRestart.value = true
-    }
-
     return true
   },
   afterSave: async (f, prevConfig) => {
-    // Sync UPnP mapping state after save
-    if (f.enableUpnp !== prevConfig.enableUpnp) {
-      syncUpnpState(!!f.enableUpnp, f.listenPort, f.dhtListenPort)
-    }
-
-    // Engine restart — user already confirmed in beforeSave, execute immediately.
-    if (needsRestart.value) {
-      needsRestart.value = false
-      const port = (preferenceStore.config.rpcListenPort as number) || ENGINE_RPC_PORT
-      const secret = (preferenceStore.config.rpcSecret as string) || ''
-      message.info(t('preferences.engine-restarting'))
-      await nextTick()
-      await new Promise((r) => requestAnimationFrame(r))
-      await restartEngine({ port, secret })
-    }
+    if (f.enableUpnp !== prevConfig.enableUpnp) await syncUpnpState(!!f.enableUpnp)
   },
 })
 
-// ── Port randomization ──────────────────────────────────────────────
-function onBtPortDice() {
-  form.value.listenPort = randomBtPort()
-}
-function onDhtPortDice() {
-  form.value.dhtListenPort = randomDhtPort()
-}
-
 // ── UPnP save-time sync ─────────────────────────────────────────────
-async function syncUpnpState(enabled: boolean, btPort: number, dhtPort: number) {
+async function syncUpnpState(enabled: boolean) {
+  const config = preferenceStore.config
   try {
     if (enabled) {
-      await invoke('start_upnp_mapping', { btPort, dhtPort })
+      await invoke('start_upnp_mapping', {
+        btPort: Number(config.listenPort),
+        btExternalPort: Number(config.btExternalPort) || 0,
+        dhtPort: Number(config.dhtListenPort),
+        ed2kPort: Number(config.ed2kListenPort) > 0 ? Number(config.ed2kListenPort) : null,
+        ed2kUdpPort: Number(config.ed2kUdpListenPort) > 0 ? Number(config.ed2kUdpListenPort) : null,
+      })
     } else {
       await invoke('stop_upnp_mapping')
     }
   } catch (e) {
-    logger.warn('UPnP', `sync failed: ${e}`)
+    logger.warn('UPnP', `sync failed: ${getErrorMessage(e)}`)
     message.warning(t('preferences.upnp-mapping-failed'))
   }
 }
@@ -165,10 +156,38 @@ function cleanUserAgent() {
   form.value.userAgent = sanitizeHeaderValue(form.value.userAgent as string)
 }
 
+async function handleUserAgentManagerSave(payload: {
+  profiles: typeof form.value.userAgentProfiles
+  rules: typeof form.value.userAgentRules
+  recentProfileIds: typeof form.value.recentUserAgentProfileIds
+}) {
+  form.value.userAgentProfiles = payload.profiles
+  form.value.userAgentRules = payload.rules
+  form.value.recentUserAgentProfileIds = payload.recentProfileIds
+  const saved = await preferenceStore.updateAndSave({
+    userAgentProfiles: payload.profiles,
+    userAgentRules: payload.rules,
+    recentUserAgentProfileIds: payload.recentProfileIds,
+  })
+  if (!saved) {
+    message.error(t('preferences.save-fail-message'))
+    return
+  }
+  patchSnapshot({
+    userAgentProfiles: payload.profiles,
+    userAgentRules: payload.rules,
+    recentUserAgentProfileIds: payload.recentProfileIds,
+  } as Partial<typeof form.value>)
+}
+
+function handleProxySwitch(value: boolean) {
+  form.value.proxy.mode = proxySwitchValueToMode(value)
+}
+
 function handleManualRestart() {
   const port = (preferenceStore.config.rpcListenPort as number) || ENGINE_RPC_PORT
   const secret = (preferenceStore.config.rpcSecret as string) || ''
-  const d = dialog.warning({
+  const d = dialog.info({
     title: t('preferences.engine-restart-title'),
     content: t('preferences.engine-restart-manual-confirm'),
     positiveText: t('preferences.engine-restart-now'),
@@ -193,153 +212,199 @@ onMounted(() => {
 
 <template>
   <div class="preference-form-wrapper">
-    <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
-      <!-- Proxy -->
-      <NDivider title-placement="left">{{ t('preferences.proxy') }}</NDivider>
-      <NFormItem :label="t('preferences.enable-proxy')">
-        <NSwitch v-model:value="form.proxy.enable" />
-      </NFormItem>
-      <div class="proxy-collapse" :class="{ 'proxy-collapse--open': form.proxy.enable }">
-        <div class="proxy-collapse__inner collapse-indent">
-          <NFormItem :label="t('preferences.proxy-server')">
-            <NInputGroup>
-              <NInput v-model:value="form.proxy.server" placeholder="[http://][USER:PASSWORD@]HOST[:PORT]" />
-              <NButton :loading="detectingProxy" @click="detectProxy">
-                <template #icon>
-                  <NIcon><SearchOutline /></NIcon>
-                </template>
-                {{ t('preferences.detect-system-proxy') }}
-              </NButton>
-            </NInputGroup>
-          </NFormItem>
-          <NFormItem :show-label="false">
-            <div class="info-text">{{ t('preferences.proxy-http-only-hint') }}</div>
-          </NFormItem>
-          <NFormItem :label="t('preferences.proxy-bypass')">
+    <div class="preference-form-scroll">
+      <NForm label-placement="left" label-align="left" label-width="260px" size="small" class="form-preference">
+        <!-- User-Agent -->
+        <NDivider title-placement="left">{{ t('preferences.user-agent') }}</NDivider>
+        <NFormItem :label="t('preferences.mock-user-agent')">
+          <div class="ua-field-wrapper">
             <NInput
-              v-model:value="form.proxy.bypass"
+              v-model:value="form.userAgent"
               type="textarea"
-              :autosize="{ minRows: 2, maxRows: 3 }"
-              :placeholder="t('preferences.proxy-bypass-input-tips')"
+              :autosize="{ minRows: 2, maxRows: 4 }"
+              placeholder="User-Agent"
             />
-          </NFormItem>
-          <NFormItem :label="t('preferences.proxy-scope')">
-            <NSelect v-model:value="form.proxy.scope" :options="proxyScopeOptions" multiple style="width: 100%" />
-          </NFormItem>
-        </div>
-      </div>
-
-      <!-- Ports -->
-      <NDivider title-placement="left">{{ t('preferences.port') }}</NDivider>
-      <NFormItem label="UPnP/NAT-PMP">
-        <NSwitch v-model:value="form.enableUpnp" />
-      </NFormItem>
-      <NFormItem :label="t('preferences.bt-port')">
-        <NInputGroup>
-          <NInputNumber v-model:value="form.listenPort" :min="1024" :max="65535" style="width: 160px" />
-          <NButton style="padding: 0 10px" @click="onBtPortDice">
-            <template #icon>
-              <NIcon :size="14"><DiceOutline /></NIcon>
-            </template>
-          </NButton>
-        </NInputGroup>
-      </NFormItem>
-      <NFormItem :label="t('preferences.dht-port')">
-        <NInputGroup>
-          <NInputNumber v-model:value="form.dhtListenPort" :min="1024" :max="65535" style="width: 160px" />
-          <NButton style="padding: 0 10px" @click="onDhtPortDice">
-            <template #icon>
-              <NIcon :size="14"><DiceOutline /></NIcon>
-            </template>
-          </NButton>
-        </NInputGroup>
-      </NFormItem>
-
-      <!-- User-Agent -->
-      <NDivider title-placement="left">{{ t('preferences.user-agent') }}</NDivider>
-      <NFormItem :label="t('preferences.mock-user-agent')">
-        <div class="ua-field-wrapper">
-          <NInput
-            v-model:value="form.userAgent"
-            type="textarea"
-            :autosize="{ minRows: 2, maxRows: 4 }"
-            placeholder="User-Agent"
-          />
-          <div class="ua-warn-collapse" :class="{ 'ua-warn-collapse--open': uaHasIssue }">
-            <div class="ua-warn-collapse__inner">
-              <div class="ua-warn-bar">
-                <span class="ua-warn-text">⚠ {{ t('preferences.ua-unsafe-chars-detected') }}</span>
-                <NButton size="tiny" type="primary" ghost @click="cleanUserAgent">
-                  {{ t('preferences.ua-sanitize') }}
-                </NButton>
+            <div class="ua-warn-collapse" :class="{ 'ua-warn-collapse--open': uaHasIssue }">
+              <div class="ua-warn-collapse__inner">
+                <div class="ua-warn-bar">
+                  <span class="ua-warn-text">⚠ {{ t('preferences.ua-unsafe-chars-detected') }}</span>
+                  <NButton size="tiny" type="primary" ghost @click="cleanUserAgent">
+                    {{ t('preferences.ua-sanitize') }}
+                  </NButton>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </NFormItem>
-      <NFormItem :show-label="false">
-        <div class="ua-preset-row">
-          <NButtonGroup size="small">
-            <NButton @click="changeUA('chrome')">Chrome</NButton>
-            <NButton @click="changeUA('edge')">Edge</NButton>
-            <NButton @click="changeUA('safari')">Safari</NButton>
-            <NButton @click="changeUA('firefox')">Firefox</NButton>
-            <NButton @click="changeUA('transmission')">Transmission</NButton>
-          </NButtonGroup>
-          <NButton class="ua-reset-btn" size="small" ghost @click="form.userAgent = ''">
-            {{ t('preferences.ua-reset') }}
-          </NButton>
-        </div>
-      </NFormItem>
+        </NFormItem>
+        <NFormItem label=" ">
+          <div class="ua-preset-row">
+            <NButtonGroup size="small">
+              <NButton @click="changeUA('chrome')">Chrome</NButton>
+              <NButton @click="changeUA('edge')">Edge</NButton>
+              <NButton @click="changeUA('safari')">Safari</NButton>
+              <NButton @click="changeUA('firefox')">Firefox</NButton>
+            </NButtonGroup>
+            <NButton type="error" size="small" ghost @click="form.userAgent = ''">
+              {{ t('preferences.ua-reset') }}
+            </NButton>
+          </div>
+        </NFormItem>
+        <NFormItem :label="t('preferences.ua-saved')">
+          <div class="ua-manager-entry">
+            <div class="ua-manager-entry-text">
+              <strong>{{ t('preferences.ua-manager-title') }}</strong>
+              <span>
+                {{
+                  t('preferences.ua-manager-summary', {
+                    profiles: form.userAgentProfiles.length,
+                    rules: form.userAgentRules.length,
+                  })
+                }}
+              </span>
+            </div>
+            <NButton size="small" @click="showUserAgentManager = true">
+              {{ t('preferences.ua-manage') }}
+            </NButton>
+          </div>
+        </NFormItem>
 
-      <!-- Timeout & Disk -->
-      <NDivider title-placement="left">{{ t('preferences.transfer-params') }}</NDivider>
-      <NFormItem :label="t('preferences.connect-timeout')">
-        <NInputNumber v-model:value="form.connectTimeout" :min="1" :max="600" style="width: 120px" />
-        <NText depth="3" style="font-size: 12px; margin-left: 8px">{{ t('preferences.unit-seconds') }}</NText>
-      </NFormItem>
-      <NFormItem :label="t('preferences.timeout')">
-        <NInputNumber v-model:value="form.timeout" :min="1" :max="600" style="width: 120px" />
-        <NText depth="3" style="font-size: 12px; margin-left: 8px">{{ t('preferences.unit-seconds') }}</NText>
-      </NFormItem>
-      <NFormItem :label="t('preferences.file-allocation')">
-        <NSelect
-          v-model:value="form.fileAllocation"
-          :options="FILE_ALLOCATION_OPTIONS.map((v: string) => ({ label: v, value: v }))"
-          style="width: 140px"
-        />
-      </NFormItem>
-    </NForm>
+        <!-- Proxy -->
+        <NDivider title-placement="left">{{ t('preferences.proxy') }}</NDivider>
+        <NFormItem>
+          <template #label>
+            <PreferenceHintLabel :label="t('task.use-proxy')" :hint="t('preferences.proxy-request-scope-hint')" />
+          </template>
+          <NSwitch :value="form.proxy.mode !== 'direct'" @update:value="handleProxySwitch" />
+        </NFormItem>
+        <div class="proxy-collapse" :class="{ 'proxy-collapse--open': form.proxy.mode === 'manual' }">
+          <div class="proxy-collapse__inner collapse-indent">
+            <NFormItem>
+              <template #label>
+                <PreferenceHintLabel
+                  :label="t('preferences.proxy-server')"
+                  :hint="t('preferences.proxy-http-only-hint')"
+                />
+              </template>
+              <NInputGroup>
+                <NInput v-model:value="form.proxy.server" class="pref-control-full" placeholder="http://host:port" />
+                <NButton
+                  class="pref-action-button network-proxy-detect-button"
+                  :loading="detectingProxy"
+                  @click="detectProxy"
+                >
+                  <template #icon>
+                    <NIcon><SearchOutline /></NIcon>
+                  </template>
+                  {{ t('preferences.detect-system-proxy') }}
+                </NButton>
+              </NInputGroup>
+            </NFormItem>
+            <NFormItem :label="t('preferences.proxy-username')">
+              <NInput v-model:value="form.proxy.username" />
+            </NFormItem>
+            <NFormItem :label="t('preferences.proxy-password')">
+              <NInput v-model:value="form.proxy.password" type="password" show-password-on="click" />
+            </NFormItem>
+            <NFormItem :label="t('preferences.proxy-bypass')">
+              <NInput
+                v-model:value="form.proxy.bypass"
+                type="textarea"
+                :autosize="{ minRows: 2, maxRows: 3 }"
+                :placeholder="t('preferences.proxy-bypass-input-tips')"
+              />
+            </NFormItem>
+            <NFormItem :label="t('preferences.proxy-scope')">
+              <NSelect
+                v-model:value="form.proxy.scope"
+                :options="proxyScopeOptions"
+                multiple
+                class="pref-control-full"
+              />
+            </NFormItem>
+          </div>
+        </div>
+
+        <!-- Port conflict recovery -->
+        <NDivider title-placement="left">{{ t('preferences.port-conflict-recovery') }}</NDivider>
+        <NFormItem :label="t('preferences.port-conflict-recovery-enable')">
+          <NSwitch v-model:value="form.portConflictRecovery.enabled" />
+        </NFormItem>
+        <div
+          class="port-recovery-collapse"
+          :class="{ 'port-recovery-collapse--open': form.portConflictRecovery.enabled }"
+        >
+          <div class="port-recovery-collapse__inner collapse-indent">
+            <NFormItem>
+              <template #label>
+                <PreferenceHintLabel
+                  :label="t('preferences.port-conflict-recovery-range')"
+                  :hint="t('preferences.port-conflict-recovery-range-hint')"
+                />
+              </template>
+              <NInputGroup>
+                <NInputNumber
+                  v-model:value="form.portConflictRecovery.rangeStart"
+                  :min="1024"
+                  :max="65535"
+                  class="pref-port"
+                />
+                <span class="port-range-separator">to</span>
+                <NInputNumber
+                  v-model:value="form.portConflictRecovery.rangeEnd"
+                  :min="1024"
+                  :max="65535"
+                  class="pref-port"
+                />
+              </NInputGroup>
+            </NFormItem>
+            <NFormItem :label="t('preferences.port-conflict-recovery-apply-to')">
+              <PreferenceCheckboxGrid
+                v-model:value="selectedPortRecoveryTargets"
+                :options="portRecoveryTargetOptions"
+              />
+            </NFormItem>
+          </div>
+        </div>
+
+        <!-- Port mapping -->
+        <NDivider title-placement="left">{{ t('preferences.port') }}</NDivider>
+        <NFormItem label="UPnP/NAT-PMP">
+          <NSwitch v-model:value="form.enableUpnp" />
+        </NFormItem>
+
+        <!-- Timeout & Disk -->
+        <NDivider title-placement="left">{{ t('preferences.transfer-params') }}</NDivider>
+        <NFormItem :label="t('preferences.connect-timeout')">
+          <NInputNumber v-model:value="form.connectTimeout" :min="1" :max="600" class="pref-number" />
+          <NText depth="3" class="pref-inline-note">{{ t('preferences.unit-seconds') }}</NText>
+        </NFormItem>
+        <NFormItem :label="t('preferences.timeout')">
+          <NInputNumber v-model:value="form.timeout" :min="1" :max="600" class="pref-number" />
+          <NText depth="3" class="pref-inline-note">{{ t('preferences.unit-seconds') }}</NText>
+        </NFormItem>
+        <NFormItem :label="t('preferences.file-allocation')">
+          <NSelect v-model:value="form.fileAllocation" :options="fileAllocationOptions" class="pref-control-auto" />
+        </NFormItem>
+        <NFormItem>
+          <template #label>
+            <PreferenceHintLabel :label="t('preferences.async-dns')" :hint="t('preferences.async-dns-hint')" />
+          </template>
+          <NSwitch v-model:value="form.asyncDns" />
+        </NFormItem>
+      </NForm>
+    </div>
+    <UserAgentManager
+      v-model:show="showUserAgentManager"
+      :profiles="form.userAgentProfiles"
+      :rules="form.userAgentRules"
+      :recent-profile-ids="form.recentUserAgentProfileIds"
+      @save="handleUserAgentManagerSave"
+    />
     <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
   </div>
 </template>
 
 <style scoped>
-.preference-form-wrapper {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-.form-preference {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 16px 30px 64px 36px;
-}
-.form-preference :deep(.n-form-item) {
-  padding-left: 50px;
-}
-.form-preference :deep(.collapse-indent) {
-  margin-left: 16px;
-}
-.info-text {
-  color: var(--m3-on-surface-variant);
-  font-size: 12px;
-  max-width: 520px;
-  word-wrap: break-word;
-}
-
-/* ── Proxy collapse — CSS Grid 0fr→1fr ───────────────────────────── */
 .proxy-collapse {
   display: grid;
   grid-template-rows: 0fr;
@@ -351,7 +416,28 @@ onMounted(() => {
 .proxy-collapse__inner {
   overflow: hidden;
 }
-
+.port-recovery-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+.port-recovery-collapse--open {
+  grid-template-rows: 1fr;
+}
+.port-recovery-collapse__inner {
+  overflow: hidden;
+}
+.port-range-separator {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  color: var(--m3-on-surface-variant);
+  font-size: 12px;
+  line-height: 1;
+}
+.network-proxy-detect-button {
+  min-width: fit-content;
+}
 /* ── UA preset row ───────────────────────────────────────────────── */
 .ua-preset-row {
   display: flex;
@@ -363,6 +449,34 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   width: 100%;
+}
+.ua-manager-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 62%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--m3-surface-container-low) 54%, transparent);
+}
+.ua-manager-entry-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ua-manager-entry-text strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.ua-manager-entry-text span {
+  overflow: hidden;
+  color: var(--n-text-color-3);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ua-warn-collapse {
   display: grid;
@@ -382,7 +496,7 @@ onMounted(() => {
   padding: 8px 12px;
   margin-top: 6px;
   border-radius: var(--border-radius);
-  background: var(--m3-error-container-bg);
+  background: var(--m3-error-container);
   opacity: 0;
   transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
@@ -391,25 +505,7 @@ onMounted(() => {
 }
 .ua-warn-text {
   font-size: var(--font-size-sm);
-  color: var(--m3-error);
+  color: var(--m3-on-error-container);
   flex: 1;
-}
-.ua-reset-btn {
-  --btn-muted: #c97070;
-  color: var(--btn-muted) !important;
-  transition:
-    color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    background-color 0.35s cubic-bezier(0.2, 0, 0, 1),
-    border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.ua-reset-btn:hover {
-  background-color: color-mix(in srgb, var(--btn-muted) 12%, transparent) !important;
-}
-.ua-reset-btn :deep(.n-button__border) {
-  border-color: var(--btn-muted) !important;
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
-}
-.ua-reset-btn :deep(.n-button__state-border) {
-  transition: border-color 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 </style>

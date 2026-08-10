@@ -9,6 +9,8 @@
   "showcase.light": "Светъл режим",
   "showcase.dark": "Тъмен режим",
   "story.title": "Защо Motrix Next?",
+  "story.engine.label": "Двигател",
+  "story.engine": "Motrix Next използва {aria2Next} като двигател за изтегляне, поддържан fork на aria2, който запазва оригиналните интерфейси, като поправя дългогодишни проблеми, преминава към CMake, добавя нативна ED2K поддръжка и обновява съвременните зависимости.",
   "story.p1": "Motrix от agalwood беше един от най-добрите мениджъри за изтегляне с отворен код — чист интерфейс, задвижван от aria2, мултиплатформен. Вдъхнови хиляди потребители и разработчици.",
   "story.p2": "Оригиналният проект е до голяма степен неактивен от 2023 г. Стекът Electron + Vue 2 + Vuex + Element UI натрупа технически дълг, правейки поддръжката, разширяването и пакетирането все по-трудни.",
   "rewrite.title": "Пълно пренаписване от нулата.",
@@ -56,7 +58,7 @@
   "motion.tokens.desc": "Всички продължителности и криви са CSS потребителски свойства, осигуряващи единен ритъм в 12+ компонента.",
   "features.title": "Функции",
   "features.protocol.title": "Мулти-протокол",
-  "features.protocol.desc": "HTTP, FTP, BitTorrent, Magnet връзки.",
+  "features.protocol.desc": "HTTP, FTP, ED2K, BitTorrent и Magnet връзки.",
   "features.bt.title": "BitTorrent",
   "features.bt.desc": "Селективно изтегляне на файлове, DHT, обмен на пиъри, криптиране.",
   "features.tracker.title": "Управление на тракери",
@@ -74,7 +76,7 @@
   "features.task.title": "Управление на задачите",
   "features.task.desc": "Пауза, възобновяване, изтриване с почистване на файлове, пакетни операции.",
   "features.handler.title": "Обработчик на протоколи",
-  "features.handler.desc": "Регистрация като обработчик по подразбиране за Magnet и Thunder връзки.",
+  "features.handler.desc": "Регистриране като стандартен обработчик за magnet, ED2K и thunder връзки.",
   "features.notify.title": "Известия",
   "features.notify.desc": "Системни известия при завършване на задачи.",
   "features.light.title": "Лек",
@@ -104,6 +106,5 @@
   "theme.dark": "Тъмна",
   "hero.stars": "Stars",
   "hero.downloads": "Изтегляния",
-  "hero.version": "Последна",
-  "starHistory.title": "Star история"
+  "hero.version": "Последна"
 }

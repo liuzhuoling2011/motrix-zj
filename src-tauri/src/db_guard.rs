@@ -17,7 +17,7 @@
 //!
 //! The dialog reads the user's saved locale from `config.json` on disk
 //! (the `tauri-plugin-store` file), falling back to `sys_locale` and
-//! finally `en-US`.  All 26 supported locales have native translations.
+//! finally `en-US`.  All 27 supported locales have native translations.
 
 use std::path::Path;
 
@@ -25,7 +25,7 @@ use std::path::Path;
 ///
 /// **MUST** be kept in sync with the `add_migrations()` vec in `lib.rs`.
 /// When adding a new migration, append its version here as well.
-const REGISTERED_VERSIONS: &[i64] = &[1, 2];
+const REGISTERED_VERSIONS: &[i64] = &[1, 2, 3];
 
 // ─── Public API ──────────────────────────────────────────────────────
 
@@ -173,7 +173,7 @@ fn detect_locale(app_data_dir: &Path) -> String {
     sys_locale::get_locale().unwrap_or_else(|| "en-US".to_string())
 }
 
-// ─── i18n: 26 locale translations ───────────────────────────────────
+// ─── i18n: 27 locale translations ───────────────────────────────────
 
 /// Returns `(title, description, ok_label, cancel_label)` for the conflict dialog.
 fn get_dialog_texts(locale: &str) -> (&'static str, &'static str, &'static str, &'static str) {
@@ -294,6 +294,15 @@ fn get_dialog_texts(locale: &str) -> (&'static str, &'static str, &'static str, 
              A letöltött fájlokat ez NEM érinti.",
             "Visszaállítás és indítás",
             "Kilépés",
+        ),
+        "hi" => (
+            "डेटाबेस संस्करण असंगत है",
+            "डाउनलोड इतिहास डेटाबेस Motrix Next के नए संस्करण से बनाया गया है \
+             और इस संस्करण के साथ संगत नहीं है।\n\n\
+             जारी रखने के लिए डाउनलोड इतिहास रीसेट करना होगा।\n\
+             डाउनलोड की गई फ़ाइलों पर कोई असर नहीं पड़ेगा।",
+            "रीसेट करके शुरू करें",
+            "बाहर निकलें",
         ),
         "id" => (
             "Konflik Versi Database",
@@ -471,7 +480,7 @@ mod tests {
     #[test]
     fn all_versions_recognised() {
         let dir = tempfile::tempdir().expect("tmpdir");
-        create_test_db(dir.path(), &[1, 2]);
+        create_test_db(dir.path(), &[1, 2, 3]);
 
         let unknown =
             find_unknown_versions(&dir.path().join("history.db")).expect("should succeed");
@@ -481,21 +490,21 @@ mod tests {
     #[test]
     fn unknown_version_detected() {
         let dir = tempfile::tempdir().expect("tmpdir");
-        create_test_db(dir.path(), &[1, 2, 3]);
+        create_test_db(dir.path(), &[1, 2, 3, 4]);
 
         let unknown =
             find_unknown_versions(&dir.path().join("history.db")).expect("should succeed");
-        assert_eq!(unknown, vec![3]);
+        assert_eq!(unknown, vec![4]);
     }
 
     #[test]
     fn multiple_unknown_versions() {
         let dir = tempfile::tempdir().expect("tmpdir");
-        create_test_db(dir.path(), &[1, 2, 3, 4, 5]);
+        create_test_db(dir.path(), &[1, 2, 3, 4, 5, 6]);
 
         let unknown =
             find_unknown_versions(&dir.path().join("history.db")).expect("should succeed");
-        assert_eq!(unknown, vec![3, 4, 5]);
+        assert_eq!(unknown, vec![4, 5, 6]);
     }
 
     #[test]
@@ -542,10 +551,10 @@ mod tests {
     }
 
     #[test]
-    fn all_26_locales_have_translations() {
+    fn all_27_locales_have_translations() {
         let locales = [
-            "ar", "bg", "ca", "de", "el", "en-US", "es", "fa", "fr", "hu", "id", "it", "ja", "ko",
-            "nb", "nl", "pl", "pt-BR", "ro", "ru", "th", "tr", "uk", "vi", "zh-CN", "zh-TW",
+            "ar", "bg", "ca", "de", "el", "en-US", "es", "fa", "fr", "hu", "hi", "id", "it", "ja",
+            "ko", "nb", "nl", "pl", "pt-BR", "ro", "ru", "th", "tr", "uk", "vi", "zh-CN", "zh-TW",
         ];
         for locale in locales {
             let (title, body, ok_label, cancel_label) = get_dialog_texts(locale);

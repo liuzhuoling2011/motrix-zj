@@ -7,11 +7,12 @@ import { useTaskStore } from '@/stores/task'
 
 import { isEngineReady } from '@/api/aria2'
 import { TASK_STATUS } from '@shared/constants'
-import { checkTaskIsSeeder } from '@shared/utils/task'
+import { checkTaskIsSharing } from '@shared/utils/task'
 import type { Aria2Task } from '@shared/types'
 import { deleteTaskFiles } from '@/composables/useFileDelete'
 
 import { logger } from '@shared/logger'
+import { getErrorMessage } from '@shared/utils/errorMessage'
 import { NButton, NIcon, NCheckbox, NPopover, useDialog } from 'naive-ui'
 import MTooltip from '@/components/common/MTooltip.vue'
 import { useAppMessage } from '@/composables/useAppMessage'
@@ -21,7 +22,6 @@ import {
   STOPPED_SORT_FIELDS,
   ALL_SORT_FIELDS,
   DEFAULT_TASK_SORT,
-  type SortDirection,
   type ActiveSortField,
   type StoppedSortField,
   type AllSortField,
@@ -50,6 +50,7 @@ const currentTab = computed(() => taskStore.currentList)
 
 /** Map sort field key to its i18n label. */
 const SORT_LABELS: Record<string, string> = {
+  manual: 'task.sort-manual',
   'added-at': 'task.sort-added-at',
   'completed-at': 'task.sort-completed-at',
   name: 'task.sort-name',
@@ -85,40 +86,33 @@ const currentSortFields = computed(() => {
 
 const sortPopoverVisible = ref(false)
 
-function onSortSelect(key: string) {
-  const cfg = preferenceStore.config?.taskSort ?? { ...DEFAULT_TASK_SORT }
-  const tab = currentTab.value === 'stopped' ? 'stopped' : currentTab.value === 'all' ? 'all' : 'active'
-  const current = cfg[tab]
-  // Toggle direction if same field, otherwise switch to DESC
-  const direction: SortDirection = current.field === key ? (current.direction === 'desc' ? 'asc' : 'desc') : 'desc'
-  const updated = { ...cfg, [tab]: { field: key as ActiveSortField | StoppedSortField | AllSortField, direction } }
-  preferenceStore.updateAndSave({ taskSort: updated })
+async function onSortSelect(key: ActiveSortField | StoppedSortField | AllSortField) {
   sortPopoverVisible.value = false
-  taskStore.fetchList()
+  await taskStore.changeCurrentSort(key)
 }
 const message = useAppMessage()
 const dialog = useDialog()
 
 const refreshing = ref(false)
-const stoppingAllSeeding = ref(false)
-let stopSeedingWatcher: WatchStopHandle | null = null
-let stopSeedingSafetyTimer: ReturnType<typeof setTimeout> | null = null
+const stoppingAllSharing = ref(false)
+let stopSharingWatcher: WatchStopHandle | null = null
+let stopSharingSafetyTimer: ReturnType<typeof setTimeout> | null = null
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 
 const stoppingGids = inject<Ref<string[]>>('stoppingGids')
 const currentList = computed(() => taskStore.currentList)
 const allGids = computed(() => taskStore.taskList.map((t: { gid: string }) => t.gid))
-const hasSeeders = computed(() => taskStore.taskList.some(checkTaskIsSeeder))
+const hasSharingTasks = computed(() => taskStore.taskList.some(checkTaskIsSharing))
 const hasActiveTasks = computed(() =>
   taskStore.taskList.some(
-    (t: Aria2Task) => (t.status === TASK_STATUS.ACTIVE && !checkTaskIsSeeder(t)) || t.status === TASK_STATUS.WAITING,
+    (t: Aria2Task) => (t.status === TASK_STATUS.ACTIVE && !checkTaskIsSharing(t)) || t.status === TASK_STATUS.WAITING,
   ),
 )
 const hasPausedTasks = computed(() =>
   taskStore.taskList.some((t: { status: string }) => t.status === TASK_STATUS.PAUSED),
 )
 
-/** active and all views show Resume/Pause/StopSeed/Delete buttons */
+/** active and all views show Resume/Pause/StopSharing/Delete buttons */
 const showActiveActions = computed(() => currentList.value === 'active' || currentList.value === 'all')
 
 /** stopped and all views show Purge Records button */
@@ -126,11 +120,21 @@ const showStoppedActions = computed(() => currentList.value === 'stopped' || cur
 
 /** GIDs of live (aria2-managed) tasks only — used by Delete All in 'all' view */
 const LIVE_STATUSES = new Set([TASK_STATUS.ACTIVE, TASK_STATUS.WAITING, TASK_STATUS.PAUSED])
+const TERMINAL_STATUSES = new Set([TASK_STATUS.COMPLETE, TASK_STATUS.ERROR, TASK_STATUS.REMOVED])
 const liveGids = computed(() =>
   taskStore.taskList.filter((t: { status: string }) => LIVE_STATUSES.has(t.status)).map((t: { gid: string }) => t.gid),
 )
+const terminalTasks = computed(() => taskStore.taskList.filter((t: Aria2Task) => TERMINAL_STATUSES.has(t.status)))
 
-/** Delete All disabled state: in 'all' view, check live tasks; otherwise check all tasks */
+const deleteFilesLabel = computed(() =>
+  t(
+    preferenceStore.config.fileDeletionMode === 'permanent'
+      ? 'task.delete-local-files-permanent-label'
+      : 'task.delete-local-files-trash-label',
+  ),
+)
+
+/** Queue clear disabled state: in 'all' view, check live tasks; otherwise check all tasks */
 const deleteAllDisabled = computed(() =>
   currentList.value === 'all' ? liveGids.value.length === 0 : allGids.value.length === 0,
 )
@@ -148,17 +152,17 @@ function onRefresh() {
   taskStore
     .fetchList()
     .then(() => message.success(t('task.refresh-list-success') || 'List refreshed'))
-    .catch((e: unknown) => logger.warn('TaskActions.onRefresh', (e as Error).message))
+    .catch((e: unknown) => logger.warn('TaskActions.onRefresh', getErrorMessage(e)))
 }
 
 function onDeleteAll() {
-  // In 'all' view: only delete live (aria2-managed) tasks, not DB-only history items
+  // In 'all' view, clear only live aria2 tasks, not DB-only history items.
   const targetGids = currentList.value === 'all' ? [...liveGids.value] : [...allGids.value]
   if (targetGids.length === 0) return
   const gids = targetGids
   const deleteFiles = ref(false)
-  const d = dialog.warning({
-    title: t('task.delete-task'),
+  const d = dialog.error({
+    title: t('task.delete-task-queue'),
     content: () =>
       h('div', {}, [
         h('p', { style: 'margin: 0 0 12px;' }, t('task.batch-delete-task-confirm', { count: gids.length })),
@@ -170,7 +174,7 @@ function onDeleteAll() {
               deleteFiles.value = v
             },
           },
-          { default: () => t('task.delete-task-label') },
+          { default: () => deleteFilesLabel.value },
         ),
       ]),
     positiveText: t('app.yes'),
@@ -184,16 +188,32 @@ function onDeleteAll() {
       await new Promise((r) => setTimeout(r, 50))
       // Capture task references BEFORE removal — the store list mutates after
       // batchRemoveTask, so we'd lose the dir/path info needed for file deletion.
-      const tasksToDelete = deleteFiles.value ? taskStore.taskList.filter((t) => gids.includes(t.gid)) : []
+      const targetTasks = taskStore.taskList.filter((t) => gids.includes(t.gid))
+      const tasksToDelete = deleteFiles.value ? targetTasks : []
       // Remove task records FIRST, then delete files.
       // This matches the safer order used in single-task delete (TaskView.vue).
       // If file deletion fails, tasks are already cleaned up from aria2;
       // the reverse order would leave orphaned tasks with missing files.
-      await taskStore.batchRemoveTask(gids)
-      for (const task of tasksToDelete) {
-        await deleteTaskFiles(task)
+      try {
+        await taskStore.batchRemoveTask(gids)
+      } catch (error) {
+        logger.warn('TaskActions.onDeleteAll', getErrorMessage(error))
+        message.error(t('task.batch-delete-task-fail'))
+        return
       }
-      message.success(t('task.batch-delete-task-success'))
+
+      let fileDeletionFailed = false
+      for (const task of tasksToDelete) {
+        try {
+          await deleteTaskFiles(task, preferenceStore.config.fileDeletionMode)
+        } catch (error) {
+          fileDeletionFailed = true
+          logger.warn('TaskActions.onDeleteAllFiles', getErrorMessage(error))
+        }
+      }
+      message[fileDeletionFailed ? 'error' : 'success'](
+        t(fileDeletionFailed ? 'task.remove-task-file-fail' : 'task.batch-delete-task-success'),
+      )
     },
   })
 }
@@ -203,7 +223,7 @@ function resumeAll() {
     message.warning(t('app.engine-not-ready'))
     return
   }
-  dialog.warning({
+  dialog.info({
     title: t('task.resume-all-task'),
     content: t('task.resume-all-task-confirm') || 'Resume all tasks?',
     positiveText: t('app.yes'),
@@ -211,9 +231,11 @@ function resumeAll() {
     onPositiveClick: () => {
       taskStore
         .resumeAllTask()
-        .then(() => message.success(t('task.resume-all-task-success')))
+        .then((result) => {
+          if (result.resumed > 0) message.success(t('task.resume-all-task-success'))
+        })
         .catch((e) => {
-          logger.warn('TaskActions.resumeAll', e)
+          logger.warn('TaskActions.resumeAll', getErrorMessage(e))
           message.error(t('task.resume-all-task-fail'))
         })
     },
@@ -225,7 +247,7 @@ function pauseAll() {
     message.warning(t('app.engine-not-ready'))
     return
   }
-  const d = dialog.warning({
+  const d = dialog.info({
     title: t('task.pause-all-task'),
     content: t('task.pause-all-task-confirm') || 'Pause all tasks?',
     positiveText: t('app.yes'),
@@ -246,7 +268,7 @@ function pauseAll() {
           d.destroy()
         })
         .catch((e) => {
-          logger.warn('TaskActions.pauseAll', e)
+          logger.warn('TaskActions.pauseAll', getErrorMessage(e))
           message.error(t('task.pause-all-task-fail'))
           d.destroy()
         })
@@ -255,23 +277,23 @@ function pauseAll() {
   })
 }
 
-function stopAllSeeding() {
+function stopAllSharing() {
   if (!isEngineReady()) {
     message.warning(t('app.engine-not-ready'))
     return
   }
-  if (!hasSeeders.value) {
-    message.info(t('task.stop-all-seeding-none'))
+  if (!hasSharingTasks.value) {
+    message.info(t('task.stop-all-sharing-none'))
     return
   }
-  dialog.warning({
-    title: t('task.stop-all-seeding'),
-    content: t('task.stop-all-seeding-confirm'),
+  dialog.info({
+    title: t('task.stop-all-sharing'),
+    content: t('task.stop-all-sharing-confirm'),
     positiveText: t('app.yes'),
     negativeText: t('app.no'),
     onPositiveClick: async () => {
-      // 1. Snapshot seeder gids at click time — only these are tracked
-      const targetGids = new Set(taskStore.taskList.filter(checkTaskIsSeeder).map((t) => t.gid))
+      // 1. Snapshot sharing task gids at click time — only these are tracked
+      const targetGids = new Set(taskStore.taskList.filter(checkTaskIsSharing).map((t) => t.gid))
 
       // 2. Push into shared stoppingGids → triggers card spin animations
       if (stoppingGids) {
@@ -279,56 +301,56 @@ function stopAllSeeding() {
       }
 
       // 3. Set toolbar button spinning
-      stoppingAllSeeding.value = true
+      stoppingAllSharing.value = true
 
       // 4. Fire RPC (don't tie spin to this promise — it resolves instantly)
       taskStore
-        .stopAllSeeding()
-        .then(() => message.success(t('task.stop-all-seeding-success')))
+        .stopAllSharing()
+        .then(() => message.success(t('task.stop-all-sharing-success')))
         .catch((e) => {
-          logger.warn('TaskActions.stopAllSeeding', e)
-          message.error(t('task.stop-all-seeding-fail'))
+          logger.warn('TaskActions.stopAllSharing', getErrorMessage(e))
+          message.error(t('task.stop-all-sharing-fail'))
         })
 
-      // 5. Watch taskList — spin stops when ALL target gids exit seeding
-      cleanupStopSeedingWatcher()
-      stopSeedingWatcher = watch(
+      // 5. Watch taskList — spin stops when ALL target gids exit sharing
+      cleanupStopSharingWatcher()
+      stopSharingWatcher = watch(
         () => taskStore.taskList,
         (list) => {
-          const stillSeeding = list.some((task) => targetGids.has(task.gid) && checkTaskIsSeeder(task))
-          if (!stillSeeding) {
-            stoppingAllSeeding.value = false
-            cleanupStopSeedingWatcher()
+          const stillSharing = list.some((task) => targetGids.has(task.gid) && checkTaskIsSharing(task))
+          if (!stillSharing) {
+            stoppingAllSharing.value = false
+            cleanupStopSharingWatcher()
           }
         },
         { deep: true },
       )
 
       // 6. Safety timeout — 10s fallback
-      stopSeedingSafetyTimer = setTimeout(() => {
-        stoppingAllSeeding.value = false
-        cleanupStopSeedingWatcher()
+      stopSharingSafetyTimer = setTimeout(() => {
+        stoppingAllSharing.value = false
+        cleanupStopSharingWatcher()
       }, 10_000)
     },
   })
 }
 
-function cleanupStopSeedingWatcher() {
-  if (stopSeedingWatcher) {
-    stopSeedingWatcher()
-    stopSeedingWatcher = null
+function cleanupStopSharingWatcher() {
+  if (stopSharingWatcher) {
+    stopSharingWatcher()
+    stopSharingWatcher = null
   }
-  if (stopSeedingSafetyTimer) {
-    clearTimeout(stopSeedingSafetyTimer)
-    stopSeedingSafetyTimer = null
+  if (stopSharingSafetyTimer) {
+    clearTimeout(stopSharingSafetyTimer)
+    stopSharingSafetyTimer = null
   }
 }
 
-onBeforeUnmount(() => cleanupStopSeedingWatcher())
+onBeforeUnmount(() => cleanupStopSharingWatcher())
 
 function purgeRecord() {
   const deleteFiles = ref(false)
-  const d = dialog.warning({
+  const d = dialog.error({
     title: t('task.purge-record'),
     content: () =>
       h('div', {}, [
@@ -341,7 +363,7 @@ function purgeRecord() {
               deleteFiles.value = v
             },
           },
-          { default: () => t('task.delete-task-label') },
+          { default: () => deleteFilesLabel.value },
         ),
       ]),
     positiveText: t('app.yes'),
@@ -354,20 +376,28 @@ function purgeRecord() {
       await new Promise((r) => setTimeout(r, 50))
 
       // Capture task refs BEFORE purge — the store list mutates after purgeTaskRecord
-      const tasksToClean = deleteFiles.value ? [...taskStore.taskList] : []
+      const tasksToClean = deleteFiles.value ? [...terminalTasks.value] : []
 
-      await taskStore
-        .purgeTaskRecord()
-        .then(async () => {
-          for (const task of tasksToClean) {
-            await deleteTaskFiles(task)
-          }
-          message.success(t('task.purge-record-success'))
-        })
-        .catch((e) => {
-          logger.warn('TaskActions.purgeRecord', e)
-          message.error(t('task.purge-record-fail'))
-        })
+      try {
+        await taskStore.purgeTaskRecord()
+      } catch (error) {
+        logger.warn('TaskActions.purgeRecord', getErrorMessage(error))
+        message.error(t('task.purge-record-fail'))
+        return
+      }
+
+      let fileDeletionFailed = false
+      for (const task of tasksToClean) {
+        try {
+          await deleteTaskFiles(task, preferenceStore.config.fileDeletionMode)
+        } catch (error) {
+          fileDeletionFailed = true
+          logger.warn('TaskActions.purgeRecordFiles', getErrorMessage(error))
+        }
+      }
+      message[fileDeletionFailed ? 'error' : 'success'](
+        t(fileDeletionFailed ? 'task.remove-task-file-fail' : 'task.purge-record-success'),
+      )
     },
   })
 }
@@ -454,7 +484,8 @@ function onBtnRelease(ev: PointerEvent) {
           <span class="sort-item-label">{{ t(SORT_LABELS[field]) }}</span>
           <span v-if="field === currentSort.field" class="sort-item-dir">
             <NIcon :size="14">
-              <ArrowUpOutline v-if="currentSort.direction === 'asc'" />
+              <SwapVerticalOutline v-if="field === 'manual'" />
+              <ArrowUpOutline v-else-if="currentSort.direction === 'asc'" />
               <ArrowDownOutline v-else />
             </NIcon>
           </span>
@@ -523,21 +554,21 @@ function onBtnRelease(ev: PointerEvent) {
           quaternary
           circle
           size="small"
-          :disabled="!hasSeeders || stoppingAllSeeding"
+          :disabled="!hasSharingTasks || stoppingAllSharing"
           @pointerdown="onBtnPress"
           @pointerup="onBtnRelease"
           @pointerleave="onBtnRelease"
-          @click="stopAllSeeding"
+          @click="stopAllSharing"
         >
           <template #icon>
-            <NIcon :class="{ 'stop-all-spinning': stoppingAllSeeding }">
-              <SyncOutline v-if="stoppingAllSeeding" />
+            <NIcon :class="{ 'stop-all-spinning': stoppingAllSharing }">
+              <SyncOutline v-if="stoppingAllSharing" />
               <StopCircleOutline v-else />
             </NIcon>
           </template>
         </NButton>
       </template>
-      {{ t('task.stop-all-seeding') }}
+      {{ t('task.stop-all-sharing') }}
     </MTooltip>
     <MTooltip v-if="showActiveActions">
       <template #trigger>
@@ -622,7 +653,7 @@ function onBtnRelease(ev: PointerEvent) {
 .sort-panel {
   min-width: 160px;
   padding: 6px;
-  background: var(--m3-surface-container-high);
+  background: var(--m3-surface-container-highest);
   border: 1px solid var(--m3-outline-variant);
   border-radius: 12px;
   box-shadow: 0 4px 16px var(--m3-shadow);
@@ -664,12 +695,14 @@ function onBtnRelease(ev: PointerEvent) {
 }
 
 .sort-item.active {
-  color: var(--color-primary);
+  background: color-mix(in srgb, var(--m3-primary) 10%, transparent);
+  color: var(--m3-on-surface);
   font-weight: 500;
 }
 
 .sort-item.active:hover {
-  background: var(--m3-primary-container-bg);
+  background: color-mix(in srgb, var(--m3-primary) 14%, transparent);
+  color: var(--m3-on-surface);
 }
 
 .sort-item-label {
@@ -680,7 +713,7 @@ function onBtnRelease(ev: PointerEvent) {
   display: flex;
   align-items: center;
   margin-left: 8px;
-  color: var(--color-primary);
+  color: var(--m3-on-surface);
   transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 </style>

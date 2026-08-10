@@ -9,6 +9,8 @@
   "showcase.light": "Mode terang",
   "showcase.dark": "Mode gelap",
   "story.title": "Mengapa Motrix Next?",
+  "story.engine.label": "Mesin",
+  "story.engine": "Motrix Next menggunakan {aria2Next} sebagai mesin unduhannya, fork aria2 yang dipelihara dan tetap mempertahankan antarmuka asli sambil memperbaiki masalah lama, berpindah ke CMake, menambahkan dukungan ED2K native, dan memperbarui dependensi modern.",
   "story.p1": "Motrix oleh agalwood adalah salah satu manajer unduhan open source terbaik — UI bersih, berbasis aria2, lintas platform. Menginspirasi ribuan pengguna dan pengembang.",
   "story.p2": "Proyek asli sebagian besar tidak aktif sejak 2023. Tumpukan Electron + Vue 2 + Vuex + Element UI mengumpulkan utang teknis, membuat pemeliharaan, perluasan, dan pengemasan semakin sulit.",
   "rewrite.title": "Ditulis ulang sepenuhnya dari awal.",
@@ -56,7 +58,7 @@
   "motion.tokens.desc": "Semua durasi dan kurva adalah properti CSS kustom, memastikan ritme terpadu di 12+ komponen.",
   "features.title": "Fitur",
   "features.protocol.title": "Multi-protokol",
-  "features.protocol.desc": "HTTP, FTP, BitTorrent, tautan Magnet.",
+  "features.protocol.desc": "HTTP, FTP, ED2K, BitTorrent, tautan Magnet.",
   "features.bt.title": "BitTorrent",
   "features.bt.desc": "Unduhan file selektif, DHT, pertukaran peer, enkripsi.",
   "features.tracker.title": "Manajemen tracker",
@@ -74,7 +76,7 @@
   "features.task.title": "Manajemen tugas",
   "features.task.desc": "Jeda, lanjutkan, hapus dengan pembersihan file, operasi batch.",
   "features.handler.title": "Handler protokol",
-  "features.handler.desc": "Daftar sebagai handler default untuk tautan Magnet dan Thunder.",
+  "features.handler.desc": "Daftarkan sebagai handler default untuk tautan magnet, ED2K, dan thunder.",
   "features.notify.title": "Notifikasi",
   "features.notify.desc": "Notifikasi sistem saat tugas selesai.",
   "features.light.title": "Ringan",
@@ -104,6 +106,5 @@
   "theme.dark": "Gelap",
   "hero.stars": "Stars",
   "hero.downloads": "Unduhan",
-  "hero.version": "Terbaru",
-  "starHistory.title": "Star riwayat"
+  "hero.version": "Terbaru"
 }

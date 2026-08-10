@@ -11,6 +11,8 @@ use serde::Deserialize;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+pub const DEFAULT_EXTENSION_API_PORT: u16 = 29110;
+
 /// Subset of `AppConfig` fields consumed by Rust runtime services.
 ///
 /// Field names use `camelCase` via `#[serde(rename_all = "camelCase")]` to
@@ -20,6 +22,8 @@ use tokio::sync::RwLock;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeConfig {
+    #[serde(default = "default_locale")]
+    pub locale: String,
     #[serde(default)]
     pub speed_limit_enabled: bool,
     #[serde(default)]
@@ -45,19 +49,34 @@ pub struct RuntimeConfig {
     /// Whether to shut down the system after all downloads complete.
     #[serde(default)]
     pub shutdown_when_complete: bool,
-    /// Whether to prevent system sleep/display dimming during active downloads.
-    /// Uses `keepawake` crate (macOS IOPMAssertion, Windows SetThreadExecutionState,
-    /// Linux D-Bus org.freedesktop.ScreenSaver.Inhibit + systemd Inhibit).
+    /// Whether to prevent system idle sleep during active downloads.
+    /// Uses platform-native power assertions: Windows Power Requests,
+    /// macOS IOPMAssertion, and Linux systemd Inhibit.
     #[serde(default)]
     pub keep_awake: bool,
+    /// Whether task lifecycle events should trigger native system notifications.
+    #[serde(default = "default_true")]
+    pub task_notification: bool,
+    /// Whether completed downloads should trigger native system notifications.
+    #[serde(default = "default_true")]
+    pub notify_on_complete: bool,
+    /// Whether newly started downloads should trigger native system notifications.
+    #[serde(default = "default_true")]
+    pub notify_on_start: bool,
     /// Port for the embedded HTTP API (browser extension communication).
     #[serde(default = "default_extension_api_port")]
     pub extension_api_port: u16,
+    /// Whether local control endpoints may listen on LAN interfaces.
+    #[serde(default)]
+    pub allow_remote_access: bool,
 }
 
-#[cfg(target_os = "macos")]
 fn default_true() -> bool {
     true
+}
+
+fn default_locale() -> String {
+    "auto".to_string()
 }
 
 fn default_schedule_from() -> String {
@@ -69,12 +88,13 @@ fn default_schedule_to() -> String {
 }
 
 fn default_extension_api_port() -> u16 {
-    16801
+    DEFAULT_EXTENSION_API_PORT
 }
 
 impl Default for RuntimeConfig {
     fn default() -> Self {
         Self {
+            locale: default_locale(),
             speed_limit_enabled: false,
             speed_schedule_enabled: false,
             speed_schedule_from: default_schedule_from(),
@@ -89,7 +109,11 @@ impl Default for RuntimeConfig {
             show_progress_bar: false,
             shutdown_when_complete: false,
             keep_awake: false,
+            task_notification: true,
+            notify_on_complete: true,
+            notify_on_start: true,
             extension_api_port: default_extension_api_port(),
+            allow_remote_access: false,
         }
     }
 }
@@ -130,6 +154,7 @@ mod tests {
     fn default_config_has_sane_values() {
         let cfg = RuntimeConfig::default();
         assert!(!cfg.speed_limit_enabled);
+        assert_eq!(cfg.locale, "auto");
         assert!(!cfg.speed_schedule_enabled);
         assert_eq!(cfg.speed_schedule_from, "00:00");
         assert_eq!(cfg.speed_schedule_to, "06:00");
@@ -143,6 +168,10 @@ mod tests {
         assert!(!cfg.show_progress_bar);
         assert!(!cfg.shutdown_when_complete); // default OFF — opt-in only
         assert!(!cfg.keep_awake); // default OFF — opt-in only
+        assert!(cfg.task_notification); // default ON
+        assert!(cfg.notify_on_complete); // default ON
+        assert!(cfg.notify_on_start); // default ON
+        assert!(!cfg.allow_remote_access); // default OFF
     }
 
     // ── Deserialization from AppConfig-shaped JSON ───────────────────
@@ -151,6 +180,7 @@ mod tests {
     fn deserialize_full_appconfig_json_extracts_runtime_fields() {
         let json = serde_json::json!({
             "speedLimitEnabled": true,
+            "locale": "zh-CN",
             "speedScheduleEnabled": true,
             "speedScheduleFrom": "22:00",
             "speedScheduleTo": "08:00",
@@ -158,22 +188,25 @@ mod tests {
             "maxOverallDownloadLimit": "1M",
             "maxOverallUploadLimit": "512K",
             "taskNotification": false,
+            "notifyOnComplete": false,
+            "notifyOnStart": false,
             "traySpeedometer": true,
             "dockBadgeSpeed": false,
             "showProgressBar": true,
             "shutdownWhenComplete": true,
             "keepAwake": true,
+            "allowRemoteAccess": true,
             // Extra fields from AppConfig that RuntimeConfig ignores:
             "theme": "dark",
-            "locale": "en-US",
             "dir": "/downloads",
             "split": 16,
-            "rpcListenPort": 16800,
+            "rpcListenPort": 29100,
             "rpcSecret": "changeme"
         });
 
         let cfg: RuntimeConfig = serde_json::from_value(json).expect("deserialize");
         assert!(cfg.speed_limit_enabled);
+        assert_eq!(cfg.locale, "zh-CN");
         assert!(cfg.speed_schedule_enabled);
         assert_eq!(cfg.speed_schedule_from, "22:00");
         assert_eq!(cfg.speed_schedule_to, "08:00");
@@ -187,6 +220,10 @@ mod tests {
         assert!(cfg.show_progress_bar);
         assert!(cfg.shutdown_when_complete);
         assert!(cfg.keep_awake);
+        assert!(cfg.allow_remote_access);
+        assert!(!cfg.task_notification);
+        assert!(!cfg.notify_on_complete);
+        assert!(!cfg.notify_on_start);
     }
 
     #[test]

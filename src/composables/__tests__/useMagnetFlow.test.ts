@@ -16,7 +16,8 @@ const {
   buildSelectFileOption,
   parseFilesForSelection,
   shouldShowFileSelection,
-  buildStatusAwareConfirmAction,
+  getResolvedMagnetSelection,
+  getPendingMagnetSelectionGids,
 } = await import('@/composables/useMagnetFlow')
 
 describe('useMagnetFlow', () => {
@@ -47,10 +48,9 @@ describe('useMagnetFlow', () => {
   // ── buildMetadataOnlyOptions ────────────────────────────────────
 
   describe('buildMetadataOnlyOptions', () => {
-    it('sets bt-metadata-only and follow-torrent to true', () => {
+    it('sets pause-metadata for magnet file selection', () => {
       const options = buildMetadataOnlyOptions({ dir: '/downloads', split: '8' })
-      expect(options['bt-metadata-only']).toBe('true')
-      expect(options['follow-torrent']).toBe('false')
+      expect(options['pause-metadata']).toBe('true')
     })
 
     it('preserves existing options', () => {
@@ -181,42 +181,82 @@ describe('useMagnetFlow', () => {
     })
   })
 
-  // ── buildStatusAwareConfirmAction ──────────────────────────────────
+  describe('getResolvedMagnetSelection', () => {
+    it('returns the followedBy content task when native aria2 metadata resolves', () => {
+      const result = getResolvedMagnetSelection({
+        gid: 'metadata-gid',
+        status: 'complete',
+        totalLength: '0',
+        completedLength: '0',
+        uploadLength: '0',
+        downloadSpeed: '0',
+        uploadSpeed: '0',
+        connections: '0',
+        dir: '/downloads',
+        files: [],
+        bittorrent: {
+          announceList: [['udp://tracker.example:6969']],
+        },
+        followedBy: ['content-gid'],
+      })
 
-  describe('buildStatusAwareConfirmAction', () => {
-    it('returns resume-only for a paused task (standard pause-metadata flow)', () => {
-      const action = buildStatusAwareConfirmAction('paused')
-      expect(action).toEqual({ needsPause: false, needsResume: true })
+      expect(result).toEqual({ metadataGid: 'metadata-gid', downloadGid: 'content-gid' })
     })
 
-    it('returns pause-then-resume for an active task (defensive handling)', () => {
-      const action = buildStatusAwareConfirmAction('active')
-      expect(action).toEqual({ needsPause: true, needsResume: true })
-    })
+    it('returns null while metadata has not produced a content task', () => {
+      const result = getResolvedMagnetSelection({
+        gid: 'metadata-gid',
+        status: 'active',
+        totalLength: '0',
+        completedLength: '0',
+        uploadLength: '0',
+        downloadSpeed: '0',
+        uploadSpeed: '0',
+        connections: '1',
+        dir: '/downloads',
+        files: [],
+        bittorrent: {
+          announceList: [['udp://tracker.example:6969']],
+        },
+      })
 
-    it('returns resume-only for a waiting task', () => {
-      const action = buildStatusAwareConfirmAction('waiting')
-      expect(action).toEqual({ needsPause: false, needsResume: true })
+      expect(result).toBeNull()
     })
+  })
 
-    it('returns no-op for a complete task', () => {
-      const action = buildStatusAwareConfirmAction('complete')
-      expect(action).toEqual({ needsPause: false, needsResume: false })
-    })
+  describe('getPendingMagnetSelectionGids', () => {
+    it('restores native aria2 metadata parent GIDs from paused content tasks', () => {
+      const gids = getPendingMagnetSelectionGids([
+        {
+          gid: 'content-gid',
+          status: 'paused',
+          totalLength: '1000',
+          completedLength: '0',
+          uploadLength: '0',
+          downloadSpeed: '0',
+          uploadSpeed: '0',
+          connections: '0',
+          dir: '/downloads',
+          files: [
+            {
+              index: '1',
+              path: '/downloads/Movie/video.mkv',
+              length: '1000',
+              completedLength: '0',
+              selected: 'true',
+              uris: [],
+            },
+          ],
+          bittorrent: {
+            info: {
+              name: 'Movie',
+            },
+          },
+          following: 'metadata-gid',
+        },
+      ])
 
-    it('returns no-op for a removed task', () => {
-      const action = buildStatusAwareConfirmAction('removed')
-      expect(action).toEqual({ needsPause: false, needsResume: false })
-    })
-
-    it('returns no-op for an error task', () => {
-      const action = buildStatusAwareConfirmAction('error')
-      expect(action).toEqual({ needsPause: false, needsResume: false })
-    })
-
-    it('returns resume-only for undefined status (safe fallback)', () => {
-      const action = buildStatusAwareConfirmAction(undefined)
-      expect(action).toEqual({ needsPause: false, needsResume: true })
+      expect(gids).toEqual(['metadata-gid'])
     })
   })
 })

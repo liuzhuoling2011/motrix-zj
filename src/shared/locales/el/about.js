@@ -9,7 +9,7 @@ export default {
   'click-to-copy': 'Κλικ για αντιγραφή',
   'version-copied': 'Η έκδοση {label} αντιγράφηκε',
   'app-version': 'Έκδοση Motrix Next',
-  'aria2-version': 'Έκδοση aria2',
+  'aria2-version': 'Έκδοση Aria2 Next',
   'loading': 'Φόρτωση…',
   'unavailable': 'Μη διαθέσιμο',
 }

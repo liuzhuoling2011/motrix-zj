@@ -9,6 +9,8 @@
   "showcase.light": "Tryb jasny",
   "showcase.dark": "Tryb ciemny",
   "story.title": "Dlaczego Motrix Next?",
+  "story.engine.label": "Silnik",
+  "story.engine": "Motrix Next używa {aria2Next} jako silnika pobierania, utrzymywanego forka aria2, który zachowuje oryginalne interfejsy, naprawia długoletnie problemy, przechodzi na CMake, dodaje natywną obsługę ED2K i aktualizuje nowoczesne zależności.",
   "story.p1": "Motrix od agalwood był jednym z najlepszych menedżerów pobierania open source — czysty interfejs, oparty na aria2, wieloplatformowy. Zainspirował tysiące użytkowników i programistów.",
   "story.p2": "Oryginalny projekt jest w dużej mierze nieaktywny od 2023 roku. Stos Electron + Vue 2 + Vuex + Element UI nagromadziło dług techniczny, utrudniając utrzymanie, rozszerzanie i pakowanie.",
   "rewrite.title": "Całkowite przepisanie od podstaw.",
@@ -56,7 +58,7 @@
   "motion.tokens.desc": "Wszystkie czasy i krzywe to właściwości CSS, zapewniające jednolity rytm dla 12+ komponentów.",
   "features.title": "Funkcje",
   "features.protocol.title": "Multi-protokół",
-  "features.protocol.desc": "HTTP, FTP, BitTorrent, linki Magnet.",
+  "features.protocol.desc": "HTTP, FTP, ED2K, BitTorrent i linki Magnet.",
   "features.bt.title": "BitTorrent",
   "features.bt.desc": "Selektywne pobieranie plików, DHT, wymiana peerów, szyfrowanie.",
   "features.tracker.title": "Zarządzanie trackerami",
@@ -74,7 +76,7 @@
   "features.task.title": "Zarządzanie zadaniami",
   "features.task.desc": "Pauza, wznowienie, usuwanie z czyszczeniem plików, operacje wsadowe.",
   "features.handler.title": "Obsługa protokołu",
-  "features.handler.desc": "Rejestracja jako domyślna obsługa linków Magnet i Thunder.",
+  "features.handler.desc": "Zarejestruj jako domyślny handler linków magnet, ED2K i thunder.",
   "features.notify.title": "Powiadomienia",
   "features.notify.desc": "Powiadomienia systemowe po zakończeniu zadań.",
   "features.light.title": "Lekki",
@@ -104,6 +106,5 @@
   "theme.dark": "Ciemny",
   "hero.stars": "Stars",
   "hero.downloads": "Pobrania",
-  "hero.version": "Najnowsza",
-  "starHistory.title": "Star historia"
+  "hero.version": "Najnowsza"
 }

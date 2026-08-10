@@ -9,7 +9,7 @@ export default {
   'click-to-copy': 'クリックしてコピー',
   'version-copied': '{label} のバージョンをコピーしました',
   'app-version': 'Motrix Next バージョン',
-  'aria2-version': 'aria2 バージョン',
+  'aria2-version': 'Aria2 Next バージョン',
   'loading': '読み込み中…',
   'unavailable': '利用不可',
 }

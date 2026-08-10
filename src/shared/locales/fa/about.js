@@ -9,7 +9,7 @@ export default {
   'click-to-copy': 'برای کپی کلیک کنید',
   'version-copied': 'نسخه {label} کپی شد',
   'app-version': 'نسخه Motrix Next',
-  'aria2-version': 'نسخه aria2',
+  'aria2-version': 'نسخه Aria2 Next',
   'loading': 'در حال بارگذاری…',
   'unavailable': 'در دسترس نیست',
 }

@@ -16,10 +16,6 @@ export const SAFARI_UA =
 
 export const FIREFOX_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0'
 
-// ─── Tool User-Agent (BT ecosystem) ─────────────────────────────────────────
-
-export const TRANSMISSION_UA = 'Transmission/3.00'
-
 // ─── Preset Map (insertion order = UI button order) ──────────────────────────
 
 const userAgentMap: Record<string, string> = {
@@ -27,7 +23,6 @@ const userAgentMap: Record<string, string> = {
   edge: EDGE_UA,
   safari: SAFARI_UA,
   firefox: FIREFOX_UA,
-  transmission: TRANSMISSION_UA,
 }
 
 export default userAgentMap

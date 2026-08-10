@@ -6,10 +6,10 @@ use tauri::AppHandle;
 
 use super::config::get_system_config;
 
-/// Starts the aria2c engine process with current system configuration.
+/// Starts the bundled Motrix Next engine process with current system configuration.
 /// Runs on a background thread to avoid blocking the WebView main thread.
 ///
-/// NOTE: This ONLY spawns the aria2c sidecar. It does NOT wait for
+/// NOTE: This ONLY spawns the bundled engine sidecar. It does NOT wait for
 /// readiness or sync options. The frontend must call `wait_for_engine`
 /// afterwards, which handles: probe → credential update → option sync.
 #[tauri::command]
@@ -24,7 +24,7 @@ pub async fn start_engine_command(app: AppHandle) -> Result<(), AppError> {
     .map_err(|e| AppError::Engine(e.to_string()))?
 }
 
-/// Gracefully stops the running aria2c engine process.
+/// Gracefully stops the running bundled engine process.
 /// Runs on a background thread to avoid blocking the WebView main thread.
 #[tauri::command]
 pub async fn stop_engine_command(app: AppHandle) -> Result<(), AppError> {
@@ -34,7 +34,7 @@ pub async fn stop_engine_command(app: AppHandle) -> Result<(), AppError> {
         .map_err(|e| AppError::Engine(e.to_string()))?
 }
 
-/// Stops and restarts the aria2c engine with current system configuration.
+/// Stops and restarts the bundled engine with current system configuration.
 /// Runs on a background thread to avoid blocking the WebView main thread
 /// during the kill → sleep → cleanup → spawn sequence.
 ///
@@ -52,7 +52,13 @@ pub async fn restart_engine_command(app: AppHandle) -> Result<(), AppError> {
     .map_err(|e| AppError::Engine(e.to_string()))?
 }
 
-/// Rust-side health check: probes the aria2c RPC endpoint with retries.
+/// Validates a requested BitTorrent listen port and returns an available port.
+#[tauri::command]
+pub fn resolve_bt_listen_port(app: AppHandle, requested_port: u16) -> Result<u16, AppError> {
+    crate::services::port_guard::resolve_bt_listen_port(&app, requested_port)
+}
+
+/// Rust-side health check: probes the Aria2 Next RPC endpoint with retries.
 ///
 /// On successful probe, runs `on_engine_ready()` which:
 ///   1. Updates Aria2Client credentials
@@ -60,8 +66,8 @@ pub async fn restart_engine_command(app: AppHandle) -> Result<(), AppError> {
 ///   3. Syncs global options to aria2 via changeGlobalOption
 ///   4. Applies speed limit overrides
 ///
-/// This ordering is critical — `on_engine_ready` sends RPC to aria2c,
-/// so it MUST run AFTER the probe confirms aria2c is accepting connections.
+/// This ordering is critical — `on_engine_ready` sends RPC to Aria2 Next,
+/// so it MUST run AFTER the probe confirms the engine is accepting connections.
 #[tauri::command]
 pub async fn wait_for_engine(app: AppHandle) -> Result<bool, AppError> {
     use tauri::Manager;
@@ -85,7 +91,7 @@ pub async fn wait_for_engine(app: AppHandle) -> Result<bool, AppError> {
             Ok(_) => {
                 log::info!("wait_for_engine: connected on attempt {}", i + 1);
 
-                // aria2c is confirmed ready — NOW safe to sync options.
+                // Aria2 Next is confirmed ready — NOW safe to sync options.
                 if let Err(e) = services::on_engine_ready(&app).await {
                     log::warn!("wait_for_engine: on_engine_ready failed: {e}");
                     // Non-fatal: engine is usable even if option sync fails.

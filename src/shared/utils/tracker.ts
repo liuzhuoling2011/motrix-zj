@@ -4,6 +4,7 @@ import type { ProxyConfig } from '@shared/types'
 import { invoke } from '@tauri-apps/api/core'
 import { MAX_BT_TRACKER_LENGTH, PROXY_SCOPES } from '@shared/constants'
 import { logger } from '@shared/logger'
+import { resolveAppProxyUrl } from '@shared/utils/proxy'
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -27,31 +28,7 @@ export interface FetchTrackerSourcesResult {
  * includes UPDATE_TRACKERS; otherwise returns `null`.
  */
 export function computeTrackerProxyServer(proxyConfig: Partial<ProxyConfig>): string | null {
-  const { enable, server, scope = [] as string[] } = proxyConfig
-  return enable && server && scope.includes(PROXY_SCOPES.UPDATE_TRACKERS) ? server : null
-}
-
-// ── Legacy axios proxy converter (retained for test coverage) ───
-
-export const convertToAxiosProxy = (proxyServer = '') => {
-  if (!proxyServer) {
-    return undefined
-  }
-
-  const url = new URL(proxyServer)
-  const { username, password, protocol = 'http:', hostname, port } = url
-
-  const result: { protocol: string; host: string; port: number; auth?: { username: string; password: string } } = {
-    protocol: protocol.replace(':', ''),
-    host: hostname,
-    port: Number(port) || 80,
-  }
-
-  if (username || password) {
-    result.auth = { username, password }
-  }
-
-  return result
+  return resolveAppProxyUrl(proxyConfig, PROXY_SCOPES.UPDATE_TRACKERS)
 }
 
 // ── Core fetch ──────────────────────────────────────────────────
@@ -96,7 +73,8 @@ export const convertTrackerDataToLine = (arr: string[] = []): string => {
   const lines = arr
     .join('\r\n')
     .split(/\r?\n/)
-    .filter((line) => line.trim() !== '')
+    .map((line) => line.trim())
+    .filter(Boolean)
   return [...new Set(lines)].join('\r\n')
 }
 
