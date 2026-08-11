@@ -3,9 +3,10 @@ import { mount } from '@vue/test-utils'
 import SiteGrid from '../SiteGrid.vue'
 
 describe('SiteGrid', () => {
-  it('renders all six sites', () => {
+  it('renders the five supported homepage sites without YouTube', () => {
     const wrapper = mount(SiteGrid)
-    expect(wrapper.findAll('.site-card')).toHaveLength(6)
+    expect(wrapper.findAll('.site-card')).toHaveLength(5)
+    expect(wrapper.text()).not.toContain('YouTube')
   })
 
   it('emits navigate with the site URL when a card is clicked', async () => {
