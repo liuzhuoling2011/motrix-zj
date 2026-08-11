@@ -109,28 +109,10 @@ function handleMainContentBeforeEnter() {
   }
 }
 
-/** Reactive mirror of `window.innerWidth` used by `effectivePanelWidth`. Kept
- *  in sync via a `resize` listener registered in `onMounted`. Needed because
- *  `window.innerWidth` itself is not reactive, so a computed that reads it
- *  directly would not refresh when the user resizes the main window. */
-const containerWidth = ref(window.innerWidth)
-
 /** Local-only flag set while a modal overlay temporarily hides the panel.
  *  Keeps the DOM placeholder in sync with Rust's suspended state so the
  *  content area reclaims the right side while the modal is open. */
 const isPanelSuspended = ref(false)
-
-/** Width applied to the right-side placeholder.  Mirrors Rust's
- *  `compute_panel_geometry` auto branch so the DOM placeholder and native
- *  webview overlap pixel-perfect: panel always fills the area normally
- *  taken by the content (W - aside - subnav).
- *
- *  The aside/subnav constants (78 / 200) must stay in sync with
- *  `src/styles/variables.css` and the Rust constants in `web_browser.rs`. */
-const effectivePanelWidth = computed(() => {
-  if (!appStore.webPanelOpen || isPanelSuspended.value) return 0
-  return Math.max(0, containerWidth.value - 78 - 200)
-})
 
 async function closeInternalBrowserPanel() {
   appStore.webPanelOpen = false
@@ -916,14 +898,6 @@ onMounted(async () => {
     },
   )
 
-  // Keep containerWidth in sync with the DOM's viewport width so the
-  // web-panel placeholder resizes together with the main window.
-  const handleResize = () => {
-    containerWidth.value = window.innerWidth
-  }
-  window.addEventListener('resize', handleResize)
-  onUnmounted(() => window.removeEventListener('resize', handleResize))
-
   unlistenWebPanelState = await listen<{ open: boolean }>('web-panel-state-changed', ({ payload }) => {
     appStore.webPanelOpen = payload.open
   })
@@ -1122,7 +1096,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div id="container" :class="{ 'native-frame': isMac }">
+  <div
+    id="container"
+    :class="{
+      'native-frame': isMac,
+      'web-panel-visible': appStore.webPanelOpen && !isPanelSuspended,
+    }"
+  >
     <!-- Minimal progress bar during engine initialization / restart -->
     <Transition name="engine-slide">
       <div v-if="appStore.engineRestarting" class="engine-banner">
@@ -1143,7 +1123,7 @@ onUnmounted(() => {
         </Transition>
       </router-view>
     </main>
-    <div v-show="appStore.webPanelOpen" class="web-panel-placeholder" :style="{ width: `${effectivePanelWidth}px` }">
+    <div v-show="appStore.webPanelOpen" class="web-panel-placeholder">
       <InternalBrowserPanel :platform="currentPlatform" @close="closeInternalBrowserPanel" />
     </div>
     <WindowControls
@@ -1271,11 +1251,19 @@ onUnmounted(() => {
   overflow-y: auto;
   background-color: var(--main-bg);
 }
+.web-panel-visible .content {
+  flex: 0 0 0;
+  overflow: hidden;
+}
 .web-panel-placeholder {
-  flex-shrink: 0;
+  flex: 0 0 0;
   height: 100%;
   min-width: 0;
+  overflow: hidden;
   background-color: var(--main-bg);
+}
+.web-panel-visible .web-panel-placeholder {
+  flex: 1 1 0;
 }
 .window-controls {
   z-index: 100;

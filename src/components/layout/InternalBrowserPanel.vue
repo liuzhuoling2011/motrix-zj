@@ -338,6 +338,7 @@ onUnmounted(() => {
 .internal-browser {
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
   width: 100%;
   height: 100%;
   background: var(--main-bg);
@@ -356,7 +357,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   height: 48px;
-  padding: 0 10px;
+  padding: 0 16px 0 12px;
+  box-sizing: border-box;
   border-bottom: 1px solid var(--m3-outline-variant);
   background: var(--subnav-bg);
   flex-shrink: 0;
@@ -365,19 +367,28 @@ onUnmounted(() => {
 .tool-button {
   height: 32px;
   min-width: 32px;
-  padding: 0 8px;
-  border: 1px solid var(--m3-outline-variant);
-  border-radius: 6px;
-  background: var(--main-bg);
-  color: var(--m3-on-surface);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--m3-on-surface-variant);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition:
+    background-color 0.2s cubic-bezier(0.2, 0, 0, 1),
+    color 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .tool-button:hover:not(:disabled) {
-  background: var(--m3-surface-container-high);
+  background: var(--aside-icon-hover-bg);
+  color: var(--m3-on-surface);
+}
+
+.tool-button:focus-visible {
+  outline: 2px solid var(--m3-primary);
+  outline-offset: 2px;
 }
 
 .tool-button:disabled {
@@ -407,6 +418,7 @@ onUnmounted(() => {
 .url-input {
   flex: 1;
   min-width: 0;
+  margin-right: 4px;
   height: 32px;
   padding: 0 10px;
   border: 1px solid var(--m3-outline-variant);

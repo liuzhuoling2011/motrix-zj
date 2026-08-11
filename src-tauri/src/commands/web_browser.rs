@@ -31,7 +31,10 @@ const MAIN_WINDOW_LABEL: &str = "main";
 const CONTENT_LABEL: &str = "web-browser";
 const PANEL_TOOLBAR_HEIGHT: f64 = 48.0;
 const PANEL_ASIDE_WIDTH: f64 = 78.0;
-const PANEL_SUBNAV_WIDTH: f64 = 200.0;
+const PANEL_SUBNAV_WIDTH: f64 = 210.0;
+const PANEL_SUBNAV_COMPACT_WIDTH: f64 = 64.0;
+const PANEL_SUBNAV_COMPACT_BREAKPOINT: f64 = 800.0;
+const PANEL_SUBNAV_HIDDEN_BREAKPOINT: f64 = 600.0;
 const MIN_MAIN_CONTENT_WIDTH: f64 = 320.0;
 
 /// Internal state tracking whether the panel webviews have been created,
@@ -176,8 +179,15 @@ fn compute_panel_geometry(
     window_height: f64,
     config_width: f64,
 ) -> (LogicalPosition<f64>, LogicalSize<f64>) {
+    let subnav_width = if window_width <= PANEL_SUBNAV_HIDDEN_BREAKPOINT {
+        0.0
+    } else if window_width < PANEL_SUBNAV_COMPACT_BREAKPOINT {
+        PANEL_SUBNAV_COMPACT_WIDTH
+    } else {
+        PANEL_SUBNAV_WIDTH
+    };
     let panel_width = if config_width <= 0.0 {
-        (window_width - PANEL_ASIDE_WIDTH - PANEL_SUBNAV_WIDTH).max(0.0)
+        (window_width - PANEL_ASIDE_WIDTH - subnav_width).max(0.0)
     } else {
         (window_width - MIN_MAIN_CONTENT_WIDTH)
             .max(0.0)
@@ -621,20 +631,37 @@ mod tests {
 
     #[test]
     fn panel_geometry_auto_pins_to_right_below_toolbar() {
-        // Auto mode: panel width = W - aside - subnav = 1200 - 78 - 200 = 922.
+        // Auto mode: panel width = W - aside - subnav = 1200 - 78 - 210 = 912.
         let (pos, size) = compute_panel_geometry(1200.0, 800.0, 0.0);
-        assert_eq!(size.width, 922.0);
+        assert_eq!(size.width, 912.0);
         assert_eq!(size.height, 800.0 - PANEL_TOOLBAR_HEIGHT);
-        assert_eq!(pos.x, 1200.0 - 922.0);
+        assert_eq!(pos.x, PANEL_ASIDE_WIDTH + PANEL_SUBNAV_WIDTH);
         assert_eq!(pos.y, PANEL_TOOLBAR_HEIGHT);
     }
 
     #[test]
+    fn panel_geometry_auto_tracks_compact_subnav() {
+        let (pos, size) = compute_panel_geometry(700.0, 500.0, 0.0);
+        assert_eq!(pos.x, PANEL_ASIDE_WIDTH + PANEL_SUBNAV_COMPACT_WIDTH);
+        assert_eq!(
+            size.width,
+            700.0 - PANEL_ASIDE_WIDTH - PANEL_SUBNAV_COMPACT_WIDTH
+        );
+    }
+
+    #[test]
+    fn panel_geometry_auto_tracks_hidden_subnav() {
+        let (pos, size) = compute_panel_geometry(600.0, 500.0, 0.0);
+        assert_eq!(pos.x, PANEL_ASIDE_WIDTH);
+        assert_eq!(size.width, 600.0 - PANEL_ASIDE_WIDTH);
+    }
+
+    #[test]
     fn panel_geometry_auto_collapses_when_window_smaller_than_chrome() {
-        // Auto mode, W < aside + subnav — width clamps to 0, x clamps to W.
-        let (pos, size) = compute_panel_geometry(200.0, 400.0, 0.0);
+        // Auto mode, W < aside — width clamps to 0, x clamps to W.
+        let (pos, size) = compute_panel_geometry(50.0, 400.0, 0.0);
         assert_eq!(size.width, 0.0);
-        assert_eq!(pos.x, 200.0);
+        assert_eq!(pos.x, 50.0);
     }
 
     #[test]
