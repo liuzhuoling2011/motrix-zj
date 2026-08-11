@@ -1,0 +1,121 @@
+name: Release Branch Builds
+
+run-name: Release build #${{ github.run_number }}.${{ github.run_attempt }}
+
+on:
+  push:
+    branches:
+      - release
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-15
+            target: aarch64-apple-darwin
+            bundle: dmg
+            label: macos-apple-silicon
+          - platform: macos-15-intel
+            target: x86_64-apple-darwin
+            bundle: dmg
+            label: macos-intel
+          - platform: windows-2025-vs2026
+            target: x86_64-pc-windows-msvc
+            bundle: nsis
+            label: windows-x64
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Fetch sidecar binaries
+        run: pnpm fetch-sidecars "${{ matrix.target }}"
+
+      - name: Build Tauri bundle
+        id: tauri
+        uses: tauri-apps/tauri-action@v1
+        with:
+          uploadUpdaterJson: false
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
+
+      - name: Upload bundle for the publish job
+        uses: actions/upload-artifact@v7
+        with:
+          name: motrix-zj-${{ matrix.label }}
+          path: "${{ join(fromJSON(steps.tauri.outputs.artifactPaths), '\n') }}"
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub prerelease
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Download all platform bundles
+        uses: actions/download-artifact@v8
+        with:
+          path: release-assets
+          pattern: motrix-zj-*
+          merge-multiple: true
+
+      - name: Create immutable release for this push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          short_sha="${GITHUB_SHA::7}"
+          tag="release-build-${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}-${short_sha}"
+          title="Motrix ZJ Build #${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT} (${short_sha})"
+
+          mapfile -d '' assets < <(find release-assets -type f -print0 | sort -z)
+          if (( ${#assets[@]} == 0 )); then
+            echo "No release assets were downloaded" >&2
+            exit 1
+          fi
+
+          notes=$(printf '%s\n\n%s\n%s\n\n%s\n%s\n%s\n' \
+            'Automated prerelease generated from the release branch.' \
+            "Commit: ${GITHUB_SHA}" \
+            "Workflow: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            'Included builds:' \
+            '- macOS Apple Silicon (.dmg)' \
+            '- macOS Intel (.dmg)' \
+            '- Windows x64 (NSIS .exe)')
+
+          gh release create "$tag" "${assets[@]}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$title" \
+            --notes "$notes" \
+            --prerelease \
+            --latest=false
