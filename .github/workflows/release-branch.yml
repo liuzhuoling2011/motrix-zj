@@ -62,6 +62,10 @@ jobs:
           uploadUpdaterJson: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
 
+      - name: Verify bundled macOS sidecars
+        if: runner.os == 'macOS'
+        run: ./scripts/verify-macos-sidecars.sh "${{ matrix.target }}"
+
       - name: Upload bundle for the publish job
         uses: actions/upload-artifact@v7
         with:
