@@ -20,10 +20,40 @@ esac
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-MACOS_DIR="$PROJECT_ROOT/src-tauri/target/$TARGET/release/bundle/macos/MotrixNext.app/Contents/MacOS"
+BUNDLE_DIR="$PROJECT_ROOT/src-tauri/target/$TARGET/release/bundle"
+APP_PATH="$BUNDLE_DIR/macos/MotrixNext.app"
+MOUNT_DIR=""
 
+cleanup() {
+  if [ -n "$MOUNT_DIR" ]; then
+    hdiutil detach "$MOUNT_DIR" -quiet >/dev/null 2>&1 || true
+    rmdir "$MOUNT_DIR" >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
+
+if [ ! -d "$APP_PATH" ]; then
+  case "$TARGET" in
+    aarch64-apple-darwin) DMG_SUFFIX="aarch64" ;;
+    x86_64-apple-darwin) DMG_SUFFIX="x64" ;;
+  esac
+
+  shopt -s nullglob
+  DMG_CANDIDATES=("$BUNDLE_DIR"/dmg/MotrixNext_*_"$DMG_SUFFIX".dmg)
+  shopt -u nullglob
+  if [ "${#DMG_CANDIDATES[@]}" -ne 1 ]; then
+    echo "Error: expected one $DMG_SUFFIX DMG, found ${#DMG_CANDIDATES[@]} under $BUNDLE_DIR/dmg" >&2
+    exit 1
+  fi
+
+  MOUNT_DIR=$(mktemp -d "${TMPDIR:-/tmp}/motrix-sidecar-verify.XXXXXX")
+  hdiutil attach -readonly -nobrowse -mountpoint "$MOUNT_DIR" "${DMG_CANDIDATES[0]}" >/dev/null
+  APP_PATH="$MOUNT_DIR/MotrixNext.app"
+fi
+
+MACOS_DIR="$APP_PATH/Contents/MacOS"
 if [ ! -d "$MACOS_DIR" ]; then
-  echo "Error: bundled app directory not found: $MACOS_DIR" >&2
+  echo "Error: bundled app executable directory not found: $MACOS_DIR" >&2
   exit 1
 fi
 
