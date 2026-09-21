@@ -9,7 +9,10 @@
 //!     known WebView2 / WebKitGTK regressions, so the frontend renders an
 //!     `<iframe>` instead. The shared Chrome UA on the main webview
 //!     (`tauri.conf.json > userAgent`) flows down to the iframe, achieving
-//!     the same effect at the network layer.
+//!     the same effect at the network layer. Packaged builds inject the
+//!     main-window CSP, so `app.security.csp` MUST include
+//!     `frame-src … https: http:` — otherwise WebView2 blocks every remote
+//!     page with Chromium's "This content has been blocked" interstitial.
 //!
 //! Lifecycle (macOS path):
 //!   * First toggle-open: lazily create the child webview at off-screen
