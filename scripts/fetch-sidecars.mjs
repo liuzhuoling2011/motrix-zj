@@ -109,6 +109,38 @@ function run(cmd, opts = {}) {
   execSync(cmd, { stdio: 'inherit', shell: true, ...opts })
 }
 
+function commandExists(cmd) {
+  try {
+    execSync(process.platform === 'win32' ? `where ${cmd}` : `command -v ${cmd}`, {
+      stdio: 'ignore',
+      shell: true,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Extract a .zip via Python's stdlib so Linux/macOS/Windows CI images
+ * still work when unzip / Expand-Archive is missing.
+ */
+function extractZipWithPython(archivePath, workDir) {
+  const script = `import zipfile; zipfile.ZipFile(${JSON.stringify(archivePath)}).extractall(${JSON.stringify(workDir)})`
+  const candidates = process.platform === 'win32' ? ['python', 'python3'] : ['python3', 'python']
+  let lastError
+  for (const py of candidates) {
+    if (!commandExists(py)) continue
+    try {
+      run(`${py} -c ${JSON.stringify(script)}`)
+      return
+    } catch (err) {
+      lastError = err
+    }
+  }
+  throw lastError || new Error('python is required to extract .zip archives')
+}
+
 /**
  * Move a file across filesystems. renameSync throws EXDEV on Windows when
  * src and dst live on different drives (TMP is on C:, repo is on D: on GH
@@ -128,20 +160,32 @@ function moveFile(src, dst) {
 }
 
 /**
- * Extracts a .zip / .tar.xz archive into `workDir`. On Windows the bundled
- * bsdtar mishandles both drive-letter paths and plain .zip archives, so we
- * fall back to PowerShell's Expand-Archive for zips there. tar handles
- * .tar.xz on all platforms.
+ * Extracts a .zip / .tar.xz / .tar.gz archive into `workDir`.
+ *
+ * GNU tar on Linux cannot read .zip (macOS bsdtar can), so zip always
+ * uses a zip-aware tool:
+ *   - Windows: PowerShell Expand-Archive
+ *   - Unix:    unzip
+ *   - fallback: Python zipfile (available on GitHub-hosted runners)
+ * tar.xz / tar.gz keep `tar`.
  */
 function extract(archivePath, workDir) {
   const file = basename(archivePath)
-  const isZip = archivePath.toLowerCase().endsWith('.zip')
-  if (isZip && process.platform === 'win32') {
-    // -Force overwrites existing contents; quoting handles spaces in the path.
-    run(
-      `powershell -NoProfile -Command "Expand-Archive -Path '${file}' -DestinationPath '.' -Force"`,
-      { cwd: workDir },
-    )
+  const lower = archivePath.toLowerCase()
+  if (lower.endsWith('.zip')) {
+    if (process.platform === 'win32') {
+      // -Force overwrites existing contents; quoting handles spaces in the path.
+      run(
+        `powershell -NoProfile -Command "Expand-Archive -Path '${file}' -DestinationPath '.' -Force"`,
+        { cwd: workDir },
+      )
+      return
+    }
+    if (commandExists('unzip')) {
+      run(`unzip -o "${file}"`, { cwd: workDir })
+      return
+    }
+    extractZipWithPython(archivePath, workDir)
     return
   }
   run(`tar -xf "${file}"`, { cwd: workDir })
