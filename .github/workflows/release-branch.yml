@@ -30,6 +30,10 @@ jobs:
             target: x86_64-pc-windows-msvc
             bundle: nsis
             label: windows-x64
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundle: appimage,deb
+            label: linux-x64
 
     runs-on: ${{ matrix.platform }}
 
@@ -55,9 +59,40 @@ jobs:
       - name: Fetch sidecar binaries
         run: pnpm fetch-sidecars "${{ matrix.target }}"
 
+      - name: Build native messaging launcher
+        run: pnpm build:native-launcher
+
+      - name: Map macOS signing and notarization secrets
+        if: runner.os == 'macOS'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: ./scripts/ci-macos-signing.sh
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          export NEEDRESTART_SUSPEND=1
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
+          sudo -E apt-get install -y \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf xdg-utils
+
       - name: Build Tauri bundle
         id: tauri
         uses: tauri-apps/tauri-action@v1
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.CSC_LINK }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
         with:
           uploadUpdaterJson: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
@@ -65,6 +100,10 @@ jobs:
       - name: Verify bundled macOS sidecars
         if: runner.os == 'macOS'
         run: ./scripts/verify-macos-sidecars.sh "${{ matrix.target }}"
+
+      - name: Remove App Store Connect API key from the runner
+        if: runner.os == 'macOS' && always()
+        run: rm -rf "${RUNNER_TEMP}/private_keys"
 
       - name: Upload bundle for the publish job
         uses: actions/upload-artifact@v7
@@ -114,7 +153,8 @@ jobs:
             'Included builds:' \
             '- macOS Apple Silicon (.dmg)' \
             '- macOS Intel (.dmg)' \
-            '- Windows x64 (NSIS .exe)')
+            '- Windows x64 (NSIS .exe)' \
+            '- Linux x64 (.AppImage / .deb)')
 
           gh release create "$tag" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" \

@@ -42,15 +42,29 @@ describe('InternalBrowserPanel', () => {
     vi.mocked(emitTauri).mockClear()
     vi.mocked(invoke).mockResolvedValue(undefined)
   })
-  it('renders icon toolbar actions and reserves Windows titlebar clearance', () => {
-    const wrapper = mount(InternalBrowserPanel, { props: { platform: 'windows' } })
+  it.each(['windows', 'linux'] as const)(
+    'reserves a top caption strip on %s so window buttons stay above the toolbar',
+    (platform) => {
+      const wrapper = mount(InternalBrowserPanel, { props: { platform } })
 
-    expect(wrapper.classes()).toContain('windows')
-    expect(wrapper.find('[aria-label="Back"]').exists()).toBe(true)
-    expect(wrapper.find('[aria-label="Forward"]').exists()).toBe(true)
-    expect(wrapper.find('[aria-label="Refresh"]').exists()).toBe(true)
-    expect(wrapper.find('[aria-label="Home"]').exists()).toBe(true)
-    expect(wrapper.find('[aria-label="Download video"]').exists()).toBe(true)
+      expect(wrapper.classes()).toContain('has-caption-clearance')
+      expect(wrapper.find('.title-drag-strip').exists()).toBe(true)
+      expect(wrapper.find('.title-drag-strip + .browser-toolbar').exists()).toBe(true)
+      expect(wrapper.find('[aria-label="Back"]').exists()).toBe(true)
+      expect(wrapper.find('[aria-label="Forward"]').exists()).toBe(true)
+      expect(wrapper.find('[aria-label="Refresh"]').exists()).toBe(true)
+      expect(wrapper.find('[aria-label="Home"]').exists()).toBe(true)
+      expect(wrapper.find('[aria-label="Download video"]').exists()).toBe(true)
+      expect(wrapper.find('[aria-label="Close"]').exists()).toBe(true)
+    },
+  )
+
+  it('does not force a Windows-style caption strip on macOS', () => {
+    const wrapper = mount(InternalBrowserPanel, { props: { platform: 'macos' } })
+
+    expect(wrapper.classes()).not.toContain('has-caption-clearance')
+    expect(wrapper.find('.title-drag-strip').exists()).toBe(false)
+    expect(wrapper.find('.browser-toolbar').exists()).toBe(true)
     expect(wrapper.find('[aria-label="Close"]').exists()).toBe(true)
   })
 

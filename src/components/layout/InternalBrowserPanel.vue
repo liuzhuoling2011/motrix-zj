@@ -30,12 +30,13 @@ const iframeRef = ref<HTMLIFrameElement | null>(null)
 const historyStack = ref<string[]>([])
 const historyIndex = ref(-1)
 const frameUrl = computed(() => frameSrc.value || '')
-const isWindows = computed(() => props.platform === 'windows')
 // macOS swaps the iframe for a native Tauri child webview so we can pin a
 // Chrome UA + stealth init script onto it (Bilibili otherwise rejects the
 // embedded WKWebView's default UA as "browser too old"). Toolbar buttons
 // proxy navigation through the web_browser_navigate Tauri command.
 const isMac = computed(() => props.platform === 'macos')
+/** Frameless Win/Linux caption buttons sit at the top-right; reserve that row. */
+const needsCaptionClearance = computed(() => !isMac.value)
 const canGoBack = computed(() => historyIndex.value > 0)
 const canGoForward = computed(() => historyIndex.value >= 0 && historyIndex.value < historyStack.value.length - 1)
 const canDownload = computed(() => /^https?:\/\//i.test(currentUrl.value))
@@ -256,8 +257,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="internal-browser" :class="{ windows: isWindows }" aria-label="Internal browser">
-    <div v-if="isWindows" class="title-drag-strip" data-tauri-drag-region />
+  <section
+    class="internal-browser"
+    :class="{ 'has-caption-clearance': needsCaptionClearance }"
+    aria-label="Internal browser"
+  >
+    <div v-if="needsCaptionClearance" class="title-drag-strip" data-tauri-drag-region />
     <div class="browser-toolbar">
       <button
         type="button"

@@ -350,97 +350,60 @@ describe('AddTask batch URI integration', () => {
   })
 })
 
-describe('AddTask split preference sync', () => {
+describe('AddTask streamMaxConnections preference sync', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     resetBatchIdCounter()
   })
 
-  it('syncs form.split from preferenceStore.config.split when dialog opens', async () => {
-    const { usePreferenceStore } = await import('@/stores/preference')
-    const preferenceStore = usePreferenceStore()
-    // Simulate user having saved maxConnectionPerServer=32 in Basic settings
-    // which writes split=32 to the store via transformDownloadsForStore
-    preferenceStore.$patch({ config: { split: 32, maxConnectionPerServer: 32 } })
-
-    const wrapper = mountDialog()
-    await flushPromises()
-
-    // Initially mounted with stale default (64 from DEFAULT_APP_CONFIG)
-    // Opening the dialog should sync to the store's latest value
-    await wrapper.setProps({ show: true })
-    await flushPromises()
-    await nextTick()
-
-    // Find the split input (NInputNumber renders as <input type="number">)
-    const numberInputs = wrapper.findAll('input[type="number"]')
-    // The split input should reflect the store value, not the stale default
-    const splitInput = numberInputs.find((i) => Number((i.element as HTMLInputElement).value) <= 64)
-    expect(splitInput).toBeDefined()
-    expect(Number((splitInput!.element as HTMLInputElement).value)).toBe(32)
-  })
-
-  it('preserves current form.split when config.split is absent (no maxConn fallback in v2)', async () => {
-    const { usePreferenceStore } = await import('@/stores/preference')
-    const preferenceStore = usePreferenceStore()
-    // Simulate legacy store data where split was never saved — explicitly
-    // null out split so the ?? fallback keeps current form.split.
-    // After v2 decoupling, there is no fallback to maxConnectionPerServer.
-    preferenceStore.$patch({
-      config: { split: undefined as unknown as number, maxConnectionPerServer: 48 },
-    })
-
-    const wrapper = mountDialog()
-    await flushPromises()
-
-    await wrapper.setProps({ show: true })
-    await flushPromises()
-    await nextTick()
-
-    const numberInputs = wrapper.findAll('input[type="number"]')
-    const splitInput = numberInputs.find((i) => {
-      const val = Number((i.element as HTMLInputElement).value)
+  function findConnectionsInput(wrapper: ReturnType<typeof mountDialog>) {
+    return wrapper.findAll('input[type="number"]').find((input) => {
+      const val = Number((input.element as HTMLInputElement).value)
       return val > 0 && val <= 256
     })
-    expect(splitInput).toBeDefined()
-    // When config.split is undefined, form.split retains its initialization
-    // value (from config.split in the reactive form, which is the initial 16).
-    // It does NOT fall back to maxConnectionPerServer (v2 decoupling).
-    expect(Number((splitInput!.element as HTMLInputElement).value)).not.toBe(48)
-  })
+  }
 
-  it('re-syncs split on subsequent opens after preference changes', async () => {
+  it('syncs form.streamMaxConnections from preferences when the dialog opens', async () => {
     const { usePreferenceStore } = await import('@/stores/preference')
     const preferenceStore = usePreferenceStore()
-    preferenceStore.$patch({ config: { split: 64, maxConnectionPerServer: 64 } })
+    preferenceStore.$patch({ config: { streamMaxConnections: 32 } })
 
     const wrapper = mountDialog()
     await flushPromises()
 
-    // First open — split should be 64
     await wrapper.setProps({ show: true })
     await flushPromises()
     await nextTick()
 
-    // Close
+    const connectionsInput = findConnectionsInput(wrapper)
+    expect(connectionsInput).toBeDefined()
+    expect(Number((connectionsInput!.element as HTMLInputElement).value)).toBe(32)
+  })
+
+  it('re-syncs streamMaxConnections on subsequent opens after preference changes', async () => {
+    const { usePreferenceStore } = await import('@/stores/preference')
+    const preferenceStore = usePreferenceStore()
+    preferenceStore.$patch({ config: { streamMaxConnections: 64 } })
+
+    const wrapper = mountDialog()
+    await flushPromises()
+
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    await nextTick()
+
     await wrapper.setProps({ show: false })
     await flushPromises()
 
-    // User changes preference while dialog is closed
-    preferenceStore.$patch({ config: { split: 16, maxConnectionPerServer: 16 } })
+    preferenceStore.$patch({ config: { streamMaxConnections: 16 } })
 
-    // Re-open — split should now be 16
     await wrapper.setProps({ show: true })
     await flushPromises()
     await nextTick()
 
-    const numberInputs = wrapper.findAll('input[type="number"]')
-    const splitInput = numberInputs.find((i) => {
-      const val = Number((i.element as HTMLInputElement).value)
-      return val > 0 && val <= 128
-    })
-    expect(splitInput).toBeDefined()
-    expect(Number((splitInput!.element as HTMLInputElement).value)).toBe(16)
+    const connectionsInput = findConnectionsInput(wrapper)
+    expect(connectionsInput).toBeDefined()
+    expect(Number((connectionsInput!.element as HTMLInputElement).value)).toBe(16)
   })
 
   it('syncs task proxy mode while the dialog is open when proxy preference changes', async () => {

@@ -1,8 +1,9 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -10,29 +11,27 @@ permissions:
 
 jobs:
   build:
+    name: Build ${{ matrix.label }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: macos-15
-            args: --target aarch64-apple-darwin
-            label: macos-aarch64
+            args: --target aarch64-apple-darwin --bundles dmg
+            target: aarch64-apple-darwin
+            label: macos-apple-silicon
           - platform: macos-15-intel
-            args: --target x86_64-apple-darwin
-            label: macos-x86_64
+            args: --target x86_64-apple-darwin --bundles dmg
+            target: x86_64-apple-darwin
+            label: macos-intel
           - platform: windows-2025-vs2026
             args: --target x86_64-pc-windows-msvc --bundles nsis
-            label: windows-x86_64
-          - platform: windows-2025-vs2026
-            args: --target aarch64-pc-windows-msvc --bundles nsis
-            label: windows-aarch64
-          # Linux builds temporarily disabled — re-enable when needed.
-          # - platform: ubuntu-22.04
-          #   args: --target x86_64-unknown-linux-gnu
-          #   label: linux-x86_64
-          # - platform: ubuntu-22.04-arm
-          #   args: --target aarch64-unknown-linux-gnu
-          #   label: linux-aarch64
+            target: x86_64-pc-windows-msvc
+            label: windows-x64
+          - platform: ubuntu-22.04
+            args: --target x86_64-unknown-linux-gnu --bundles appimage,deb
+            target: x86_64-unknown-linux-gnu
+            label: linux-x64
 
     runs-on: ${{ matrix.platform }}
 
@@ -48,21 +47,11 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      # Cross-compilation: add the secondary Rust target when building for
-      # a different architecture on the same OS runner.
-      # - macOS x86_64 uses a native Intel runner (macos-13), no cross-compile needed.
-      # - Windows ARM64 cross-compiles on x64 runner (NSIS is arch-agnostic).
-      - name: Add cross-compilation target
-        if: contains(matrix.args, 'aarch64-pc-windows-msvc')
-        shell: bash
-        run: |
-          TARGET=$(echo '${{ matrix.args }}' | sed 's/.*--target \([^ ]*\).*/\1/')
-          rustup target add "$TARGET"
-
       - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.target }}
 
-      # Suppress needrestart daemon (auto-restarts services on package
-      # install, can kill the runner agent and cause "operation canceled").
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -73,128 +62,69 @@ jobs:
             libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
             librsvg2-dev patchelf xdg-utils
 
-      - run: pnpm install
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
 
-      # Fetch yt-dlp / deno / ffmpeg sidecar binaries for the matrix target.
-      # Tauri's externalBin requires each binary to exist with the target
-      # triple suffix before bundling, so this must run before tauri-action.
       - name: Fetch sidecar binaries
         shell: bash
-        run: |
-          TARGET=$(echo '${{ matrix.args }}' | sed 's/.*--target \([^ ]*\).*/\1/')
-          pnpm fetch-sidecars "$TARGET"
+        run: pnpm fetch-sidecars "${{ matrix.target }}"
 
-      - uses: tauri-apps/tauri-action@v0
+      - name: Build native messaging launcher
+        run: pnpm build:native-launcher
+
+      - name: Map macOS signing and notarization secrets
+        if: runner.os == 'macOS'
+        env:
+          # Exact GitHub Secret names (electron-builder + App Store Connect API key).
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: ./scripts/ci-macos-signing.sh
+
+      - name: Build and publish installer
         id: tauri
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Updater signatures (optional). Leave unset to skip updater artifacts.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # macOS Developer ID signing. This is a Tauri app; CSC_* are the
+          # electron-builder secret names mapped onto Tauri's APPLE_CERTIFICATE_*.
+          # Empty CSC_LINK keeps ad-hoc signing from tauri.conf.json (`-`).
+          APPLE_CERTIFICATE: ${{ secrets.CSC_LINK }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Notarization via App Store Connect API key (preferred over Apple ID).
+          # Tauri's APPLE_API_KEY is the Key ID; the .p8 body lives in APPLE_API_KEY_PATH.
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
         with:
-          tagName: ${{ github.event.release.tag_name || '' }}
-          releaseId: ${{ github.event_name == 'release' && github.event.release.id || '' }}
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseDraft: false
+          prerelease: ${{ github.ref_type == 'tag' && contains(github.ref_name, '-') }}
           includeUpdaterJson: false
           args: ${{ matrix.args }}
 
       - name: Verify bundled macOS sidecars
         if: runner.os == 'macOS'
         shell: bash
-        run: |
-          TARGET=$(echo '${{ matrix.args }}' | sed 's/.*--target \([^ ]*\).*/\1/')
-          ./scripts/verify-macos-sidecars.sh "$TARGET"
+        run: ./scripts/verify-macos-sidecars.sh "${{ matrix.target }}"
 
-      - name: Upload build artifacts (manual trigger only)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Remove App Store Connect API key from the runner
+        if: runner.os == 'macOS' && always()
+        shell: bash
+        run: rm -rf "${RUNNER_TEMP}/private_keys"
+
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: motrix-next-${{ matrix.label }}
+          name: motrix-zj-${{ matrix.label }}
           path: "${{ join(fromJSON(steps.tauri.outputs.artifactPaths), '\n') }}"
-          retention-days: 7
-
-  merge-updater-json:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release'
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Generate and upload channel-specific updater JSON
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          ./.github/scripts/refresh-updater-json.sh "${{ github.event.release.tag_name }}"
-
-  update-homebrew:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release' && !github.event.release.prerelease
-
-    steps:
-      - name: Download macOS artifacts and compute checksums
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${{ github.event.release.tag_name }}"
-          VERSION="${TAG#v}"
-
-          gh release download "$TAG" \
-            -R "${{ github.repository }}" \
-            -p "MotrixNext_aarch64.app.tar.gz" \
-            -p "MotrixNext_x64.app.tar.gz"
-
-          ARM_SHA=$(shasum -a 256 MotrixNext_aarch64.app.tar.gz | cut -d ' ' -f1)
-          INTEL_SHA=$(shasum -a 256 MotrixNext_x64.app.tar.gz | cut -d ' ' -f1)
-
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "ARM_SHA=$ARM_SHA" >> "$GITHUB_ENV"
-          echo "INTEL_SHA=$INTEL_SHA" >> "$GITHUB_ENV"
-
-      - name: Update Homebrew Cask
-        env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/AnInsomniacy/homebrew-motrix-next.git"
-          cd homebrew-motrix-next
-
-          # Generate the entire cask file from a template instead of using
-          # fragile sed replacements. Shell expands $VERSION, $ARM_SHA, and
-          # $INTEL_SHA; Ruby interpolations (#{version}, #{arch}) pass through
-          # literally because #{ is not shell syntax.
-          cat > Casks/motrix-next.rb << CASK_EOF
-          cask "motrix-next" do
-            arch arm: "aarch64", intel: "x64"
-
-            version "$VERSION"
-            sha256 arm:   "$ARM_SHA",
-                   intel: "$INTEL_SHA"
-
-            url "https://github.com/AnInsomniacy/motrix-next/releases/download/v#{version}/MotrixNext_#{arch}.app.tar.gz"
-            name "Motrix Next"
-            desc "Full-featured download manager built with Tauri"
-            homepage "https://github.com/AnInsomniacy/motrix-next"
-
-            livecheck do
-              url :url
-              strategy :github_latest
-            end
-
-            auto_updates true
-
-            app "MotrixNext.app"
-
-            zap trash: [
-              "~/Library/Application Support/com.motrix.next",
-              "~/Library/Caches/com.motrix.next",
-              "~/Library/Logs/com.motrix.next",
-              "~/Library/WebKit/com.motrix.next",
-            ]
-          end
-          CASK_EOF
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/motrix-next.rb
-          git diff --cached --quiet && echo "No changes to commit" && exit 0
-          git commit -m "motrix-next $VERSION"
-          git push
+          if-no-files-found: error
+          retention-days: 14

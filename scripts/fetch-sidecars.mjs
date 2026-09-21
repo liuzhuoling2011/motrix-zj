@@ -85,13 +85,13 @@ const FFMPEG = {
   'aarch64-apple-darwin': 'https://www.osxexperts.net/ffmpeg81arm.zip',
   'x86_64-apple-darwin': 'https://evermeet.cx/ffmpeg/getrelease/zip',
   'x86_64-unknown-linux-gnu':
-    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-linux64-gpl-7.1.tar.xz',
+    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz',
   'aarch64-unknown-linux-gnu':
-    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-linuxarm64-gpl-7.1.tar.xz',
+    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linuxarm64-gpl-8.1.tar.xz',
   'x86_64-pc-windows-msvc':
-    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip',
+    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-gpl-8.1.zip',
   'aarch64-pc-windows-msvc':
-    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip',
+    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-gpl-8.1.zip',
 }
 
 // ffprobe sources. BtbN's Linux/Windows ffmpeg archives already bundle
@@ -107,6 +107,38 @@ const FFPROBE_STANDALONE = {
 
 function run(cmd, opts = {}) {
   execSync(cmd, { stdio: 'inherit', shell: true, ...opts })
+}
+
+function commandExists(cmd) {
+  try {
+    execSync(process.platform === 'win32' ? `where ${cmd}` : `command -v ${cmd}`, {
+      stdio: 'ignore',
+      shell: true,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Extract a .zip via Python's stdlib so Linux/macOS/Windows CI images
+ * still work when unzip / Expand-Archive is missing.
+ */
+function extractZipWithPython(archivePath, workDir) {
+  const script = `import zipfile; zipfile.ZipFile(${JSON.stringify(archivePath)}).extractall(${JSON.stringify(workDir)})`
+  const candidates = process.platform === 'win32' ? ['python', 'python3'] : ['python3', 'python']
+  let lastError
+  for (const py of candidates) {
+    if (!commandExists(py)) continue
+    try {
+      run(`${py} -c ${JSON.stringify(script)}`)
+      return
+    } catch (err) {
+      lastError = err
+    }
+  }
+  throw lastError || new Error('python is required to extract .zip archives')
 }
 
 /**
@@ -128,20 +160,32 @@ function moveFile(src, dst) {
 }
 
 /**
- * Extracts a .zip / .tar.xz archive into `workDir`. On Windows the bundled
- * bsdtar mishandles both drive-letter paths and plain .zip archives, so we
- * fall back to PowerShell's Expand-Archive for zips there. tar handles
- * .tar.xz on all platforms.
+ * Extracts a .zip / .tar.xz / .tar.gz archive into `workDir`.
+ *
+ * GNU tar on Linux cannot read .zip (macOS bsdtar can), so zip always
+ * uses a zip-aware tool:
+ *   - Windows: PowerShell Expand-Archive
+ *   - Unix:    unzip
+ *   - fallback: Python zipfile (available on GitHub-hosted runners)
+ * tar.xz / tar.gz keep `tar`.
  */
 function extract(archivePath, workDir) {
   const file = basename(archivePath)
-  const isZip = archivePath.toLowerCase().endsWith('.zip')
-  if (isZip && process.platform === 'win32') {
-    // -Force overwrites existing contents; quoting handles spaces in the path.
-    run(
-      `powershell -NoProfile -Command "Expand-Archive -Path '${file}' -DestinationPath '.' -Force"`,
-      { cwd: workDir },
-    )
+  const lower = archivePath.toLowerCase()
+  if (lower.endsWith('.zip')) {
+    if (process.platform === 'win32') {
+      // -Force overwrites existing contents; quoting handles spaces in the path.
+      run(
+        `powershell -NoProfile -Command "Expand-Archive -Path '${file}' -DestinationPath '.' -Force"`,
+        { cwd: workDir },
+      )
+      return
+    }
+    if (commandExists('unzip')) {
+      run(`unzip -o "${file}"`, { cwd: workDir })
+      return
+    }
+    extractZipWithPython(archivePath, workDir)
     return
   }
   run(`tar -xf "${file}"`, { cwd: workDir })

@@ -3,9 +3,9 @@
 import { ref, computed, watch, onMounted, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePreferenceStore } from '@/stores/preference'
+import { useAppStore } from '@/stores/app'
 import { usePreferenceForm } from '@/composables/usePreferenceForm'
-import { invoke } from '@tauri-apps/api/core'
-import { useEngineRestart } from '@/composables/useEngineRestart'
+import { useEngineStore } from '@/stores/engine'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { arch as osArch, version as osVersion } from '@tauri-apps/plugin-os'
 import { usePlatform } from '@/composables/usePlatform'
@@ -13,15 +13,12 @@ import { getVersion as getAppVersion } from '@tauri-apps/api/app'
 import { getVersion as getAria2Version } from '@/api/aria2'
 import { getLocale } from 'tauri-plugin-locale-api'
 import { resolveSystemLocale } from '@shared/utils/locale'
-import { SUPPORTED_LOCALES, loadLocale } from '@/composables/useLocale'
+import { loadLocale } from '@/composables/useLocale'
+import { isSupportedLocale, LOCALE_CATALOG, SUPPORTED_LOCALES } from '@shared/localeCatalog'
 import { logger } from '@shared/logger'
 import { writeAppClipboardText } from '@shared/utils'
-import {
-  buildGeneralForm,
-  buildGeneralSystemConfig,
-  transformGeneralForStore,
-} from '@/composables/useGeneralPreference'
-import { COLOR_SCHEMES, CUSTOM_COLOR_SCHEME_ID, ENGINE_RPC_PORT } from '@shared/constants'
+import { buildGeneralForm } from '@/composables/useGeneralPreference'
+import { COLOR_SCHEMES, CUSTOM_COLOR_SCHEME_ID } from '@shared/constants'
 import { normalizeCustomColorScheme } from '@shared/utils/colorSchemeConfig'
 import { useSidecarVersions, type SidecarName } from '@shared/utils/sidecarVersion'
 import { useAppMessage } from '@/composables/useAppMessage'
@@ -53,7 +50,7 @@ import PreferenceHintLabel from './PreferenceHintLabel.vue'
  *  with `scripts/fetch-sidecars.mjs` so the link button hands the user the
  *  exact file we ship — no asset list to navigate.
  *  - GitHub `releases/latest/download/<asset>` redirects are stable.
- *  - BtbN's `tag/latest` is a rolling tag — keep the n7.1 filename in
+ *  - BtbN's `tag/latest` is a rolling tag — keep the n8.1 filename in
  *    sync with fetch-sidecars when ffmpeg majors bump.
  *  - macOS Apple Silicon ffmpeg/ffprobe come from osxexperts.net which
  *    only publishes a static index page, so we open the page and tell
@@ -97,7 +94,7 @@ function resolveSidecarDownload(
     }
   }
   if (os === 'windows') {
-    const file = 'ffmpeg-n7.1-latest-win64-gpl-7.1.zip'
+    const file = 'ffmpeg-n8.1-latest-win64-gpl-8.1.zip'
     return {
       url: `https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/${file}`,
       fileHint: file,
@@ -106,7 +103,7 @@ function resolveSidecarDownload(
   }
   // linux
   const archSuffix = arch === 'aarch64' ? 'linuxarm64' : 'linux64'
-  const file = `ffmpeg-n7.1-latest-${archSuffix}-gpl-7.1.tar.xz`
+  const file = `ffmpeg-n8.1-latest-${archSuffix}-gpl-8.1.tar.xz`
   return {
     url: `https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/${file}`,
     fileHint: file,
@@ -116,6 +113,7 @@ function resolveSidecarDownload(
 
 const { t, locale } = useI18n()
 const preferenceStore = usePreferenceStore()
+const appStore = useAppStore()
 const dialog = useDialog()
 const message = useAppMessage()
 const { isMac, isLinux, platform: platformRef, platformLabel, archLabel: getArchLabel } = usePlatform()
@@ -188,14 +186,14 @@ function buildForm() {
 
 const { form, isDirty, handleSave, handleReset, patchSnapshot, resetSnapshot } = usePreferenceForm({
   buildForm,
-  buildSystemConfig: buildGeneralSystemConfig,
-  transformForStore: transformGeneralForStore,
   afterSave: async (f, prevConfig) => {
     // Locale change → restart prompt
     const prevLocale = prevConfig.locale || 'auto'
     if (f.locale !== prevLocale) {
       // Determine the actual target locale for bilingual dialog rendering.
-      const targetLocale = f.locale === 'auto' ? detectedLocaleCode.value || 'en-US' : f.locale
+      const targetLocale = isSupportedLocale(f.locale)
+        ? f.locale
+        : resolveSystemLocale(detectedLocaleCode.value, SUPPORTED_LOCALES)
       const isEn = targetLocale === 'en-US'
       // Locale messages are lazy-loaded — pull in the target locale so the
       // dialog can render in it (falls back to English if loading fails).
@@ -224,7 +222,7 @@ const { form, isDirty, handleSave, handleReset, patchSnapshot, resetSnapshot } =
           ? tt('preferences.language-changed-later')
           : `${tt('preferences.language-changed-later')} · Later`,
         onPositiveClick: async () => {
-          await invoke('stop_engine_command')
+          await engineStore.stop('appRelaunch')
           relaunch()
         },
       })
@@ -301,35 +299,7 @@ watch(
   },
 )
 
-const localeOptions = [
-  { label: 'English', value: 'en-US' },
-  { label: '简体中文 · Chinese Simplified', value: 'zh-CN' },
-  { label: '繁體中文 · Chinese Traditional', value: 'zh-TW' },
-  { label: '日本語 · Japanese', value: 'ja' },
-  { label: '한국어 · Korean', value: 'ko' },
-  { label: 'Français · French', value: 'fr' },
-  { label: 'Deutsch · German', value: 'de' },
-  { label: 'Español · Spanish', value: 'es' },
-  { label: 'Português · Portuguese (Brazil)', value: 'pt-BR' },
-  { label: 'Русский · Russian', value: 'ru' },
-  { label: 'Türkçe · Turkish', value: 'tr' },
-  { label: 'العربية · Arabic', value: 'ar' },
-  { label: 'Български · Bulgarian', value: 'bg' },
-  { label: 'Català · Catalan', value: 'ca' },
-  { label: 'Ελληνικά · Greek', value: 'el' },
-  { label: 'فارسی · Persian', value: 'fa' },
-  { label: 'Magyar · Hungarian', value: 'hu' },
-  { label: 'हिन्दी · Hindi', value: 'hi' },
-  { label: 'Bahasa Indonesia · Indonesian', value: 'id' },
-  { label: 'Italiano · Italian', value: 'it' },
-  { label: 'Norsk Bokmål · Norwegian', value: 'nb' },
-  { label: 'Nederlands · Dutch', value: 'nl' },
-  { label: 'Polski · Polish', value: 'pl' },
-  { label: 'Română · Romanian', value: 'ro' },
-  { label: 'ไทย · Thai', value: 'th' },
-  { label: 'Українська · Ukrainian', value: 'uk' },
-  { label: 'Tiếng Việt · Vietnamese', value: 'vi' },
-]
+const localeOptions = LOCALE_CATALOG.map(({ code, label }) => ({ label, value: code }))
 
 /** Dynamic label for the 'auto' option. */
 const autoLocaleLabel = computed(() => {
@@ -351,30 +321,18 @@ const taskCardModeOptions = computed(() => [
 ])
 
 function handleCheckUpdate() {
-  updateDialogRef.value?.open()
+  appStore.requestUpdateCheck()
 }
 
-const { restartEngine } = useEngineRestart()
-
-function handleManualRestart() {
-  const port = (preferenceStore.config.rpcListenPort as number) || ENGINE_RPC_PORT
-  const secret = (preferenceStore.config.rpcSecret as string) || ''
-  const d = dialog.info({
-    title: t('preferences.engine-restart-title'),
-    content: t('preferences.engine-restart-manual-confirm'),
-    positiveText: t('preferences.engine-restart-now'),
-    negativeText: t('preferences.engine-restart-later'),
-    maskClosable: false,
-    onPositiveClick: async () => {
-      d.loading = true
-      d.negativeText = ''
-      d.closable = false
-      message.info(t('preferences.engine-restarting'))
-      await new Promise((r) => requestAnimationFrame(r))
-      await restartEngine({ port, secret })
-    },
-  })
+async function handleUpdateChannel(value: string) {
+  const updateChannel = value as UpdateChannel
+  const ok = await preferenceStore.updateAndSave({ updateChannel })
+  if (ok) {
+    patchSnapshot({ updateChannel } as Partial<typeof form.value>)
+  }
 }
+
+const engineStore = useEngineStore()
 
 // ── Browser extension installer ────────────────────────────────────
 const installingExtension = ref(false)
@@ -423,7 +381,7 @@ async function installBrowserExtension() {
           h('div', { style: 'font-family:Menlo,monospace;font-size:12px;opacity:0.85;word-break:break-all;' }, dest),
         ]),
       positiveText: t('preferences.browser-extension-copy-path'),
-      negativeText: t('app.dismiss'),
+      negativeText: t('app.close'),
       onPositiveClick: async () => {
         try {
           await navigator.clipboard.writeText(dest)
@@ -618,18 +576,7 @@ onMounted(async () => {
             </NFormItem>
           </NCollapseTransition>
           <NFormItem :label="t('preferences.update-channel')">
-            <NRadioGroup
-              v-model:value="form.updateChannel"
-              size="small"
-              @update:value="
-                async (v: string) => {
-                  const ok = await preferenceStore.updateAndSave({ updateChannel: v as UpdateChannel })
-                  if (ok) {
-                    patchSnapshot({ updateChannel: v } as Partial<typeof form.value>)
-                  }
-                }
-              "
-            >
+            <NRadioGroup v-model:value="form.updateChannel" size="small" @update:value="handleUpdateChannel">
               <NRadioButton value="stable">{{ t('preferences.update-channel-stable') }}</NRadioButton>
               <NRadioButton value="beta">{{ t('preferences.update-channel-beta') }}</NRadioButton>
               <NRadioButton value="latest">{{ t('preferences.update-channel-latest') }}</NRadioButton>
@@ -651,7 +598,6 @@ onMounted(async () => {
           </NFormItem>
           <UpdateDialog ref="updateDialogRef" />
         </template>
-
         <!-- ④ Appearance -->
         <NDivider title-placement="left">{{ t('preferences.appearance-section') }}</NDivider>
         <NFormItem :label="t('preferences.appearance')">
@@ -702,6 +648,9 @@ onMounted(async () => {
               {{ option.label }}
             </NRadioButton>
           </NRadioGroup>
+        </NFormItem>
+        <NFormItem :label="t('preferences.reduce-motion')">
+          <NSwitch v-model:value="form.reduceMotion" />
         </NFormItem>
         <NFormItem :label="t('preferences.sidebar-task-counts')">
           <NSwitch v-model:value="form.sidebarTaskCounts" />
@@ -766,7 +715,7 @@ onMounted(async () => {
         </NFormItem>
       </NForm>
     </div>
-    <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" @restart="handleManualRestart" />
+    <PreferenceActionBar :is-dirty="isDirty" @save="handleSave" @discard="handleReset" />
   </div>
 </template>
 
