@@ -5,24 +5,11 @@ import { getErrorMessage } from '@shared/utils/errorMessage'
 export type LogFieldValue = string | number | boolean | null | undefined
 export type LogFields = Record<string, LogFieldValue>
 
-/** Formats a context-prefixed log message suitable for both console and file output. */
-function formatMessage(context: string, message: string): string {
-  return `[${context}] ${message}`
-}
-
-function formatLogFieldValue(value: LogFieldValue): string {
-  if (value === null) return 'null'
-  if (value === undefined) return 'undefined'
-
-  const raw = String(value)
-  return /[\s="]/.test(raw) ? JSON.stringify(raw) : raw
-}
-
-/** Formats structured diagnostics as compact key-value fields. */
-export function formatLogFields(fields: LogFields): string {
-  return Object.entries(fields)
-    .map(([key, value]) => `${key}=${formatLogFieldValue(value)}`)
-    .join(' ')
+function toKeyValues(target: string, fields: LogFields = {}): Record<string, string> {
+  return Object.fromEntries([
+    ['target', target],
+    ...Object.entries(fields).map(([key, value]) => [key, value === null ? 'null' : String(value)]),
+  ])
 }
 
 function serializeDebugValue(value: unknown, seen = new WeakSet<object>()): string {
@@ -109,45 +96,35 @@ function formatDebugMessage(data: unknown): string {
  * into business logic (e.g., during app teardown or before plugin initialisation).
  */
 export const logger = {
-  /** Logs an error with full Error object serialization to both console and log file. */
-  error(context: string, error: unknown): void {
+  error(context: string, error: unknown, fields: LogFields = {}): void {
     const message = getErrorMessage(error)
-    const formatted = formatMessage(context, message)
-    console.error(formatted)
-    tauriError(formatted).catch(() => {})
-    if (error instanceof Error && error.stack) {
-      const stackFormatted = formatMessage(context, error.stack)
-      tauriError(stackFormatted).catch(() => {})
-    }
+    console.error(`[${context}] ${message}`)
+    tauriError(message, {
+      keyValues: toKeyValues(context, {
+        ...fields,
+        error_type: error instanceof Error ? error.name : typeof error,
+        stack: error instanceof Error ? error.stack : undefined,
+      }),
+    }).catch(() => {})
   },
 
-  /** Logs a warning for degradable failures to both console and log file.
-   *  Accepts any value: Error objects have their message extracted, strings
-   *  pass through unchanged, and other values are JSON-serialized. This
-   *  prevents the classic `[object Object]` string that masks the real
-   *  error when callers do `.catch((e) => logger.warn('ctx', e))`. */
-  warn(context: string, data: unknown): void {
+  warn(context: string, messageOrData: unknown, fields: LogFields = {}): void {
     const message =
-      data instanceof Error
-        ? (data.message ?? String(data))
-        : typeof data === 'string'
-          ? data
-          : formatDebugMessage(data)
-    const formatted = formatMessage(context, message)
-    console.warn(formatted)
-    tauriWarn(formatted).catch(() => {})
+      typeof messageOrData === 'string'
+        ? messageOrData
+        : messageOrData instanceof Error
+          ? (messageOrData.message ?? String(messageOrData))
+          : formatDebugMessage(messageOrData)
+    console.warn(`[${context}] ${message}`)
+    tauriWarn(message, { keyValues: toKeyValues(context, fields) }).catch(() => {})
   },
 
-  /** Logs informational messages for significant operations (log file only, no console). */
-  info(context: string, message: string): void {
-    const formatted = formatMessage(context, message)
-    tauriInfo(formatted).catch(() => {})
+  info(context: string, message: string, fields: LogFields = {}): void {
+    tauriInfo(message, { keyValues: toKeyValues(context, fields) }).catch(() => {})
   },
 
-  /** Logs debug data (log file only, no console). Suppressed in production by Rust-side level filter. */
-  debug(context: string, data?: unknown): void {
+  debug(context: string, data?: unknown, fields: LogFields = {}): void {
     const message = formatDebugMessage(data)
-    const formatted = formatMessage(context, message)
-    tauriDebug(formatted).catch(() => {})
+    tauriDebug(message, { keyValues: toKeyValues(context, fields) }).catch(() => {})
   },
 }

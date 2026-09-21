@@ -30,6 +30,10 @@ jobs:
             target: x86_64-pc-windows-msvc
             bundle: nsis
             label: windows-x64
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundle: appimage,deb
+            label: linux-x64
 
     runs-on: ${{ matrix.platform }}
 
@@ -54,6 +58,19 @@ jobs:
 
       - name: Fetch sidecar binaries
         run: pnpm fetch-sidecars "${{ matrix.target }}"
+
+      - name: Build native messaging launcher
+        run: pnpm build:native-launcher
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          export NEEDRESTART_SUSPEND=1
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
+          sudo -E apt-get install -y \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf xdg-utils
 
       - name: Build Tauri bundle
         id: tauri
@@ -114,7 +131,8 @@ jobs:
             'Included builds:' \
             '- macOS Apple Silicon (.dmg)' \
             '- macOS Intel (.dmg)' \
-            '- Windows x64 (NSIS .exe)')
+            '- Windows x64 (NSIS .exe)' \
+            '- Linux x64 (.AppImage / .deb)')
 
           gh release create "$tag" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" \

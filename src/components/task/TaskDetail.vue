@@ -2,12 +2,14 @@
 /** @fileoverview Detailed task view with file list, peers, and BT info. */
 import { ref, computed, watch, defineComponent } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { I18nKey } from '@shared/i18nTypes'
 import { logger } from '@shared/logger'
 import { writeAppClipboardText } from '@shared/utils'
 import {
   checkTaskIsBT,
   checkTaskIsSharing,
-  getTaskSharingKind,
+  getTaskSharingState,
+  getTaskSharingTime,
   getTaskDisplayName,
   bytesToSize,
   localeDateTimeFormat,
@@ -60,6 +62,9 @@ import TaskDetailFiles from './detail/TaskDetailFiles.vue'
 import TaskDetailPeers from './detail/TaskDetailPeers.vue'
 import TaskDetailSources from './detail/TaskDetailSources.vue'
 import TaskDetailTrackers from './detail/TaskDetailTrackers.vue'
+import { forceBtRecheck } from '@/api/aria2'
+import { getErrorMessage } from '@shared/utils/errorMessage'
+import { formatSharingDuration, getBtLifecycleState } from '@/composables/useBtLifecycle'
 
 const props = defineProps<{
   show: boolean
@@ -75,6 +80,22 @@ const historyStore = useHistoryStore()
 const message = useAppMessage()
 const taskRef = computed(() => props.task)
 const taskPrimaryUrl = computed(() => props.task?.files?.[0]?.uris?.[0]?.uri ?? '')
+const rechecking = ref(false)
+
+async function recheckTask() {
+  const gid = props.task?.gid
+  if (!gid || rechecking.value) return
+  rechecking.value = true
+  try {
+    await forceBtRecheck({ gid })
+    message.success(t('task.options-applied'))
+  } catch (error) {
+    logger.warn('TaskDetail.recheck', getErrorMessage(error))
+    message.error(t('task.options-apply-failed'))
+  } finally {
+    rechecking.value = false
+  }
+}
 
 const {
   form: optForm,
@@ -160,7 +181,7 @@ const prevTabIndex = ref(0)
 
 interface TabDef {
   key: string
-  labelKey: string
+  labelKey: I18nKey
   /** Optional fallback shown verbatim when `labelKey` is missing in i18n. */
   fallback?: string
   icon: typeof InformationCircleOutline
@@ -168,16 +189,17 @@ interface TabDef {
   ytdlpOnly?: boolean
   protocolOnly?: boolean
   uriOnly?: boolean
+  liveOnly?: boolean
 }
 const allTabs: TabDef[] = [
   { key: 'general', labelKey: 'task.task-tab-general', icon: InformationCircleOutline },
-  { key: 'activity', labelKey: 'task.task-tab-activity', icon: PulseOutline },
+  { key: 'activity', labelKey: 'task.task-tab-activity', icon: PulseOutline, liveOnly: true },
   { key: 'files', labelKey: 'task.task-tab-files', icon: DocumentOutline },
-  { key: 'options', labelKey: 'task.task-tab-options', icon: SettingsOutline },
+  { key: 'options', labelKey: 'task.task-tab-options', icon: SettingsOutline, uriOnly: true, liveOnly: true },
   { key: 'sources', labelKey: 'task.task-tab-sources', icon: ServerOutline, uriOnly: true },
-  { key: 'status', labelKey: 'task.task-tab-status', icon: PulseOutline, protocolOnly: true },
-  { key: 'peers', labelKey: 'task.task-tab-peers', icon: PeopleOutline, btOnly: true },
-  { key: 'trackers', labelKey: 'task.task-tab-trackers', icon: ServerOutline, btOnly: true },
+  { key: 'status', labelKey: 'task.task-tab-status', icon: PulseOutline, protocolOnly: true, liveOnly: true },
+  { key: 'peers', labelKey: 'task.task-tab-peers', icon: PeopleOutline, btOnly: true, liveOnly: true },
+  { key: 'trackers', labelKey: 'task.task-tab-trackers', icon: ServerOutline, btOnly: true, liveOnly: true },
   { key: 'logs', labelKey: 'task.task-tab-logs', fallback: '日志', icon: PulseOutline, ytdlpOnly: true },
 ]
 
@@ -188,11 +210,11 @@ const isYtdlpTask = computed(() => props.task?.gid?.startsWith('ytdlp-') ?? fals
 const ytdlpLogs = computed(() => {
   const gid = props.task?.gid
   if (!gid || !isYtdlpTask.value) return []
-  // Reading through ytdlpLogMap (instead of getYtdlpLogs()) keeps this
-  // computed reactive when new lines stream in.
   return taskStore.ytdlpLogMap.get(gid) ?? []
 })
 const ytdlpLogText = computed(() => ytdlpLogs.value.map((l) => l.line).join('\n'))
+
+const isTerminal = computed(() => ['complete', 'error', 'removed'].includes(props.task?.status ?? ''))
 
 const visibleTabs = computed(() =>
   allTabs.filter((tab) => {
@@ -200,8 +222,10 @@ const visibleTabs = computed(() =>
     if (tab.protocolOnly && !isBT.value && !isED2K.value) return false
     if (tab.uriOnly && !isURI.value) return false
     if (tab.ytdlpOnly && !isYtdlpTask.value) return false
+    if (tab.liveOnly && isTerminal.value) return false
     return true
   }),
+
 )
 
 function switchTab(key: string) {
@@ -238,17 +262,29 @@ watch(visibleTabs, (tabs) => {
     prevTabIndex.value = 0
   }
 })
-const sharingKind = computed(() => (props.task ? getTaskSharingKind(props.task) : null))
+const sharingState = computed(() => (props.task ? getTaskSharingState(props.task) : null))
+const sharingKind = computed(() => sharingState.value?.kind ?? null)
 const isSharing = computed(() => (props.task ? checkTaskIsSharing(props.task) : false))
 const isMetadataFetching = computed(() => (props.task ? isBtMetadataTask(props.task) : false))
+const btLifecycle = computed(() => (props.task ? getBtLifecycleState(props.task) : 'none'))
 const taskStatusKey = computed(() =>
-  isSharing.value
-    ? sharingKind.value === 'bt'
-      ? 'seeding'
-      : 'sharing'
-    : isMetadataFetching.value
-      ? 'bt-metadata-fetching'
-      : props.task?.status,
+  btLifecycle.value === 'selection'
+    ? 'awaiting-file-selection'
+    : btLifecycle.value === 'recovering'
+      ? 'bt-recovering'
+      : btLifecycle.value === 'error'
+        ? 'error'
+        : sharingState.value?.phase === 'paused'
+          ? sharingState.value.kind === 'bt'
+            ? 'seeding-paused'
+            : 'sharing-paused'
+          : isSharing.value
+            ? sharingKind.value === 'bt'
+              ? 'seeding'
+              : 'sharing'
+            : isMetadataFetching.value
+              ? 'bt-metadata-fetching'
+              : props.task?.status,
 )
 const taskStatus = computed(() => {
   const key = taskStatusKey.value
@@ -291,11 +327,38 @@ const btInfo = computed(() => {
   if (!isBT.value || !props.task) return null
   return props.task.bittorrent ?? null
 })
+const taskErrorMessage = computed(() => props.task?.errorMessage || btInfo.value?.error?.message || '')
+const taskErrorCode = computed(() => props.task?.errorCode || btInfo.value?.error?.code || '')
+const sharingDuration = computed(() =>
+  formatSharingDuration(props.task ? getTaskSharingTime(props.task) : 0, {
+    day: t('task.sharing-day-unit'),
+    hour: t('app.hour') || 'h',
+    minute: t('app.minute') || 'm',
+    second: t('app.second') || 's',
+  }),
+)
+const hasPieceLength = computed(
+  () => Number.isFinite(Number(props.task?.pieceLength)) && Number(props.task?.pieceLength) > 0,
+)
+const hasPieceCount = computed(
+  () => Number.isFinite(Number(props.task?.numPieces)) && Number(props.task?.numPieces) > 0,
+)
+const hasBtOverviewDetails = computed(() =>
+  Boolean(
+    props.task?.infoHash ||
+    hasPieceLength.value ||
+    hasPieceCount.value ||
+    sharingDuration.value ||
+    btInfo.value?.creationDate ||
+    btInfo.value?.comment,
+  ),
+)
 
 const ed2kInfo = computed(() => {
   if (!isED2K.value || !props.task) return null
   return props.task.ed2k
 })
+const sharingDurationLabel = computed(() => (isED2K.value ? t('task.sharing-time') : t('task.seeding-time')))
 
 function yesNo(value?: boolean | string): string {
   if (value === undefined || value === '') return '-'
@@ -310,6 +373,8 @@ const statusTagType = computed<TaskStatusTagType>(() => {
     case 'active':
     case 'waiting':
     case 'bt-metadata-fetching':
+    case 'awaiting-file-selection':
+    case 'bt-recovering':
       return 'warning'
     case 'seeding':
     case 'sharing':
@@ -373,7 +438,7 @@ function handleClose() {
                 <NDescriptionsItem :label="t('task.task-name') || 'Name'">
                   <CopyableValue :value="taskFullName" :label="copyLabel(t('task.task-name'), 'Name')" />
                 </NDescriptionsItem>
-                <NDescriptionsItem :label="t('task.task-dir') || 'Directory'">
+                <NDescriptionsItem v-if="task.dir" :label="t('task.task-dir') || 'Directory'">
                   <CopyableValue :value="task.dir" :label="copyLabel(t('task.task-dir'), 'Directory')" />
                 </NDescriptionsItem>
                 <NDescriptionsItem :label="t('task.task-status') || 'Status'">
@@ -382,11 +447,8 @@ function handleClose() {
                 <NDescriptionsItem :label="t('task.task-type') || 'Type'">
                   {{ t(`task.task-type-${detailKind}`) }}
                 </NDescriptionsItem>
-                <NDescriptionsItem
-                  v-if="task.errorCode && task.errorCode !== '0'"
-                  :label="t('task.task-error-info') || 'Error'"
-                >
-                  {{ task.errorCode }} {{ task.errorMessage }}
+                <NDescriptionsItem v-if="taskErrorMessage" :label="t('task.task-error-info') || 'Error'">
+                  {{ taskErrorCode && taskErrorCode !== '0' ? `${taskErrorCode} ` : '' }}{{ taskErrorMessage }}
                 </NDescriptionsItem>
                 <NDescriptionsItem v-if="taskAddedAt" :label="t('task.task-added-at') || 'Added At'">
                   {{ taskAddedAt }}
@@ -395,7 +457,7 @@ function handleClose() {
                   {{ taskCompletedAt }}
                 </NDescriptionsItem>
               </NDescriptions>
-              <template v-if="isBT && btInfo">
+              <template v-if="isBT && btInfo && hasBtOverviewDetails">
                 <div class="section-divider">BitTorrent</div>
                 <NDescriptions
                   :column="1"
@@ -404,14 +466,17 @@ function handleClose() {
                   size="small"
                   :label-style="{ width: '1px', whiteSpace: 'nowrap' }"
                 >
-                  <NDescriptionsItem :label="t('task.task-info-hash') || 'Hash'">
-                    <CopyableValue :value="task.infoHash || '-'" :label="copyLabel(t('task.task-info-hash'), 'Hash')" />
+                  <NDescriptionsItem v-if="task.infoHash" :label="t('task.task-info-hash') || 'Hash'">
+                    <CopyableValue :value="task.infoHash" :label="copyLabel(t('task.task-info-hash'), 'Hash')" />
                   </NDescriptionsItem>
-                  <NDescriptionsItem :label="t('task.task-piece-length') || 'Piece Size'">
+                  <NDescriptionsItem v-if="hasPieceLength" :label="t('task.task-piece-length') || 'Piece Size'">
                     {{ bytesToSize(String(task.pieceLength)) }}
                   </NDescriptionsItem>
-                  <NDescriptionsItem :label="t('task.task-num-pieces') || 'Pieces'">
+                  <NDescriptionsItem v-if="hasPieceCount" :label="t('task.task-num-pieces') || 'Pieces'">
                     {{ task.numPieces }}
+                  </NDescriptionsItem>
+                  <NDescriptionsItem v-if="sharingDuration" :label="sharingDurationLabel">
+                    {{ sharingDuration }}
                   </NDescriptionsItem>
                   <NDescriptionsItem
                     v-if="btInfo?.creationDate"
@@ -424,7 +489,7 @@ function handleClose() {
                   </NDescriptionsItem>
                 </NDescriptions>
               </template>
-              <template v-if="isED2K && ed2kInfo">
+              <template v-if="isED2K && ed2kInfo?.hash">
                 <div class="section-divider">ED2K</div>
                 <NDescriptions
                   :column="1"
@@ -433,8 +498,11 @@ function handleClose() {
                   size="small"
                   :label-style="{ width: '1px', whiteSpace: 'nowrap' }"
                 >
-                  <NDescriptionsItem :label="t('task.task-ed2k-hash')">
-                    <CopyableValue :value="ed2kInfo.hash || '-'" :label="t('task.task-ed2k-hash')" />
+                  <NDescriptionsItem v-if="ed2kInfo.hash" :label="t('task.task-ed2k-hash')">
+                    <CopyableValue :value="ed2kInfo.hash" :label="t('task.task-ed2k-hash')" />
+                  </NDescriptionsItem>
+                  <NDescriptionsItem v-if="sharingDuration" :label="sharingDurationLabel">
+                    {{ sharingDuration }}
                   </NDescriptionsItem>
                 </NDescriptions>
               </template>
@@ -447,6 +515,11 @@ function handleClose() {
 
           <div v-else-if="activeTab === 'status' && isBT" key="bt-status" class="tab-content">
             <template v-if="task && isBT">
+              <div class="status-actions">
+                <NButton size="small" :loading="rechecking" :disabled="!optCanModify" @click="recheckTask">
+                  {{ t('task.bt-recheck') }}
+                </NButton>
+              </div>
               <NDescriptions
                 :column="1"
                 label-placement="left"
@@ -468,9 +541,6 @@ function handleClose() {
                 </NDescriptionsItem>
                 <NDescriptionsItem :label="t('task.task-bt-trackers')">
                   {{ btHealth.trackerCount }}
-                  <span v-if="btHealth.unprobeableTrackerCount > 0" class="muted-inline">
-                    · {{ btHealth.unprobeableTrackerCount }} {{ t('task.task-tracker-not-probed') }}
-                  </span>
                 </NDescriptionsItem>
                 <NDescriptionsItem :label="t('task.task-bt-peers')">
                   {{ btHealth.peerCount }}
@@ -491,7 +561,14 @@ function handleClose() {
           </div>
 
           <div v-else-if="activeTab === 'files'" key="files" class="tab-content">
-            <TaskDetailFiles :files="files" :tooltip="t('about.click-to-copy')" :on-copy="copyDetailValue" />
+            <TaskDetailFiles
+              :files="files"
+              :gid="task?.gid"
+              :editable="optCanModify && isBT"
+              :terminal="isTerminal"
+              :tooltip="t('about.click-to-copy')"
+              :on-copy="copyDetailValue"
+            />
           </div>
 
           <div v-else-if="activeTab === 'sources'" key="sources" class="tab-content">
@@ -499,6 +576,7 @@ function handleClose() {
               v-if="task && isURI"
               :task="task"
               :summary="uriSummary"
+              :terminal="isTerminal"
               :tooltip="t('about.click-to-copy')"
               :on-copy="copyDetailValue"
             />
@@ -701,6 +779,8 @@ function handleClose() {
 
           <div v-else-if="activeTab === 'peers'" key="peers" class="tab-content">
             <TaskDetailPeers
+              :gid="task?.gid ?? ''"
+              :editable="optCanModify"
               :peers="task?.peers"
               :locale="locale"
               :tooltip="t('about.click-to-copy')"
@@ -709,7 +789,13 @@ function handleClose() {
           </div>
 
           <div v-else-if="activeTab === 'trackers'" key="trackers" class="tab-content">
-            <TaskDetailTrackers :bt-info="btInfo" :tooltip="t('about.click-to-copy')" :on-copy="copyDetailValue" />
+            <TaskDetailTrackers
+              :gid="task?.gid ?? ''"
+              :web-seeds="task?.bittorrent?.webSeeds"
+              :editable="optCanModify"
+              :tooltip="t('about.click-to-copy')"
+              :on-copy="copyDetailValue"
+            />
           </div>
 
           <div v-else-if="activeTab === 'logs'" key="logs" class="tab-content">
@@ -840,12 +926,13 @@ function handleClose() {
 }
 
 .detail-footer :deep(.task-item-actions) {
-  position: static;
-  width: auto;
-  height: auto;
-  overflow: visible;
   direction: ltr;
-  text-align: center;
+}
+
+.status-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
 }
 
 .tab-slide-left-enter-active,
