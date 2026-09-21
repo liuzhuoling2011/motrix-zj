@@ -16,6 +16,11 @@ function genId(): string {
   return `batch-${++nextId}`
 }
 
+/** Reset the ID counter (useful for testing). */
+export function resetBatchIdCounter(): void {
+  nextId = 0
+}
+
 /**
  * Classify a source string as a download kind for the batch add-task model.
  *

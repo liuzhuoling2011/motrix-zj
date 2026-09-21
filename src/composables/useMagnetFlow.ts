@@ -54,6 +54,11 @@ export function buildSelectFileOption(indices: number[]): string {
   return [...indices].sort((a, b) => a - b).join(',')
 }
 
+/** True when magnet metadata should pause for user file selection. */
+export function shouldShowFileSelection(config: { magnetFileSelectionPolicy?: MagnetFileSelectionPolicy }): boolean {
+  return config.magnetFileSelectionPolicy !== 'download-all'
+}
+
 export function isPendingMagnetSelectionTask(task: Aria2Task): boolean {
   return Boolean(task.bittorrent && task.bittorrent.fileSelectionState === 'awaiting')
 }

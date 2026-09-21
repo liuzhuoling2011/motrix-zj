@@ -225,7 +225,6 @@ const visibleTabs = computed(() =>
     if (tab.liveOnly && isTerminal.value) return false
     return true
   }),
-
 )
 
 function switchTab(key: string) {

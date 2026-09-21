@@ -18,10 +18,9 @@ import { preloadSidecarVersions } from '@shared/utils/sidecarVersion'
 import { logger } from '@shared/logger'
 import { getErrorMessage } from '@shared/utils/errorMessage'
 import { resolveUserVisibleDownloadDir, shouldPersistResolvedDownloadDir } from '@shared/utils/userVisibleDirectory'
-import { getUpdateProxy } from '@/composables/useUpdateFlow'
 import { resolveAppProxyUrl } from '@shared/utils/proxy'
 import { checkSyncDue } from '@shared/utils/syncSchedule'
-import type { AppConfig, TauriUpdate } from '@shared/types'
+import type { AppConfig } from '@shared/types'
 import App from './App.vue'
 import 'virtual:uno.css'
 import './styles/tokens.css'
@@ -69,31 +68,6 @@ if (import.meta.env.PROD) {
   const appStore = useAppStore()
   const engineStore = useEngineStore()
   const historyStore = useHistoryStore()
-
-  async function autoCheckForUpdate() {
-    const config = preferenceStore.config
-    if (config.autoCheckUpdate === false) return
-
-    const intervalHours = Number(config.autoCheckUpdateInterval ?? 0)
-    if (Number.isFinite(intervalHours) && intervalHours > 0) {
-      const lastCheck = Number(config.lastCheckUpdateTime) || 0
-      const intervalMs = intervalHours * 3_600_000
-      if (Date.now() - lastCheck < intervalMs) return
-    }
-
-    try {
-      const { invoke } = await import('@tauri-apps/api/core')
-      const channel = config.updateChannel || 'stable'
-      const proxyServer = getUpdateProxy(config.proxy)
-      const update = await invoke<TauriUpdate | null>('check_for_update', { channel, proxy: proxyServer })
-      if (update) {
-        appStore.pendingUpdate = update
-      }
-      preferenceStore.updateAndSave({ lastCheckUpdateTime: Date.now() })
-    } catch (e) {
-      logger.debug('Updater', 'update_check_failed', { reason: getErrorMessage(e) })
-    }
-  }
 
   function emitAppToast(payload: { type: 'success' | 'info' | 'warning' | 'error'; key: string }): void {
     window.dispatchEvent(new CustomEvent('app:toast', { detail: payload }))

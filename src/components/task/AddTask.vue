@@ -313,7 +313,6 @@ function waitForParseComplete(): Promise<void> {
   })
 }
 
-const maxSplit = ENGINE_MAX_CONNECTION_PER_SERVER
 const firstRegularUri = computed(
   () =>
     form.value.uris
@@ -397,18 +396,7 @@ const canSubmit = computed(() => uriOptionsValid.value && torrentItemsReady.valu
 watch(
   () => props.show,
   (visible) => {
-    if (visible) {
-      // When classification is enabled, clear the dir so user sees it's optional;
-      // otherwise sync from preferences as usual.
-      if (preferenceStore.config.fileCategoryEnabled) {
-        form.value.dir = ''
-      } else {
-        form.value.dir = preferenceStore.config.dir || form.value.dir
-      }
-      form.value.streamMaxConnections = preferenceStore.config.streamMaxConnections
-      syncDefaultTaskProxy()
-      // Reset the manual-override flag each time the dialog opens
-      dirUserModified.value = false
+    if (!visible) return
 
     // When classification is enabled, clear the dir so user sees it's optional;
     // otherwise sync from preferences as usual.
@@ -417,7 +405,7 @@ watch(
     } else {
       form.value.dir = preferenceStore.config.dir || form.value.dir
     }
-    form.value.split = preferenceStore.config.split ?? form.value.split
+    form.value.streamMaxConnections = preferenceStore.config.streamMaxConnections
     syncDefaultTaskProxy()
     dirUserModified.value = false
     syncPendingExternalMetadata()
@@ -470,14 +458,6 @@ watch(
   },
   { deep: true },
 )
-
-const checkedRowKeys = computed({
-  get: () => selectedItem.value?.selectedFileIndices || [],
-  set: (keys: number[]) => {
-    const item = selectedItem.value
-    if (item) item.selectedFileIndices = keys
-  },
-})
 
 const submitLabel = computed(() => {
   // Surface the in-flight web-panel parse on the primary action so users
@@ -868,20 +848,19 @@ async function submitNormalBranch(
   options: ReturnType<typeof buildEngineOptions>,
 ): Promise<void> {
   let manualResult: ManualUriSubmitResult = { submittedTaskNames: [], magnetGids: [], magnetFailures: [] }
+  const fileCategory = {
+    enabled: preferenceStore.config.fileCategoryEnabled && !dirUserModified.value,
+    categories: preferenceStore.config.fileCategories,
+  }
 
   if (hasBatch.value) {
-    await submitBatchItems(batch.value, options, taskStore)
+    await submitBatchItems(batch.value, options, taskStore, fileCategory)
   }
   if (form.value.uris.trim()) {
-    const shouldClassify = preferenceStore.config.fileCategoryEnabled && !dirUserModified.value
     manualResult = await submitManualUris(
       effectiveForm,
-      options,
       taskStore,
-      {
-        enabled: shouldClassify,
-        categories: preferenceStore.config.fileCategories,
-      },
+      fileCategory,
       getDownloadProxy(preferenceStore.config.proxy),
     )
   }
@@ -972,66 +951,6 @@ async function handleSubmit() {
       userAgentRules: preferenceStore.config.userAgentRules,
     }
     const options = buildEngineOptions(effectiveForm)
-    const fileCategory = {
-      enabled: preferenceStore.config.fileCategoryEnabled && !dirUserModified.value,
-      categories: preferenceStore.config.fileCategories,
-    }
-    let manualResult: ManualUriSubmitResult = { submittedTaskNames: [], magnetGids: [], magnetFailures: [] }
-
-    if (hasBatch.value) {
-      await submitBatchItems(batch.value, options, taskStore, fileCategory)
-    }
-    if (form.value.uris.trim()) {
-      manualResult = await submitManualUris(
-        effectiveForm,
-        taskStore,
-        fileCategory,
-        getDownloadProxy(preferenceStore.config.proxy),
-      )
-    }
-
-    const failedCount = batch.value.filter((i) => i.status === 'failed').length + manualResult.magnetFailures.length
-    if (failedCount > 0) {
-      message.warning(`${failedCount} ${t('task.failed') || 'failed'}`, { closable: true })
-    } else {
-      // ── Collect task names BEFORE handleClose clears form state ──
-      const taskNames: string[] = []
-      for (const item of batch.value) {
-        if (item.status === 'submitted') {
-          taskNames.push(item.displayName)
-        }
-      }
-      taskNames.push(...manualResult.submittedTaskNames)
-      const allUris = normalizeUriLines(form.value.uris)
-      const magnetUris = allUris.filter(isMagnetUri)
-      for (let i = 0; i < manualResult.magnetGids.length; i++) {
-        const dn = magnetUris[i] ? extractMagnetDisplayName(magnetUris[i]) : ''
-        taskNames.push(dn || t('task.magnet-task'))
-      }
-
-      if (effectiveForm.saveHttpAuth && effectiveForm.httpAuthUsername.trim()) {
-        const firstHttpUri = normalizeUriLines(effectiveForm.uris).find((uri) => /^https?:\/\//i.test(uri))
-        if (firstHttpUri) {
-          try {
-            await httpAuthStore.saveCredential({
-              url: firstHttpUri,
-              username: effectiveForm.httpAuthUsername,
-              password: effectiveForm.httpAuthPassword,
-            })
-            message.success(t('task.task-http-auth-saved'))
-          } catch (err) {
-            logger.warn('AddTask.httpAuth', `credential save failed: ${err}`)
-          }
-        }
-      }
-
-      handleClose()
-
-      // ── Record directory for the recent-folders popover ────────
-      const effectiveDir = form.value.dir.trim() || preferenceStore.config.dir
-      if (effectiveDir) {
-        preferenceStore.recordHistoryDirectory(effectiveDir)
-      }
 
     const handled = await submitVideoBranch(effectiveForm, options)
     if (handled) return
@@ -1107,14 +1026,7 @@ async function handleSubmit() {
       @close="handleClose"
     >
       <NForm label-placement="left" label-width="110px">
-        <NTabs
-          v-if="!isFromWebPanel"
-          ref="tabsRef"
-          :value="activeTab"
-          type="line"
-          animated
-          @update:value="(v: string) => (activeTab = v)"
-        >
+        <NTabs v-if="!isFromWebPanel" ref="tabsRef" :value="activeTab" type="line" animated @update:value="activateTab">
           <!-- ── URI Tab ──────────────────────────────────────── -->
           <NTabPane :name="ADD_TASK_TYPE.URI" :tab="t('task.uri-task') || 'URL'">
             <div class="tab-pane-content">
@@ -1224,7 +1136,8 @@ async function handleSubmit() {
           <NFormItem v-if="!isFromWebPanel" :label="t('task.task-out') + ':'">
             <NInput v-model:value="form.out" :placeholder="t('task.task-out-tips')" :autofocus="false" />
           </NFormItem>
-          <NFormItem v-if="!isFromWebPanel"
+          <NFormItem
+            v-if="!isFromWebPanel"
             :label="t('task.task-connections') + ':'"
             v-bind="configFieldProps('streamMaxConnections', form.streamMaxConnections)"
           >

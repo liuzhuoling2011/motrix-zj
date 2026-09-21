@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest'
 import type { Aria2File } from '@shared/types'
 
 // Dynamic import after module exists
-const { isMagnetUri, buildMagnetOptions, buildSelectFileOption, parseFilesForSelection } =
+const { isMagnetUri, buildMagnetOptions, buildSelectFileOption, parseFilesForSelection, shouldShowFileSelection } =
   await import('@/composables/useMagnetFlow')
 
 describe('useMagnetFlow', () => {
@@ -61,6 +61,17 @@ describe('useMagnetFlow', () => {
       const options = buildMagnetOptions({ dir: '/custom', 'stream-max-connections': '4' }, 'prompt')
       expect(options.dir).toBe('/custom')
       expect(options['stream-max-connections']).toBe('4')
+    })
+  })
+
+  describe('shouldShowFileSelection', () => {
+    it('hides the picker for download-all', () => {
+      expect(shouldShowFileSelection({ magnetFileSelectionPolicy: 'download-all' })).toBe(false)
+    })
+
+    it('shows the picker for prompt and manual policies', () => {
+      expect(shouldShowFileSelection({ magnetFileSelectionPolicy: 'prompt' })).toBe(true)
+      expect(shouldShowFileSelection({ magnetFileSelectionPolicy: 'manual' })).toBe(true)
     })
   })
 

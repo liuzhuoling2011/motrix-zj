@@ -324,6 +324,14 @@ function handleCheckUpdate() {
   appStore.requestUpdateCheck()
 }
 
+async function handleUpdateChannel(value: string) {
+  const updateChannel = value as UpdateChannel
+  const ok = await preferenceStore.updateAndSave({ updateChannel })
+  if (ok) {
+    patchSnapshot({ updateChannel } as Partial<typeof form.value>)
+  }
+}
+
 const engineStore = useEngineStore()
 
 // ── Browser extension installer ────────────────────────────────────
@@ -373,7 +381,7 @@ async function installBrowserExtension() {
           h('div', { style: 'font-family:Menlo,monospace;font-size:12px;opacity:0.85;word-break:break-all;' }, dest),
         ]),
       positiveText: t('preferences.browser-extension-copy-path'),
-      negativeText: t('app.dismiss'),
+      negativeText: t('app.close'),
       onPositiveClick: async () => {
         try {
           await navigator.clipboard.writeText(dest)
@@ -568,39 +576,28 @@ onMounted(async () => {
             </NFormItem>
           </NCollapseTransition>
           <NFormItem :label="t('preferences.update-channel')">
-            <NRadioGroup
-              v-model:value="form.updateChannel"
-              size="small"
-              @update:value="
-                async (v: string) => {
-                  const ok = await preferenceStore.updateAndSave({ updateChannel: v as UpdateChannel })
-                  if (ok) {
-                    patchSnapshot({ updateChannel: v } as Partial<typeof form.value>)
-                  }
-                }
-              }
-            "
-          >
-            <NRadioButton value="stable">{{ t('preferences.update-channel-stable') }}</NRadioButton>
-            <NRadioButton value="beta">{{ t('preferences.update-channel-beta') }}</NRadioButton>
-            <NRadioButton value="latest">{{ t('preferences.update-channel-latest') }}</NRadioButton>
-          </NRadioGroup>
-        </NFormItem>
-        <NFormItem :label="t('preferences.last-check-update-time')">
-          <div class="pref-inline-row">
-            <NButton size="small" @click="handleCheckUpdate">
-              <template #icon>
-                <NIcon :size="14"><CloudDownloadOutline /></NIcon>
-              </template>
-              {{ t('app.check-updates-now') }}
-            </NButton>
-            <NText v-if="preferenceStore.config.lastCheckUpdateTime" depth="3" class="pref-inline-row__meta">
-              {{ new Date(preferenceStore.config.lastCheckUpdateTime).toLocaleString() }}
-            </NText>
-            <NText v-else depth="3" class="pref-inline-row__meta">—</NText>
-          </div>
-        </NFormItem>
-        <UpdateDialog ref="updateDialogRef" />
+            <NRadioGroup v-model:value="form.updateChannel" size="small" @update:value="handleUpdateChannel">
+              <NRadioButton value="stable">{{ t('preferences.update-channel-stable') }}</NRadioButton>
+              <NRadioButton value="beta">{{ t('preferences.update-channel-beta') }}</NRadioButton>
+              <NRadioButton value="latest">{{ t('preferences.update-channel-latest') }}</NRadioButton>
+            </NRadioGroup>
+          </NFormItem>
+          <NFormItem :label="t('preferences.last-check-update-time')">
+            <div class="pref-inline-row">
+              <NButton size="small" @click="handleCheckUpdate">
+                <template #icon>
+                  <NIcon :size="14"><CloudDownloadOutline /></NIcon>
+                </template>
+                {{ t('app.check-updates-now') }}
+              </NButton>
+              <NText v-if="preferenceStore.config.lastCheckUpdateTime" depth="3" class="pref-inline-row__meta">
+                {{ new Date(preferenceStore.config.lastCheckUpdateTime).toLocaleString() }}
+              </NText>
+              <NText v-else depth="3" class="pref-inline-row__meta">—</NText>
+            </div>
+          </NFormItem>
+          <UpdateDialog ref="updateDialogRef" />
+        </template>
         <!-- ④ Appearance -->
         <NDivider title-placement="left">{{ t('preferences.appearance-section') }}</NDivider>
         <NFormItem :label="t('preferences.appearance')">
