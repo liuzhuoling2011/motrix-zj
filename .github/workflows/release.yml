@@ -72,6 +72,18 @@ jobs:
       - name: Build native messaging launcher
         run: pnpm build:native-launcher
 
+      - name: Map macOS signing and notarization secrets
+        if: runner.os == 'macOS'
+        env:
+          # Exact GitHub Secret names (electron-builder + App Store Connect API key).
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: ./scripts/ci-macos-signing.sh
+
       - name: Build and publish installer
         id: tauri
         uses: tauri-apps/tauri-action@v0
@@ -80,17 +92,17 @@ jobs:
           # Updater signatures (optional). Leave unset to skip updater artifacts.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # macOS Developer ID + notarization (optional). Do not commit certificate material.
-          # Empty secrets keep ad-hoc signing from tauri.conf.json (`signingIdentity: "-"`).
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # macOS Developer ID signing. This is a Tauri app; CSC_* are the
+          # electron-builder secret names mapped onto Tauri's APPLE_CERTIFICATE_*.
+          # Empty CSC_LINK keeps ad-hoc signing from tauri.conf.json (`-`).
+          APPLE_CERTIFICATE: ${{ secrets.CSC_LINK }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Notarization via App Store Connect API key (preferred over Apple ID).
+          # Tauri's APPLE_API_KEY is the Key ID; the .p8 body lives in APPLE_API_KEY_PATH.
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_PATH: ${{ secrets.APPLE_API_KEY_PATH }}
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
@@ -103,6 +115,11 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: ./scripts/verify-macos-sidecars.sh "${{ matrix.target }}"
+
+      - name: Remove App Store Connect API key from the runner
+        if: runner.os == 'macOS' && always()
+        shell: bash
+        run: rm -rf "${RUNNER_TEMP}/private_keys"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
