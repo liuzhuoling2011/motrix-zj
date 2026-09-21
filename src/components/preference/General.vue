@@ -50,7 +50,7 @@ import PreferenceHintLabel from './PreferenceHintLabel.vue'
  *  with `scripts/fetch-sidecars.mjs` so the link button hands the user the
  *  exact file we ship — no asset list to navigate.
  *  - GitHub `releases/latest/download/<asset>` redirects are stable.
- *  - BtbN's `tag/latest` is a rolling tag — keep the n7.1 filename in
+ *  - BtbN's `tag/latest` is a rolling tag — keep the n8.1 filename in
  *    sync with fetch-sidecars when ffmpeg majors bump.
  *  - macOS Apple Silicon ffmpeg/ffprobe come from osxexperts.net which
  *    only publishes a static index page, so we open the page and tell
@@ -94,7 +94,7 @@ function resolveSidecarDownload(
     }
   }
   if (os === 'windows') {
-    const file = 'ffmpeg-n7.1-latest-win64-gpl-7.1.zip'
+    const file = 'ffmpeg-n8.1-latest-win64-gpl-8.1.zip'
     return {
       url: `https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/${file}`,
       fileHint: file,
@@ -103,7 +103,7 @@ function resolveSidecarDownload(
   }
   // linux
   const archSuffix = arch === 'aarch64' ? 'linuxarm64' : 'linux64'
-  const file = `ffmpeg-n7.1-latest-${archSuffix}-gpl-7.1.tar.xz`
+  const file = `ffmpeg-n8.1-latest-${archSuffix}-gpl-8.1.tar.xz`
   return {
     url: `https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/${file}`,
     fileHint: file,

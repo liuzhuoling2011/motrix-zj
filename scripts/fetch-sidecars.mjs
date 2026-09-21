@@ -85,13 +85,13 @@ const FFMPEG = {
   'aarch64-apple-darwin': 'https://www.osxexperts.net/ffmpeg81arm.zip',
   'x86_64-apple-darwin': 'https://evermeet.cx/ffmpeg/getrelease/zip',
   'x86_64-unknown-linux-gnu':
-    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-linux64-gpl-7.1.tar.xz',
+    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz',
   'aarch64-unknown-linux-gnu':
-    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-linuxarm64-gpl-7.1.tar.xz',
+    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linuxarm64-gpl-8.1.tar.xz',
   'x86_64-pc-windows-msvc':
-    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip',
+    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-gpl-8.1.zip',
   'aarch64-pc-windows-msvc':
-    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-gpl-7.1.zip',
+    'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-gpl-8.1.zip',
 }
 
 // ffprobe sources. BtbN's Linux/Windows ffmpeg archives already bundle

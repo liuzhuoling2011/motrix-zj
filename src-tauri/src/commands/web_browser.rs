@@ -23,18 +23,27 @@
 use serde::Deserialize;
 use std::sync::Mutex;
 use tauri::webview::Cookie;
-use tauri::{
-    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, State, Url, WebviewUrl, WindowEvent,
-};
+#[cfg(target_os = "macos")]
+use tauri::WebviewUrl;
+use tauri::{AppHandle, Emitter, Manager, State, Url, WindowEvent};
+#[cfg(any(target_os = "macos", test))]
+use tauri::{LogicalPosition, LogicalSize};
 
 const MAIN_WINDOW_LABEL: &str = "main";
 const CONTENT_LABEL: &str = "web-browser";
+#[cfg(any(target_os = "macos", test))]
 const PANEL_TOOLBAR_HEIGHT: f64 = 48.0;
+#[cfg(any(target_os = "macos", test))]
 const PANEL_ASIDE_WIDTH: f64 = 78.0;
+#[cfg(any(target_os = "macos", test))]
 const PANEL_SUBNAV_WIDTH: f64 = 210.0;
+#[cfg(any(target_os = "macos", test))]
 const PANEL_SUBNAV_COMPACT_WIDTH: f64 = 64.0;
+#[cfg(any(target_os = "macos", test))]
 const PANEL_SUBNAV_COMPACT_BREAKPOINT: f64 = 800.0;
+#[cfg(any(target_os = "macos", test))]
 const PANEL_SUBNAV_HIDDEN_BREAKPOINT: f64 = 600.0;
+#[cfg(any(target_os = "macos", test))]
 const MIN_MAIN_CONTENT_WIDTH: f64 = 320.0;
 
 /// Internal state tracking whether the panel webviews have been created,
@@ -84,6 +93,7 @@ impl Default for WebPanelState {
 }
 
 /// Returns a Chrome-131 User-Agent string matching the host OS.
+#[cfg(target_os = "macos")]
 fn chrome_user_agent() -> &'static str {
     match std::env::consts::OS {
         "macos" => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -92,6 +102,7 @@ fn chrome_user_agent() -> &'static str {
     }
 }
 
+#[cfg(target_os = "macos")]
 const STEALTH_INIT_SCRIPT: &str = r#"
 (() => {
   try { Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => undefined, configurable: true }); } catch (_) {}
@@ -174,6 +185,7 @@ const STEALTH_INIT_SCRIPT: &str = r#"
 ///
 /// Returns `(position, size)` for the content webview (the toolbar above
 /// it lives in the Vue layer, not as a separate webview).
+#[cfg(any(target_os = "macos", test))]
 fn compute_panel_geometry(
     window_width: f64,
     window_height: f64,
@@ -201,7 +213,9 @@ fn compute_panel_geometry(
     (LogicalPosition::new(x, y), LogicalSize::new(panel_width, h))
 }
 
+#[cfg(any(target_os = "macos", test))]
 const HIDDEN_POS: LogicalPosition<f64> = LogicalPosition::new(-20000.0, -20000.0);
+#[cfg(any(target_os = "macos", test))]
 const HIDDEN_SIZE: LogicalSize<f64> = LogicalSize::new(0.0, 0.0);
 
 /// Re-applies the desired layout (geometry + visibility) of the macOS
