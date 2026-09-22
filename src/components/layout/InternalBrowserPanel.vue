@@ -320,7 +320,10 @@ onUnmounted(() => {
 
     <div class="browser-content">
       <SiteGrid v-if="!frameUrl" @navigate="navigate" />
-      <!-- macOS: leave the area empty; the native child webview is laid
+      <!-- Win/Linux load remote pages in this iframe. Packaged builds inject
+           tauri.conf CSP onto the main webview; frame-src must allow https/http
+           or WebView2 renders Chromium's 「已阻止此内容」 interstitial.
+           macOS: leave the area empty; the native child webview is laid
            out on top of this region by the Rust panel layout. -->
       <div v-else-if="isMac" class="browser-frame native-placeholder" aria-hidden="true" />
       <iframe

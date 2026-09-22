@@ -1,6 +1,6 @@
 [package]
 name = "motrix-next"
-version = "3.9.9"
+version = "3.9.10"
 description = "A full-featured download manager"
 authors = ["AnInsomniacy"]
 license = "MIT"
